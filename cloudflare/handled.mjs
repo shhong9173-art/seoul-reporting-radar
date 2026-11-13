@@ -11,7 +11,7 @@
 // ③은 그 패키지를 남긴 때(+하루)보다 먼저 잡힌 항목에만 쓴다 — 그 뒤 새로 잡힌 항목은 새 사실일 수 있어 숨기지 않고
 // '비슷한 건 처리 이력'으로만 알린다(예: 답변 대기 중인 OSHA 점검에 위반 통지가 새로 붙는 경우).
 import { BEAT_TEAMS, REGISTRY_NAMES } from './common.mjs';
-import { LINK_LINE, storeOp } from './store.mjs';
+import { packageLinks, storeOp } from './store.mjs';
 
 export const LOG_NAME = /^(?:morning|afternoon|alert)-\d{8}$/;
 // 단독 추천에서 빼는 상태. '앞서 추천'(미발제·확인 필요 패키지)은 빼지 않고 따로 보여 준다.
@@ -31,13 +31,34 @@ const ALIASES = (() => {
   for (const [b, list] of Object.entries(EXTRA)) for (const a of list) out.push([a, b]);
   return out.sort((a, b) => b[0].length - a[0].length);
 })();
-export function companiesIn(text) {
+// 회사 찾기는 정규식 두 번으로 끝낸다. 11-13 운영: 항목 하나를 장부 줄마다 다시, 별칭 100여 개를 하나씩 찾다가(영문 별칭은 그때마다 정규식을 새로 만들었다)
+// Worker CPU 한도를 넘겨 scoop_desk·radar_today·us_litigation이 오류 1102(HTTP 503)로 끊겼다.
+const escRe = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const LATIN_ALIAS = /^[A-Za-z .&-]+$/;
+// 느린 기준 구현(별칭마다 따로) — 아래 빠른 구현의 준비와 테스트 대조에만 쓴다
+export function companiesInSlow(text) {
   const t = String(text ?? '');
   const low = t.toLowerCase();
   const out = new Set();
   for (const [alias, beat] of ALIASES) {
-    if (/^[A-Za-z .&-]+$/.test(alias) ? new RegExp(`(?<![A-Za-z])${alias.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z])`).test(low) : t.includes(alias)) out.add(beat);
+    if (LATIN_ALIAS.test(alias) ? new RegExp(`(?<![A-Za-z])${escRe(alias.toLowerCase())}(?![A-Za-z])`).test(low) : t.includes(alias)) out.add(beat);
   }
+  return out;
+}
+// 긴 별칭이 먼저 맞으면 그 안에 든 짧은 별칭(Hyundai Steel 속 Hyundai, 포스코홀딩스 속 포스코)은 따로 안 잡히므로, 별칭마다 '그 글자에서 찾아지는 출입처 전부'를 미리 적어 둔다
+const FINDER = (() => {
+  const latin = new Map();
+  const other = new Map();
+  for (const [alias] of ALIASES) (LATIN_ALIAS.test(alias) ? latin : other).set(LATIN_ALIAS.test(alias) ? alias.toLowerCase() : alias, [...companiesInSlow(alias)]);
+  const alt = (m) => [...m.keys()].sort((x, y) => y.length - x.length).map(escRe).join('|');
+  return { latin, other, latinRe: new RegExp(`(?<![a-z])(?:${alt(latin)})(?![a-z])`, 'g'), otherRe: new RegExp(alt(other), 'g') };
+})();
+export function companiesIn(text) {
+  const t = String(text ?? '');
+  const out = new Set();
+  if (!t) return out;
+  for (const m of t.matchAll(FINDER.otherRe)) for (const b of FINDER.other.get(m[0]) ?? []) out.add(b);
+  for (const m of t.toLowerCase().matchAll(FINDER.latinRe)) for (const b of FINDER.latin.get(m[0]) ?? []) out.add(b);
   return out;
 }
 
@@ -90,19 +111,19 @@ const PLACE_EN = { 조지아: 'georgia', 앨라배마: 'alabama', 테네시: 'te
   오하이오: 'ohio', 켄터키: 'kentucky', 영국: 'united kingdom', 호주: 'australia', 캐나다: 'canada', 인도네시아: 'indonesia', 베트남: 'vietnam' };
 const rare = (w) => !COMMON.has(w) && !AGENCY.has(w.toUpperCase());
 // 영문 낱말은 낱말 경계로만 맞춘다 — 붙여 쓴 글에서 찾으면 'Cat'이 'Application'에 걸린다(11-13 운영: 기아 조지아 OSHA 건이 대기 허가 기준선 줄에 붙음)
-const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const latinIn = (low, w) => new RegExp(`(?<![a-z])${esc(w.toLowerCase()).replace(/\s+/g, '\\s+')}(?![a-z])`).test(low);
-const inText = (flat, low, w) => (/^[A-Za-z]+$/.test(w) ? latinIn(low, w) : flat.includes(w.toLowerCase())) || (PLACE_EN[w] ? latinIn(low, PLACE_EN[w]) : false);
-
-const idsIn = (body) => {
-  const out = new Set();
-  const line = String(body ?? '').split('\n').reverse().find((l) => l.startsWith(LINK_LINE));
-  for (const id of (line ?? '').slice(LINK_LINE.length).split(',')) if (id.trim()) out.add(id.trim());
-  // 본문에 옮겨 적힌 'id xxx' (radar_today·scoop_desk 줄 끝 표기)
-  for (const m of String(body ?? '').matchAll(/(?:^|[\s·(])id[ :]+([A-Za-z][A-Za-z0-9_-]*:[^\s,)〕]+|[0-9a-f]{16})/g)) out.add(m[1]);
-  return out;
-};
-const urlsIn = (body) => new Set([...String(body ?? '').matchAll(/https?:\/\/[^\s)\]〕"'<>]+/g)].map((m) => m[0].replace(/[.,;]+$/, '')).filter((u) => u.length >= 25));
+const latinRe = (w) => new RegExp(`(?<![a-z])${escRe(w.toLowerCase()).replace(/\s+/g, '\\s+')}(?![a-z])`);
+// 장부 줄마다 정규식을 한 번만 만든다(항목마다 다시 만들지 않는다)
+function compile(e) {
+  // 숫자뿐인 부호(337-1494의 1494)는 codesOf와 같은 조건으로만 맞춘다 — '종업원 1494명'·'1,494대' 같은 수량에 걸려 다른 항목을 숨기지 않게
+  e.codeM = [...e.codes].map((c) => [c, /^\d+$/.test(c)
+    ? new RegExp(`(?<![A-Z0-9.,])${c}(?![A-Z0-9.,]|\\s*(?:원|달러|명|대|톤|건|억|만|조|%|년|㎡|주|KG|MW|GWH))`)
+    : new RegExp(`(?<![A-Z0-9])${escRe(c.toUpperCase())}(?![A-Z0-9])`)]);
+  e.majorM = [...e.words.major].map((w) => ({ w, rare: rare(w), re: /^[A-Za-z]+$/.test(w) ? latinRe(w) : null, s: w.toLowerCase(), place: PLACE_EN[w] ? latinRe(PLACE_EN[w]) : null }));
+  e.minorL = [...e.words.minor];
+  e.urlL = [...e.urls];
+  e.idL = [...e.ids].map((id) => `id ${id}`);
+  return e;
+}
 
 // 패키지·판정 → 장부 줄
 export function ledgerEntries(packages = [], feedback = []) {
@@ -110,10 +131,11 @@ export function ledgerEntries(packages = [], feedback = []) {
   const fbOf = new Map(feedback.map((r) => [String(r.item_id), r]));
   const alerted = new Map();   // 레이더 id → 알림 보낸 날(MM-DD)
   for (const p of packages) {
+    // 저장소가 본문에서 뽑아 준 연결(ids·urls·sent)을 쓴다. 본문째 온 것(테스트·옛 응답)은 여기서 뽑는다.
+    const links = Array.isArray(p.ids) ? p : packageLinks(p.name, p.body);
     const m = /^alert-(\d{4})(\d{2})(\d{2})$/.exec(p.name);
     if (m) {
-      const line = String(p.body ?? '').split('\n').reverse().find((l) => /^보낸 id\s*:/.test(l.trim()));
-      for (const id of (line ?? '').replace(/^.*?:/, '').split(',')) if (id.trim()) alerted.set(id.trim(), `${m[2]}-${m[3]}`);
+      for (const id of links.sent ?? []) alerted.set(id, `${m[2]}-${m[3]}`);
       continue;
     }
     if (LOG_NAME.test(p.name)) continue;
@@ -122,9 +144,9 @@ export function ledgerEntries(packages = [], feedback = []) {
     const companies = companiesIn(`${subject} ${p.name}`);
     const state = fb && EXCLUDING.has(fb.verdict) && p.state === '미발제·확인 필요' ? fb.verdict : STATE_OF[p.state] ?? '앞서 추천';
     const tag = (/^\s*\[([^\]]+)\]/.exec(p.title) ?? [])[1] ?? '';
-    byName.set(p.name, { key: p.name, source: '패키지', state, tag, title: String(p.title ?? ''), subject, reason: fb?.reason ?? '',
+    byName.set(p.name, compile({ key: p.name, source: '패키지', state, tag, title: String(p.title ?? ''), subject, reason: fb?.reason ?? '',
       at: Date.parse(p.updated_at) || 0, companies, codes: codesOf(`${subject} ${p.name.replace(/-/g, ' ')}`), words: wordsOf(subject, companies),
-      ids: idsIn(p.body), urls: urlsIn(p.body) });
+      ids: new Set(links.ids ?? []), urls: new Set(links.urls ?? []) }));
   }
   return { entries: [...byName.values()], alerted };
 }
@@ -132,40 +154,71 @@ export function ledgerEntries(packages = [], feedback = []) {
 const itemTime = (x) => { const t = Date.parse(String(x.date ?? '').length === 10 ? `${x.date}T00:00:00+09:00` : x.date ?? ''); return Number.isFinite(t) ? t : 0; };
 const squash = (s) => String(s ?? '').replace(/\s+/g, '').toLowerCase();
 
-// 낱말 대조(③) — { codes, words } 또는 null. companyText: 회사를 찾을 글(항목의 회사 칸, 글 덩어리면 전체)
-export function wordMatch(text, companyText, e) {
-  const itemCos = companiesIn(companyText);
-  const known = e.companies.size > 0 && itemCos.size > 0;
-  if (known && ![...e.companies].some((c) => itemCos.has(c))) return null;
-  const up = String(text).toUpperCase();
-  const codes = [...e.codes].filter((c) => new RegExp(`(?<![A-Z0-9])${c.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Z0-9])`).test(up));
+// 항목 글을 한 번만 손본다(대문자·붙여 쓴 글·소문자·회사) — 장부 줄마다 다시 하지 않는다
+// anyCode: 장부의 부호(사건·문서 번호)가 이 글에 하나라도 있는가 — 없으면 줄마다 부호를 다시 찾지 않는다
+function prepare(text, companyText, anyCodeRe = null) {
+  const t = String(text ?? '');
+  const up = t.toUpperCase();
+  return { cos: companiesIn(companyText), up, flat: squash(t), low: t.toLowerCase(), anyCode: anyCodeRe ? anyCodeRe.test(up) : null };
+}
+const anyCodeOf = (entries) => {
+  const all = [...new Set(entries.flatMap((e) => [...e.codes].map((c) => c.toUpperCase())))];
+  return all.length ? new RegExp(`(?<![A-Z0-9])(?:${all.sort((a, b) => b.length - a.length).map(escRe).join('|')})(?![A-Z0-9])`) : /(?!)/;
+};
+// 낱말 대조(③) — { codes, words } 또는 null
+function matchEntry(p, e) {
+  if (!e.codeM) compile(e);
+  const known = e.companies.size > 0 && p.cos.size > 0;
+  if (known) {
+    let same = false;
+    for (const c of e.companies) if (p.cos.has(c)) { same = true; break; }
+    if (!same) return null;
+  }
+  const codes = p.anyCode === false ? [] : e.codeM.filter(([, re]) => re.test(p.up)).map(([c]) => c);
   if (codes.length) return { codes, words: [] };
-  const flat = squash(text);
-  const low = String(text).toLowerCase();
-  const major = [...e.words.major].filter((w) => inText(flat, low, w));
-  const minor = [...e.words.minor].filter((w) => flat.includes(w));
-  const R = major.filter(rare).length;
+  let R = 0;
+  const major = [];
+  for (const m of e.majorM) {
+    if ((m.re ? m.re.test(p.low) : p.flat.includes(m.s)) || (m.place && m.place.test(p.low))) { major.push(m.w); if (m.rare) R += 1; }
+  }
+  const minor = e.minorL.filter((w) => p.flat.includes(w));
   // 마지막 조건: 흔한 큰 낱말 하나 + 품목·지역 낱말 둘(같은 회사) — 'KG스틸 인천·당진 굴뚝 … 가동중지'처럼 흔한 말뿐인 제목
   const ok = known ? (R >= 2 || (R >= 1 && (major.length >= 2 || minor.length >= 1)) || (major.length >= 2 && minor.length >= 1) || (major.length >= 1 && minor.length >= 2))
     : (R >= 2 && major.length + minor.length >= 3);   // 회사를 못 맞춘 쪽은 더 엄격하게
   return ok ? { codes, words: [...major, ...minor] } : null;
 }
+// companyText: 회사를 찾을 글(항목의 회사 칸, 글 덩어리면 전체)
+export function wordMatch(text, companyText, e) {
+  return matchEntry(prepare(text, companyText), e);
+}
 const itemText = (x) => `${x.watch ?? ''} ${x.kind ?? ''} ${x.fact ?? ''} ${x.id ?? ''} ${x.url ?? ''}`;
 
 // 항목 하나 → { entry, how } (다시 내지 않을 것) · { similar } (비슷한 건 처리 이력, 숨기지 않음) · null
+// 같은 요청 안에서 같은 항목을 두 번 묻는다(새 항목 목록 + 14일 겹친 신호) — 장부에 답을 적어 두고 다시 쓴다.
 export function matchHandled(item, ledger) {
+  const entries = ledger?.entries ?? [];
+  if (!entries.length) return null;
   const id = String(item.id ?? '');
+  const memo = ledger.memo ?? (ledger.memo = new Map());
+  const key = `${id}|${item.date ?? ''}|${item.company ?? ''}|${String(item.fact ?? '').length}|${item.url ?? ''}`;
+  if (memo.has(key)) return memo.get(key);
+  const url = item.url ? String(item.url).replace(/[.,;]+$/, '') : '';
+  let prep = null;
   let similar = null;
-  for (const e of ledger?.entries ?? []) {
-    if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) return { entry: e, how: 'id' };
-    if (item.url && e.urls.has(String(item.url).replace(/[.,;]+$/, ''))) return { entry: e, how: '원문 주소' };
-    const w = wordMatch(itemText(item), `${item.company ?? ''} ${String(item.fact ?? '').slice(0, 200)}`, e);
+  let out = null;
+  for (const e of entries) {
+    if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) { out = { entry: e, how: 'id' }; break; }
+    if (url && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
+    prep ??= prepare(itemText(item), `${item.company ?? ''} ${String(item.fact ?? '').slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
+    const w = matchEntry(prep, e);
     if (!w) continue;
     const t = itemTime(item);
-    if (!t || t <= e.at + DAY) return { entry: e, how: `낱말(${[...w.codes, ...w.words].slice(0, 4).join('·')})` };
+    if (!t || t <= e.at + DAY) { out = { entry: e, how: `낱말(${[...w.codes, ...w.words].slice(0, 4).join('·')})` }; break; }
     similar ??= e;
   }
-  return similar ? { similar } : null;
+  out ??= similar ? { similar } : null;
+  memo.set(key, out);
+  return out;
 }
 
 const mmdd = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(5, 10);
@@ -175,6 +228,7 @@ export function annotateHandled(text, ledger) {
   const entries = (ledger?.entries ?? []).filter((e) => EXCLUDING.has(e.state));
   if (!entries.length || !text) return { text, marked: 0 };
   const lines = String(text).split('\n');
+  const anyCodeRe = anyCodeOf(entries);
   const skip = /^(?:\s|\[|규칙|다음:|\(|…|정리:|판정은|읽는 법|$)/;
   const indent = (l) => /^\s*/.exec(l)[0].length;
   // 묶음 머리줄('- 출입처 사건 · 최근 30일 3건') 아래 들여쓴 항목 줄 — 표시는 머리줄이 아니라 그 항목 줄에 붙인다(머리줄에 붙이면 묶음 전체가 처리된 것으로 읽힌다)
@@ -185,9 +239,11 @@ export function annotateHandled(text, ledger) {
     const block = lines.slice(from, to).join('\n');
     if (block.length < 12 || block.includes('〔이미 처리') || block.includes('〔처리 이력')) return;
     let hit = null;
+    const prep = prepare(block, block, anyCodeRe);
     for (const e of entries) {
-      if ([...e.urls].some((u) => block.includes(u)) || [...e.ids].some((id) => block.includes(`id ${id}`))) { hit = e; break; }
-      if (wordMatch(block, block, e)) { hit = e; break; }
+      if (!e.codeM) compile(e);
+      if (e.urlL.some((u) => block.includes(u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; break; }
+      if (matchEntry(prep, e)) { hit = e; break; }
     }
     if (!hit) return;
     const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)

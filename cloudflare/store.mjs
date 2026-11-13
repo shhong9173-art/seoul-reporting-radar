@@ -8,6 +8,22 @@ export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류'
 export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
 // 패키지 본문 끝에 붙는 '연결한 레이더 항목: id, id' 줄의 머리(처리 장부가 읽는다)
 export const LINK_LINE = '연결한 레이더 항목:';
+// 패키지 본문에서 처리 장부(handled.mjs)가 쓰는 연결만 뽑는다: 적어 둔 레이더 id, 원문 주소, 알림 기록의 '보낸 id' 줄.
+// 저장소 안에서 뽑아 보내 Worker가 도구를 부를 때마다 본문 수백 KB를 다시 훑지 않게 한다(11-13 CPU 한도 오류 1102).
+export function packageLinks(name, body) {
+  const text = String(body ?? '');
+  if (/^alert-\d{8}$/.test(String(name ?? ''))) {
+    const line = text.split('\n').reverse().find((l) => /^보낸 id\s*:/.test(l.trim()));
+    return { ids: [], urls: [], sent: (line ?? '').replace(/^.*?:/, '').split(',').map((x) => x.trim()).filter(Boolean) };
+  }
+  const ids = new Set();
+  const line = text.split('\n').reverse().find((l) => l.startsWith(LINK_LINE));
+  for (const id of (line ?? '').slice(LINK_LINE.length).split(',')) if (id.trim()) ids.add(id.trim());
+  // 본문에 옮겨 적힌 'id xxx' (radar_today·scoop_desk 줄 끝 표기)
+  for (const m of text.matchAll(/(?:^|[\s·(])id[ :]+([A-Za-z][A-Za-z0-9_-]*:[^\s,)〕]+|[0-9a-f]{16})/g)) ids.add(m[1]);
+  const urls = new Set([...text.matchAll(/https?:\/\/[^\s)\]〕"'<>]+/g)].map((m) => m[0].replace(/[.,;]+$/, '')).filter((u) => u.length >= 25));
+  return { ids: [...ids], urls: [...urls], sent: [] };
+}
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS evidence (id TEXT PRIMARY KEY, body TEXT NOT NULL, created_at TEXT NOT NULL)`,
@@ -64,7 +80,8 @@ export class RadarStore {
       case 'packages.digest':
         return { rows: this.all(`SELECT name, title, state, created_at, updated_at,
             CASE WHEN name GLOB 'alert-[0-9]*' THEN substr(body, -3000) ELSE substr(body, 1, 6000) END AS body
-          FROM packages WHERE name NOT GLOB 'morning-[0-9]*' AND name NOT GLOB 'afternoon-[0-9]*' ORDER BY updated_at DESC LIMIT 300`) };
+          FROM packages WHERE name NOT GLOB 'morning-[0-9]*' AND name NOT GLOB 'afternoon-[0-9]*' ORDER BY updated_at DESC LIMIT 300`)
+          .map(({ body, ...r }) => ({ ...r, ...packageLinks(r.name, body) })) };
       case 'packages.save': {
         const existing = this.all('SELECT created_at FROM packages WHERE name = ?', args.name)[0];
         this.sql.exec(`INSERT INTO packages (name, title, state, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)

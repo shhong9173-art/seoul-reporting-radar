@@ -82,13 +82,15 @@ export async function scoopDesk(ctx, args) {
     const rec = d.checked.get(String(x.id));
     return { x, type: deskType(x), press: d.pressOf(x), rec, before: (rec?.evidence ?? []).find((e) => e.before) ?? null };
   });
-  const covered = rows.filter((r) => r.press === '관련 보도 있음' || r.press === '같은 수치 선행');
-  const open = rows.filter((r) => !covered.includes(r));
+  const isCovered = (r) => r.press === '관련 보도 있음' || r.press === '같은 수치 선행';
+  const covered = rows.filter(isCovered);
+  const open = rows.filter((r) => !isCovered(r));
   const weak = open.filter((r) => r.type.strength === 'weak');
   const prior = open.filter((r) => r.type.strength !== 'weak' && r.x.prior);
   // 참고 등급(C)은 강한 유형이 아니면 후보로 올리지 않는다(등급은 그대로 — 여기서만 접는다)
-  const minor = open.filter((r) => r.type.strength === 'normal' && r.x.tier === 'C' && !r.x.prior);
-  const main = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && !minor.includes(r))
+  const isMinor = (r) => r.type.strength === 'normal' && r.x.tier === 'C' && !r.x.prior;
+  const minor = open.filter(isMinor);
+  const main = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && !isMinor(r))
     .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || Number(Boolean(a.before)) - Number(Boolean(b.before))
       || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0) || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
   // 같은 날 같은 감시·회사·종류는 두 줄까지만(같은 회의록·같은 사업장 반복)
@@ -124,7 +126,9 @@ export async function scoopDesk(ctx, args) {
   if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건(limit 또는 company로 좁히기)`);
   if (!shown.length) out.push('없음 — 오늘은 걷어내고 남는 후보가 없다. 약한 유형에서 억지로 올리지 않는다(include_weak=true로 볼 수는 있다).');
 
-  const ahead = ktcAhead(d.docs, nowMs);
+  // company로 좁혀 물었으면 일정도 그 낱말이 든 사건만(11-13 운영: company=포스코에 한화솔루션 신청 사건 일정이 붙었다)
+  const qWords = String(args.company ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+  const ahead = ktcAhead(d.docs, nowMs).filter((a) => qWords.every((w) => `${a.title} ${a.no ?? ''} ${a.beat.join(' ')}`.toLowerCase().includes(w)));
   if (ahead.length) {
     out.push(`\n[2. 다가오는 일정 — 출입처가 신청인인 무역위 사건, 앞으로 21일] ${ahead.length}건`);
     for (const a of ahead) out.push(`- ${a.date} ${a.step} · ${a.no ?? ''} ${clipAt(a.title, 60)} · 신청인 출입처 ${a.beat.join('·')}${a.review ? '(재심 건 — 그 보도자료 때 신청인)' : ''} · 원문: ${a.url}`);
