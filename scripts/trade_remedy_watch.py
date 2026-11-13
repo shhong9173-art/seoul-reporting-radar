@@ -810,7 +810,7 @@ def mark_renumbered(events, page_ids):
 
 
 def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None,
-        edis_get=None, edis_token=""):
+        edis_get=None, edis_token="", tra_get=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -850,6 +850,12 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         if echeck["status"] == "failed" and (previous or {}).get("edis"):
             edis = dict(previous["edis"], stale=True)  # 목록이 안 열리면 지난 상태 그대로(0건 아님, 다음 실행이 이어 읽음)
         checks.append(echeck)
+    # 영국 TRA 공개기록(11-13, tra_file_watch.py): 한국산 조사에 당사자들이 낸 문서 — 기자의 英 S-PVC 단독이 나온 곳
+    tra, tra_events = (previous or {}).get("tra"), []
+    if tra_get is not None:
+        import tra_file_watch
+        tra, tra_events, tcheck = tra_file_watch.collect(tra, now, get=tra_get, sleep=sleep, extra_cases=tuple(cfg.get("traCases", [])))
+        checks.append(tcheck)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -859,7 +865,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + kita_events + edis_events + [
+    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -873,7 +879,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
-            **({"edis": edis} if edis else {}),
+            **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
@@ -909,7 +915,7 @@ def main():
     import ktc_watch
     import requests
     doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
-              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip())
+              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get)
     # 무역위 새 조사 품목 → 출입처 사업보고서 '사업의 내용' 대조(11-11, scripts/ktc_producers.py) — 신청인 확인 질문용 원문 단서
     import ktc_producers
     try:
@@ -942,6 +948,14 @@ def main():
           f"첨부 실패 {sum(1 for n in k.get('news', []) if n.get('applicantsError'))}, 새 규칙으로 읽기 대기 "
           f"{sum(1 for n in k.get('news', []) if ktc_watch.APPLICANT_TITLE.search(n.get('title') or '') and n.get('applicantsV') != ktc_watch.APPLICANTS_V and not (n.get('applicantsError') and n.get('applicantsErrorV') == ktc_watch.APPLICANTS_V))})"
           f" · 이번 이벤트 {len(kev)}")
+    tr = doc.get("tra") or {}
+    trev = [e for e in doc["events"] if e.get("pageId") == "trafile" and e["detectedAt"] == doc["generatedAt"]]
+    tchk = next((c for c in doc["checks"] if c["source"] == "영국 TRA 공개기록"), {})
+    # 공개 로그에는 건수만(문서 제목·당사자는 기자 전용 저장소로만)
+    print(f"::notice title=trade-remedy-tra::영국 TRA 공개기록 한국산 조사 {len(tr.get('cases', []))} · 문서 줄 {tchk.get('returned', 0)} · 이번에 새로 본 문서 {tchk.get('newDocs', 0)}"
+          f" · 제출 페이지 {tchk.get('pagesRead', 0)} · PDF {tchk.get('pdfsRead', 0)} · 이번 이벤트 {len(trev)}(A {sum(1 for e in trev if e.get('tier') == 'A')}·B {sum(1 for e in trev if e.get('tier') == 'B')})"
+          f" · 본문 못 읽음 {sum(1 for d in tr.get('docs', []) if d.get('pdfError'))} · 읽기 대기 {sum(1 for d in tr.get('docs', []) if d.get('detail') == 'pending')}"
+          f" · 저장 문서 전체 {len(json.dumps(doc, ensure_ascii=False)) // 1000}천 자(한도 2,000천 자)")
     ki = doc.get("kita") or {}
     kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"

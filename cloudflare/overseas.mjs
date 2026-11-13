@@ -463,11 +463,43 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
   return out;
 }
 
+// 영국 무역구제청(TRA) 공개기록(tra_file_watch.py, 11-13): 한국산 조사에 당사자들이 낸 문서. 기자의 英 S-PVC 단독(11-10)이 나온 곳.
+// 사건마다 출입처·한국 정부가 당사자인지, 새 문서(A·B)는 낸 곳·제목·파일 이름·본문 대목.
+export function traSection(tra, q = '', limit = 15, showAll = false, fromIso = '') {
+  if (!tra) return ['\n[영국 TRA 공개기록] 아직 수집 전 — 미확인'];
+  const rank = { A: 0, B: 1, C: 2 };
+  const out = [`\n[영국 TRA 공개기록 · 한국산 진행 조사 ${(tra.cases ?? []).length}건 · 확인 ${String(tra.checkedAt).slice(0, 16)}${tra.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''} · 기준선 ${String(tra.baselineAt ?? '').slice(0, 10)}]`];
+  for (const c of tra.cases ?? []) {
+    if (!matches(q, c.id, c.title, c.commodity, (c.beatParties ?? []).join(' ')) && q && !(tra.docs ?? []).some((d) => d.case === c.id && matches(q, d.party, d.title, (d.companies ?? []).join(' ')))) continue;
+    out.push(`- ${c.id} ${c.title} · ${c.type} · 개시 ${c.initiated || '?'} · 목록 갱신 ${c.updated || '?'} · 공개기록 ${c.rows ?? '?'}줄(낸 곳 ${c.parties ?? '?'}곳)`
+      + `${(c.beatParties ?? []).length ? ` · 출입처 당사자 ${c.beatParties.join('·')}` : ''}${c.govParty ? ' · 한국 정부 참여' : ''}${c.stale ? ' · ⚠ 이번에 못 읽음(직전 상태)' : ''}`);
+    out.push(`   원문: ${c.url}`);
+  }
+  const all = (tra.docs ?? []).filter((d) => !fromIso || String(d.published || d.firstSeen || '') >= fromIso.slice(0, 10))
+    .filter((d) => matches(q, d.case, d.title, d.party, (d.companies ?? []).join(' '), (d.fileList ?? []).map((f) => f.name).join(' ')));
+  const shown = showAll ? all : all.filter((d) => d.tier !== 'C');
+  const sorted = [...shown].sort((a, b) => Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)) || String(b.published).localeCompare(String(a.published)) || (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3));
+  out.push(`문서(게시일 기준): A·B ${all.filter((d) => d.tier !== 'C').length}건${showAll ? '' : ` · 그 밖 C ${all.length - shown.length}건 숨김(show_all=true)`}`);
+  for (const d of sorted.slice(0, limit)) {
+    out.push(`- ${d.tier}${d.isNew ? ' [신규]' : ''} · 게시 ${d.published || '날짜 없음'} · ${d.case} · ${d.party}(${d.ptype || '구분 없음'}) · 「${d.title}」`);
+    out.push(`   ${d.why}${(d.companies ?? []).length ? ` · 출입처 ${d.companies.join('·')}` : ''}${(d.mentions ?? []).length ? `(본문에 나온 이름 ${d.mentions.join('·')})` : ''}${d.govMention ? ' · 본문에 한국 정부' : ''}`);
+    if ((d.fileList ?? []).length) out.push(`   파일 ${d.fileList.length}개: ${d.fileList.slice(0, 5).map((f) => f.name).join(', ')}${d.fileList.length > 5 ? ' 외' : ''}`);
+    if ((d.snippets ?? []).length) out.push(`   본문 대목(${d.pdfFile ?? '첫 PDF'}, ${d.pdfPages ?? '?'}쪽 중 앞 40쪽): ${d.snippets.map((t) => `"${t}"`).join(' / ')}`);
+    else if (d.pdfError) out.push(`   본문 못 읽음(${d.pdfError})`);
+    else if (d.detail === 'pending') out.push('   파일 목록은 다음 실행에서 읽음(이번 실행 한도)');
+    out.push(`   원문: ${d.url}`);
+  }
+  if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
+  if (!sorted.length) out.push('이 기간 A·B 문서 없음(조회 실패는 위 원천 상태 — 미확인).');
+  out.push('   검증 상태: 공개기록 목록·첫 PDF 대목(자동). 문서는 당사자 주장이고 조사기관 판단이 아니다 — 판정·세율은 TRA 문서(필수사실 고지·판정)로. 인용 전 원문 PDF를 연다. 회사 입장은 회사 확인');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -518,11 +550,12 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
   if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
+  if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     // EDIS 문서는 위 [미국 ITC 문서] 구역에 본문 발췌와 함께 나온다
-    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
     const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');

@@ -18,9 +18,9 @@ const W = { screen: '단독 후보 심사', official: '공장등록·관보', si
   india: '인도 법인 공시(현대차 인도)', counter: '타사 공시 속 출입처(거래상대)', gov: '지분·자사주 변동', exec: '임원 명단 변화(정기보고서)',
   execm: '수시 임원 공시·타사 임원 명단', execc: '문제 임원 점검', global: '출입처 외신' };
 
-const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C');
+const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제|영국 TRA)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C');
 const GOV = /한국 정부|대한민국 정부|산업통상부|Government of (?:the Republic of )?Korea|Korean [Gg]overnment|MOTIE/;
-const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${x.fact ?? ''}`).size > 0 || GOV.test(x.fact ?? '');
+const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${x.fact ?? ''}`).size > 0 || GOV.test(x.fact ?? '') || /조사기관의 판단·쟁점 문서/.test(x.fact ?? '');
 
 // 위에서부터 처음 맞는 유형. strength: strong(기자가 단독을 썼거나 기사로 이어진 유형) · normal · weak(기자가 여러 번 킬·접음)
 // why는 그 근거(기자 판정·기사 기록). 새 판정이 쌓이면 이 표를 고친다 — 고치는 건 기자가 정한다.
