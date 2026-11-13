@@ -1,4 +1,4 @@
-"""probe 218(216 이어서): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
+"""probe 219(216 이어서, #798 배포 뒤): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
 주소(토큰 포함)·응답 본문은 찍지 않는다. 쓰기 도구는 부르지 않는다. 호출 4번."""
 import collections
 import json
@@ -82,11 +82,32 @@ def timed(label, args, n):
     summarize(label, res, err)
 
 
-for name, args in (("radar_today", {"hours": 24, "limit": 3}), ("scoop_desk", {"days": 1}), ("scoop_desk", {}), ("radar_today", {"hours": 168, "limit": 3}), ("scoop_desk", {"company": "포스코"}), ("us_litigation", {"limit": 3})):
+def timed(label, name, args, n, full=False):
     t0 = time.time()
-    res, err = rpc("tools/call", {"name": name, "arguments": args}, 5)
-    text = "" if res is None else "\n".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
-    OUT.append(f"{name}{json.dumps(args, ensure_ascii=False)}: {time.time() - t0:.1f}초 · {'ok 글자 ' + str(len(text)) + ' 실패글 ' + str('도구 실행 실패' in text) if res is not None else '실패 ' + err}")
-    time.sleep(2)
+    res, err = rpc("tools/call", {"name": name, "arguments": args}, n)
+    dt = time.time() - t0
+    if full:
+        OUT.append(f"[{label}] {dt:.1f}초")
+        summarize(label, res, err)
+    else:
+        text = "" if res is None else "\n".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
+        OUT.append(f"{label}: {dt:.1f}초 · {'ok 글자 ' + str(len(text)) + ' 실패글 ' + str('도구 실행 실패' in text) + ' 표시 ' + str(text.count('〔이미 처리')) + '/' + str(text.count('〔처리 이력 있음')) if res is not None else '실패 ' + err[:160]}")
+    time.sleep(1.5)
+
+
+res, err = rpc("tools/list", {}, 1)
+OUT.append(f"tools/list: {'실패 ' + err if res is None else str(len(res.get('tools', []))) + '개'}")
+timed("scoop_desk() 1", "scoop_desk", {}, 2, full=True)
+timed("radar_today(168h)", "radar_today", {"hours": 168, "limit": 3}, 3)
+timed("scoop_desk() 2", "scoop_desk", {}, 4)
+timed("us_litigation", "us_litigation", {"limit": 5}, 5)
+timed("scoop_desk() 3", "scoop_desk", {}, 6)
+timed("trade_remedies edis", "trade_remedies", {"section": "edis", "limit": 15}, 7)
+timed("kr_official", "kr_official", {"limit": 10}, 8)
+timed("scoop_desk(days=14, weak)", "scoop_desk", {"days": 14, "include_weak": True, "limit": 30}, 9)
+timed("radar_today(24h)", "radar_today", {}, 10)
+timed("us_recalls", "us_recalls", {"limit": 20}, 11)
+timed("scoop_desk(company=한화)", "scoop_desk", {"company": "한화"}, 12, full=True)
+timed("scoop_desk() 4", "scoop_desk", {}, 13)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
