@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-13T17:40:50+09:00",
+ "generatedAt": "2026-11-13T21:40:50+09:00",
  "period": {
   "year": 2026,
   "report": "11014",
@@ -8,8 +8,8 @@
  },
  "source": "OpenDART 단일회사 전체 재무제표(fnlttSinglAcntAll)·직원 현황(empSttus)",
  "counts": {
-  "filed": 10,
-  "not_filed": 25,
+  "filed": 15,
+  "not_filed": 20,
   "failed": 0,
   "no_comparable_accounts": 0
  },
@@ -331,7 +331,90 @@
    "company": "포스코홀딩스",
    "team": "철강·비철",
    "corpCode": "00155319",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261113001097"
+   ],
+   "filedOn": "2026-11-13",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001097",
+   "quarter": {
+    "values": {
+     "revenue": 19141479373804,
+     "cost": 17370958450461,
+     "sga": 825804769089,
+     "operating": 944716154254
+    },
+    "prior": {
+     "revenue": 17261041337141,
+     "cost": 15844979112128,
+     "sga": 777295691052,
+     "operating": 638766533961
+    },
+    "ratios": {
+     "costRatio": 90.75,
+     "sgaRatio": 4.31,
+     "opMargin": 4.94
+    },
+    "priorRatios": {
+     "costRatio": 91.8,
+     "sgaRatio": 4.5,
+     "opMargin": 3.7
+    },
+    "deltaPp": {
+     "costRatio": -1.05,
+     "sgaRatio": -0.19,
+     "opMargin": 1.24
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 56276270005016,
+     "cost": 51329993200570,
+     "sga": 2475715200993,
+     "operating": 2470561603453
+    },
+    "prior": {
+     "revenue": 52253404705039,
+     "cost": 48116109522197,
+     "sga": 2322915497151,
+     "operating": 1814379685691
+    },
+    "ratios": {
+     "costRatio": 91.21,
+     "sgaRatio": 4.4,
+     "opMargin": 4.39
+    },
+    "priorRatios": {
+     "costRatio": 92.08,
+     "sgaRatio": 4.45,
+     "opMargin": 3.47
+    },
+    "deltaPp": {
+     "costRatio": -0.87,
+     "sgaRatio": -0.05,
+     "opMargin": 0.92
+    }
+   },
+   "capex": {
+    "current": 3189375958041,
+    "prior": 4065766423685,
+    "changePct": -21.6
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 513,
+    "asOf": "2026-06-30",
+    "priorCount": 523,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 74742690,
+    "priorAvgSalary": 74261950,
+    "salaryPct": 0.6,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -1.9
+   },
+   "tags": []
   },
   {
    "company": "현대제철",
@@ -355,7 +438,95 @@
    "company": "세아제강",
    "team": "철강·비철",
    "corpCode": "01325979",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261113001602"
+   ],
+   "filedOn": "2026-11-13",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001602",
+   "quarter": {
+    "values": {
+     "revenue": 477156817326,
+     "cost": 428800863565,
+     "sga": 28141474819,
+     "operating": 20214478942
+    },
+    "prior": {
+     "revenue": 331742474498,
+     "cost": 313859522270,
+     "sga": 23069370047,
+     "operating": -5186417819
+    },
+    "ratios": {
+     "costRatio": 89.87,
+     "sgaRatio": 5.9,
+     "opMargin": 4.24
+    },
+    "priorRatios": {
+     "costRatio": 94.61,
+     "sgaRatio": 6.95,
+     "opMargin": -1.56
+    },
+    "deltaPp": {
+     "costRatio": -4.74,
+     "sgaRatio": -1.05,
+     "opMargin": 5.8
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 1420895249739,
+     "cost": 1262322801142,
+     "sga": 79314885984,
+     "operating": 79257562613
+    },
+    "prior": {
+     "revenue": 1125483115899,
+     "cost": 1013080181912,
+     "sga": 71080395712,
+     "operating": 41322538275
+    },
+    "ratios": {
+     "costRatio": 88.84,
+     "sgaRatio": 5.58,
+     "opMargin": 5.58
+    },
+    "priorRatios": {
+     "costRatio": 90.01,
+     "sgaRatio": 6.32,
+     "opMargin": 3.67
+    },
+    "deltaPp": {
+     "costRatio": -1.17,
+     "sgaRatio": -0.74,
+     "opMargin": 1.91
+    }
+   },
+   "capex": {
+    "current": 10440784081,
+    "prior": 37600531745,
+    "changePct": -72.2
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 792,
+    "asOf": "2026-06-30",
+    "priorCount": 781,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 41180556,
+    "priorAvgSalary": 36149808,
+    "salaryPct": 13.9,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": 1.4
+   },
+   "tags": [
+    "[원가율 -4.7%p]",
+    "[영업이익률 +5.8%p]",
+    "[평균급여 +13.9%]",
+    "[설비투자 -72.2%]"
+   ]
   },
   {
    "company": "동국제강",
@@ -549,7 +720,95 @@
    "company": "영풍",
    "team": "철강·비철",
    "corpCode": "00141307",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261113001247"
+   ],
+   "filedOn": "2026-11-13",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001247",
+   "quarter": {
+    "values": {
+     "revenue": 794503929313,
+     "cost": 824498464448,
+     "sga": 36844773860,
+     "operating": -66838267033
+    },
+    "prior": {
+     "revenue": 749580770600,
+     "cost": 737301449314,
+     "sga": 21058510379,
+     "operating": -8761609647
+    },
+    "ratios": {
+     "costRatio": 103.78,
+     "sgaRatio": 4.64,
+     "opMargin": -8.41
+    },
+    "priorRatios": {
+     "costRatio": 98.36,
+     "sgaRatio": 2.81,
+     "opMargin": -1.17
+    },
+    "deltaPp": {
+     "costRatio": 5.42,
+     "sgaRatio": 1.83,
+     "opMargin": -7.24
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 2498780693721,
+     "cost": 2424339117887,
+     "sga": 96674825527,
+     "operating": -21995752320
+    },
+    "prior": {
+     "revenue": 1921290932302,
+     "cost": 1996274699768,
+     "sga": 83881075605,
+     "operating": -159169751935
+    },
+    "ratios": {
+     "costRatio": 97.02,
+     "sgaRatio": 3.87,
+     "opMargin": -0.88
+    },
+    "priorRatios": {
+     "costRatio": 103.9,
+     "sgaRatio": 4.37,
+     "opMargin": -8.28
+    },
+    "deltaPp": {
+     "costRatio": -6.88,
+     "sgaRatio": -0.5,
+     "opMargin": 7.4
+    }
+   },
+   "capex": {
+    "current": 129914793537,
+    "prior": 109748883716,
+    "changePct": 18.4
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 795,
+    "asOf": "2026-06-30",
+    "priorCount": 757,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 32836004,
+    "priorAvgSalary": 29481189,
+    "salaryPct": 11.4,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": 5.0
+   },
+   "tags": [
+    "[원가율 +5.4%p]",
+    "[영업이익률 -7.2%p]",
+    "[직원 +5.0%]",
+    "[평균급여 +11.4%]"
+   ]
   },
   {
    "company": "HD현대일렉트릭",
@@ -660,7 +919,90 @@
    "company": "두산에너빌리티",
    "team": "전력·에너지",
    "corpCode": "00159616",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261113000856"
+   ],
+   "filedOn": "2026-11-13",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000856",
+   "quarter": {
+    "values": {
+     "revenue": 4449418000000,
+     "cost": 3688880000000,
+     "sga": 499327000000,
+     "operating": 261211000000
+    },
+    "prior": {
+     "revenue": 3880350000000,
+     "cost": 3276221000000,
+     "sga": 467070000000,
+     "operating": 137059000000
+    },
+    "ratios": {
+     "costRatio": 82.91,
+     "sgaRatio": 11.22,
+     "opMargin": 5.87
+    },
+    "priorRatios": {
+     "costRatio": 84.43,
+     "sgaRatio": 12.04,
+     "opMargin": 3.53
+    },
+    "deltaPp": {
+     "costRatio": -1.52,
+     "sgaRatio": -0.82,
+     "opMargin": 2.34
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 13435356000000,
+     "cost": 11044211000000,
+     "sga": 1582160000000,
+     "operating": 808985000000
+    },
+    "prior": {
+     "revenue": 12197945000000,
+     "cost": 10249709000000,
+     "sga": 1397596000000,
+     "operating": 550640000000
+    },
+    "ratios": {
+     "costRatio": 82.2,
+     "sgaRatio": 11.78,
+     "opMargin": 6.02
+    },
+    "priorRatios": {
+     "costRatio": 84.03,
+     "sgaRatio": 11.46,
+     "opMargin": 4.51
+    },
+    "deltaPp": {
+     "costRatio": -1.83,
+     "sgaRatio": 0.32,
+     "opMargin": 1.51
+    }
+   },
+   "capex": {
+    "current": 259372000000,
+    "prior": 286041000000,
+    "changePct": -9.3
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 6216,
+    "asOf": "2026-06-30",
+    "priorCount": 6002,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 70966860,
+    "priorAvgSalary": 64745252,
+    "salaryPct": 9.6,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": 3.6
+   },
+   "tags": []
   },
   {
    "company": "GS",
@@ -978,7 +1320,95 @@
    "company": "롯데케미칼",
    "team": "화학·소재",
    "corpCode": "00165413",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261113001597"
+   ],
+   "filedOn": "2026-11-13",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001597",
+   "quarter": {
+    "values": {
+     "revenue": 5395112478907,
+     "cost": 5360608862131,
+     "sga": 315893347249,
+     "operating": -281389730473
+    },
+    "prior": {
+     "revenue": 4786058197528,
+     "cost": 4609983501319,
+     "sga": 308629440449,
+     "operating": -132554744240
+    },
+    "ratios": {
+     "costRatio": 99.36,
+     "sgaRatio": 5.86,
+     "opMargin": -5.22
+    },
+    "priorRatios": {
+     "costRatio": 96.32,
+     "sgaRatio": 6.45,
+     "opMargin": -2.77
+    },
+    "deltaPp": {
+     "costRatio": 3.04,
+     "sgaRatio": -0.59,
+     "opMargin": -2.45
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 16072003388251,
+     "cost": 15228479260900,
+     "sga": 941297124334,
+     "operating": -97772996983
+    },
+    "prior": {
+     "revenue": 13773062125492,
+     "cost": 13386593908308,
+     "sga": 896109758983,
+     "operating": -509641541799
+    },
+    "ratios": {
+     "costRatio": 94.75,
+     "sgaRatio": 5.86,
+     "opMargin": -0.61
+    },
+    "priorRatios": {
+     "costRatio": 97.19,
+     "sgaRatio": 6.51,
+     "opMargin": -3.7
+    },
+    "deltaPp": {
+     "costRatio": -2.44,
+     "sgaRatio": -0.65,
+     "opMargin": 3.09
+    }
+   },
+   "capex": {
+    "current": 491737161713,
+    "prior": 1243874509321,
+    "changePct": -60.5
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 3509,
+    "asOf": "2026-06-30",
+    "priorCount": 4555,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 59309490,
+    "priorAvgSalary": 49346432,
+    "salaryPct": 20.2,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -23.0
+   },
+   "tags": [
+    "[원가율 +3.0%p]",
+    "[직원 -23.0%]",
+    "[평균급여 +20.2%]",
+    "[설비투자 -60.5%]"
+   ]
   },
   {
    "company": "금호석유화학",
@@ -1195,12 +1625,17 @@
      "동국씨엠"
     ],
     "filed": [
+     "세아제강",
      "동국제강",
      "동국씨엠"
     ],
     "metrics": {
      "opMarginPp": {
       "values": [
+       [
+        "세아제강",
+        1.91
+       ],
        [
         "동국제강",
         1.02
@@ -1210,10 +1645,14 @@
         1.78
        ]
       ],
-      "median": 1.4
+      "median": 1.78
      },
      "costRatioPp": {
       "values": [
+       [
+        "세아제강",
+        -1.17
+       ],
        [
         "동국제강",
         -0.67
@@ -1223,10 +1662,14 @@
         -1.4
        ]
       ],
-      "median": -1.03
+      "median": -1.17
      },
      "capexPct": {
       "values": [
+       [
+        "세아제강",
+        -72.2
+       ],
        [
         "동국제강",
         -94.1
@@ -1236,10 +1679,14 @@
         -33.7
        ]
       ],
-      "median": -63.9
+      "median": -72.2
      },
      "employeesPct": {
       "values": [
+       [
+        "세아제강",
+        1.4
+       ],
        [
         "동국제강",
         2.3
@@ -1249,10 +1696,14 @@
         -4.5
        ]
       ],
-      "median": -1.1
+      "median": 1.4
      },
      "salaryPct": {
       "values": [
+       [
+        "세아제강",
+        13.9
+       ],
        [
         "동국제강",
         0.7
@@ -1262,7 +1713,7 @@
         4.2
        ]
       ],
-      "median": 2.45
+      "median": 4.2
      }
     },
     "skipped": []
@@ -1273,7 +1724,9 @@
      "고려아연",
      "영풍"
     ],
-    "filed": [],
+    "filed": [
+     "영풍"
+    ],
     "metrics": {},
     "skipped": []
    },
@@ -1286,9 +1739,50 @@
      "두산에너빌리티"
     ],
     "filed": [
-     "대한전선"
+     "대한전선",
+     "두산에너빌리티"
     ],
-    "metrics": {},
+    "metrics": {
+     "opMarginPp": {
+      "values": [
+       [
+        "대한전선",
+        1.16
+       ],
+       [
+        "두산에너빌리티",
+        1.51
+       ]
+      ],
+      "median": 1.33
+     },
+     "costRatioPp": {
+      "values": [
+       [
+        "대한전선",
+        -0.98
+       ],
+       [
+        "두산에너빌리티",
+        -1.83
+       ]
+      ],
+      "median": -1.41
+     },
+     "capexPct": {
+      "values": [
+       [
+        "대한전선",
+        114.5
+       ],
+       [
+        "두산에너빌리티",
+        -9.3
+       ]
+      ],
+      "median": 52.6
+     }
+    },
     "skipped": []
    },
    {
@@ -1313,13 +1807,129 @@
      "한화솔루션"
     ],
     "filed": [
+     "롯데케미칼",
      "한화솔루션"
     ],
-    "metrics": {},
+    "metrics": {
+     "opMarginPp": {
+      "values": [
+       [
+        "롯데케미칼",
+        3.09
+       ],
+       [
+        "한화솔루션",
+        2.64
+       ]
+      ],
+      "median": 2.87
+     },
+     "costRatioPp": {
+      "values": [
+       [
+        "롯데케미칼",
+        -2.44
+       ],
+       [
+        "한화솔루션",
+        -0.12
+       ]
+      ],
+      "median": -1.28
+     },
+     "capexPct": {
+      "values": [
+       [
+        "롯데케미칼",
+        -60.5
+       ],
+       [
+        "한화솔루션",
+        -60.5
+       ]
+      ],
+      "median": -60.5
+     },
+     "employeesPct": {
+      "values": [
+       [
+        "롯데케미칼",
+        -23.0
+       ],
+       [
+        "한화솔루션",
+        -11.3
+       ]
+      ],
+      "median": -17.15
+     },
+     "salaryPct": {
+      "values": [
+       [
+        "롯데케미칼",
+        20.2
+       ],
+       [
+        "한화솔루션",
+        5.5
+       ]
+      ],
+      "median": 12.85
+     }
+    },
     "skipped": []
    }
   ],
-  "leads": [],
+  "leads": [
+   {
+    "id": "2026년 3분기:철강:salaryPct:세아제강",
+    "group": "철강",
+    "metric": "salaryPct",
+    "label": "1인 평균 급여 증감률",
+    "company": "세아제강",
+    "value": 13.9,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "동국제강",
+      0.7
+     ],
+     [
+      "동국씨엠",
+      4.2
+     ]
+    ],
+    "text": "철강 3곳 2026년 3분기 1인 평균 급여 증감률: 세아제강 +13.9% — 나머지 2곳 +0.7%~+4.2%(나머지 중앙값 +2.5%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001602",
+    "filedOn": "2026-11-13",
+    "question": "왜 철강에서 세아제강만 1인 평균 급여 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-13T21:40:50+09:00"
+   },
+   {
+    "id": "2026년 3분기:철강:employeesPct:동국씨엠",
+    "group": "철강",
+    "metric": "employeesPct",
+    "label": "직원 수 증감률",
+    "company": "동국씨엠",
+    "value": -4.5,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "세아제강",
+      1.4
+     ],
+     [
+      "동국제강",
+      2.3
+     ]
+    ],
+    "text": "철강 3곳 2026년 3분기 직원 수 증감률: 동국씨엠 -4.5% — 나머지 2곳 +1.4%~+2.3%(나머지 중앙값 +1.8%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000906",
+    "filedOn": "2026-11-13",
+    "question": "왜 철강에서 동국씨엠만 직원 수 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-13T21:40:50+09:00"
+   }
+  ],
   "rules": [
    "같은 업종 3곳 넘게 제출해야 후보를 만든다(2곳은 값만).",
    "누적(사업보고서는 연간) 기준 · 연결 우선 — 회사마다 연결 범위가 달라 참고용.",
