@@ -36,9 +36,9 @@ def detail_page(maker, model, units, reason, produced="2021-04-23 ~ 2024-08-12")
 class Site:
     """가짜 게시판. posts는 최신순 (글 번호, 제목, 날짜), 쪽마다 5건."""
 
-    def __init__(self, posts, details=None, robots=Resp("<html><body>404</body></html>", 404), fail_list=None, fail_detail=()):
+    def __init__(self, posts, details=None, robots=Resp("<html><body>404</body></html>", 404), fail_list=None, fail_detail=(), throttle_after=None):
         self.posts, self.details, self.robots = posts, details or {}, robots
-        self.fail_list, self.fail_detail = fail_list, set(fail_detail)
+        self.fail_list, self.fail_detail, self.throttle_after = fail_list, set(fail_detail), throttle_after
         self.pages, self.opened = [], []
 
     def get(self, url, headers=None, timeout=None):
@@ -52,6 +52,8 @@ class Site:
         if url == f.LIST:
             return self._list(int(data["currentPageNo"]))
         self.opened.append(data["gratischeckId"])
+        if self.throttle_after is not None and len(self.opened) > self.throttle_after:
+            return Resp("", 429)
         if data["gratischeckId"] in self.fail_detail:
             return Resp("", 500)
         return Resp(self.details.get(data["gratischeckId"], detail_page("기아(주)", "차", "120 대", "경고등 점등")))
@@ -174,9 +176,35 @@ class Collect(unittest.TestCase):
         # 한 번에 출입처 새 글이 한도보다 많으면 나머지는 다음 실행으로
         many = [(str(5000 - i), f"[기아] 차종 {i} - 무상수리", "2026-11-14") for i in range(15)]
         sec3, check3 = f.collect(first, NOW + dt.timedelta(hours=5), Site(many + base), sleep=nosleep)
-        self.assertEqual((check3["detailsRead"], check3["pending"]), (f.DETAIL_BUDGET, 3))
+        self.assertEqual((check3["detailsRead"], check3["pending"], check3["status"]), (f.DETAIL_BUDGET, 9, "partial"))
+        self.assertNotIn("error", check3)        # 읽기 한도는 실패가 아니다 — 원천 상태 화면이 '다음 실행에서 읽음'으로 적는다
         sec4, check4 = f.collect(sec3, NOW + dt.timedelta(hours=8), Site(many + base), sleep=nosleep)
-        self.assertEqual((check4["detailsRead"], check4["pending"], check4["newPosts"]), (3, 0, 0))
+        self.assertEqual((check4["detailsRead"], check4["pending"], check4["newPosts"]), (6, 3, 0))
+        sec5, check5 = f.collect(sec4, NOW + dt.timedelta(hours=11), Site(many + base), sleep=nosleep)
+        self.assertEqual((check5["detailsRead"], check5["pending"], check5["status"]), (3, 0, "ok"))
+
+    def test_rate_limit_stops_the_run_and_the_next_run_continues(self):
+        # 11-14 첫 운영: 0.4초 간격으로 읽다 상세 7번째에 HTTP 429, 그 뒤 403. 이제는 3초 간격, 429·403이 오면 거기서 멈춘다
+        base = [TASMAN] + OLD
+        first, _ = f.collect(None, NOW, Site(base, DETAILS), sleep=nosleep)
+        many = [(str(5000 - i), f"[기아] 차종 {i} - 무상수리", "2026-11-14") for i in range(5)]
+        site = Site(many + base, throttle_after=2)
+        waits = []
+        sec, check = f.collect(first, NOW + dt.timedelta(hours=5), site, sleep=waits.append)
+        self.assertEqual(len(site.opened), 3)                    # 429를 받은 뒤로는 더 열지 않는다
+        self.assertEqual((check["status"], check["detailsRead"], check["pending"]), ("partial", 2, 3))
+        self.assertEqual(check["note"], "상세 읽기 멈춤(HTTP 429) — 다음 실행에서 이어 읽음")
+        self.assertNotIn("error", check)
+        self.assertTrue(all(w >= 3 for w in waits) and len(waits) >= 4)
+        got = {x["no"]: x for x in sec["items"]}
+        self.assertEqual([got[str(5000 - i)]["detail"] for i in range(5)], ["ok", "ok", "pending", "pending", "pending"])
+        self.assertNotIn("detailTries", got["4998"])             # 실패 횟수로 세지 않는다
+        sec2, check2 = f.collect(sec, NOW + dt.timedelta(hours=8), Site(many + base), sleep=nosleep)
+        self.assertEqual((check2["status"], check2["detailsRead"], check2["pending"]), ("ok", 3, 0))
+        # 첫 운영 때 429·403을 '실패'로 적어 둔 글도 대기로 돌려 다시 읽는다
+        old = {**sec2, "items": [dict(x, detail="failed", detailError="HTTP 403", detailTries=1) if x["no"] == "5000" else x for x in sec2["items"]]}
+        sec3, check3 = f.collect(old, NOW + dt.timedelta(hours=11), Site(many + base), sleep=nosleep)
+        self.assertEqual((next(x for x in sec3["items"] if x["no"] == "5000")["detail"], check3["detailsRead"]), ("ok", 1))
 
     def test_robots_rules(self):
         base = [TASMAN] + OLD

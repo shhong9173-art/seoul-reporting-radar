@@ -307,8 +307,8 @@ def build(previous, now, keys, *, get=None, session=None, sleep=time.sleep):
     if fuel_failed:
         # 연비 목록만 실패: 연비 쪽은 이전 결과 그대로 두고(0건 아님) 무상점검 구역과 실패 표시만 새로 저장한다
         doc = {**prev, "generatedAt": stamp, "status": "partial", "checks": doc["checks"], **({"freeRepair": doc["freeRepair"]} if doc.get("freeRepair") else {})}
-    elif doc["status"] == "complete" and fcheck["status"] != "ok":
-        doc["status"] = "partial"
+    elif doc["status"] == "complete" and fcheck["status"] != "ok" and (fcheck.get("error") or not fcheck.get("pending")):
+        doc["status"] = "partial"   # 상세 읽기 대기뿐인 '일부'는 실패가 아니다(다음 실행이 이어 읽음)
     return doc, {"keyName": key_name, "refused": refused, "fuelFailed": fuel_failed, "free": free}
 
 
@@ -331,7 +331,7 @@ def main():
     print(f"::notice title=kr-free-repair::무상점검·수리 게시판 상태 {fcheck['status']} · 목록 {fcheck.get('pages', 0)}쪽 {fcheck.get('returned', 0)}건(전체 {fcheck.get('total')}) · "
           f"새 글 {fcheck.get('newPosts', 0)}(출입처 {fcheck.get('newBeat', 0)}) · 상세 {fcheck.get('detailsRead', 0)} · 읽기 대기 {fcheck.get('pending', 0)} · "
           f"저장 {len(fitems)}건(A {sum(1 for x in fitems if x.get('tier') == 'A')}·B {sum(1 for x in fitems if x.get('tier') == 'B')})"
-          f"{' · ' + fcheck['robots'] if fcheck.get('robots') else ''}{' · ' + fcheck['error'] if fcheck.get('error') else ''}")
+          f"{' · ' + fcheck['robots'] if fcheck.get('robots') else ''}{' · ' + fcheck['note'] if fcheck.get('note') else ''}{' · ' + fcheck['error'] if fcheck.get('error') else ''}")
     kinds = {}
     for v in doc.get("vehicles", []):
         if v.get("isNew"):
