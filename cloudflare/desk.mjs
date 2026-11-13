@@ -94,9 +94,13 @@ export async function scoopDesk(ctx, args) {
     const rec = d.checked.get(String(x.id));
     return { x, type: deskType(x), press: d.pressOf(x), rec, before: (rec?.evidence ?? []).find((e) => e.before) ?? null };
   });
-  const isCovered = (r) => r.press === '관련 보도 있음' || r.press === '같은 수치 선행';
+  // 기자가 이미 쓴 기사와 자동 대조로 이어진 항목(my-articles)은 후보가 아니다 — 11-13 운영: 14일 화면 '실적 있는 유형'에 기자가 11-06 단독으로 쓴
+  // 2-EHA 무역위 조사가 그대로 떴다(패키지를 남기지 않은 기사라 처리 장부에는 없었다). 자동 대조라 숨기지 않고 4구역에 기사 제목과 함께 적는다.
+  const wroteOf = (x) => d.wrote?.get(String(x.id)) ?? null;
+  const written = rows.filter((r) => wroteOf(r.x));
+  const isCovered = (r) => !wroteOf(r.x) && (r.press === '관련 보도 있음' || r.press === '같은 수치 선행');
   const covered = rows.filter(isCovered);
-  const open = rows.filter((r) => !isCovered(r));
+  const open = rows.filter((r) => !isCovered(r) && !wroteOf(r.x));
   const weak = open.filter((r) => r.type.strength === 'weak');
   const prior = open.filter((r) => r.type.strength !== 'weak' && r.x.prior);
   // 참고 등급(C)은 강한 유형이 아니면 후보로 올리지 않는다(등급은 그대로 — 여기서만 접는다)
@@ -164,6 +168,10 @@ export async function scoopDesk(ctx, args) {
   const byEntry = new Map();
   for (const x of hidden) byEntry.set(x.handled.entry.key, [...(byEntry.get(x.handled.entry.key) ?? []), x]);
   for (const [, xs] of [...byEntry].slice(0, 10)) out.push(`   ${entryLabel(xs[0].handled.entry)} ← ${xs.length}건(${xs[0].watch})`);
+  if (written.length) {
+    out.push(`- 기자가 이미 쓴 기사(아이뉴스24 자동 대조): ${written.length}건`);
+    for (const r of written.slice(0, 8)) { const w = wroteOf(r.x); out.push(`   ${String(w.published ?? '').slice(5, 10)} 「${clipAt(w.title, 50)}」 ← ${r.x.watch}${r.x.company ? ` · ${r.x.company}` : ''} · id ${r.x.id}`); }
+  }
   out.push(`- 이미 보도(자동 대조 '관련 보도 있음'): ${covered.length}건`);
   const byType = new Map();
   for (const r of weak) byType.set(r.type.key, [...(byType.get(r.type.key) ?? []), r]);
