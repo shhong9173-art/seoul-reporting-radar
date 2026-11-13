@@ -12,6 +12,8 @@ const DROP_DAYS = 30;                    // 30일 넘게 안 돈 워크플로(�
 export const FAIL = new Set(['failure', 'timed_out', 'startup_failure']);
 const IGNORE = new Set(['cancelled', 'skipped', 'neutral', 'action_required', 'stale']);  // 세지 않음(성공도 실패도 아님)
 export const STREAK_ALERT = 2;
+// 한 번만 실패해도 알리는 워크플로: 배포 뒤 운영 점검(worker-smoke.yml)은 실패 = 운영 도구가 끊겼을 수 있다는 뜻이다(11-13 오류 1102).
+const ALERT_AT = { 'worker-smoke.yml': 1 };
 const STALE_MS = 2 * 3600000;            // 확인이 두 시간 넘게 없으면 이 감시 자체가 미확인
 
 const kst = (ms) => new Date(ms + KST_MS).toISOString().slice(5, 16).replace('T', ' ');
@@ -97,11 +99,16 @@ export async function runsHealth(ctx) {
     const why = doc.status === 'no-token' ? '워커에 GITHUB_DISPATCH_TOKEN 없음' : doc.status !== 'ok' ? `읽기 실패(${doc.status})` : '확인이 멈춤';
     lines.push(`${label}: ${why} · 마지막 정상 확인 ${Number.isFinite(okAt) ? `${kst(okAt)} KST` : '없음'} — 그 뒤 실패는 미확인`);
   }
-  const bad = Object.entries(doc.workflows ?? {}).map(([file, w]) => ({ file, w, n: failStreak(w) })).filter((x) => x.n >= STREAK_ALERT)
+  const bad = Object.entries(doc.workflows ?? {}).map(([file, w]) => ({ file, w, n: failStreak(w) })).filter((x) => x.n >= (ALERT_AT[x.file] ?? STREAK_ALERT))
     .sort((a, b) => b.n - a.n || String(b.w.runs[0]?.at).localeCompare(String(a.w.runs[0]?.at)));
   for (const { file, w, n } of bad.slice(0, 6)) {
     const last = Date.parse(w.runs[0]?.at ?? '');
     const ok = Date.parse(w.lastSuccessAt ?? '');
+    if (file === 'worker-smoke.yml') {
+      lines.push(`⚠ 배포 뒤 운영 점검 실패(${n}회 연속): 기자 전용 도구 일부가 운영에서 끊겼을 수 있다(오류 1102 등) · 마지막 실패 ${Number.isFinite(last) ? `${kst(last)} KST` : '?'}`
+        + ` · 마지막 성공 ${Number.isFinite(ok) ? `${kst(ok)} KST` : '기록 없음'} — 실패한 도구의 0건·오류는 미확인`);
+      continue;
+    }
     lines.push(`⚠ GitHub 실행 ${n}회 연속 실패: ${w.name}(${file}) · 마지막 실패 ${Number.isFinite(last) ? `${kst(last)} KST` : '?'}`
       + ` · 마지막 성공 ${Number.isFinite(ok) ? `${kst(ok)} KST` : `기록 없음(최근 ${w.runs.length}번 안)`} — 이 프로그램이 만드는 결과는 그 성공 때 것, 그 뒤 0건은 미확인`);
   }
