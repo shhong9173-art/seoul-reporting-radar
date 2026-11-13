@@ -1716,8 +1716,14 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:10 council-minutes\.yml\)부터 요청/);
   assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
-  assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:15 KST → Sat 00:20(인도 공시 22:10 칸 뒤)
-  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 19:40 my-articles.yml');  // Sun 18:30 KST → 19:40 기자 기사 대조(매일, 11-03 추가)
+  assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-30 22:30 worker-smoke.yml');  // Fri 22:15 KST → 22:30 운영 점검(11-14, 매일 일곱 번)
+  assert.equal(nextSlot(new Date('2026-10-30T13:35:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:35 KST → Sat 00:20
+  // 배포 뒤 운영 점검: GitHub 예약이 돌지 않아(11-13 병합 뒤 8시간 0번) 정시 요청 — 주말에도
+  assert.deepEqual(dueAt(new Date('2026-10-28T00:00:00Z')), ['worker-smoke.yml']);   // Wed 09:00 KST
+  assert.deepEqual(dueAt(new Date('2026-10-31T16:30:00Z')), ['worker-smoke.yml']);   // Sun 01:30 KST
+  assert.equal(['01:30', '04:30', '09:00', '13:40', '16:40', '19:30', '22:30'].every((t) => dueAt(new Date(`2026-10-28T${t}:00+09:00`)).includes('worker-smoke.yml')), true);
+  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 19:30 worker-smoke.yml');  // Sun 18:30 KST → 19:30 운영 점검(11-14)
+  assert.equal(nextSlot(new Date('2026-11-01T10:35:00Z')), '11-01 19:40 my-articles.yml');  // Sun 19:35 KST → 19:40 기자 기사 대조(매일, 11-03 추가)
   assert.equal(nextSlot(new Date('2026-11-01T10:45:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 19:45 KST → 20:40 DART 재시도 칸
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
