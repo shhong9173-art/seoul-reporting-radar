@@ -1,4 +1,4 @@
-"""probe 220(216 이어서, #799 배포 뒤): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
+"""probe 221(216 이어서, #800 배포 뒤): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
 주소(토큰 포함)·응답 본문은 찍지 않는다. 쓰기 도구는 부르지 않는다. 호출 4번."""
 import collections
 import json
@@ -99,12 +99,10 @@ res, err = rpc("tools/list", {}, 1)
 OUT.append(f"tools/list: {'실패 ' + err if res is None else str(len(res.get('tools', []))) + '개'}")
 timed("scoop_desk(limit=40)", "scoop_desk", {"limit": 40}, 2, full=True)
 timed("radar_today(24h)", "radar_today", {}, 3)
-timed("scoop_desk() 2", "scoop_desk", {}, 4, full=True)
-timed("kr_signals", "kr_signals", {"limit": 10}, 5)
-timed("partner_filings", "partner_filings", {"limit": 10}, 6)
-timed("scoop_desk(days=3)", "scoop_desk", {"days": 3, "limit": 40}, 7, full=True)
-timed("radar_today(72h)", "radar_today", {"hours": 72}, 8)
-timed("us_litigation", "us_litigation", {"limit": 5}, 9)
-timed("scoop_desk() 3", "scoop_desk", {}, 10)
+timed("scoop_desk() 2", "scoop_desk", {}, 4)
+timed("kr_official", "kr_official", {"limit": 10}, 5)
+timed("scoop_desk(days=14)", "scoop_desk", {"days": 14, "limit": 40}, 6, full=True)
+timed("trade_remedies", "trade_remedies", {"limit": 10}, 7)
+timed("scoop_desk() 3", "scoop_desk", {}, 8)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
