@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-13T11:56:47+09:00",
+  "generatedAt": "2026-11-13T16:45:27+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-13T07:45:53+09:00",
+      "generatedAt": "2026-11-13T16:26:14+09:00",
       "rows": 7,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -24,15 +24,15 @@
     },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-12T13:22:47+09:00",
+      "generatedAt": "2026-11-13T12:39:12+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-13T00:56:00+09:00",
-      "rows": 24,
+      "generatedAt": "2026-11-13T15:42:34+09:00",
+      "rows": 23,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
@@ -62,7 +62,7 @@
     "new_official_receipt_review": 7,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
-    "verified_historical_numeric_delta": 24,
+    "verified_historical_numeric_delta": 23,
     "issuer_only_correction_unverified_original": 3,
     "older_public_contract_reference": 1,
     "unlinked_correction_text_followup": 1
@@ -74,10 +74,10 @@
   "checkedOfficialRecentCandidates": 7,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 7,
-  "historicalResearchCount": 32,
+  "historicalResearchCount": 31,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 39,
+  "totalRows": 38,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -329,6 +329,56 @@
         "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
         "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
         "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:아시아",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호타이어",
+      "title": "아시아 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-12",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 587796 → 46639 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:유럽",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호타이어",
+      "title": "유럽 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-12",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 964717 → 1124210 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
       ]
     },
     {
@@ -843,81 +893,6 @@
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003328",
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
-        "동일 분기/반기 수치 변경인지 공시 원문 대조",
-        "기존 보도 전문과 기업 공개 IR 자료 확인"
-      ]
-    },
-    {
-      "id": "verified_historical_numeric_delta:20260813001743:금호타이어:segmentSales:아시아",
-      "tier": "verified_historical_numeric_delta",
-      "tierLabel": "과거 DART 공시 수치 비교",
-      "company": "금호타이어",
-      "title": "아시아 · segmentSales 공시 수치 비교",
-      "officialDocumentDate": "2026-08-13",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 416280 → 381352 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250813001498",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001743"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
-        "동일 분기/반기 수치 변경인지 공시 원문 대조",
-        "기존 보도 전문과 기업 공개 IR 자료 확인"
-      ]
-    },
-    {
-      "id": "verified_historical_numeric_delta:20260813001743:금호타이어:segmentSales:유럽",
-      "tier": "verified_historical_numeric_delta",
-      "tierLabel": "과거 DART 공시 수치 비교",
-      "company": "금호타이어",
-      "title": "유럽 · segmentSales 공시 수치 비교",
-      "officialDocumentDate": "2026-08-13",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 680197 → 758239 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250813001498",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001743"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
-        "동일 분기/반기 수치 변경인지 공시 원문 대조",
-        "기존 보도 전문과 기업 공개 IR 자료 확인"
-      ]
-    },
-    {
-      "id": "verified_historical_numeric_delta:20260813001743:금호타이어:segmentSales:중남미",
-      "tier": "verified_historical_numeric_delta",
-      "tierLabel": "과거 DART 공시 수치 비교",
-      "company": "금호타이어",
-      "title": "중남미 · segmentSales 공시 수치 비교",
-      "officialDocumentDate": "2026-08-13",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 103760 → 111090 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250813001498",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001743"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
