@@ -5,8 +5,8 @@ import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
-import { LINK_LINE, RadarStore } from '../cloudflare/store.mjs';
-import { annotateHandled, codesOf, companiesIn, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
+import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
+import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
 import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
@@ -4514,6 +4514,50 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   assert.match(annotateHandled('- 2026-11-10T07:40 · 영국 · 영국 무역구제청(TRA) 조사 목록\n   잡힌 사실: No. AD0092 Case Suspension Polyvinyl Chloride', L2).text, /〔이미 처리: \[접음·보강 메모\] 영국 S-PVC\(AD0092\) PMS · 11-13/);
 });
 
+test('처리 장부 CPU(11-13 운영 오류 1102): 회사 찾기는 정규식 두 번, 장부 줄 정규식은 한 번만 만들고, 저장소가 연결만 뽑아 보낸다', async () => {
+  // 11-13 운영: #795~#797 배포 뒤 scoop_desk·radar_today(168시간)·us_litigation이 'Error 1102: Worker exceeded resource limits'(HTTP 503)로 끊겼다.
+  // 항목 하나를 장부 줄마다 다시 손보고 별칭 100여 개를 하나씩(영문은 그때마다 정규식을 새로 만들어) 찾던 탓 — 항목 900개에 CPU 0.4초.
+  // ① 빠른 회사 찾기는 느린 기준 구현과 답이 같다(긴 별칭 안의 짧은 별칭 포함)
+  for (const t of ['KIA GEORGIA, INC. · 엘지화학 · Hanwha Qcells', 'Hyundai Steel Company v. United States', '포스코홀딩스와 포스코퓨처엠', 'HD Hyundai Electric America', 'LS Cable & System Ltd.',
+    '현대자동차(주) 울산공장 · 현대모비스', 'S-OIL 온산 · GS칼텍스 여수', '한국지엠 주식회사 부당해고', 'Kumho Tire Georgia', '케이지스틸(주) 당진공장', 'Korea Zinc · 고려아연㈜온산제련소', 'OCI홀딩스 · DL케미칼',
+    'skia graphics · mobisys · posconnect', '태광산업㈜ 대표이사', 'Hyundai Mobis, Hyundai Motor America, Genesis', '', '출입처 이름 없는 글 Thibodeaux v. Example']) {
+    assert.deepEqual([...companiesIn(t)].sort(), [...companiesInSlow(t)].sort(), t);
+  }
+  // ② 저장소가 본문에서 연결만 뽑는다 — Worker는 패키지 본문을 받지 않는다
+  assert.deepEqual(packageLinks('kia-georgia-osha', `문의 중\nid osha:insp:349146811 확인\n원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811.\n${LINK_LINE} sales:hmgma:202609, https://example.com/a/b/c/d/e/f`),
+    { ids: ['sales:hmgma:202609', 'https://example.com/a/b/c/d/e/f', 'osha:insp:349146811'], urls: ['https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811', 'https://example.com/a/b/c/d/e/f'], sent: [] });
+  assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'] });
+  const opts = PRIVATE();
+  await call('package_save', { name: 'kia-georgia-osha', title: '[답변 대기] 기아 조지아 OSHA 점검', state: '보류', body: '본문 '.repeat(500), item_ids: ['osha:insp:349146811'] }, opts);
+  const stub = opts.env.STORE.get('reporter');
+  const digest = await (await stub.fetch('https://store.internal/op', { method: 'POST', body: JSON.stringify({ action: 'packages.digest', args: {}, now: NOW.toISOString() }) })).json();
+  assert.deepEqual(Object.keys(digest.rows[0]).sort(), ['created_at', 'ids', 'name', 'sent', 'state', 'title', 'updated_at', 'urls']);   // body 없음
+  assert.deepEqual(digest.rows[0].ids, ['osha:insp:349146811']);
+  // ③ 항목 2,000개 × 장부 30줄: 예전 구현은 이 기계에서 1초를 넘겼다. 넉넉한 상한으로 되돌아가는 것만 막는다.
+  const pk = (i) => ({ name: `pkg-${i}`, title: [`[킬] 영국 한국산 후판 반덤핑(AD00${70 + i})`, `[답변 대기] 기아 조지아 OSHA Fat/Cat 점검 ${i}차`, `포스코 수소환원제철 부지 한정어업 거절 ${i}`, `현대차 안성 공장등록 목록에서 빠짐 ${i}`,
+    `KG스틸 인천·당진 굴뚝 동시 '가동중지' ${i}`, `한화 ITC 337-${1490 + i} 재검토`][i % 6], state: '접음', updated_at: '2026-11-13T06:00:00Z', body: '' });
+  const big = ledgerEntries(Array.from({ length: 30 }, (_, i) => pk(i)), []);
+  const facts = ['케이지스틸(주) 당진공장: 평소 움직이던 배출구 3개 중 2개가 3번 연속 평소의 10% 아래', 'EDGAR X-Energy, Inc. (XE): 8-K EX-99.1 Doosan Enerbility', '경상북도 포항시의회 본회의 회의록 · 포스코 대목 「위원회안으로 채택」',
+    'District Court, S.D. California 「Mora v. Kia America, Inc.」 접수', '진흥산업 주식회사 파산 선고 (울산지방법원 2026하합 104)'];
+  const cos = ['KG스틸', '두산에너빌리티', '포스코', '기아', '진흥산업 주식회사'];
+  const many = Array.from({ length: 2000 }, (_, i) => ({ id: `x:n${i}`, watch: '굴뚝 측정(공장 가동 신호)', kind: '종류', company: cos[i % 5], date: '2026-11-10T00:00:00Z', fact: `${facts[i % 5]} n${i}`, url: `https://example.com/item/n${i}` }));
+  const t0 = performance.now();
+  let hits = 0;
+  for (const x of many) if (matchHandled(x, big)) hits += 1;
+  const ms = performance.now() - t0;
+  assert.equal(hits, 0);
+  assert.ok(ms < 400, `항목 2,000개 대조 ${Math.round(ms)}ms — 상한 400ms`);
+  // 숫자뿐인 부호는 수량에 걸리지 않는다(337-1494 ↔ '종업원 1494명'), 사건 번호 꼴에는 걸린다
+  const itc = ledgerEntries([{ name: 'hanwha-itc-1494-with-prejudice', title: '[예약 중] 한화 ITC 337-1494 재검토 — 11/24 예약', state: '보류', updated_at: '2026-11-13T06:45:00Z', body: '' }], []);
+  const hw = (fact) => matchHandled({ id: `t:${fact.length}`, watch: '사업장 인력(국민연금)', kind: '가입자', company: '한화솔루션', date: '2026-11-01', fact }, itc)?.entry?.key ?? null;
+  assert.equal(hw('한화솔루션(주) 여수공장 · 가입자 1494명 (지난달 +12)'), null);
+  assert.equal(hw('한화솔루션 울산공장 · 연면적 1494㎡ 증축'), null);
+  assert.equal(hw('EDIS 337-TA-1494 Commission Determination (Hanwha Solutions)'), 'hanwha-itc-1494-with-prejudice');
+  assert.equal(hw('Inv. No. 337-1494 Notice'), 'hanwha-itc-1494-with-prejudice');
+  // 같은 요청 안에서 같은 항목을 다시 물으면 적어 둔 답을 쓴다(새 항목 목록 + 14일 겹친 신호)
+  assert.equal(big.memo.size, 2000);
+});
+
 test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 킬한 유형을 걷어내고 실적 있는 유형부터, 후보가 없으면 없다고 한다', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -4550,6 +4594,9 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match(d0, /- 이미 처리\(다시 내지 않음\): 처리 장부 0건 · 판정 0건\n- 이미 보도\(자동 대조 '관련 보도 있음'\): 0건\n- 약한 유형: 5건 — (?=[^\n]*굴뚝 측정 2)(?=[^\n]*지방의회 회의록 발언 2)(?=[^\n]*공장등록 고용·목록 변동 1)[^\n]* \(include_weak=true로 펼침\)/);
   assert.match(d0, /\[5\. 기자가 이미 처리한 건 — 최근 30일 0건\]/);
   assert.doesNotMatch(d0, /한정어업 허가 신청/);   // 약한 유형은 펼치기 전엔 글이 안 나온다
+  // company로 좁히면 일정도 그 낱말이 든 사건만
+  assert.doesNotMatch((await call('scoop_desk', { company: '포스코' }, opts)).text, /다가오는 일정/);
+  assert.match((await call('scoop_desk', { company: '한화솔루션' }, opts)).text, /\[2\. 다가오는 일정[^\n]*\] 1건/);
   const dw = (await call('scoop_desk', { include_weak: true }, opts)).text;
   assert.match(dw, /   〈지방의회 회의록 발언〉 접음 1건\(11-12 포스코 한정어업\)[^\n]*\n   · A · 2026-10-25 · 포스코 · [^\n]*id clik:(?:FISH|ODOR)/);
   assert.match(dw, /   〈굴뚝 측정〉 킬 16건/);
