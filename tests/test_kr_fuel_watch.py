@@ -185,6 +185,11 @@ class Build(unittest.TestCase):
         self.assertEqual([(x["no"], x["company"], x["tier"], x["units"]) for x in new], [("4874", "기아", "A", 77043)])
         self.assertEqual(noon["checks"][1]["newBeat"], 1)
 
+    def test_details_waiting_for_the_next_run_do_not_make_the_run_partial(self):
+        many = [(str(5000 - i), f"[기아] 차종 {i} - 무상수리", "2026-10-29") for i in range(8)]
+        doc, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=Board(many), sleep=lambda s: None)
+        self.assertEqual((doc["checks"][1]["status"], doc["checks"][1]["pending"], doc["status"]), ("partial", 2, "complete"))
+
     def test_one_side_failing_keeps_the_other(self):
         morning, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=Board([self.OLD_POST]), sleep=lambda s: None)
         morning["vehicles"] = [{"id": "kf:x", "firstSeen": "2026-10-29T06:10:00+09:00", "registered": "2026-10-28", "model": "m", "company": "현대차", "kind": "새 모델명"}]

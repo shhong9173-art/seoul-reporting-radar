@@ -11,6 +11,8 @@
 - 상세는 POST로만 열린다(GET은 405) — 글마다 따로 걸 주소가 없어 원문 주소는 목록 주소 뒤에 '#글 번호'를 붙인다(항목끼리 주소가
   겹치지 않게. 열면 목록이 뜨고 글 번호·제목으로 찾는다).
 - robots.txt는 없다(404, 11-14 탐침 228). 실행마다 다시 확인해 규칙이 생겨 이 경로를 막으면 읽지 않는다.
+- 요청 간격 3초, 상세는 한 실행 6개. 11-14 첫 운영(0.4초 간격·상세 12개 한도)에서 상세 7번째에 HTTP 429, 그 뒤 403이 왔다.
+  429·403이 오면 그 실행은 거기서 멈추고(다시 두드리지 않는다) 못 읽은 글은 '읽기 대기'로 다음 실행이 이어 읽는다.
 
 등급: 출입처 브랜드 공지 중 대상 1만 대 이상이거나 내용에 안전 낱말(화재·시동 꺼짐·제동·조향·에어백·동력 상실·주행 중 정지)이 있으면 A,
 그 밖 출입처 브랜드 B, 다른 브랜드는 화면에만(C). 무상수리는 리콜(제작결함 시정)이 아니다 — 국토부 공지 원문 기준.
@@ -33,7 +35,9 @@ HEADERS = {"User-Agent": UA, "Accept-Language": "ko,en;q=0.8", "Referer": LIST}
 MAX_PAGES = 8          # 한 번 실행에 읽는 목록 쪽(쪽마다 5건) — 본 적 있는 글만 나오는 쪽에서 멈춘다
 FIRST_PAGES = 4        # 첫 실행: 최근 20건을 기준선으로
 FIRST_DAYS = 2         # 첫 실행: 최근 이틀 글만 새 글로 알린다
-DETAIL_BUDGET = 12     # 한 번 실행에 여는 상세 페이지
+DETAIL_BUDGET = 6      # 한 번 실행에 여는 상세 페이지(넘으면 다음 실행)
+GAP = 3.0              # 요청 사이 간격(초). 11-14 첫 운영: 0.4초 간격으로 목록 4쪽+상세 6개를 읽자 HTTP 429, 이어 403이 왔다
+THROTTLED = ("HTTP 429", "HTTP 403")   # 누리집이 그만 읽으라고 한 응답 — 그 실행은 거기서 멈추고 다음 실행이 이어 읽는다(다시 두드리지 않는다)
 DETAIL_TRIES = 3       # 상세가 안 열리면 다음 실행에서 다시(이 횟수까지)
 KEEP_DAYS = 120
 BIG_UNITS = 10_000
@@ -181,13 +185,17 @@ def collect(prev, now, session, *, sleep=time.sleep):
         listed += rows
         if not baseline and rows and all(r["id"] in seen for r in rows):   # 본 적 있는 글만 나온 쪽 — 그 뒤는 볼 필요 없다
             break
-        sleep(0.4)
+        sleep(GAP)
     if errors and not listed:
         check.update(status="failed", error="; ".join(errors))
         return (dict(prev, stale=True) if prev else None), check
     budget = DETAIL_BUDGET
     fresh = [r for r in listed if r["id"] not in seen]
     # 상세를 못 읽고 넘겼거나 열리지 않은 출입처 글은 다음 실행이 이어 읽는다
+    for x in items.values():
+        if x.get("detail") == "failed" and x.get("detailError") in THROTTLED:   # 첫 운영(11-14) 때 429·403을 실패로 적은 글
+            x["detail"] = "pending"
+            x.pop("detailTries", None)
     retry = [x for x in items.values() if x.get("detail") == "pending" or (x.get("detail") == "failed" and (x.get("detailTries") or 0) < DETAIL_TRIES)]
     background = []     # 기준선 글(새 항목으로 올리지 않음)도 한도가 남으면 상세를 읽어 둔다 — 화면에서 대수·내용을 보려고
     for r in fresh:
@@ -200,20 +208,27 @@ def collect(prev, now, session, *, sleep=time.sleep):
             (retry if announce else background).append(rec)
         items[rec["id"]] = rec
         seen.add(r["id"])
+    throttled = ""
     for rec in retry + background:
-        if budget <= 0:
+        if budget <= 0 or throttled:
             rec["detail"] = "pending"
             continue
         budget -= 1
-        sleep(0.4)
+        sleep(GAP)
         try:
             d = _detail(session, {"id": rec["no"], "ctype": rec["ctype"]})
             rec.update(d, detail="ok")
+            rec.pop("detailError", None)
             rec["company"] = brand_of(rec["title"], d.get("maker", "")) or rec["company"]
         except Exception as e:  # noqa: BLE001
+            msg = str(e)[:50] or type(e).__name__
+            if msg in THROTTLED:            # 그만 읽으라는 응답: 이 글과 남은 글은 다음 실행으로(실패 횟수로 세지 않는다)
+                throttled = msg
+                rec["detail"] = "pending"
+                continue
             rec["detail"] = "failed"
             rec["detailTries"] = (rec.get("detailTries") or 0) + 1
-            rec["detailError"] = str(e)[:50] or type(e).__name__
+            rec["detailError"] = msg
     for rec in items.values():
         rec["tier"], rec["why"] = classify(rec)
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
@@ -221,11 +236,15 @@ def collect(prev, now, session, *, sleep=time.sleep):
     for x in kept:
         if x["firstSeen"] != stamp:
             x["isNew"] = False
+    pending = sum(1 for x in kept if x.get("detail") == "pending")
     if errors:
         check.update(status="partial", error="; ".join(errors))
+    elif pending:
+        # 원천 상태 화면은 '일부·오류 없음·대기 n건'을 실패가 아니라 '다음 실행에서 읽음'으로 적는다(digest.mjs)
+        check.update(status="partial", **({"note": f"상세 읽기 멈춤({throttled}) — 다음 실행에서 이어 읽음"} if throttled else {}))
     new = [x for x in kept if x["firstSeen"] == stamp and x.get("isNew")]
     check.update(returned=len(listed), pages=pages, total=total, newPosts=len(new), newBeat=sum(1 for x in new if x.get("company")),
-                 detailsRead=DETAIL_BUDGET - budget, pending=sum(1 for x in kept if x.get("detail") == "pending"), robots=robots_note)
+                 detailsRead=DETAIL_BUDGET - budget - (1 if throttled else 0), pending=pending, robots=robots_note)
     return {"checkedAt": stamp, "baselineAt": prev.get("baselineAt") or stamp, "total": total, "items": kept, "seen": sorted(seen, key=int)[-1500:],
             "rules": ["자동차리콜센터 '무상점검·수리' 게시판의 새 글 중 출입처 브랜드만 알린다. 첫 실행은 기준선(최근 이틀 글만 새 글).",
                       "무상수리는 리콜(제작결함 시정조치)이 아니다. 대상 대수·생산기간·내용은 국토부 공지 원문 그대로 — 원인·국내외 차이는 회사 확인.",

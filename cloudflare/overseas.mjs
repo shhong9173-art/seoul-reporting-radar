@@ -800,8 +800,9 @@ export function freeRepairSection(doc, q, limit, showAll, ctx) {
   const beat = all.filter((x) => x.company);
   const rows = showAll ? all : beat;
   out.push(`\n[국내 무상점검·수리 공지(자동차리콜센터 게시판)] 출입처 브랜드 ${beat.length}건${showAll ? ` · 다른 브랜드 ${all.length - beat.length}건` : ''} · 확인 ${String(fr.checkedAt).slice(0, 16)}${ageNote(ctx, fr.checkedAt, 60, true)}`);
-  if (c && c.status !== 'ok') out.push(`미확인(0건 아님): ${c.error ?? c.status}${fr.stale ? ' — 아래는 직전에 읽은 것' : ''}`);
-  else if (c) out.push(`목록 정상 · 이번 실행 ${c.pages ?? '?'}쪽 ${c.returned ?? '?'}건(게시판 전체 ${c.total ?? '?'}건) · 새 글 ${c.newPosts ?? 0}건(출입처 ${c.newBeat ?? 0})${c.pending ? ` · 상세 읽기 대기 ${c.pending}건(다음 실행)` : ''}`);
+  const waiting = c?.status === 'partial' && !c.error && c.pending;   // 상세 읽기 대기뿐 — 목록은 정상으로 읽었다
+  if (c && c.status !== 'ok' && !waiting) out.push(`미확인(0건 아님): ${c.error ?? c.status}${fr.stale ? ' — 아래는 직전에 읽은 것' : ''}`);
+  else if (c) out.push(`목록 정상 · 이번 실행 ${c.pages ?? '?'}쪽 ${c.returned ?? '?'}건(게시판 전체 ${c.total ?? '?'}건) · 새 글 ${c.newPosts ?? 0}건(출입처 ${c.newBeat ?? 0})${c.pending ? ` · 상세 읽기 대기 ${c.pending}건(다음 실행)` : ''}${c.note ? ` · ${c.note}` : ''}`);
   for (const r of fr.rules ?? []) out.push(`규칙: ${r}`);
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.date || '?'} · ${x.company ? `${x.tier} · ${x.company}` : '다른 브랜드'} · ${x.title} · 글 번호 ${x.no}`);

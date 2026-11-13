@@ -3836,7 +3836,7 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
     action: '소프트웨어 업데이트', attach: ['안내문.pdf'], tier: 'A', why: '대상 77,043대(1만 대 이상)', ...extra });
   const doc = { schema: 'kr_fuel/v1', generatedAt: '2026-10-26T06:10:00+09:00', fuelAt: '2026-10-26T06:10:00+09:00', status: 'complete', dataset: 'https://www.data.go.kr/data/15139827/openapi.do',
     checks: [{ source: '에너지공단 자동차 표시연비(공공데이터포털 15139827)', status: 'ok', rows: 9000, beatRows: 3100 },
-      { source: SRC, status: 'ok', returned: 20, pages: 4, total: 4177, newPosts: 3, newBeat: 3, detailsRead: 3, pending: 1 }],
+      { source: SRC, status: 'partial', returned: 20, pages: 4, total: 4177, newPosts: 3, newBeat: 3, detailsRead: 3, pending: 1, note: '상세 읽기 멈춤(HTTP 429) — 다음 실행에서 이어 읽음' }],
     vehicles: [], rules: ['연비 신고는 출시 확정이 아니다.'],
     freeRepair: { checkedAt: '2026-10-26T06:10:00+09:00', baselineAt: '2026-10-26T06:10:00+09:00', total: 4177, rules: ['무상수리는 리콜(제작결함 시정조치)이 아니다.'],
       items: [it(4874, '[기아] K8 HEV - HPCU 관련 무상수리'),
@@ -3859,7 +3859,9 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   assert.equal(deskType(k8).strength, 'normal');                  // 단독 데스크: 실적 유형도 약한 유형도 아님(기자 판정이 쌓이면 정한다)
   const t = await call('kr_fuel', {}, opts);
   assert.match(t.text, /\[국내 무상점검·수리 공지\(자동차리콜센터 게시판\)\] 출입처 브랜드 4건 · 확인 2026-10-26T06:10/);
-  assert.match(t.text, /목록 정상 · 이번 실행 4쪽 20건\(게시판 전체 4177건\) · 새 글 3건\(출입처 3\) · 상세 읽기 대기 1건\(다음 실행\)/);
+  assert.match(t.text, /목록 정상 · 이번 실행 4쪽 20건\(게시판 전체 4177건\) · 새 글 3건\(출입처 3\) · 상세 읽기 대기 1건\(다음 실행\) · 상세 읽기 멈춤\(HTTP 429\)/);
+  // 상세 읽기 대기는 실패가 아니다 — 원천 상태에는 '원문 대기'로 뜬다
+  assert.match(r.text, /- 국내 연비 신고: 자동차리콜센터 무상점검·수리 게시판 원문 대기 1건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
   assert.match(t.text, /- \[신규\] 2026-10-25 · A · 기아 · \[기아\] K8 HEV - HPCU 관련 무상수리 · 글 번호 4874\n   잡힌 사실: 기아\(주\) · K8\(GL3\) HEV · 대상 77,043대 · 생산기간 2021-04-23 ~ 2024-08-12 · 무상수리 기간 2026-10-26 ~\n   내용\(공지 원문\): 「HPCU/);
   assert.match(t.text, /조치: 「소프트웨어 업데이트」 · 첨부 안내문\.pdf\n   등급 이유: 대상 77,043대\(1만 대 이상\)/);
   assert.match(t.text, /- \[기준선\] 2026-10-10 · B · 현대차 · \[현대\] 아반떼/);
