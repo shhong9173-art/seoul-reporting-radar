@@ -4282,7 +4282,9 @@ test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓
   const seen = [];
   const list = [run(10, 'radar-press-check.yml', '2026-11-05T03:50:00Z', 'success'), run(11, 'radar-press-check.yml', '2026-11-05T09:50:00Z', 'failure'),
     run(12, 'radar-press-check.yml', '2026-11-06T09:50:00Z', 'failure'), run(13, 'radar-press-check.yml', '2026-11-06T16:57:00Z', 'failure'),
-    run(20, 'kr-local.yml', '2026-11-07T15:21:00Z', 'success', 'Local Government Notices Watch'), run(21, 'kr-local.yml', '2026-11-07T07:20:00Z', 'failure', 'Local Government Notices Watch')];
+    run(20, 'kr-local.yml', '2026-11-07T15:21:00Z', 'success', 'Local Government Notices Watch'), run(21, 'kr-local.yml', '2026-11-07T07:20:00Z', 'failure', 'Local Government Notices Watch'),
+    // 배포 뒤 운영 점검은 한 번만 실패해도 알린다(11-13 오류 1102)
+    run(30, 'worker-smoke.yml', '2026-11-07T12:00:00Z', 'success', 'Worker 배포 뒤 운영 점검'), run(31, 'worker-smoke.yml', '2026-11-07T14:40:00Z', 'failure', 'Worker 배포 뒤 운영 점검')];
   const fetchMock = async (url, init) => { seen.push({ url, init }); return url.includes('/actions/runs?') ? Response.json({ workflow_runs: list }) : new Response(null, { status: 204 }); };
   await runSchedule(opts.env, new Date('2026-11-07T15:00:00Z'), { fetch: fetchMock });  // 일 00:00 KST(요청 칸 없음, 확인 칸)
   const get = seen.find((x) => x.url.includes('/actions/runs?'));
@@ -4293,6 +4295,7 @@ test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓
   const h = await top('2026-11-07T15:20:00Z');
   assert.match(h, /^- ⚠ GitHub 실행 3회 연속 실패: Radar Press Check\(radar-press-check\.yml\) · 마지막 실패 11-07 01:57 KST · 마지막 성공 11-05 12:50 KST — 이 프로그램이 만드는 결과는 그 성공 때 것, 그 뒤 0건은 미확인$/m);
   assert.doesNotMatch(h, /kr-local\.yml/);  // 마지막이 성공
+  assert.match(h, /^- ⚠ 배포 뒤 운영 점검 실패\(1회 연속\): 기자 전용 도구 일부가 운영에서 끊겼을 수 있다\(오류 1102 등\) · 마지막 실패 11-07 23:40 KST · 마지막 성공 11-07 21:00 KST — 실패한 도구의 0건·오류는 미확인$/m);
   assert.doesNotMatch(h, /GitHub 실행 상태/);  // 확인 정상
   // 확인이 두 시간 넘게 멈추면(예약 꺼짐 등) 그 자체를 알린다
   assert.match(await top('2026-11-07T18:00:00Z'), /- GitHub 실행 상태\(30분마다 확인\): 확인이 멈춤 · 마지막 정상 확인 11-08 00:00 KST — 그 뒤 실패는 미확인/);
