@@ -4621,6 +4621,13 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.equal(deskType({ watch: '공장등록·관보', kind: '환경영향평가 초안', tier: 'A' }).strength, 'normal');
   assert.equal(deskType({ watch: '무역구제', kind: '해외 조사 dgtr', tier: 'B', company: '인도', fact: '인도 DGTR 반덤핑 조사: TDI from Korea RP' }).key, 'foreignlist');
   assert.equal(deskType({ watch: '무역구제', kind: '대한 수입규제', tier: 'B', company: '미국', fact: '미국 반덤핑 예비판정 — POSCO 3.2%' }).key, 'foreigndoc');
+  // 기자가 이미 쓴 기사와 자동 대조로 이어진 항목은 후보에서 빼고 4구역에 기사 제목과 함께 적는다(패키지를 안 남긴 기사)
+  assert.equal((await post('my-articles', { schema: 'my_articles/v1', generatedAt: recent, status: 'complete', checks: [{ source: '아이뉴스24 뉴스 사이트맵', status: 'ok' }], articles: [], counts: {},
+    itemHits: { 'ktc:case:00000873': { title: '[단독] LG화학, 수입산 점착제 원료 반덤핑 조사 신청', published: recent, url: 'https://www.inews24.com/view/1', verified: true } } })).status, 200);
+  const dm = (await call('scoop_desk', {}, opts)).text;
+  assert.match(dm, /후보 0건\n/);
+  assert.match(dm, /- 기자가 이미 쓴 기사\(아이뉴스24 자동 대조\): 1건\n   \d\d-\d\d 「\[단독\] LG화학, 수입산 점착제 원료 반덤핑 조사 신청」 ← 무역구제 · 아크릴산 2-에틸헥실 · id ktc:case:00000873\n/);
+  await post('my-articles', { schema: 'my_articles/v1', generatedAt: recent, status: 'complete', checks: [{ source: '아이뉴스24 뉴스 사이트맵', status: 'ok' }], articles: [], counts: {}, itemHits: {} });
   // company로 좁히면 일정도 그 낱말이 든 사건만
   assert.doesNotMatch((await call('scoop_desk', { company: '포스코' }, opts)).text, /다가오는 일정/);
   assert.match((await call('scoop_desk', { company: '한화솔루션' }, opts)).text, /\[2\. 다가오는 일정[^\n]*\] 1건/);
