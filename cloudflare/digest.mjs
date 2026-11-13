@@ -918,7 +918,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const partner = x.source === 'EDGAR' ? EDGAR_KO[ticker] : ASX_KO[ticker] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
     const word = x.source === 'HKEX' ? '합작' : LITIGATION.test(String(x.snippet ?? '')) ? '특허' : '계약';
     const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';
-    push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
+    // 11-13: A인데 서류 이름만 떠서('EDGAR X-Energy, Inc. (XE): 8-K EX-99.1') 무엇인지 알 수 없었다 — 출입처 이름이 나온 본문 대목을 붙인다.
+    // 대목이 없는 것은 A를 주지 않는다(B) — 제목만으로는 계약인지 알 수 없다. ASX·HKEX는 제목이 곧 내용이라 그대로.
+    const snip = String(x.snippet ?? '').replace(/\s+/g, ' ').trim();
+    if (tier === 'A' && x.source === 'EDGAR' && !snip) tier = 'B';
+    const quote = snip && tier !== 'C' ? ` · 본문 대목 「${clipAt(snip, 280)}」` : '';
+    push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}${quote}`, url: x.url,
       // 공시 회사 이름이 기사에 있어야 같은 건(10-31: '한화솔루션 퍼스트솔라 특허'가 「한화솔루션, ESS·태양전지 특허 폭증」으로 '관련 보도 있음')
       check: partner ? hint((x.beat ?? [])[0], [partner, word], [], [partner]) : undefined });
   }
@@ -1073,9 +1078,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건
   for (const e of docs['kr-exec-market']?.events ?? []) {
     if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt) || e.baseline) continue;   // 지난 소집공고 되짚기 후보는 기준선
+    // 11-13 기자 결정: 다른 회사 임원 명단에 출입처 출신이 보인 것은 한 단계 내림(A→B, B는 화면에만) — 출입처 회사의 변화가 아니다.
+    // 출입처·시장 전체의 독립이사 선임·중도퇴임·대표이사 변경·이사 후보는 그대로.
+    const tierE = e.kind === '타사 등기임원' ? (e.tier === 'A' ? 'B' : 'C') : e.tier;
+    if (tierE === 'C') continue;
     const name = String(e.person?.name ?? '').trim();
     const flags = (e.flags ?? []).map((f) => f.text).filter(Boolean).join(' / ');
-    push(e.tier, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
+    push(tierE, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       fact: `${e.text}${flags ? ` 〔표시: ${flags}〕` : ''}${e.source === '임원 현황' ? ' (보고서 명단 비교 — 선임일·경위는 회사 확인)' : ''}`,
       check: name ? hint(e.company, [name, '인사'], [], [name]) : hint(e.company, ['인사']) });
   }
@@ -1092,14 +1101,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       check: name ? hint(e.company, [name, word], [], [name]) : hint(e.company, [word]) });
   }
 
-  // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장
+  // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 B(수집기 A를 한 단계 내림 — 11-13 기자 결정, 그 밖은 저장만). 의원 질의는 주장
   for (const e of docs['council-minutes']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const t = String(e.text ?? '');
     const word = /야적|불법|위반|행정처분/.test(t) ? '불법' : /오염|유출|악취/.test(t) ? '오염' : /감면|보조금|특혜|지방세|체납/.test(t) ? '감면'
       : /증설|신설/.test(t) ? '증설' : /이전|폐쇄|철수/.test(t) ? '폐쇄' : '의회';
     const council = String(e.council ?? '').replace(/의회$/, '');
-    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['council-minutes'], { kind: e.kind ?? '지방의회 회의록', id: e.id, date: e.detectedAt, company: e.company,
+    // 11-13 기자 결정: 한 단계 내림(A→B, B→C). 그날 A 16건 중 7건이 포항시의회 회의록 발언이었고 단독감이 없었다(11-12 한정어업 건은 접음).
+    push(e.tier === 'A' ? 'B' : 'C', W['council-minutes'], { kind: e.kind ?? '지방의회 회의록', id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word], [], council ? [council] : []) });
   }
 

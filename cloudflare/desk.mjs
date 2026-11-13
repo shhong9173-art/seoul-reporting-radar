@@ -51,7 +51,7 @@ export const DESK_TYPES = [
     test: (x) => x.watch === W.labor && !/조정|중재|교섭/.test(`${x.kind ?? ''} ${x.fact ?? ''}`.slice(0, 160)) },
   { key: 'execmarket', strength: 'weak', label: '다른 회사 임원 명단 속 출입처 출신', why: '출입처 회사의 변화가 아님(11-13 A 3건: 애경산업·씨케이솔루션·에이팩트)',
     test: (x) => x.watch === W.execm && /타사|명단에 새로 보임|출신/.test(`${x.kind ?? ''} ${x.fact ?? ''}`.slice(0, 200)) },
-  { key: 'partner', strength: 'weak', label: '해외 파트너 공시(제목뿐)', why: '내용 요약 없이 서류 이름만 뜸(11-13 A 3건)', test: (x) => x.watch === W.partner },
+  { key: 'partner', strength: 'weak', label: '해외 파트너 공시(제목뿐)', why: '출입처 이름이 나온 본문 대목 없이 서류 이름만 뜸(11-13 A 3건)', test: (x) => x.watch === W.partner && !/본문 대목 「/.test(x.fact ?? '') },
   { key: 'factorychange', strength: 'weak', label: '공장등록 고용·목록 변동', why: '킬 2건(11-04 KG스틸 고용 — 담당자 등록 실수, 11-13 현대차 안성 목록 빠짐)',
     test: (x) => x.watch === W.official && /^공장 (?:목록에서 빠짐|등록 내용 변경|고용)/.test(x.kind ?? '') },
   { key: 'smallinsolv', strength: 'weak', label: '거래 관계 모르는 소규모 회생·파산', why: '출입처 협력사 명단에 없고 종업원 수 명~십수 명', test: (x) => x.watch === W.insolv && x.tier !== 'A' },
