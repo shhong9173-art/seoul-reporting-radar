@@ -37,6 +37,7 @@ jobs:
           SIGNA_API_KEY: ${{ secrets.SIGNA_API_KEY }}
           EPO_OPS_KEY: ${{ secrets.EPO_OPS_KEY }}
           EPO_OPS_SECRET: ${{ secrets.EPO_OPS_SECRET }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
         run: python scripts/probe/award_probe.py
       - run: python scripts/probe/print_part.py 0
       - run: python scripts/probe/print_part.py 1
