@@ -930,11 +930,13 @@ def main():
     import listing_producers
     try:
         lc, lr = listing_producers.attach(doc, previous, os.environ.get("DART_API_KEY", "").strip(), now)
-        store = doc.get("listingProducers") or {}
-        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 이번 {lc}줄(보고서 {lr}곳) · 저장 {len(store)}줄 · "
+        store, pidx = doc.get("listingProducers") or {}, doc.get("producerIndex") or {}
+        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 {lc}줄 · 이번에 받은 보고서 {lr}곳 · "
+              f"낱말 색인 {sum(1 for v in pidx.values() if v.get('status') == 'found')}/{len(pidx)}곳 · 저장 {len(store)}줄 · "
               f"낱말 찾은 줄 {sum(1 for v in store.values() if v.get('line'))}")
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다(지난 결과는 이어 간다)
         doc["listingProducers"] = (previous or {}).get("listingProducers") or {}
+        doc["producerIndex"] = (previous or {}).get("producerIndex") or {}
         print(f"::warning title=trade-remedy-listing-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))

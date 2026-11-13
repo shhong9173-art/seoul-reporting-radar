@@ -86,7 +86,7 @@ class Attach(unittest.TestCase):
             return report_zip("자회사는 페놀·아세톤 사업을 한다.")
         return report_zip("주요 제품은 TDI, 가성소다, PVC이다.")
 
-    def test_attach_once_per_line_and_reports_once_per_run(self):
+    def test_reports_are_indexed_once_and_lines_use_the_index(self):
         events = [ev("a1", ACETONE), ev("a2", "Ongoing Investigation " + ACETONE), ev("c1", COUNTRY), ev("x1", CHISEL),
                   ev("old", ACETONE, detected="2026-08-01T07:40:00+09:00"),                       # 45일 넘은 줄은 안 본다
                   ev("k1", "아세톤 덤핑 조사", page="ktc"), ev("r1", ACETONE, renumbered=True)]   # 국내 무역위·번호만 밀린 줄
@@ -94,7 +94,11 @@ class Attach(unittest.TestCase):
         n, reports = lp.attach(doc, None, "KEY", NOW, list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
         self.assertEqual((n, reports), (2, 3))
         self.assertEqual(sorted(doc["listingProducers"]), ["a1", "a2"])
-        self.assertEqual(len(self.docs), 3)                         # 회사마다 보고서 한 번(두 줄이 같은 보고서를 다시 받지 않는다)
+        self.assertEqual(len(self.docs), 3)                         # 회사마다 보고서 한 번
+        idx = doc["producerIndex"]
+        self.assertEqual((idx["LG화학"]["status"], idx["LG화학"]["year"], idx["LG화학"]["terms"]["아세톤"][0]), ("found", 2025, 2))
+        self.assertIn("BPA", idx["LG화학"]["terms"])                # 용어 표의 다른 낱말도 한 번에 세어 둔다(다음 줄은 DART를 안 부른다)
+        self.assertNotIn("text", idx["LG화학"])                     # 보고서 글 자체는 저장하지 않는다
         got = doc["listingProducers"]["a1"]
         by = {c["company"]: c for c in got["products"][0]["companies"]}
         self.assertEqual((by["LG화학"]["status"], by["LG화학"]["hits"], by["LG화학"]["term"]), ("found", 2, "아세톤"))
@@ -107,19 +111,49 @@ class Attach(unittest.TestCase):
         self.assertIn("미확인 5곳", got["line"])                    # 조회 실패 1 + 고유번호 없음 4
         self.assertTrue(got["line"].endswith("— 보고서에 낱말이 있다는 것뿐, 조사 대상 수출자인지·그 나라 수출 여부는 미확인(회사 확인)"))
         self.assertNotIn("I. 회사의 개요", got["line"])
-        # 다음 실행: 이미 본 줄은 다시 받지 않는다
+        # 다음 실행: 받은 보고서는 다시 받지 않는다. 새 줄(TDI)도 색인으로만 대조한다. 실패한 회사만 다시 묻는다
         self.lists.clear()
-        doc2 = {"events": events}
-        self.assertEqual(lp.attach(doc2, doc, "KEY", NOW + dt.timedelta(days=1), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch), (0, 0))
-        self.assertEqual((self.lists, sorted(doc2["listingProducers"])), ([], ["a1", "a2"]))
-        # 키가 없으면 대조하지 않고 지난 결과만 넘긴다
-        doc3 = {"events": events + [ev("t1", "Toluene Di-isocyanate (TDI) from Korea RP")]}
-        self.assertEqual(lp.attach(doc3, doc2, "", NOW), (0, 0))
-        self.assertNotIn("t1", doc3["listingProducers"])
-        # 120일 지난 결과는 버린다
-        doc4 = {"events": []}
-        lp.attach(doc4, doc2, "KEY", NOW + dt.timedelta(days=130), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
-        self.assertEqual(doc4["listingProducers"], {})
+        self.docs.clear()
+        doc2 = {"events": events + [ev("t1", "Sunset Review investigation concerning imports of Toluene Di-isocyanate (TDI) from Korea RP")]}
+        n2, reports2 = lp.attach(doc2, doc, "KEY", NOW + dt.timedelta(days=1), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual((n2, reports2, self.docs), (3, 0, []))
+        self.assertEqual(len(self.lists), 1)                        # 롯데케미칼만 다시(나머지 넷은 고유번호 없음 — DART를 부르지 않는다)
+        tdi = {c["company"]: c for c in doc2["listingProducers"]["t1"]["products"][0]["companies"]}
+        self.assertEqual((tdi["한화솔루션"]["status"], tdi["한화솔루션"]["term"], tdi["LG화학"]["status"]), ("found", "TDI", "none"))
+        # 세 번 실패한 회사는 7일 동안 다시 묻지 않는다
+        doc3 = {"events": events}
+        lp.attach(doc3, doc2, "KEY", NOW + dt.timedelta(days=2), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual(doc3["producerIndex"]["롯데케미칼"]["tries"], 3)
+        self.lists.clear()
+        doc4 = {"events": events}
+        lp.attach(doc4, doc3, "KEY", NOW + dt.timedelta(days=3), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual(self.lists, [])
+        # 키가 없어도 저장된 색인으로 새 줄을 대조한다. 색인도 키도 없으면 아무것도 안 한다
+        doc5 = {"events": [ev("n1", ACETONE, detected="2026-11-16T07:40:00+09:00")]}
+        self.assertEqual(lp.attach(doc5, doc4, "", NOW + dt.timedelta(days=3)), (1, 0))
+        self.assertIn("LG화학 2곳", doc5["listingProducers"]["n1"]["line"])
+        doc6 = {"events": [ev("n1", ACETONE)]}
+        self.assertEqual(lp.attach(doc6, None, "", NOW), (0, 0))
+        self.assertEqual((doc6["listingProducers"], doc6["producerIndex"]), ({}, {}))
+        # 보고서 연도가 바뀌면(4월) 색인을 새로 만든다. 120일 지난 줄 결과는 버린다
+        doc7 = {"events": []}
+        lp.attach(doc7, doc4, "KEY", dt.datetime(2027, 4, 2, 7, 40, tzinfo=KST), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual((doc7["producerIndex"], doc7["listingProducers"]), ({}, {}))
+
+    def test_time_budget_defers_the_rest_to_the_next_run(self):
+        # 11-14 첫 운영: 19곳 보고서를 한 실행에 받느라 무역구제 감시가 길어졌다 — 한 실행 90초까지, 남은 회사는 다음 실행
+        self.codes.pop("롯데케미칼")
+        ticks = iter([0, 10, 100, 200, 300, 400, 500, 600, 700, 800])
+        doc = {"events": [ev("a1", ACETONE)]}
+        n, reports = lp.attach(doc, None, "KEY", NOW, list_fetch=self.list_fetch, doc_fetch=self.doc_fetch, clock=lambda: next(ticks))
+        self.assertEqual((n, reports, sorted(doc["producerIndex"])), (1, 1, ["LG화학"]))          # 첫 회사만 받고 멈춤
+        by = {c["company"]: c for c in doc["listingProducers"]["a1"]["products"][0]["companies"]}
+        self.assertEqual((by["LG화학"]["status"], by["금호석유화학"]["status"]), ("found", "pending"))
+        self.assertIn("미확인 7곳", doc["listingProducers"]["a1"]["line"])
+        doc2 = {"events": [ev("a1", ACETONE)]}
+        n2, reports2 = lp.attach(doc2, doc, "KEY", NOW + dt.timedelta(days=1), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual(reports2, 2)                                # 금호석유화학·한화솔루션(LG화학은 다시 안 받음)
+        self.assertIn("금호석유화학 1곳", doc2["listingProducers"]["a1"]["line"])
 
     def test_no_word_in_any_report_adds_no_line(self):
         doc = {"events": [ev("f1", "Fumed silica from China PR and Korea RP")]}
