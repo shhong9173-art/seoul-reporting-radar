@@ -10,18 +10,23 @@
   그 나라로 수출하는지는 미확인 — 회사 확인.
 - 낱말이 없다 = 보고서에 안 적었을 수 있다(안 만든다는 뜻 아님) → 줄을 붙이지 않는다. 용어 표에 없는 품목도 붙이지 않는다.
 - 약어(TDI·PVC·SBR…)는 앞뒤가 영문자가 아닐 때만 센다('SSBR' 속 'SBR'은 다른 품목).
-- 한 실행에 새 줄 MAX_EVENTS건까지, 회사마다 보고서 한 번(같은 실행 안에서 재사용). 줄별 결과는 저장해 다시 받지 않는다.
-- 결과는 기자 전용 저장소(trade-remedy)의 listingProducers에만. 공개 로그엔 건수만.
+- 사업보고서는 회사마다 한 해에 한 번만 받는다: 받은 보고서에서 용어 표의 낱말을 모두 세어 '낱말 색인'(producerIndex)으로 저장하고,
+  목록 줄은 그 색인으로만 대조한다(DART를 다시 부르지 않는다). 색인 만들기는 한 실행에 TIME_BUDGET초까지 — 남은 회사는 다음 실행.
+  (11-14 첫 운영: 줄마다 보고서를 받게 짰더니 19곳을 한 실행에 받느라 평소 2분인 무역구제 감시가 길어졌다 — 20분 상한을 넘기면 그 실행의
+  무역구제 결과 전체가 저장되지 않는다.)
+- 결과는 기자 전용 저장소(trade-remedy)의 listingProducers·producerIndex에만. 공개 로그엔 건수만.
 """
 from __future__ import annotations
 
 import re
+import time
 from datetime import timedelta
 
 import ktc_producers as kp
 
-EV_VERSION = 1
-MAX_EVENTS = 12   # 줄 수 한도. 비용은 보고서 수(회사마다 한 번, 많아야 19곳)에 달려 있다 — 같은 조사의 제목 줄·상태 줄이 따로 세어진다
+EV_VERSION = 2
+TIME_BUDGET = 90       # 한 실행에 보고서를 받는 데 쓰는 시간(초). 넘으면 남은 회사는 다음 실행
+FETCH_TRIES = 3        # 보고서를 못 받은 회사는 이 횟수까지 다시(그 뒤로는 7일에 한 번)
 WINDOW_DAYS = 45
 KEEP_DAYS = 120
 SNIPPET = 36
@@ -119,40 +124,81 @@ def find(text, terms):
     return best
 
 
-def report_text(name, key, year, codes, cache, *, list_fetch=None, doc_fetch=None, plain=None):
-    """회사 사업보고서 'II. 사업의 내용' 글(같은 실행 안에서 한 번만 받는다). {'status', 'receiptNo'?, 'text'?}"""
+def fetch_section(name, key, year, codes, *, list_fetch=None, doc_fetch=None, plain=None):
+    """회사 최근 사업보고서 'II. 사업의 내용' 글을 받는다. {'status', 'receiptNo'?, 'text'?}"""
     import business_content as bc
-    if name in cache:
-        return cache[name]
     code = codes.get(name)
     if not code:
-        cache[name] = {"status": "no_code"}
-        return cache[name]
+        return {"status": "no_code"}
     try:
         rec = bc.annual_receipt(key, code, year, fetch=list_fetch or bc.api_json)
         if not rec.get("receiptNo"):
-            cache[name] = {"status": rec.get("status") or "no_report"}
-        else:
-            rep = bc.fetch_report(key, rec["receiptNo"], fetch=doc_fetch or bc.api_bytes)
-            cache[name] = {"status": rep["status"], "receiptNo": rec["receiptNo"], "text": (plain or bc.plain)(rep["section"]) if rep.get("section") else ""}
+            return {"status": rec.get("status") or "no_report"}
+        rep = bc.fetch_report(key, rec["receiptNo"], fetch=doc_fetch or bc.api_bytes)
+        return {"status": rep["status"], "receiptNo": rec["receiptNo"], "text": (plain or bc.plain)(rep["section"]) if rep.get("section") else ""}
     except Exception as e:  # noqa: BLE001 — 한 회사 실패가 다른 회사를 막지 않는다(미확인으로 남김)
-        cache[name] = {"status": "error", "error": type(e).__name__}
-    return cache[name]
+        return {"status": "error", "error": type(e).__name__}
 
 
-def event_evidence(event, key, now, codes, cache, **kw):
+def index_text(text):
+    """보고서 글에서 용어 표의 낱말을 모두 센다 → {낱말: [횟수, 첫 문맥]} (나온 낱말만)."""
+    out = {}
+    for _, _, _, terms, _ in GLOSSARY:
+        for term in terms:
+            if term in out:
+                continue
+            ms = list(term_rx(term).finditer(text))
+            if ms:
+                m = ms[0]
+                out[term] = [len(ms), re.sub(r"\s+", " ", text[max(0, m.start() - SNIPPET):min(len(text), m.end() + SNIPPET)]).strip()]
+    return out
+
+
+def build_index(previous_index, needed, key, now, *, clock=time.monotonic, **kw):
+    """회사별 낱말 색인. 올해 볼 보고서 연도의 색인이 이미 있으면 그대로 쓰고, 없는 회사만 TIME_BUDGET 안에서 받는다.
+    돌려줌: (색인, 이번에 받은 보고서 수)."""
     year = kp.report_year(now)
-    out = {"v": EV_VERSION, "eventId": event["id"], "year": year, "checkedAt": now.isoformat(timespec="seconds"), "products": []}
+    stamp = now.isoformat(timespec="seconds")
+    idx = {k: v for k, v in (previous_index or {}).items() if isinstance(v, dict) and v.get("year") == year}
+    if not key:
+        return idx, 0
+    codes, start, fetched = kp.corp_codes(), clock(), 0
+    for name in needed:
+        cur = idx.get(name)
+        if cur and cur.get("status") in ("found", "section_not_found", "no_annual_report", "no_matching_report", "not_due"):
+            continue                                   # 받았거나, 받을 보고서가 없다는 답을 받았다
+        if cur and (cur.get("tries") or 0) >= FETCH_TRIES and str(cur.get("checkedAt") or "") >= (now - timedelta(days=7)).isoformat():
+            continue                                   # 여러 번 실패한 회사는 7일 뒤에 다시
+        if clock() - start > TIME_BUDGET:
+            break                                      # 남은 회사는 다음 실행(색인에 없으면 '대기')
+        got = fetch_section(name, key, year, codes, **kw)
+        row = {"year": year, "status": got["status"], "checkedAt": stamp}
+        if got["status"] == "found":
+            row.update(receiptNo=got["receiptNo"], terms=index_text(got["text"]))
+            fetched += 1
+        else:
+            row.update(tries=((cur or {}).get("tries") or 0) + 1, **({"error": got["error"]} if got.get("error") else {}),
+                       **({"receiptNo": got["receiptNo"]} if got.get("receiptNo") else {}))
+        idx[name] = row
+    return idx, fetched
+
+
+def event_evidence(event, idx, now):
+    out = {"v": EV_VERSION, "eventId": event["id"], "year": kp.report_year(now), "checkedAt": now.isoformat(timespec="seconds"), "products": []}
     for label, terms, group in products_in(event.get("text")):
         rows = []
         for name in GROUPS.get(group, ()):
-            got = report_text(name, key, year, codes, cache, **kw)
+            got = idx.get(name)
             row = {"company": SHOW.get(name, name)}
+            if not got:
+                rows.append({**row, "status": "pending"})          # 아직 보고서를 못 받음(다음 실행)
+                continue
             if got.get("status") != "found":
                 rows.append({**row, "status": got.get("status") or "error"})
                 continue
-            hits, seg, term = find(got["text"], terms)
-            rows.append({**row, "status": "found" if hits else "none", "receiptNo": got["receiptNo"], **({"hits": hits, "snippet": seg, "term": term} if hits else {})})
+            best = max(((got["terms"][t][0], got["terms"][t][1], t) for t in terms if t in got.get("terms", {})), default=None)
+            rows.append({**row, "status": "found" if best else "none", "receiptNo": got["receiptNo"],
+                         **({"hits": best[0], "snippet": best[1], "term": best[2]} if best else {})})
         out["products"].append({"label": label, "group": group, "companies": rows})
     out["line"] = line(out)
     return out
@@ -176,20 +222,24 @@ def line(ev):
 
 
 def attach(doc, previous, key, now, **kw):
-    """doc['listingProducers'][줄 id] — 최근 WINDOW_DAYS일 해외 조사 목록 줄 가운데 용어 표에 맞고 아직 안 본 것.
-    반환: (새로 본 줄 수, 이번에 받은 보고서 수). 키가 없으면 지난 결과만 이어 간다."""
+    """doc['listingProducers'][줄 id]와 doc['producerIndex'][회사]. 최근 WINDOW_DAYS일 해외 조사 목록 줄 가운데 용어 표에 맞는 줄을
+    회사별 낱말 색인으로 대조한다(줄 대조는 DART를 부르지 않는다 — 실행마다 다시 계산). 반환: (대조한 줄 수, 이번에 받은 보고서 수)."""
     old = (previous or {}).get("listingProducers") or {}
     keep_from = (now - timedelta(days=KEEP_DAYS)).isoformat()
     store = {k: v for k, v in old.items() if isinstance(v, dict) and str(v.get("checkedAt") or "") >= keep_from}
     since = (now - timedelta(days=WINDOW_DAYS)).isoformat()
     events = [e for e in doc.get("events") or [] if e.get("pageId") not in SKIP_PAGES and not e.get("renumbered")
               and str(e.get("detectedAt") or "") >= since and products_in(e.get("text"))]
-    todo = [e for e in sorted(events, key=lambda e: str(e.get("detectedAt")), reverse=True) if (store.get(e["id"]) or {}).get("v") != EV_VERSION][:MAX_EVENTS]
-    if not key or not todo:
-        doc["listingProducers"] = store
-        return 0, 0
-    codes, cache = kp.corp_codes(), {}
-    for e in todo:
-        store[e["id"]] = event_evidence(e, key, now, codes, cache, **kw)
+    needed = []
+    for e in sorted(events, key=lambda e: str(e.get("detectedAt")), reverse=True):      # 새 줄의 품목 묶음부터 받는다
+        for _, _, group in products_in(e.get("text")):
+            for name in GROUPS.get(group, ()):
+                if name not in needed:
+                    needed.append(name)
+    idx, fetched = build_index((previous or {}).get("producerIndex"), needed, key, now, **kw)
+    doc["producerIndex"] = idx
+    if key or idx:
+        for e in events:
+            store[e["id"]] = event_evidence(e, idx, now)
     doc["listingProducers"] = store
-    return len(todo), sum(1 for v in cache.values() if v.get("status") == "found")
+    return len(events) if (key or idx) else 0, fetched
