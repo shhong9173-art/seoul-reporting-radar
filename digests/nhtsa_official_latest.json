@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13T16:26:14.024156+09:00",
+  "generatedAt": "2026-11-14T02:42:11.003396+09:00",
   "source": "US NHTSA official recalls and complaints",
   "checks": [
     {
@@ -64,7 +64,7 @@
       "year": 2026,
       "kind": "complaints",
       "status": "checked",
-      "rows": 6
+      "rows": 7
     }
   ],
   "records": [
@@ -868,6 +868,17 @@
       "id": "26V046000",
       "officialApi": "https://api.nhtsa.gov/recalls/recallsByVehicle?make=Kia&model=SORENTO&modelYear=2026",
       "reportDate": "27/01/2026",
+      "alreadyPublic": true,
+      "confirmedScoop": false
+    },
+    {
+      "make": "Kia",
+      "model": "SORENTO",
+      "year": 2026,
+      "kind": "complaints",
+      "id": "11777222",
+      "officialApi": "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=Kia&model=SORENTO&modelYear=2026",
+      "reportDate": "11/11/2026",
       "alreadyPublic": true,
       "confirmedScoop": false
     },
