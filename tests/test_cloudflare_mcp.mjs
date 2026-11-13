@@ -19,7 +19,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -3245,6 +3245,35 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
   assert.doesNotMatch(ph, /- 부품사 · 김전무/);
 });
 
+test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·상태 줄·나라 줄은 radar_today에 한 줄로, 조사가 여럿이면 나라 줄은 그대로', async () => {
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  const tdi = 'https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-toluene-diisocyanate-tdi';
+  const list = 'https://www.dgtr.gov.in/en/anti-dumping-investigation-in-india';
+  const ev = (n, text, url, extra = {}) => ({ id: `dgtr:${n}`, pageId: 'dgtr', country: '인도', label: '인도 DGTR 반덤핑 조사', text, url, detectedAt: at, ...extra });
+  // 11-12 운영 그대로: TDI 일몰재심 세 줄
+  const three = [ev(1, 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) originating in or exported from China PR, Japan and Korea RP', tdi),
+    ev(2, 'Ongoing Investigation Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) originating in or exported from China PR, Japan and Korea RP', tdi),
+    ev(3, 'Country: China PR, Japan and Korea RP Type of Investigation: Anti-dumping Investigation Type of Proceeding: Sunset Review Investigation', list)];
+  const m = mergeListingLines(three);
+  assert.deepEqual([...m.drop].sort(), ['dgtr:1', 'dgtr:3']);
+  assert.match(m.merged.get('dgtr:2').text, /^Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^·]* · Country: China PR, Japan and Korea RP Type of Investigation: Anti-dumping Investigation Type of Proceeding: Sunset Review Investigation$/);
+  // 한 실행에 조사가 둘이면 나라 줄이 어느 조사 것인지 모른다 — 주소가 같은 줄만 합치고 나라 줄은 둔다
+  const nacn = 'https://www.dgtr.gov.in/en/anti-dumping-cases/sodium-cyanide';
+  const two = mergeListingLines([...three, ev(4, "Anti-dumping investigation concerning imports of 'Sodium Cyanide (NaCN)' from Korea RP", nacn), ev(5, 'Country: Korea RP Type of Proceeding: Mid Term Review Investigation', list)]);
+  assert.deepEqual([...two.drop].sort(), ['dgtr:1']);
+  assert.equal(two.merged.size, 0);
+  // 다른 실행·다른 목록·국내 무역위·영국 공개기록 줄은 건드리지 않는다
+  assert.equal(mergeListingLines([three[0], { ...three[1], detectedAt: '2026-10-20T00:00:00Z' }, { ...three[2], pageId: 'cbsa' }, { ...three[1], id: 'k', pageId: 'ktc' }, { ...three[1], id: 't', pageId: 'trafile' }]).drop.size, 0);
+  const opts = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: three }) }), opts.env, {})).status, 200);
+  const r = (await call('radar_today', {}, opts)).text;
+  assert.equal((r.match(/Toluene DiIsocyanate/g) ?? []).length, 1);
+  assert.match(r, /무역구제 · 인도\n   인도 DGTR 반덤핑 조사: Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^\n]* · Country: China PR, Japan and Korea RP[^\n]*Sunset Review Investigation/);
+  // 구역 도구(공고 변화)는 수집한 줄 그대로 보여 준다
+  assert.equal(((await call('trade_remedies', { section: 'notices' }, opts)).text.match(/인도 DGTR 반덤핑 조사\n/g) ?? []).length, 3);
+});
+
 test('영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관 쟁점 문서가 radar_today·단독 데스크 맨 위에, trade_remedies section=tra에 낸 곳·파일·본문 대목', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -4698,9 +4727,9 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
       { id: 'tra:1', pageId: 'tra', country: '영국', label: '영국 무역구제청(TRA) 공개 기록', text: 'AD0092 Submission by LG Chem Ltd and Hanwha Solutions — particular market situation', url: 'https://www.trade-remedies.service.gov.uk/public/case/AD0092/submission/1/', detectedAt: recent }] });
   const df = (await call('scoop_desk', {}, opts)).text;
   assert.match(df, /후보 3건\n/);
-  assert.match(df, /\[1\. 새 후보 — 실적 있는 유형부터\] 3건 \(같은 날 같은 종류·같은 원문 1건 접음\)\n〈실적 있는 유형〉\n/);
+  assert.match(df, /\[1\. 새 후보 — 실적 있는 유형부터\] 3건\n〈실적 있는 유형〉\n/);   // 같은 조사의 두 줄은 이미 한 줄로 합쳐져 온다(mergeListingLines)
   assert.match(df, /- B · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · 영국\n   영국 무역구제청\(TRA\) 공개 기록: AD0092 Submission by LG Chem Ltd and Hanwha Solutions[^\n]*\n   〔이 유형 실적〕 11-10 \[단독\] 英 S-PVC/);
-  assert.match(df, /〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · [^\n]* · 해외 무역구제 목록 새 줄\(한국산\) · 인도\n   인도 DGTR 반덤핑 조사: Anti-dumping investigation concerning imports of Toluene[^\n]*\n   〔볼 것〕 목록에 한국산 줄이 생겼다는 것뿐/);
+  assert.match(df, /〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · [^\n]* · 해외 무역구제 목록 새 줄\(한국산\) · 인도\n   인도 DGTR 반덤핑 조사: Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^\n]*\n   〔볼 것〕 목록에 한국산 줄이 생겼다는 것뿐/);
   assert.equal((df.match(/Toluene DiIsocyanate/g) ?? []).length, 1);
   // 후보는 있는데 실적 있는 유형이 없는 날은 그렇다고 먼저 말한다
   await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: [dg(1, 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) from Korea RP', tdi)] });

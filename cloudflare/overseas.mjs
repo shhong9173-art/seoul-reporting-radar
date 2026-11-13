@@ -481,7 +481,7 @@ export function traSection(tra, q = '', limit = 15, showAll = false, fromIso = '
   const sorted = [...shown].sort((a, b) => Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)) || String(b.published).localeCompare(String(a.published)) || (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3));
   out.push(`문서(게시일 기준): A·B ${all.filter((d) => d.tier !== 'C').length}건${showAll ? '' : ` · 그 밖 C ${all.length - shown.length}건 숨김(show_all=true)`}`);
   for (const d of sorted.slice(0, limit)) {
-    out.push(`- ${d.tier}${d.isNew ? ' [신규]' : ''} · 게시 ${d.published || '날짜 없음'} · ${d.case} · ${d.party}(${d.ptype || '구분 없음'}) · 「${d.title}」`);
+    out.push(`- ${d.tier}${d.isNew ? ' [신규]' : ''} · 게시 ${d.published || '날짜 없음'} · ${d.case} · ${d.party}${d.ptype && d.ptype !== d.party ? `(${d.ptype})` : ''} · 「${d.title}」`);
     out.push(`   ${d.why}${(d.companies ?? []).length ? ` · 출입처 ${d.companies.join('·')}` : ''}${(d.mentions ?? []).length ? `(본문에 나온 이름 ${d.mentions.join('·')})` : ''}${d.govMention ? ' · 본문에 한국 정부' : ''}`);
     if ((d.fileList ?? []).length) out.push(`   파일 ${d.fileList.length}개: ${d.fileList.slice(0, 5).map((f) => f.name).join(', ')}${d.fileList.length > 5 ? ' 외' : ''}`);
     if ((d.snippets ?? []).length) out.push(`   본문 대목(${d.pdfFile ?? '첫 PDF'}, ${d.pdfPages ?? '?'}쪽 중 앞 40쪽): ${d.snippets.map((t) => `"${t}"`).join(' / ')}`);

@@ -610,8 +610,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   }
 
   const tr = docs['trade-remedy'];
-  for (const e of tr?.events ?? []) {
-    if (!recent(e.detectedAt) || e.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
+  const listing = mergeListingLines(tr?.events ?? []);
+  for (const e0 of tr?.events ?? []) {
+    if (!recent(e0.detectedAt) || e0.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
+    if (listing.drop.has(e0.id)) continue;                  // 같은 조사의 겹친 줄(제목 줄·상태 줄·나라 줄) — 남긴 한 줄에 합쳐 적는다
+    const e = listing.merged.get(e0.id) ?? e0;
     if (e.pageId === 'ktc') {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       const fresh = e.tier === 'B' && ktcNewDumping(e);
@@ -1567,6 +1570,38 @@ function recentPeers(v, q, nowMs) {
 
 export async function radarToday(ctx, args) {
   return textResult(await radarTodayText(ctx, args));
+}
+
+// 해외 조사 목록(인도 DGTR 등)은 조사 하나가 한 실행에 세 줄로 잡힌다(11-13 운영: 제목 줄 · 'Ongoing Investigation …' 상태 줄 · 'Country: … Type of Proceeding: …' 나라 줄).
+// 같은 실행·같은 목록에서 ① 원문 주소가 같은 줄은 가장 긴 줄 하나만 남기고 ② 나라 줄('Country:'로 시작, 목록 주소)은 그 실행에 조사가 하나뿐일 때 그 줄에 붙인다.
+// 조사가 여럿이면 어느 조사 것인지 알 수 없어 나라 줄은 그대로 둔다. 국내 무역위·수입규제DB·EDIS·영국 공개기록·EU 쿼터는 손대지 않는다.
+const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric']);
+export function mergeListingLines(events) {
+  const drop = new Set();
+  const merged = new Map();
+  const groups = new Map();
+  for (const e of events ?? []) {
+    if (!e || e.renumbered || LISTING_SKIP.has(e.pageId)) continue;
+    const k = `${e.pageId}|${e.detectedAt}`;
+    groups.set(k, [...(groups.get(k) ?? []), e]);
+  }
+  for (const [, list] of groups) {
+    if (list.length < 2) continue;
+    const attr = list.filter((e) => /^Country\s*:/i.test(String(e.text ?? '')));
+    const byUrl = new Map();
+    for (const e of list) if (!attr.includes(e)) byUrl.set(e.url ?? e.id, [...(byUrl.get(e.url ?? e.id) ?? []), e]);
+    const kept = [];
+    for (const [, same] of byUrl) {
+      const keep = [...same].sort((a, b) => String(b.text ?? '').length - String(a.text ?? '').length)[0];
+      for (const e of same) if (e !== keep) drop.add(e.id);
+      kept.push({ keep, n: same.length });
+    }
+    if (kept.length === 1 && attr.length) {
+      for (const a of attr) drop.add(a.id);
+      merged.set(kept[0].keep.id, { ...kept[0].keep, text: `${kept[0].keep.text} · ${attr.map((a) => String(a.text).trim()).join(' · ')}` });
+    }
+  }
+  return { drop, merged };
 }
 
 // 오늘의 레이더 자료(도구 글과 기자 전용 화면 board.mjs가 같이 쓴다). 글 모양은 radarTodayText, 카드 모양은 board.mjs.
