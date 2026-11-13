@@ -6,6 +6,8 @@ import { kstDate, textResult } from './common.mjs';
 
 export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류', '접음'];
 export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
+// 패키지 본문 끝에 붙는 '연결한 레이더 항목: id, id' 줄의 머리(처리 장부가 읽는다)
+export const LINK_LINE = '연결한 레이더 항목:';
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS evidence (id TEXT PRIMARY KEY, body TEXT NOT NULL, created_at TEXT NOT NULL)`,
@@ -58,6 +60,11 @@ export class RadarStore {
         return { rows: this.all('SELECT name, title, state, updated_at FROM packages ORDER BY updated_at DESC LIMIT 200') };
       case 'packages.get':
         return { row: this.all('SELECT * FROM packages WHERE name = ?', args.name)[0] ?? null };
+      // 처리 장부(handled.mjs)용: 자동 기록(아침·오후 체크)은 빼고 제목·상태와 본문 앞부분만. 알림 기록(alert-날짜)은 끝의 '보낸 id:' 줄을 읽으려고 뒷부분.
+      case 'packages.digest':
+        return { rows: this.all(`SELECT name, title, state, created_at, updated_at,
+            CASE WHEN name GLOB 'alert-[0-9]*' THEN substr(body, -3000) ELSE substr(body, 1, 6000) END AS body
+          FROM packages WHERE name NOT GLOB 'morning-[0-9]*' AND name NOT GLOB 'afternoon-[0-9]*' ORDER BY updated_at DESC LIMIT 300`) };
       case 'packages.save': {
         const existing = this.all('SELECT created_at FROM packages WHERE name = ?', args.name)[0];
         this.sql.exec(`INSERT INTO packages (name, title, state, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
@@ -152,8 +159,11 @@ export async function packageSave(ctx, args) {
     return textResult(`name·title·body와 state(${PACKAGE_STATES.join('/')})가 모두 필요하다.`, true);
   }
   if (body.length > 60000) return textResult('본문이 6만 자를 넘는다. 원문은 링크로 남긴다.', true);
-  const r = await call(ctx, 'packages.save', { name, title, state, body });
-  return textResult(`${r.created ? '새로 저장' : '갱신'}: [${state}] ${name} — ${title}`);
+  // 처리 장부(11-13): 이 패키지가 가리키는 레이더 항목 id를 본문 끝 한 줄로 남긴다 — 접음·보류·발제함이면 그 항목이 단독 추천에서 빠진다
+  const ids = [...new Set((Array.isArray(args.item_ids) ? args.item_ids : []).map((x) => String(x ?? '').trim().slice(0, 160)).filter(Boolean))].slice(0, 30);
+  const linked = ids.length ? `${body.replace(new RegExp(`\\n${LINK_LINE}[^\\n]*$`), '')}\n${LINK_LINE} ${ids.join(', ')}` : body;
+  const r = await call(ctx, 'packages.save', { name, title, state, body: linked });
+  return textResult(`${r.created ? '새로 저장' : '갱신'}: [${state}] ${name} — ${title}${ids.length ? ` · 연결한 레이더 항목 ${ids.length}건` : ''}`);
 }
 
 export async function candidateSubmit(ctx, args) {

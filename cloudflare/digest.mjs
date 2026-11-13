@@ -3,6 +3,7 @@
 // their silence is "미확인", not "nothing new".
 import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
+import { EXCLUDING, entryLabel, loadLedger, matchHandled } from './handled.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { browserHealth } from './local_browser.mjs';
 import { runsHealth } from './gh_runs.mjs';
@@ -1568,11 +1569,28 @@ export async function radarTodayData(ctx, args) {
   // 이어 올린 항목(노동위 조정 결과 확인 등)은 원래 항목을 킬했으면 숨긴다
   const found = collect(docs, cut, cutDay, { now: nowMs, maint }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
   const hiddenBy = {};
+  // 처리 장부(11-13, handled.mjs): 기자가 접음·보류(답변 대기·예약·후배 토스)·발제함으로 남긴 취재 패키지와 이어지는 항목은 판정한 항목처럼 숨긴다.
+  // 장부를 못 읽으면 숨기지 않는다(숨김은 덤이고, 못 읽었다고 항목이 사라지면 안 된다).
+  const ledger = await loadLedger(ctx, fb).catch(() => null);
+  const handledOf = (x) => {
+    if (!ledger) return null;
+    const h = matchHandled(x, ledger);
+    if (h?.entry && EXCLUDING.has(h.entry.state)) return h;
+    if (h?.entry) x.prior = h.entry;            // 앞서 추천했고 판정이 없는 패키지(숨기지 않고 표시만)
+    else if (h?.similar && EXCLUDING.has(h.similar.state)) x.similar = h.similar;   // 처리한 뒤 새로 잡힌 비슷한 항목(숨기지 않고 표시만)
+    return null;
+  };
+  const ledgerHidden = [];
   const all = found.filter((x) => {
     const v = judged.get(x.id);
-    if (!v || showJudged) return true;
-    hiddenBy[v] = (hiddenBy[v] ?? 0) + 1;
-    return false;
+    if (v && !showJudged) { hiddenBy[v] = (hiddenBy[v] ?? 0) + 1; return false; }
+    const h = handledOf(x);
+    if (h) {
+      x.handled = h;
+      if (!showJudged) { ledgerHidden.push(x); return false; }
+    }
+    if (ledger?.alerted?.has(String(x.id))) x.alerted = ledger.alerted.get(String(x.id));
+    return true;
   });
   // Automatic press check (radar_press_check.py): unreported first, then unchecked/미확인, then already covered.
   const press = await readFeed(ctx, 'radar-check');
@@ -1599,7 +1617,7 @@ export async function radarTodayData(ctx, args) {
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
   const span = nowMs - 14 * 86400000;
-  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
+  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged) && !(!showJudged && handledOf(x))), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
   // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
@@ -1625,9 +1643,14 @@ export async function radarTodayData(ctx, args) {
       .sort((a, b) => String(b.published).localeCompare(String(a.published)));
   }
   return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
-    tiers: byTierRows, health: h, conv, coveredGroup, rev, firsts, wrote,
+    tiers: byTierRows, health: h, conv, coveredGroup, rev, firsts, wrote, ledger, ledgerHidden, docs,
     peers: recentPeers(peerV, q, nowMs) };
 }
+
+// 처리 장부 표시(줄 끝): 숨기지 않고 보여 줄 때의 처리 상태, 처리한 뒤 새로 잡힌 비슷한 항목, 앞서 추천한 패키지, 즉시 알림으로 이미 보낸 것
+export const ledgerMark = (x) => `${x.handled ? ` 〔이미 처리: ${entryLabel(x.handled.entry)} — 단독 추천에서 뺀다〕` : ''}`
+  + `${x.similar ? ` 〔비슷한 건 처리 이력: ${entryLabel(x.similar)} — 새 사실인지 확인〕` : ''}`
+  + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}`;
 
 export async function radarTodayText(ctx, args) {
   const d = await radarTodayData(ctx, args);
@@ -1669,7 +1692,7 @@ export async function radarTodayText(ctx, args) {
       if (x.ask) out.push(`   물을 것: ${x.ask}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt), press?.generatedAt));
       const w = d.wrote?.get(String(x.id));
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
+      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${ledgerMark(x)}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
     }
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');
@@ -1682,6 +1705,13 @@ export async function radarTodayText(ctx, args) {
     }
     if (firsts.length > 5) out.push(`… 남은 ${firsts.length - 5}건`);
     out.push('판정은 기자가 한다: 기사 원문(매체 사이트)·최초 게재 시각과 레이더 원천 원문을 열어 같은 사실인지 본다. 자세히: scoop_reverse.');
+  }
+  if ((d.ledgerHidden ?? []).length) {
+    const by = new Map();
+    for (const x of d.ledgerHidden) { const k = x.handled.entry.key; by.set(k, [...(by.get(k) ?? []), x]); }
+    out.push(`\n(처리 장부로 숨김 ${d.ledgerHidden.length}건 — 기자가 이미 처리한 취재 패키지와 이어진 항목 · include_judged=true로 보기)`);
+    for (const [, xs] of [...by].slice(0, 8)) out.push(`   ${entryLabel(xs[0].handled.entry)} ← ${xs.length}건(${xs[0].watch}, ${xs[0].handled.how})`);
+    if (by.size > 8) out.push(`   … 그 밖 패키지 ${by.size - 8}개`);
   }
   const hiddenN = Object.values(hiddenBy).reduce((a, b) => a + b, 0);
   if (hiddenN) out.push(`\n(판정한 ${hiddenN}건 숨김: ${Object.entries(hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · ')} — include_judged=true로 보기)`);
