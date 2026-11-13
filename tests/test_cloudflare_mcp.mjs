@@ -4573,13 +4573,14 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   const eha = { id: 'ktc:case:00000873', pageId: 'ktc', ktcKind: 'case', country: 'KR', tier: 'B', beat: true, product: '아크릴산 2-에틸헥실', label: '무역위 새 조사 · 구제23-2026-10호',
     text: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-10-25', url: 'https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000873&invstg_type_code=10100001', detectedAt: recent };
   const ahead = new Date(NOW.getTime() + 9 * 3600000 + 10 * 86400000).toISOString().slice(0, 10);
-  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [eha], checks: [{ source: '무역위원회', status: 'ok' }],
+  const TRADE_DOC = { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [eha], checks: [{ source: '무역위원회', status: 'ok' }],
     ktc: { checkedAt: recent, listComplete: true, meetings: [], news: [], cases: [
       { id: '00000867', no: '구제 23-2026-4호', title: '중국산 폴리염화비닐 서스펜션 수지의 덤핑사실 및 국내산업피해 유무', product: '폴리염화비닐 서스펜션 수지', opened: '2026-07-08', kind: '반덤핑조사', review: '원심',
         country: '중국', beat: true, timeline: [['조사개시', '2026-07-08'], ['예비조사', ahead]], pending: ['공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?867',
         applicant: { names: ['한화솔루션'], beat: ['한화솔루션'], newsId: '00002147', title: '무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의' } },
       { id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', opened: '2026-07-10', kind: '반덤핑조사', review: '원심', country: '중국', beat: true,
-        timeline: [['조사개시', '2026-07-10'], ['예비조사', ahead]], pending: [], url: 'https://www.ktc.go.kr/v?868', applicant: { names: ['티씨씨스틸'], beat: [], newsId: '00002147', title: 't' } }] } });
+        timeline: [['조사개시', '2026-07-10'], ['예비조사', ahead]], pending: [], url: 'https://www.ktc.go.kr/v?868', applicant: { names: ['티씨씨스틸'], beat: [], newsId: '00002147', title: 't' } }] }  };
+  await post('trade-remedy', TRADE_DOC);
   const stk = (i) => ({ id: `stk:down:KG스틸:당진:${i}`, kind: '사업장 가동 중단 신호', tier: 'B', company: 'KG스틸', site: '케이지스틸(주) 당진공장', text: `케이지스틸(주) 당진공장: 평소 움직이던 배출구 3개 중 2개 (${i})`, detectedAt: recent });
   await post('kr-stacks', { schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }], sites: [], events: [stk(1), stk(2)] });
 
@@ -4594,6 +4595,24 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match(d0, /- 이미 처리\(다시 내지 않음\): 처리 장부 0건 · 판정 0건\n- 이미 보도\(자동 대조 '관련 보도 있음'\): 0건\n- 약한 유형: 5건 — (?=[^\n]*굴뚝 측정 2)(?=[^\n]*지방의회 회의록 발언 2)(?=[^\n]*공장등록 고용·목록 변동 1)[^\n]* \(include_weak=true로 펼침\)/);
   assert.match(d0, /\[5\. 기자가 이미 처리한 건 — 최근 30일 0건\]/);
   assert.doesNotMatch(d0, /한정어업 허가 신청/);   // 약한 유형은 펼치기 전엔 글이 안 나온다
+  // 해외 목록 줄(이름 없이 한국산 줄만)은 실적 있는 유형이 아니다 — 같은 조사의 세 줄은 한 줄만. 출입처 이름이 적힌 문서는 실적 있는 유형.
+  const dg = (n, text, url) => ({ id: `dgtr:${n}`, pageId: 'dgtr', country: '인도', label: '인도 DGTR 반덤핑 조사', text, url, detectedAt: recent });
+  const tdi = 'https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-toluene-diisocyanate-tdi';
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }],
+    events: [eha, dg(1, 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) originating in or exported from China PR, Japan and Korea RP', tdi),
+      dg(2, 'Ongoing Investigation Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) originating in or exported from China PR, Japan and Korea RP', tdi),
+      { id: 'tra:1', pageId: 'tra', country: '영국', label: '영국 무역구제청(TRA) 공개 기록', text: 'AD0092 Submission by LG Chem Ltd and Hanwha Solutions — particular market situation', url: 'https://www.trade-remedies.service.gov.uk/public/case/AD0092/submission/1/', detectedAt: recent }] });
+  const df = (await call('scoop_desk', {}, opts)).text;
+  assert.match(df, /후보 3건\n/);
+  assert.match(df, /\[1\. 새 후보 — 실적 있는 유형부터\] 3건 \(같은 날 같은 종류·같은 원문 1건 접음\)\n〈실적 있는 유형〉\n/);
+  assert.match(df, /- B · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · 영국\n   영국 무역구제청\(TRA\) 공개 기록: AD0092 Submission by LG Chem Ltd and Hanwha Solutions[^\n]*\n   〔이 유형 실적〕 11-10 \[단독\] 英 S-PVC/);
+  assert.match(df, /〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · [^\n]* · 해외 무역구제 목록 새 줄\(한국산\) · 인도\n   인도 DGTR 반덤핑 조사: Anti-dumping investigation concerning imports of Toluene[^\n]*\n   〔볼 것〕 목록에 한국산 줄이 생겼다는 것뿐/);
+  assert.equal((df.match(/Toluene DiIsocyanate/g) ?? []).length, 1);
+  // 후보는 있는데 실적 있는 유형이 없는 날은 그렇다고 먼저 말한다
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: [dg(1, 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) from Korea RP', tdi)] });
+  assert.match((await call('scoop_desk', {}, opts)).text, /\[1\. 새 후보 — 실적 있는 유형부터\] 1건\n〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형[^\n]*\n〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · /);
+  // 원래 자료로 되돌린다(아래 단언은 무역위 사건·일정이 있는 자료 기준)
+  await post('trade-remedy', TRADE_DOC);
   // company로 좁히면 일정도 그 낱말이 든 사건만
   assert.doesNotMatch((await call('scoop_desk', { company: '포스코' }, opts)).text, /다가오는 일정/);
   assert.match((await call('scoop_desk', { company: '한화솔루션' }, opts)).text, /\[2\. 다가오는 일정[^\n]*\] 1건/);

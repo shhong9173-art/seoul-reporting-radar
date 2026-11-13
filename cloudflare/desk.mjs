@@ -8,7 +8,7 @@
 // 유형 표(DESK_TYPES)의 근거는 기자의 판정 기록이다 — 바꾸는 건 기자가 정한다.
 import { clampInt, textResult } from './common.mjs';
 import { clipAt, kstStamp, ledgerMark, pressLines, radarTodayData } from './digest.mjs';
-import { EXCLUDING, entryLabel } from './handled.mjs';
+import { EXCLUDING, companiesIn, entryLabel } from './handled.mjs';
 
 const W = { screen: '단독 후보 심사', official: '공장등록·관보', signals: '공정위·한전·원자재', stats: '월간 통계(물가·생산·수입차·완성차 판매)', remedy: '무역구제',
   court: '미국 소송·ITC', partner: '해외 파트너 공시', comments: '미 연방 의견서', page: '해외 공식 페이지', tm: '상표 출원', epo: '해외 특허 공개(EP·WO)',
@@ -18,6 +18,10 @@ const W = { screen: '단독 후보 심사', official: '공장등록·관보', si
   india: '인도 법인 공시(현대차 인도)', counter: '타사 공시 속 출입처(거래상대)', gov: '지분·자사주 변동', exec: '임원 명단 변화(정기보고서)',
   execm: '수시 임원 공시·타사 임원 명단', execc: '문제 임원 점검', global: '출입처 외신' };
 
+const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C');
+const GOV = /한국 정부|대한민국 정부|산업통상부|Government of (?:the Republic of )?Korea|Korean [Gg]overnment|MOTIE/;
+const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${x.fact ?? ''}`).size > 0 || GOV.test(x.fact ?? '');
+
 // 위에서부터 처음 맞는 유형. strength: strong(기자가 단독을 썼거나 기사로 이어진 유형) · normal · weak(기자가 여러 번 킬·접음)
 // why는 그 근거(기자 판정·기사 기록). 새 판정이 쌓이면 이 표를 고친다 — 고치는 건 기자가 정한다.
 export const DESK_TYPES = [
@@ -25,8 +29,13 @@ export const DESK_TYPES = [
     test: (x) => x.watch === W.remedy && /^무역위 (?:새 반덤핑 조사|새 조사|회의 예고)/.test(x.kind ?? '') },
   { key: 'uscourt', strength: 'strong', label: '미국 법원·ITC(출입처가 당사자)', why: '11-09 [단독] 포스코 美 열연 상계관세 CIT 제소',
     test: (x) => x.watch === W.court && x.tier === 'A' },
+  // 英 S-PVC 단독은 '출입처·한국 정부 이름이 적힌 문서'였다 — 이름 없이 목록에 한국산 줄이 생긴 것(인도 DGTR 목록 등)은 실적 있는 유형으로 올리지 않는다.
+  // 11-13 운영: 그날 맨 위 8건이 모두 인도 DGTR 목록 줄(같은 조사가 세 줄씩)이었다.
   { key: 'foreigndoc', strength: 'strong', label: '해외 무역구제·규제 문서(출입처·한국 정부 이름)', why: "11-10 [단독] 英 S-PVC 반덤핑 '한국 특별시장상황' 의견서",
-    test: (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C') },
+    test: (x) => foreignDoc(x) && namesBeatOrGov(x) },
+  { key: 'foreignlist', strength: 'normal', label: '해외 무역구제 목록 새 줄(한국산)', why: '',
+    note: "목록에 한국산 줄이 생겼다는 것뿐 — 그 품목을 만드는 출입처가 있는지(사업보고서 '사업의 내용'·회사 확인)부터. 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
+    test: (x) => foreignDoc(x) },
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
     test: (x) => x.watch === W.screen && x.tier === 'A' },
   { key: 'building', strength: 'strong', label: '공장 부지 건축허가(신축 1,000㎡ 이상)', why: '10-30 기사(LS전선 구미 희토류 영구자석 공장) 18시간 앞 — 자동 대조',
@@ -98,9 +107,11 @@ export async function scoopDesk(ctx, args) {
   const shown = [];
   let folded = 0;
   for (const r of main) {
-    const k = `${r.x.watch}|${r.x.company}|${r.x.kind}|${dayOf(r.x)}`;
+    // 해외 목록 줄은 같은 조사가 제목 줄·상태 줄·나라 줄로 따로 잡힌다 — 같은 원문 주소는 한 줄만
+    const listRow = r.type.key === 'foreignlist' && r.x.url;
+    const k = listRow ? `${r.x.kind}|${r.x.url}` : `${r.x.watch}|${r.x.company}|${r.x.kind}|${dayOf(r.x)}`;
     seen.set(k, (seen.get(k) ?? 0) + 1);
-    if (seen.get(k) > 2) { folded += 1; continue; }
+    if (seen.get(k) > (listRow ? 1 : 2)) { folded += 1; continue; }
     shown.push(r);
   }
 
@@ -108,7 +119,9 @@ export async function scoopDesk(ctx, args) {
   out.push('읽는 법: 등급(A·B·C)은 그대로 두고, 이미 처리한 것·이미 보도된 것·기자가 여러 번 킬한 유형을 걷어낸 화면이다. 맨 위 유형은 기자가 실제로 단독을 쓴 유형. 후보가 적은 날은 적은 대로 둔다 — 약한 것으로 채우지 않는다.');
   if (d.health.length) out.push(`\n[수집 상태 — 실패·오래됨은 0건이 아니라 미확인]\n${d.health.slice(0, 6).join('\n')}${d.health.length > 6 ? `\n… 그 밖 ${d.health.length - 6}줄(radar_today)` : ''}`);
 
-  out.push(`\n[1. 새 후보 — 실적 있는 유형부터] ${shown.length}건${folded ? ` (같은 날 같은 종류 ${folded}건 접음)` : ''}`);
+  out.push(`\n[1. 새 후보 — 실적 있는 유형부터] ${shown.length}건${folded ? ` (같은 날 같은 종류·같은 원문 ${folded}건 접음)` : ''}`);
+  // 후보는 있는데 실적 있는 유형이 하나도 없는 날: 그렇다고 먼저 말한다(약한 날을 강한 날처럼 보이게 하지 않는다)
+  if (shown.length && shown[0].type.strength !== 'strong') out.push('〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형(무역위 신청·미국 법원 제소·출입처 이름이 적힌 해외 문서·큰 공시·신축 허가)에서 새로 잡힌 것이 없다.');
   let lastStrength = null;
   for (const r of shown.slice(0, limit)) {
     const { x, type } = r;
@@ -116,6 +129,7 @@ export async function scoopDesk(ctx, args) {
     out.push(`- ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''}`);
     out.push(`   ${clipAt(x.fact, 420)}`);
     if (type.why) out.push(`   〔이 유형 실적〕 ${type.why}`);
+    if (type.note) out.push(`   〔볼 것〕 ${type.note}`);
     if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
     if (x.ask) out.push(`   물을 것: ${x.ask}`);
     const press = pressLines(r.rec, kstStamp(d.press?.generatedAt), d.press?.generatedAt);
