@@ -333,6 +333,39 @@ class SignaOwnerList(unittest.TestCase):
         self.assertEqual((late.signa, late.id_calls), (["Hyundai Motor Company", "POSCO", "KG Mobility"], []))
         self.assertEqual(doc5["discoveredAt"]["현대자동차"][:10], (NOW + dt.timedelta(days=35)).date().isoformat())
 
+    def test_one_prefetched_request_serves_both_offices_and_madrid_rows_carry_the_ir_date(self):
+        # trademark_watch.main이 offices=EM,US 한 요청으로 받아 온 줄을 관청별 run()에 넘긴다 — run()은 Signa를 다시 부르지 않는다
+        _, mon = self.monday()
+        new = us("99000010", "NEXO ZERO", "2026-11-09", [12], "own_h1", "Hyundai Motor Company", ["intent_to_use"])
+        em = dict(us("019500001", "EU ONLY", "2026-11-09", [12], "own_h1", "Hyundai Motor Company"), office_code="EM")
+        # 탐침 230에서 본 꼴: 미국 지정일 2026-07-22인 마드리드 줄의 registration_date(국제등록일)가 2019-06-24
+        ir = dict(us("79400001", "PosZET", "2026-11-08", [6], "own_p1", "POSCO Co."), filing_route="madrid_designation", ir_number="1481965", registration_date="2019-06-24")
+        pre = {"rows": [eu.signa._row(x) for x in (new, em, ir)], "left": 9000, "pages": 1, "truncated": False, "error": None, "updatedSince": "2026-11-07"}
+        f = ListFake({}, {})
+        tue = eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=1), client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US",
+                     only_unsettled=True, daily_list=True, prefetched=pre)
+        self.assertEqual((f.signa, f.id_calls), ([], []))
+        self.assertEqual(sorted(tue["fresh"]), ["uspto:79400001", "uspto:99000010"])                      # 유럽 줄은 미국 실행에 안 섞인다
+        self.assertEqual((tue["list"]["combined"], tue["list"]["rows"], tue["list"]["updatedSince"], tue["signaCreditsLeft"]), (True, 2, "2026-11-07", 9000))
+        pz = next(x for x in tue["filings"] if x["applicationNumber"] == "79400001")
+        self.assertEqual((pz["route"], pz["ir"]), ("마드리드 지정", {"number": "1481965", "registered": "2019-06-24"}))
+        self.assertNotIn("ir", next(x for x in tue["filings"] if x["applicationNumber"] == "99000010"))
+        # 한 요청이 실패하면 그 회사들은 미확인 — 관청별로 다시 묻지 않는다
+        bad = eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=1), client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US",
+                     only_unsettled=True, daily_list=True, prefetched={"rows": [], "error": "Signa HTTP 500", "updatedSince": None})
+        self.assertEqual(([c["status"] for c in bad["checks"][:2]], f.id_calls), (["failed", "failed"], []))
+        # 여러 관청이면 offices, 하나면 office
+        seen = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            seen.append(dict(params))
+            return SR(200, {"data": [], "has_more": False})
+        eu.signa.search_ids(["own_1"], "2026-07-01", key="K", get=get, office="EM,US")
+        eu.signa.search_ids(["own_1"], "2026-07-01", key="K", get=get, office="US")
+        self.assertEqual([(p.get("offices"), p.get("office")) for p in seen], [("EM,US", None), (None, "US")])
+        plan = eu.list_plan(tue, NOW + dt.timedelta(days=2), only_unsettled=True, daily_list=True, signa_key="K")
+        self.assertEqual((sorted(plan["list_ids"]), plan["updated_since"]), (["포스코", "현대자동차"], (NOW.date() + dt.timedelta(days=1) - dt.timedelta(days=3)).isoformat()))
+
     def test_id_list_is_chunked_and_paged_with_a_page_limit(self):
         calls = []
 

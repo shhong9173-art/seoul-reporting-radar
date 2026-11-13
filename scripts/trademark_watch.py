@@ -365,6 +365,26 @@ def main():
         finally:
             if ledger is not None:
                 ledger.persist()
+    # 유럽·미국 목록 조회를 한 요청으로(offices=EM,US — 쪽마다 10크레딧은 같아 관청별로 따로 묻는 것보다 적게 든다).
+    # 두 관청 모두 Signa로 읽고 출원인 id가 모여 있을 때만. 실패하면 두 관청의 그 회사들은 미확인.
+    pre = None
+    if eu_due and us_due and list_ready(prev_eu) and list_ready(prev_us):
+        import requests
+        import euipo_trademarks
+        import signa_trademarks
+        plans = [euipo_trademarks.list_plan(p, now, only_unsettled=only is not None, daily_list=only is not None, signa_key=signa_key) for p in (prev_eu, prev_us)]
+        ids = {i for pl in plans for m in pl["list_ids"].values() for i in m}
+        if ids and all(pl["list_ids"] for pl in plans):
+            days = max(int(cfg["euipo"].get("windowDays", 120)), int(cfg["uspto"].get("windowDays", 120)))
+            upd = min(pl["updated_since"] for pl in plans) if all(pl["updated_since"] for pl in plans) else None
+            try:
+                rows, left, pages, trunc = signa_trademarks.search_ids(ids, (now.date() - dt.timedelta(days=days)).isoformat(), key=signa_key, get=requests.get,
+                                                                         office="EM,US", updated_since=upd, max_pages=10)
+                pre = {"rows": rows, "left": left, "pages": pages, "truncated": trunc, "error": None, "updatedSince": upd}
+            except Exception as e:  # noqa: BLE001
+                pre = {"rows": [], "left": None, "pages": 0, "truncated": False, "error": str(e)[:60] or type(e).__name__, "updatedSince": upd}
+            print(f"::notice title=trademarks-list::유럽·미국 목록 조회 한 요청 — 출원인 id {len(ids)}개 · {pre['pages']}쪽 {len(pre['rows'])}줄"
+                  f"{' · ' + upd + ' 이후 바뀐 줄만' if upd else ' · 출원일 창 전체'}{' · 덜 읽음(쪽 한도)' if pre['truncated'] else ''}{' · 실패 ' + pre['error'] if pre['error'] else ''}")
     if eu_due:
         import requests
         import euipo_trademarks
@@ -372,7 +392,7 @@ def main():
                                           "applicants": [{**a, "signaEvery": a.get("euEvery", 1)} for a in cfg["euipo"]["applicants"]]},
                                          prev_eu, now, client_id=eu_cid, secret=eu_sec,
                                          post=requests.post, get=requests.get, only_unsettled=only is not None, signa_key=signa_key or None,
-                                         daily_list=only is not None)
+                                         daily_list=only is not None, prefetched=pre)
         eu = doc["eu"]
         print(f"::notice title=trademarks-eu::유럽(EUIPO) 상태 {eu['status']} · 정상 {sum(1 for c in eu['checks'] if c['status'] == 'ok')}/{len(eu['checks'])}"
               f" · 새 출원 {len(eu['fresh'])}{' · ' + eu['blocked'] if eu.get('blocked') else ''}"
@@ -386,7 +406,7 @@ def main():
         doc["us"] = euipo_trademarks.run({**cfg["uspto"], "industries": cfg["industries"],
                                           "applicants": [{**a, "signaEvery": a.get("usEvery", 1)} for a in cfg["euipo"]["applicants"]]},
                                          prev_us, now, client_id="", secret="", post=requests.post, get=requests.get,
-                                         only_unsettled=only is not None, signa_key=signa_key, office="US", daily_list=only is not None)
+                                         only_unsettled=only is not None, signa_key=signa_key, office="US", daily_list=only is not None, prefetched=pre)
         us = doc["us"]
         print(f"::notice title=trademarks-us::미국(USPTO·Signa) 상태 {us['status']} · 정상 {sum(1 for c in us['checks'] if c['status'] == 'ok')}/{len(us['checks'])}"
               f" · 새 출원 {len(us['fresh'])} · 이번에 안 물음(주기) {len(us.get('carried') or [])} · 남은 크레딧 {us.get('signaCreditsLeft')}{list_note(us)}")

@@ -1,3 +1,4 @@
+import { irNote } from '../cloudflare/trademarks.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
@@ -2310,6 +2311,17 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     s.us.providerSyncedAt = '2026-10-22T13:14:40.468Z';
     await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
     assert.match((await call('trademarks', {}, opts)).text, /마지막으로 맞춘 때 10-22 22:14 KST \(⚠ 83시간 전 — 그 뒤 출원은 미확인\)/);
+    // 마드리드 지정 줄(탐침 230): '출원일'은 이 관청 지정일 — 국제등록일이 1년 넘게 앞이면 예전 이름일 수 있다고 적는다. 유럽·미국 한 요청 표시
+    const pz = s.eu.filings.find((x) => x.applicationNumber === 'W11481965');
+    pz.ir = { number: '1481965', registered: '2019-06-24' };
+    s.us.list.combined = true;
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
+    const mad = (await call('trademarks', {}, opts)).text;
+    assert.match(mad, /출원번호 W11481965\(마드리드 지정\)[^\n]* · 국제등록 2019-06-24\(IR 1481965\) — 예전 국제등록에 이 관청을 나중에 지정한 것\(새 이름이 아닐 수 있음\) · Signa/);
+    assert.match(mad, /이번 유럽·미국 한 요청 1쪽 26줄/);
+    assert.match((await call('radar_today', { include_minor: true }, opts)).text, /상표 출원 「PosZET」[^\n]*출원인 POSCO Co\.\) · 국제등록 2019-06-24\(IR 1481965\) — 예전 국제등록에 이 관청을 나중에 지정한 것/);
+    assert.equal(irNote({ applicationDate: '2026-06-26', ir: { number: '1900001', registered: '2026-06-26' } }), ' · 국제등록 2026-06-26(IR 1900001)');   // 새 국제등록은 경고 없음
+    assert.equal(irNote({ applicationDate: '2026-06-26' }), '');
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));

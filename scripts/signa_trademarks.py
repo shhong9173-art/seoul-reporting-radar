@@ -10,6 +10,9 @@
   madrid_extension(66A). **출원 때 적은 근거**라 1(b)가 나중에 사용 진술서를 내도 intent_to_use로 남는다. EUIPO는 근거를 공개하지 않아 비어 있다
   ④ updated_at_gte로 최근 며칠에 Signa가 새로 넣거나 고친 줄만(탐침: 4일 → 11-11 출원 26줄) ⑤ GET /v1/offices의 last_synced_at(크레딧 0).
   머리글 X-Credits-Remaining·X-Credits-Charged. GET 주소는 2KB까지라 id는 한 번에 45개.
+- 마드리드(탐침 230): 지정 줄에 ir_number·registration_date(국제등록일)가 온다. 상세 GET /v1/trademarks/{id}는 1크레딧, POSCO 지정 줄과 그 국제등록(WO) 줄
+  모두 relationships 0건이었다(기초출원 번호는 못 얻음). 국제등록 줄은 origin_office_code KR·filing_date(국제등록일)·priority_date를 준다(ir_number 조회 10크레딧).
+- 여러 관청을 한 요청으로: offices=EM,US(쪽마다 10크레딧은 같다) — trademark_watch.main이 유럽·미국 목록 조회를 한 번에 받아 run()에 넘긴다.
 - 응답을 EUIPO Trademark Search 모양(applicationNumber·applicationDate·wordMarkSpecification·niceClasses·applicants·status)으로 바꿔
   euipo_trademarks.run이 같은 규칙(기준선·새 출원·등급)으로 다룬다. 키는 저장·출력하지 않는다.
 """
@@ -52,6 +55,9 @@ def _row(x):
             "applicants": [{"name": o.get("name")} for o in x.get("owners") or [] if isinstance(o, dict) and o.get("name")],
             "owners": [{"id": o.get("id"), "name": o.get("name")} for o in x.get("owners") or [] if isinstance(o, dict) and o.get("id")],
             "bases": sorted({str(b.get("basis_type")) for b in x.get("filing_bases") or [] if isinstance(b, dict) and b.get("basis_type")}),
+            # 마드리드 지정 줄(탐침 230, 11-14): filing_date는 이 관청 지정일, registration_date는 국제등록일(유럽 줄에서 확인 — 2026-07-22 지정 줄이
+            # 2019-06-24 국제등록이었다. 미국 줄은 비어 있었다). 기초출원(relationships)은 상세 조회에도 비어 있었다 — 국제등록 줄의 origin·priority로만 짐작 가능
+            "office": x.get("office_code"), "irNumber": x.get("ir_number"), "registrationDate": x.get("registration_date"),
             "status": _status(st, raw),
             "filingRoute": x.get("filing_route")}
 
@@ -95,7 +101,8 @@ def search_ids(ids, since, *, key, get, office="EM", updated_since=None, limit=1
             if pages >= max_pages:
                 truncated = True
                 break
-            params = {"owner_id": ",".join(ids[n:n + ID_CHUNK]), "office": office, "filing_date_gte": since, "sort": "-filing_date", "limit": limit}
+            params = {"owner_id": ",".join(ids[n:n + ID_CHUNK]), "filing_date_gte": since, "sort": "-filing_date", "limit": limit,
+                      **({"offices": office} if "," in str(office) else {"office": office})}      # 'EM,US'처럼 여러 관청이면 offices(한 요청)
             if updated_since:
                 params["updated_at_gte"] = updated_since
             if cursor:

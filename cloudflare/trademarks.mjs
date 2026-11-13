@@ -75,6 +75,14 @@ const OFFICE_TEXT = {
 };
 // 미국 출원 근거(Signa filing_bases, 출원 때 적은 것 — 1(b)가 나중에 사용 진술서를 내도 '사용 의사'로 남는다). EUIPO는 근거를 공개하지 않는다
 const BASIS_KO = { intent_to_use: '사용 의사(1B) — 아직 안 쓰는 이름', use_in_commerce: '사용 중(1A)', foreign_application: '외국 출원 우선권(44D)', foreign_registration: '외국 등록 기초(44E)', madrid_extension: '마드리드 지정(66A)' };
+// 마드리드 지정 줄(Signa, 탐침 230): '출원일' 칸은 이 관청을 지정한 날이다. 국제등록일이 1년 넘게 앞이면 예전 국제등록에 이 관청을 나중에 지정한 것 —
+// 새 이름이 아닐 수 있다(POSCO 유럽 지정 2026-07-22 줄의 국제등록일이 2019-06-24였다).
+export const irNote = (f) => {
+  const ir = f.ir;
+  if (!ir) return '';
+  const gap = ir.registered && f.applicationDate ? (Date.parse(f.applicationDate) - Date.parse(ir.registered)) / 86400000 : null;
+  return ` · 국제등록${ir.registered ? ` ${ir.registered}` : '일 미확인'}${ir.number ? `(IR ${ir.number})` : ''}${gap !== null && gap > 365 ? ' — 예전 국제등록에 이 관청을 나중에 지정한 것(새 이름이 아닐 수 있음)' : ''}`;
+};
 export const basisNote = (f) => ((f.basis ?? []).length ? ` · 출원 근거 ${f.basis.map((b) => BASIS_KO[b] ?? b).join('·')}` : '');
 const kstShort = (t) => (Number.isFinite(Date.parse(t)) ? `${new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} KST` : String(t));
 function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = Date.now() }) {
@@ -93,7 +101,7 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = 
     // 11-14(Signa 답장): 출원인 id 목록 한 번 조회로 전 회사를 본다(평일 매일). Signa가 이 관청 자료를 마지막으로 맞춘 때가 이틀 넘게 지났으면 새 출원 0건은 미확인
     const ids = Object.values(eu.ownerIds ?? {}).filter((m) => m && Object.keys(m).length).length;
     const syncH = eu.providerSyncedAt ? (nowMs - Date.parse(eu.providerSyncedAt)) / 3600000 : null;
-    if (ids || eu.providerSyncedAt) out.push(`조회 방식: 출원인 id를 모은 회사 ${ids}곳은 목록 한 번 조회(평일 매일)${eu.list ? ` — 이번 ${eu.list.pages}쪽 ${eu.list.rows}줄${eu.list.updatedSince ? `(${eu.list.updatedSince} 이후 Signa가 넣거나 고친 줄만)` : '(출원일 창 전체)'}${eu.list.truncated ? ' · ⚠ 쪽 한도로 덜 읽음' : ''}${eu.list.error ? ` · ⚠ 목록 조회 실패(${eu.list.error}) — 미확인` : ''}` : ''}`
+    if (ids || eu.providerSyncedAt) out.push(`조회 방식: 출원인 id를 모은 회사 ${ids}곳은 목록 한 번 조회(평일 매일)${eu.list ? ` — 이번 ${eu.list.combined ? '유럽·미국 한 요청 ' : ''}${eu.list.pages}쪽 ${eu.list.rows}줄${eu.list.updatedSince ? `(${eu.list.updatedSince} 이후 Signa가 넣거나 고친 줄만)` : '(출원일 창 전체)'}${eu.list.truncated ? ' · ⚠ 쪽 한도로 덜 읽음' : ''}${eu.list.error ? ` · ⚠ 목록 조회 실패(${eu.list.error}) — 미확인` : ''}` : ''}`
       + `${eu.providerSyncedAt ? ` · Signa가 ${office === 'EM' ? 'EUIPO' : 'USPTO'} 자료를 마지막으로 맞춘 때 ${kstShort(eu.providerSyncedAt)}${Number.isFinite(syncH) && syncH > 48 ? ` (⚠ ${Math.round(syncH)}시간 전 — 그 뒤 출원은 미확인)` : ''}` : ''}`);
   } else if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
   const waitingEu = checks.filter((c) => c.status === 'waiting');
@@ -112,7 +120,7 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = 
   out.push(`[${all ? `저장된 ${T.short} 출원` : `새로 본 ${T.short} 출원`}] ${rows.length}건`);
   for (const f of rows.slice(0, limit)) {
     out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
-      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
+      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${irNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
   }
   if (!rows.length) out.push((eu.blocked && eu.provider !== 'signa') || bad.length || waitingEu.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
   out.push(`검증 상태: ${T.verify}(자동 수집${eu.provider === 'signa' ? ', Signa 2차 자료 — 불완전·부정확할 수 있음' : ''}). ${T.how}`);
