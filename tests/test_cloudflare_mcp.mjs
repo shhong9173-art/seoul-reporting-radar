@@ -3245,6 +3245,38 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
   assert.doesNotMatch(ph, /- 부품사 · 김전무/);
 });
 
+test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출신은 한 단계 내리고, 해외 파트너 공시는 본문 대목을 붙이며 대목 없는 것은 A를 주지 않는다', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  // 11-13 운영 A 16건 중 3건: 다른 회사 3분기 임원 명단에 출입처 출신이 새로 보임(애경산업·씨케이솔루션·에이팩트)
+  await post('kr-exec-market', { schema: 'kr_exec_market/v1', generatedAt: now, status: 'complete', checks: [{ source: 'DART 임원 현황', status: 'ok' }], roster: {}, rosterMeta: {}, counts: {},
+    events: [{ id: 'execm:00139454|202611014|정인철|196307', tier: 'A', kind: '타사 등기임원', company: '애경산업', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000347',
+        text: '애경산업 2026년 3분기 등기임원 명단에 새로 보임 — 정인철 1963년생 기타비상무이사 · 출입처 태광 출신', person: { name: '정인철' }, flags: [] },
+      { id: 'execm:01210677|202611014|박현식|196110', tier: 'B', kind: '타사 등기임원', company: '씨케이솔루션', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/y', text: '씨케이솔루션 … 박현식', person: { name: '박현식' }, flags: [] },
+      { id: 'execm:20261110000111|ceo', tier: 'A', kind: '대표이사 변경', company: '부품사', source: '대표이사 변경', detectedAt: now, url: 'https://dart.fss.or.kr/z', text: '부품사 대표이사 변경 — 새 대표 김대표(전 현대모비스 부사장)', person: { name: '김대표' }, flags: [] }] });
+  // 11-13 운영 A 3건: 'EDGAR X-Energy, Inc. (XE): 8-K EX-99.1'처럼 서류 이름만 떠서 무엇인지 알 수 없었다
+  await post('partner-filings', { schema: 'partner_filings/v1', generatedAt: now, windowDays: 30, checks: [],
+    items: [{ id: 'edgar:xe', source: 'EDGAR', filer: 'X-Energy, Inc.  (XE)', beat: ['두산에너빌리티'], date: '2026-10-25', title: '8-K EX-99.1', dealNear: true,
+        snippet: 'X-energy and Doosan Enerbility   signed a reservation agreement for forgings and long-lead components for sixteen Xe-100 reactors.', url: 'https://sec/xe' },
+      { id: 'edgar:nosnip', source: 'EDGAR', filer: 'GrowHub Ltd  (TGHL)', beat: ['현대차'], date: '2026-10-25', title: 'F-1 F-1', dealNear: true, url: 'https://sec/tghl' }] });
+  const r = (await call('radar_today', {}, opts)).text;
+  const a = r.split('[A · ')[1].split('[B · ')[0];
+  const b = r.split('[B · ')[1].split('[C · ')[0];
+  assert.doesNotMatch(a, /애경산업/);
+  assert.match(b, /수시 임원 공시·타사 임원 명단 · 애경산업\n   애경산업 2026년 3분기 등기임원 명단에 새로 보임 — 정인철/);
+  assert.doesNotMatch(r, /박현식/);                               // 수집기 B는 한 단계 내려 화면(kr_signals)에만
+  assert.match(a, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 대표이사 변경/);   // 대표이사 변경·이사 후보·독립이사 신고는 그대로
+  assert.match(a, /해외 파트너 공시 · 두산에너빌리티\n   EDGAR X-Energy, Inc\.  \(XE\): 8-K EX-99\.1 · 본문 대목 「X-energy and Doosan Enerbility signed a reservation agreement for forgings/);
+  assert.doesNotMatch(a, /GrowHub/);
+  assert.match(b, /해외 파트너 공시 · 현대차\n   EDGAR GrowHub Ltd  \(TGHL\): F-1 F-1/);
+  // 단독 데스크: 본문 대목이 붙은 파트너 공시는 약한 유형이 아니다(제목뿐인 것만 약한 유형)
+  const d = (await call('scoop_desk', {}, opts)).text;
+  assert.match(d, /- A · [^\n]*해외 파트너 공시 · 두산에너빌리티\n   EDGAR X-Energy/);
+  assert.match(d, /약한 유형: 2건 — (?=[^\n]*다른 회사 임원 명단 속 출입처 출신 1)(?=[^\n]*해외 파트너 공시\(제목뿐\) 1)/);
+});
+
 test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_signals exec 안 표시 있는 사람만', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -3583,7 +3615,9 @@ test('지방의회 회의록(council-minutes): 키 없으면 미설정(0건 아�
       text: '화성시의회 제300회 본회의(20261020) 회의록 · 기아 대목 「…신차 2000대가 공장 시설로 허가받은 땅에 야적되고 있습니다. 불법 아닙니까?」 · 회의록 번호 CLIKC1(국회도서관 지방의정포털) · 의원 질의는 주장' }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/council-minutes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /지방의회 회의록 · 기아\n   화성시의회 제300회 본회의\(20261020\) 회의록 · 기아 대목/);
+  // 11-13 기자 결정: 지방의회 회의록은 한 단계 내려 B(수집기 등급 A는 kr_official council 구역에 그대로 보인다)
+  assert.doesNotMatch(r.text.split('[A · ')[1].split('[B · ')[0], /지방의회 회의록/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /지방의회 회의록 · 기아\n   화성시의회 제300회 본회의\(20261020\) 회의록 · 기아 대목/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'clik:CLIKC1');
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['기아', ['불법'], ['화성시']]);
@@ -4643,7 +4677,7 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.doesNotMatch((await call('scoop_desk', { company: '포스코' }, opts)).text, /다가오는 일정/);
   assert.match((await call('scoop_desk', { company: '한화솔루션' }, opts)).text, /\[2\. 다가오는 일정[^\n]*\] 1건/);
   const dw = (await call('scoop_desk', { include_weak: true }, opts)).text;
-  assert.match(dw, /   〈지방의회 회의록 발언〉 접음 1건\(11-12 포스코 한정어업\)[^\n]*\n   · A · 2026-10-25 · 포스코 · [^\n]*id clik:(?:FISH|ODOR)/);
+  assert.match(dw, /   〈지방의회 회의록 발언〉 접음 1건\(11-12 포스코 한정어업\)[^\n]*\n   · B · 2026-10-25 · 포스코 · [^\n]*id clik:(?:FISH|ODOR)/);
   assert.match(dw, /   〈굴뚝 측정〉 킬 16건/);
 
   // 기자가 처리: 한정어업 건은 접음(낱말로 이어짐), 공장 목록 빠짐은 킬(레이더 id로), 무역위 새 조사는 회사에 문의해 답변 대기(보류 + item_ids)
