@@ -7,6 +7,7 @@ import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
+import { deskType } from '../cloudflare/desk.mjs';
 import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
@@ -4613,6 +4614,13 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match((await call('scoop_desk', {}, opts)).text, /\[1\. 새 후보 — 실적 있는 유형부터\] 1건\n〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형[^\n]*\n〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · /);
   // 원래 자료로 되돌린다(아래 단언은 무역위 사건·일정이 있는 자료 기준)
   await post('trade-remedy', TRADE_DOC);
+  // 유형 가르기: 입법예고·법제처 확정 발령은 공개 공고라 약한 유형, 새 공장 등록·환경영향평가는 그대로 보통
+  assert.equal(deskType({ watch: '공장등록·관보', kind: '관보 입법예고', tier: 'B' }).key, 'gazette');
+  assert.equal(deskType({ watch: '공장등록·관보', kind: '법제처 행정규칙', tier: 'B' }).strength, 'weak');
+  assert.equal(deskType({ watch: '공장등록·관보', kind: '공장 새 등록', tier: 'A' }).strength, 'normal');
+  assert.equal(deskType({ watch: '공장등록·관보', kind: '환경영향평가 초안', tier: 'A' }).strength, 'normal');
+  assert.equal(deskType({ watch: '무역구제', kind: '해외 조사 dgtr', tier: 'B', company: '인도', fact: '인도 DGTR 반덤핑 조사: TDI from Korea RP' }).key, 'foreignlist');
+  assert.equal(deskType({ watch: '무역구제', kind: '대한 수입규제', tier: 'B', company: '미국', fact: '미국 반덤핑 예비판정 — POSCO 3.2%' }).key, 'foreigndoc');
   // company로 좁히면 일정도 그 낱말이 든 사건만
   assert.doesNotMatch((await call('scoop_desk', { company: '포스코' }, opts)).text, /다가오는 일정/);
   assert.match((await call('scoop_desk', { company: '한화솔루션' }, opts)).text, /\[2\. 다가오는 일정[^\n]*\] 1건/);

@@ -58,6 +58,9 @@ export const DESK_TYPES = [
   { key: 'consumer', strength: 'weak', label: '미국 소비자·개인 소송', why: '출입처 미국 법인을 상대로 한 일상 소송', test: (x) => x.watch === W.court && x.tier === 'C' },
   { key: 'reference', strength: 'weak', label: '참고 자료(상표·특허 공개·통계·외신·EPA·연비)', why: '그 자체로 사건이 아님 — 다른 단서와 겹칠 때만',
     test: (x) => [W.tm, W.epo, W.stats, W.global, W.epa, W.fuel, W.page].includes(x.watch) && x.tier !== 'A' },
+  // 레이더 규칙에 이미 '단독 근거로 쓰지 않는다'고 적힌 공개 공고. 11-13 운영: 7일 후보 37건 중 17건이 이 감시(공장등록·관보)였다
+  { key: 'gazette', strength: 'weak', label: '관보 입법예고·법제처 확정 발령', why: '공개 공고 — 보도자료와 같은 날 나오는 경우가 많아 단독 근거로 쓰지 않는다(레이더 규칙). 일반 발제 자료',
+    test: (x) => x.watch === W.official && /^(?:관보 입법예고|법제처 )/.test(x.kind ?? '') },
   { key: 'quota', strength: 'weak', label: 'EU 쿼터 소진', why: '기자: 일반 통상 통계 발제는 패스(여러 번)', test: (x) => x.watch === W.remedy && /^EU 쿼터/.test(x.kind ?? '') },
 ];
 export function deskType(x) {
