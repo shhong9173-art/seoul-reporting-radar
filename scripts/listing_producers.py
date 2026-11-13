@@ -12,6 +12,7 @@
 - 약어(TDI·PVC·SBR…)는 앞뒤가 영문자가 아닐 때만 센다('SSBR' 속 'SBR'은 다른 품목).
 - 사업보고서는 회사마다 한 해에 한 번만 받는다: 받은 보고서에서 용어 표의 낱말을 모두 세어 '낱말 색인'(producerIndex)으로 저장하고,
   목록 줄은 그 색인으로만 대조한다(DART를 다시 부르지 않는다). 색인 만들기는 한 실행에 TIME_BUDGET초까지 — 남은 회사는 다음 실행.
+  색인 만들기(fetch=True)는 무역구제 결과를 저장한 **뒤에** 돌린다(trade_remedy_watch.main) — 보고서 받기가 느려도 본 결과 저장을 막지 않는다.
   (11-14 첫 운영: 줄마다 보고서를 받게 짰더니 19곳을 한 실행에 받느라 평소 2분인 무역구제 감시가 길어졌다 — 20분 상한을 넘기면 그 실행의
   무역구제 결과 전체가 저장되지 않는다.)
 - 결과는 기자 전용 저장소(trade-remedy)의 listingProducers·producerIndex에만. 공개 로그엔 건수만.
@@ -25,7 +26,7 @@ from datetime import timedelta
 import ktc_producers as kp
 
 EV_VERSION = 2
-TIME_BUDGET = 90       # 한 실행에 보고서를 받는 데 쓰는 시간(초). 넘으면 남은 회사는 다음 실행
+TIME_BUDGET = 540      # 한 실행에 보고서를 받는 데 쓰는 시간(초). 넘으면 남은 회사는 다음 실행. 11-14 운영: 보고서 한 곳에 50초쯤(8곳 6분 반)
 FETCH_TRIES = 3        # 보고서를 못 받은 회사는 이 횟수까지 다시(그 뒤로는 7일에 한 번)
 WINDOW_DAYS = 45
 KEEP_DAYS = 120
@@ -154,13 +155,13 @@ def index_text(text):
     return out
 
 
-def build_index(previous_index, needed, key, now, *, clock=time.monotonic, **kw):
+def build_index(previous_index, needed, key, now, *, clock=time.monotonic, fetch=True, **kw):
     """회사별 낱말 색인. 올해 볼 보고서 연도의 색인이 이미 있으면 그대로 쓰고, 없는 회사만 TIME_BUDGET 안에서 받는다.
     돌려줌: (색인, 이번에 받은 보고서 수)."""
     year = kp.report_year(now)
     stamp = now.isoformat(timespec="seconds")
     idx = {k: v for k, v in (previous_index or {}).items() if isinstance(v, dict) and v.get("year") == year}
-    if not key:
+    if not key or not fetch:
         return idx, 0
     codes, start, fetched = kp.corp_codes(), clock(), 0
     for name in needed:
@@ -223,7 +224,8 @@ def line(ev):
 
 def attach(doc, previous, key, now, **kw):
     """doc['listingProducers'][줄 id]와 doc['producerIndex'][회사]. 최근 WINDOW_DAYS일 해외 조사 목록 줄 가운데 용어 표에 맞는 줄을
-    회사별 낱말 색인으로 대조한다(줄 대조는 DART를 부르지 않는다 — 실행마다 다시 계산). 반환: (대조한 줄 수, 이번에 받은 보고서 수)."""
+    회사별 낱말 색인으로 대조한다(줄 대조는 DART를 부르지 않는다 — 실행마다 다시 계산). 반환: (대조한 줄 수, 이번에 받은 보고서 수).
+    fetch=False면 저장된 색인으로만 대조하고 보고서를 받지 않는다(본 결과를 저장하기 전 단계)."""
     old = (previous or {}).get("listingProducers") or {}
     keep_from = (now - timedelta(days=KEEP_DAYS)).isoformat()
     store = {k: v for k, v in old.items() if isinstance(v, dict) and str(v.get("checkedAt") or "") >= keep_from}

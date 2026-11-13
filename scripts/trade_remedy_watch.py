@@ -926,14 +926,12 @@ def main():
               + ("" if os.environ.get("DART_API_KEY", "").strip() else " · DART 키 없음(대조 안 함)"))
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다
         print(f"::warning title=trade-remedy-ktc-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
-    # 해외 조사 목록 새 줄(영문 품목) → 그 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py)
+    # 해외 조사 목록 새 줄(영문 품목) → 그 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py).
+    # 여기서는 저장된 낱말 색인으로만 대조한다(DART 안 부름). 보고서를 새로 받는 일은 본 결과를 저장한 뒤 맨 끝에서 한다 —
+    # 11-14 첫 운영에서 보고서 8곳에 6분 반이 걸려 평소 2분인 실행이 8분 반이 됐다(20분 상한을 넘기면 결과 전체가 저장되지 않는다).
     import listing_producers
     try:
-        lc, lr = listing_producers.attach(doc, previous, os.environ.get("DART_API_KEY", "").strip(), now)
-        store, pidx = doc.get("listingProducers") or {}, doc.get("producerIndex") or {}
-        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 {lc}줄 · 이번에 받은 보고서 {lr}곳 · "
-              f"낱말 색인 {sum(1 for v in pidx.values() if v.get('status') == 'found')}/{len(pidx)}곳 · 저장 {len(store)}줄 · "
-              f"낱말 찾은 줄 {sum(1 for v in store.values() if v.get('line'))}")
+        listing_producers.attach(doc, previous, os.environ.get("DART_API_KEY", "").strip(), now, fetch=False)
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다(지난 결과는 이어 간다)
         doc["listingProducers"] = (previous or {}).get("listingProducers") or {}
         doc["producerIndex"] = (previous or {}).get("producerIndex") or {}
@@ -990,6 +988,17 @@ def main():
         print(f"::warning title=trade-remedy-token::토큰 거부 가능성 — {private_store.token_shape(private_store.normalize_token(token))}")
     if status != 200:
         sys.exit(1)
+    # 본 결과를 저장한 뒤: 낱말 색인에 없는 회사의 사업보고서를 받는다(한 실행 TIME_BUDGET초까지). 받은 게 있으면 줄을 다시 대조해 한 번 더 저장한다.
+    try:
+        lc, lr = listing_producers.attach(doc, doc, os.environ.get("DART_API_KEY", "").strip(), now)
+        store, pidx = doc.get("listingProducers") or {}, doc.get("producerIndex") or {}
+        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 {lc}줄 · 이번에 받은 보고서 {lr}곳 · "
+              f"낱말 색인 {sum(1 for v in pidx.values() if v.get('status') == 'found')}/{len(pidx)}곳 · 저장 {len(store)}줄 · "
+              f"낱말 찾은 줄 {sum(1 for v in store.values() if v.get('line'))}")
+        if lr:
+            print(f"::notice title=trade-remedy-push-2::낱말 색인 반영 뒤 다시 저장 HTTP {private_store.put('trade-remedy', doc, token)}")
+    except Exception as e:  # noqa: BLE001 — 본 결과는 이미 저장됐다
+        print(f"::warning title=trade-remedy-listing-producers::사업보고서 색인 만들기 실패({type(e).__name__}) — 다음 실행에서 다시")
 
 
 if __name__ == "__main__":
