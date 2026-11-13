@@ -1,4 +1,4 @@
-"""probe 219(216 이어서, #798 배포 뒤): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
+"""probe 220(216 이어서, #799 배포 뒤): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
 주소(토큰 포함)·응답 본문은 찍지 않는다. 쓰기 도구는 부르지 않는다. 호출 4번."""
 import collections
 import json
@@ -71,7 +71,7 @@ def summarize(label, res, err):
             # 머리줄은 코드에 적힌 글 + 건수뿐이다. 수집 상태 줄 아래 내용·후보 줄·패키지 제목은 찍지 않는다.
             OUT.append("   " + (ln if len(ln) < 300 else ln[:300] + "…"))
     OUT.append(f"   1구역 유형: {dict(labels)}")
-    OUT.append(f"   구역별 '- ' 줄: {dict(sorted(count.items()))} · 1구역 등급 {dict(tiers)} · 〔이 유형 실적〕 {text.count('〔이 유형 실적〕')} · 〔기사 포인트〕 {text.count('〔기사 포인트〕')}"
+    OUT.append(f"   구역별 '- ' 줄: {dict(sorted(count.items()))} · 1구역 등급 {dict(tiers)} · 〔이 유형 실적〕 {text.count('〔이 유형 실적〕')} · 〔볼 것〕 {text.count('〔볼 것〕')}"
                f" · 보도 대조 줄 {len(re.findall(r'^   보도 대조', text, re.M))} · ⚠앞선 기사 {text.count('⚠ 항목 날짜 전 기사')} · 표시 {text.count('〔비슷한 건 처리 이력')}/{text.count('〔앞서 추천')}/{text.count('〔즉시 알림 보냄')}")
 
 
@@ -97,17 +97,14 @@ def timed(label, name, args, n, full=False):
 
 res, err = rpc("tools/list", {}, 1)
 OUT.append(f"tools/list: {'실패 ' + err if res is None else str(len(res.get('tools', []))) + '개'}")
-timed("scoop_desk() 1", "scoop_desk", {}, 2, full=True)
-timed("radar_today(168h)", "radar_today", {"hours": 168, "limit": 3}, 3)
-timed("scoop_desk() 2", "scoop_desk", {}, 4)
-timed("us_litigation", "us_litigation", {"limit": 5}, 5)
-timed("scoop_desk() 3", "scoop_desk", {}, 6)
-timed("trade_remedies edis", "trade_remedies", {"section": "edis", "limit": 15}, 7)
-timed("kr_official", "kr_official", {"limit": 10}, 8)
-timed("scoop_desk(days=14, weak)", "scoop_desk", {"days": 14, "include_weak": True, "limit": 30}, 9)
-timed("radar_today(24h)", "radar_today", {}, 10)
-timed("us_recalls", "us_recalls", {"limit": 20}, 11)
-timed("scoop_desk(company=한화)", "scoop_desk", {"company": "한화"}, 12, full=True)
-timed("scoop_desk() 4", "scoop_desk", {}, 13)
+timed("scoop_desk(limit=40)", "scoop_desk", {"limit": 40}, 2, full=True)
+timed("radar_today(24h)", "radar_today", {}, 3)
+timed("scoop_desk() 2", "scoop_desk", {}, 4, full=True)
+timed("kr_signals", "kr_signals", {"limit": 10}, 5)
+timed("partner_filings", "partner_filings", {"limit": 10}, 6)
+timed("scoop_desk(days=3)", "scoop_desk", {"days": 3, "limit": 40}, 7, full=True)
+timed("radar_today(72h)", "radar_today", {"hours": 72}, 8)
+timed("us_litigation", "us_litigation", {"limit": 5}, 9)
+timed("scoop_desk() 3", "scoop_desk", {}, 10)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
