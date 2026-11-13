@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-13T17:43:04+09:00",
+  "generatedAt": "2026-11-14T01:45:07+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-13T16:26:14+09:00",
-      "rows": 7,
+      "generatedAt": "2026-11-13T17:43:07+09:00",
+      "rows": 23,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-13T17:42:20+09:00",
-      "rows": 101,
+      "generatedAt": "2026-11-14T01:44:31+09:00",
+      "rows": 98,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -31,7 +31,7 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-13T15:42:34+09:00",
+      "generatedAt": "2026-11-14T00:18:56+09:00",
       "rows": 23,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 7,
+    "new_official_receipt_review": 22,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 23,
@@ -68,19 +68,19 @@
     "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-11",
-    "through": "2026-11-13"
+    "recentFrom": "2026-11-12",
+    "through": "2026-11-14"
   },
-  "checkedOfficialRecentCandidates": 7,
+  "checkedOfficialRecentCandidates": 22,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 7,
+  "todayOnlyCount": 22,
   "historicalResearchCount": 31,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 38,
+  "totalRows": 53,
   "excluded": {
     "invalid_original_identity": 0,
-    "old_and_not_relevant": 0,
+    "old_and_not_relevant": 1,
     "unverified_correction": 0,
     "same_receipt_merged": 1
   },
@@ -88,6 +88,390 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261113000380",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "동국제강",
+      "title": "동국제강 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000380"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000552",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "OCI",
+      "title": "OCI · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000552"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000584",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "대한전선",
+      "title": "대한전선 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000584"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000606",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "OCI홀딩스",
+      "title": "OCI홀딩스 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000606"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000671",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "한국타이어앤테크놀로지",
+      "title": "한국타이어앤테크놀로지 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000731",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대위아",
+      "title": "현대위아 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000731"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000739",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "HD현대오일뱅크",
+      "title": "HD현대오일뱅크 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000739"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000823",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "씨에스윈드",
+      "title": "씨에스윈드 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000823"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000856",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "두산에너빌리티",
+      "title": "두산에너빌리티 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000856"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113000906",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "동국씨엠",
+      "title": "동국씨엠 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000906"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001097",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "포스코홀딩스",
+      "title": "포스코홀딩스 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001097"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001247",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "영풍",
+      "title": "영풍 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001247"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001258",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "포스코",
+      "title": "포스코 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001360",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "효성중공업",
+      "title": "효성중공업 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001597",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "롯데케미칼",
+      "title": "롯데케미칼 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001597"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261113001602",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "세아제강",
+      "title": "세아제강 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001602"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
     {
       "id": "new_official_receipt_review:DART:20261112000461",
       "tier": "new_official_receipt_review",
@@ -219,30 +603,6 @@
       "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112800706"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261111000194",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "일진전기",
-      "title": "일진전기 · 정기·주요공시 · 분기보고서 (2026.09)",
-      "officialDocumentDate": "2026-11-11",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111000194"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
