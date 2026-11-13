@@ -903,6 +903,23 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: v.url, check: tier === 'C' ? undefined : hint(v.company, [String(v.model ?? '').split(/\s+/)[0], '연비']) });
   }
 
+  // 자동차리콜센터 무상점검·수리 게시판(kr-fuel 저장소의 freeRepair 구역, 11-14): 출입처 브랜드의 새 공지만.
+  // 대상 1만 대 이상이거나 내용에 안전 낱말이 있으면 A(수집기 등급), 그 밖 B. 다른 브랜드·첫 실행 때 이미 있던 글은 kr_fuel 화면에만.
+  // 11-04 아이뉴스24 「구형 팰리세이드 9만대 ABS 무상수리⋯美보다 11개월 늦어」가 이 게시판 공지에서 나온 유형이다.
+  const FREE_REPAIR = { label: '국내 무상점검·수리', tool: 'kr_fuel' };
+  for (const x of docs['kr-fuel']?.freeRepair?.items ?? []) {
+    if (!x.company || !['A', 'B'].includes(x.tier) || (x.baseline && !all)) continue;
+    if (!recent(x.firstSeen) && !(all || String(x.date ?? '') >= cutDay)) continue;
+    const model = String(x.title ?? '').replace(/^\s*\[[^\]]*\]\s*/, '').split(/\s+-\s+|\s+/)[0];
+    const units = Number.isFinite(x.units) ? ` · 대상 ${x.units.toLocaleString('en-US')}대` : '';
+    const body = x.detail === 'ok'
+      ? `${units}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.reason ? ` · 내용 「${clipAt(x.reason, 160)}」` : ''}`
+      : ` · 상세(대수·내용) 미확인${x.detail === 'pending' ? ' — 다음 실행에서 읽음' : ''}`;
+    push(x.tier, FREE_REPAIR, { kind: '무상점검·수리 공지', id: x.id, date: x.date || x.firstSeen, company: x.company,
+      fact: `자동차리콜센터 무상점검·수리 공지(글 번호 ${x.no}): ${x.title}${body} — 리콜(시정조치) 아님 · 해외 조치 시점·대상 차이와 원인은 미확인(us_recalls·회사 확인)`,
+      url: x.url, check: hint(x.company, [model, '무상수리'], [model], model ? [model] : []) });
+  }
+
   const pf = docs['partner-filings'];
   const pfBase = baselineOf(pf?.items ?? []);
   for (const x of pf?.items ?? []) {

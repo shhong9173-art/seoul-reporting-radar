@@ -780,7 +780,43 @@ export async function krFuel(ctx, args) {
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n새 신고 없음(첫 실행은 기준선, 조회 실패·활용신청 전이면 미확인).');
   out.push('\n다음: 연비 신고는 출시 확정이 아니다 — 출시 시점·가격·사양은 회사 확인. 새 모델명은 news_check로 보도 대조.');
+  if (!kind) out.push(...freeRepairSection(doc, q, limit, args.show_all === true || args.show_all === 'true', ctx));
   return textResult(out.join('\n'));
+}
+
+// 자동차리콜센터 '무상점검·수리' 게시판(kr_free_repair.py, 11-14): 연비 신고와 같은 저장소(kr-fuel)의 freeRepair 구역.
+// 무상수리는 리콜(시정조치)이 아니고 보도자료가 따로 없는 경우가 많다. 출입처 브랜드 글만 보이고 다른 브랜드는 show_all에서만.
+export const FREE_REPAIR_SOURCE = '자동차리콜센터 무상점검·수리 게시판';
+const clipText = (v, n) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; };
+export function freeRepairSection(doc, q, limit, showAll, ctx) {
+  const fr = doc?.freeRepair;
+  const c = (doc?.checks ?? []).find((x) => x.source === FREE_REPAIR_SOURCE);
+  const out = [];
+  if (!fr) {
+    out.push(`\n[국내 무상점검·수리 공지(자동차리콜센터)] ${c && c.status !== 'ok' ? `미확인(0건 아님): ${c.error ?? c.status}` : '아직 수집 전 — 다음 실행(매일 06:10, 평일 11:30·14:30·16:30) 뒤'}`);
+    return out;
+  }
+  const all = (fr.items ?? []).filter((x) => matches(q, x.company ?? '', x.title, x.maker ?? '', x.model ?? '', x.reason ?? ''));
+  const beat = all.filter((x) => x.company);
+  const rows = showAll ? all : beat;
+  out.push(`\n[국내 무상점검·수리 공지(자동차리콜센터 게시판)] 출입처 브랜드 ${beat.length}건${showAll ? ` · 다른 브랜드 ${all.length - beat.length}건` : ''} · 확인 ${String(fr.checkedAt).slice(0, 16)}${ageNote(ctx, fr.checkedAt, 60, true)}`);
+  if (c && c.status !== 'ok') out.push(`미확인(0건 아님): ${c.error ?? c.status}${fr.stale ? ' — 아래는 직전에 읽은 것' : ''}`);
+  else if (c) out.push(`목록 정상 · 이번 실행 ${c.pages ?? '?'}쪽 ${c.returned ?? '?'}건(게시판 전체 ${c.total ?? '?'}건) · 새 글 ${c.newPosts ?? 0}건(출입처 ${c.newBeat ?? 0})${c.pending ? ` · 상세 읽기 대기 ${c.pending}건(다음 실행)` : ''}`);
+  for (const r of fr.rules ?? []) out.push(`규칙: ${r}`);
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.date || '?'} · ${x.company ? `${x.tier} · ${x.company}` : '다른 브랜드'} · ${x.title} · 글 번호 ${x.no}`);
+    if (x.detail === 'ok') {
+      out.push(`   잡힌 사실: ${x.maker || '제작사 ?'} · ${x.model || '차명 ?'} · 대상 ${Number.isFinite(x.units) ? `${x.units.toLocaleString('en-US')}대` : '대수 미기재'}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.period ? ` · 무상수리 기간 ${x.period}` : ''}`);
+      if (x.reason) out.push(`   내용(공지 원문): 「${clipText(x.reason, 320)}」`);
+      if (x.action) out.push(`   조치: 「${clipText(x.action, 160)}」${(x.attach ?? []).length ? ` · 첨부 ${x.attach.join(', ')}` : ''}`);
+      if (x.company) out.push(`   등급 이유: ${x.why}`);
+    } else if (x.company) out.push(`   상세 ${x.detail === 'failed' ? `못 읽음(${x.detailError ?? '실패'}) — 대수·내용 미확인` : x.detail === 'pending' ? '읽기 대기(다음 실행)' : '안 읽음'}`);
+    out.push(`   원문: ${x.url} (상세 주소가 따로 없다 — 게시판에서 글 번호·제목으로 찾는다)`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('해당 글 없음(조회 실패면 미확인).');
+  out.push('다음: 무상수리는 리콜이 아니다 — 같은 결함의 해외 조치(us_recalls의 제조사 통신·리콜)와 시점·대상 차이, 원인·국내 조치 경위는 회사 확인. news_check는 차종+무상수리로.');
+  return out;
 }
 
 export async function usLitigation(ctx, args) {

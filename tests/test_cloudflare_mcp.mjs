@@ -3826,6 +3826,64 @@ test('kr_fuel: a new model name is A, an EV range change B, other rows C; unset 
   assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 공공데이터포털 활용신청 필요/);
 });
 
+test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 레이더에 — 기준선·다른 브랜드는 화면에만, 실패는 미확인', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const SRC = '자동차리콜센터 무상점검·수리 게시판';
+  const it = (no, title, extra = {}) => ({ id: `grts:${no}`, no: String(no), ctype: 'O', title, source: '국토교통부', date: '2026-10-25', company: '기아',
+    firstSeen: '2026-10-26T06:10:00+09:00', isNew: true, baseline: false, url: `https://www.car.go.kr/ri/grts/list.do#${no}`, detail: 'ok', maker: '기아(주)',
+    model: 'K8(GL3) HEV', produced: '2021-04-23 ~ 2024-08-12', period: '2026-10-26 ~', units: 77043, reason: 'HPCU 소프트웨어 설계 오류로 경고등이 점등될 가능성',
+    action: '소프트웨어 업데이트', attach: ['안내문.pdf'], tier: 'A', why: '대상 77,043대(1만 대 이상)', ...extra });
+  const doc = { schema: 'kr_fuel/v1', generatedAt: '2026-10-26T06:10:00+09:00', fuelAt: '2026-10-26T06:10:00+09:00', status: 'complete', dataset: 'https://www.data.go.kr/data/15139827/openapi.do',
+    checks: [{ source: '에너지공단 자동차 표시연비(공공데이터포털 15139827)', status: 'ok', rows: 9000, beatRows: 3100 },
+      { source: SRC, status: 'ok', returned: 20, pages: 4, total: 4177, newPosts: 3, newBeat: 3, detailsRead: 3, pending: 1 }],
+    vehicles: [], rules: ['연비 신고는 출시 확정이 아니다.'],
+    freeRepair: { checkedAt: '2026-10-26T06:10:00+09:00', baselineAt: '2026-10-26T06:10:00+09:00', total: 4177, rules: ['무상수리는 리콜(제작결함 시정조치)이 아니다.'],
+      items: [it(4874, '[기아] K8 HEV - HPCU 관련 무상수리'),
+        it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성', tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
+        it(4873, '[기아] 쏘렌토 - 계기판 관련 무상수리', { detail: 'pending', units: undefined, reason: undefined, maker: undefined, model: undefined, produced: undefined, tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
+        it(4871, '[현대] 아반떼 - 계기판 관련 무상수리', { company: '현대차', date: '2026-10-10', baseline: true, isNew: false, units: 3300, maker: '현대자동차(주)', model: '아반떼(CN7)', tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
+        it(4870, '[포르쉐] 카이엔 - 부품 관련 무상수리', { company: null, detail: undefined, units: undefined, reason: undefined, tier: 'C', why: '출입처 브랜드 아님' })] } };
+  const put = async (d) => (await worker.fetch(new Request(ORIGIN + '/ingest/kr-fuel', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(d) }), env, {})).status;
+  assert.equal(await put(doc), 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /국내 무상점검·수리[^\n]*\n?[^\n]*자동차리콜센터 무상점검·수리 공지\(글 번호 4874\): \[기아\] K8 HEV - HPCU 관련 무상수리 · 대상 77,043대 · 생산기간 2021-04-23 ~ 2024-08-12 · 내용 「HPCU 소프트웨어 설계 오류로 경고등이 점등될 가능성」 — 리콜\(시정조치\) 아님/);
+  assert.match(sec('B'), /글 번호 4875\): \[기아\] 타스만 - BDC 관련 무상수리 · 대상 1,204대/);
+  assert.match(sec('B'), /글 번호 4873\): \[기아\] 쏘렌토 - 계기판 관련 무상수리 · 상세\(대수·내용\) 미확인 — 다음 실행에서 읽음/);
+  assert.doesNotMatch(r.text, /아반떼 - 계기판|카이엔/);          // 첫 실행 때 이미 있던 글·다른 브랜드는 레이더에 올리지 않는다
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const k8 = items.items.find((x) => x.id === 'grts:4874');
+  assert.deepEqual([k8.check.who, k8.check.terms, k8.check.must], ['기아', ['K8', '무상수리'], ['K8']]);
+  assert.equal(k8.url, 'https://www.car.go.kr/ri/grts/list.do#4874');
+  assert.equal(deskType(k8).strength, 'normal');                  // 단독 데스크: 실적 유형도 약한 유형도 아님(기자 판정이 쌓이면 정한다)
+  const t = await call('kr_fuel', {}, opts);
+  assert.match(t.text, /\[국내 무상점검·수리 공지\(자동차리콜센터 게시판\)\] 출입처 브랜드 4건 · 확인 2026-10-26T06:10/);
+  assert.match(t.text, /목록 정상 · 이번 실행 4쪽 20건\(게시판 전체 4177건\) · 새 글 3건\(출입처 3\) · 상세 읽기 대기 1건\(다음 실행\)/);
+  assert.match(t.text, /- \[신규\] 2026-10-25 · A · 기아 · \[기아\] K8 HEV - HPCU 관련 무상수리 · 글 번호 4874\n   잡힌 사실: 기아\(주\) · K8\(GL3\) HEV · 대상 77,043대 · 생산기간 2021-04-23 ~ 2024-08-12 · 무상수리 기간 2026-10-26 ~\n   내용\(공지 원문\): 「HPCU/);
+  assert.match(t.text, /조치: 「소프트웨어 업데이트」 · 첨부 안내문\.pdf\n   등급 이유: 대상 77,043대\(1만 대 이상\)/);
+  assert.match(t.text, /- \[기준선\] 2026-10-10 · B · 현대차 · \[현대\] 아반떼/);
+  assert.match(t.text, /쏘렌토[^\n]*\n   상세 읽기 대기\(다음 실행\)/);
+  assert.doesNotMatch(t.text, /카이엔/);
+  assert.match((await call('kr_fuel', { show_all: true }, opts)).text, /다른 브랜드 1건[\s\S]*다른 브랜드 · \[포르쉐\] 카이엔/);
+  assert.match((await call('kr_fuel', { company: '타스만' }, opts)).text, /출입처 브랜드 1건/);
+  assert.doesNotMatch((await call('kr_fuel', { kind: '새 모델명' }, opts)).text, /무상점검·수리 공지/);   // kind를 주면 연비 신고만
+  // 게시판만 실패: 0건이 아니라 미확인 — 직전에 읽은 글은 그대로 보인다
+  const down = { ...doc, status: 'partial', checks: [doc.checks[0], { source: SRC, status: 'failed', returned: 0, error: '목록 1쪽 HTTP 500' }], freeRepair: { ...doc.freeRepair, stale: true } };
+  assert.equal(await put(down), 200);
+  assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 국내 연비 신고: 일부 실패 1건\(자동차리콜센터 무상점검·수리 게시판\)/);
+  assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 목록 1쪽 HTTP 500 — 아래는 직전에 읽은 것/);
+  // 아직 한 번도 못 읽었으면 '수집 전'
+  const { freeRepair, ...before } = doc;
+  assert.equal(await put({ ...before, checks: [doc.checks[0]] }), 200);
+  assert.match((await call('kr_fuel', {}, opts)).text, /\[국내 무상점검·수리 공지\(자동차리콜센터\)\] 아직 수집 전/);
+  // 낮 칸(평일 11:30·14:30·16:30): 게시판은 업무시간에 올라온다
+  assert.deepEqual(dueAt(new Date('2026-10-28T02:30:00Z')), ['kr-fuel.yml']);   // Wed 11:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T05:30:00Z')), ['kr-fuel.yml']);   // Wed 14:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T07:30:00Z')), ['kr-fuel.yml']);   // Wed 16:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-31T02:30:00Z')), []);                // Sat 11:30 KST — 주말은 아침 한 번만
+});
+
 test('overseas awards: a beat company in the TED winner field is A; other Korean winners stay in the tool', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -4625,6 +4683,16 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   // 패키지에 원문 주소가 적혀 있으면 줄에 적힌 날짜(의견 마감일)가 뒤여도 같은 문서다 → 〔이미 처리〕
   const LQ2 = ledgerEntries([pk('hanwha-qcells-georgia-air-permit', '한화큐셀 조지아 카터스빌 대기허가 신청 — 보류', '보류', '2026-11-03T08:22:00Z', '원문 https://epd.georgia.gov/document/document/pa1026-1/download')], []);
   assert.match(annotateHandled('- [기준선] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc. · Permit Application · 의견 마감 2026-11-06\n   원문: https://epd.georgia.gov/document/document/pa1026-1/download (pa1026-1)', LQ2).text, /의견 마감 2026-11-06 〔이미 처리: \[보류\] 한화큐셀 조지아 카터스빌 대기허가 신청/);
+  // 목록 주소 하나를 여러 글이 같이 쓰는 게시판(자동차리콜센터 무상점검·수리, 11-14): 글마다 '#글 번호'를 붙인 주소로만 잇는다 —
+  // 패키지에 목록 주소만 적혀 있거나 다른 글 번호면 붙이지 않는다. 매개변수가 더 붙은 주소(무역위 사건)는 지금처럼 같은 문서.
+  const grts = ['- [신규] 2026-11-13 · A · BMW코리아 · [비엠더블유] 520i - 냉각수 펌프 관련 무상수리 · 글 번호 4874', '   원문: https://www.car.go.kr/ri/grts/list.do#4874 (상세 주소가 따로 없다)',
+    '- [신규] 2026-11-13 · B · 혼다코리아 · [혼다] 어코드 - 후방카메라 관련 무상수리 · 글 번호 48741', '   원문: https://www.car.go.kr/ri/grts/list.do#48741 (상세 주소가 따로 없다)'].join('\n');
+  const one = ledgerEntries([pk('bmw-520i-free-repair', '비엠더블유 520i 냉각수 펌프 무상수리 — 회사 답변 대기', '보류', '2026-11-13T08:00:00Z', '원문 https://www.car.go.kr/ri/grts/list.do#4874')], []);
+  assert.deepEqual(annotateHandled(grts, one).text.split('\n').map((l) => l.includes('〔이미 처리')), [true, false, false, false]);
+  const listOnly = ledgerEntries([pk('free-repair-board-note', '무상점검 게시판 훑어봄 — 메모', '접음', '2026-11-13T08:00:00Z', '목록 https://www.car.go.kr/ri/grts/list.do 참고')], []);
+  assert.equal(annotateHandled(grts, listOnly).marked, 0);
+  const ktcL = ledgerEntries([pk('ktc-spvc', '중국산 PVC 반덤핑 예비조사 — 예약', '보류', '2026-11-13T08:00:00Z', '원문 https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000867')], []);
+  assert.equal(annotateHandled('- 2026-11-26 예비조사 · 구제 23-2026-4호 · 원문: https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000867&invstg_type_code=10100001', ktcL).marked, 1);
   // ④ 흔한 말뿐인 제목(굴뚝 '가동중지')도 같은 회사 + 지역·품목 낱말 둘이면 잇는다 — 처리한 뒤 새로 잡힌 줄은 이력만
   const L2 = ledgerEntries([pk('kgsteel-incheon-dangjin-stacks', "KG스틸 인천·당진 굴뚝 동시 '가동중지' — 당진은 회사 '설비 합리화 투자 공사' 답변, 인천 미확인", '보류', '2026-11-04T01:23:00Z'),
     pk('uk-tra-pvc-korea-pms-1113', '[보강 메모] 영국 S-PVC(AD0092) PMS — 11/9 정부·수출자 PMS 질의서(회신 11/24)', '접음', '2026-11-13T07:16:00Z')], []);

@@ -225,6 +225,16 @@ export function matchHandled(item, ledger) {
 const mmdd = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(5, 10);
 // 도구 글의 항목 덩어리(들여쓰지 않은 줄 + 뒤따르는 들여쓴 줄)마다 처리 이력을 붙인다 — 구역 도구(us_litigation·trade_remedies·kr_official …)는
 // 오늘 새 항목이 아니라 '지금 상태'를 보여 줘서, 기자가 이미 처리한 건(답변 대기 중인 OSHA 점검 등)이 볼 때마다 다시 나온다.
+// 패키지에 적힌 원문 주소가 줄에 있는가. 주소 뒤에 매개변수가 더 붙은 것은 같은 문서로 본다(무역위 사건 주소 등). 다만 '#글 번호'가
+// 이어지거나(목록 주소 하나를 여러 글이 같이 쓰는 게시판 — 자동차리콜센터 무상점검·수리) 숫자가 이어지면(다른 번호) 같은 문서가 아니다.
+function urlIn(block, u) {
+  for (let i = block.indexOf(u); i >= 0; i = block.indexOf(u, i + 1)) {
+    const next = block[i + u.length] ?? '';
+    if (next !== '#' && !(/\d$/.test(u) && /\d/.test(next))) return true;
+  }
+  return false;
+}
+
 export function annotateHandled(text, ledger) {
   const entries = (ledger?.entries ?? []).filter((e) => EXCLUDING.has(e.state));
   if (!entries.length || !text) return { text, marked: 0 };
@@ -246,7 +256,7 @@ export function annotateHandled(text, ledger) {
     const lineMs = d ? Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) : null;
     for (const e of entries) {
       if (!e.codeM) compile(e);
-      if (e.urlL.some((u) => block.includes(u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
+      if (e.urlL.some((u) => urlIn(block, u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
       const w = matchEntry(prep, e);
       if (!w) continue;
       // 낱말만 맞은 오래된 줄(처리한 때보다 120일 넘게 앞선 날짜)은 그 건이 아니다 — 11-13 운영: '한화큐셀 조지아 대기허가 신청(30376)' 보류 건이
