@@ -60,6 +60,23 @@ class Glossary(unittest.TestCase):
         self.assertIn("SBR, NBR 라텍스", seg)
         self.assertEqual(lp.find("페놀, 아세톤, BPA를 생산", ["아세톤"])[0], 1)
 
+    def test_korean_words_do_not_match_inside_other_products(self):
+        # 11-14 첫 운영: 인도 DGTR '페놀' 줄에 롯데케미칼 보고서의 '비스페놀A(BPA)'가 걸렸다(다른 품목)
+        lotte = "[BPA] PC의 주요 원재료인 비스페놀A(BPA)는 원료 가격 및 공급 구조에 따라 가격 변동이 발생합니다."
+        self.assertEqual(lp.find(lotte, ["페놀"])[0], 0)
+        self.assertEqual(lp.find(lotte, ["비스페놀", "BPA"])[0:3:2], (2, "BPA"))                                # 비스페놀A 줄에는 맞게 걸린다
+        self.assertEqual(lp.find("당사는 페놀과 아세톤을 생산합니다. 주요 제품: 페놀(Phenol)", ["페놀"])[0], 2)     # 조사·괄호가 붙는 것은 센다
+        self.assertEqual(lp.find("폴리에틸렌테레프탈레이트(PET) 및 폴리에틸렌 테레프탈레이트", ["폴리에틸렌"])[0], 0)
+        self.assertEqual(lp.find("고밀도 폴리에틸렌(HDPE)을 생산", ["폴리에틸렌", "HDPE"])[0], 1)
+        self.assertEqual(lp.find("폴리프로필렌글리콜(PPG)", ["폴리프로필렌"])[0], 0)
+        self.assertEqual(lp.find("아크릴로니트릴부타디엔스티렌(ABS) 수지", ["아크릴로니트릴"])[0], 0)
+        self.assertEqual(lp.find("빅데이터 분석도구를 도입", ["석도"])[0], 0)
+        self.assertEqual(lp.find("석도강판과 냉연강판", ["석도"])[0], 1)
+        self.assertEqual(lp.find("디에틸렌글리콜, 폴리에틸렌글리콜", ["에틸렌글리콜"])[0], 0)
+        self.assertEqual(lp.find("NB라텍스 및 H형강", ["라텍스"])[0], 1)                                     # 앞이 영문자인 것은 센다
+        self.assertEqual(lp.find("NB라텍스 및 H형강", ["형강"])[0], 1)
+        self.assertEqual([x[0] for x in lp.products_in("Acrylic Acid from Korea RP")], [])                    # 용어 표에서 뺌('에틸렌 아크릴산'과 못 가름)
+
 
 class Attach(unittest.TestCase):
     def setUp(self):
@@ -120,6 +137,11 @@ class Attach(unittest.TestCase):
         self.assertEqual(len(self.lists), 1)                        # 롯데케미칼만 다시(나머지 넷은 고유번호 없음 — DART를 부르지 않는다)
         tdi = {c["company"]: c for c in doc2["listingProducers"]["t1"]["products"][0]["companies"]}
         self.assertEqual((tdi["한화솔루션"]["status"], tdi["한화솔루션"]["term"], tdi["LG화학"]["status"]), ("found", "TDI", "none"))
+        # 낱말 세는 규칙이 바뀌기 전에 만든 색인(iv 다름)은 버리고 다시 받는다
+        stale = {**doc2, "producerIndex": {k: {**v, "iv": 1} for k, v in doc2["producerIndex"].items()}}
+        self.docs.clear()
+        lp.attach({"events": events}, stale, "KEY", NOW + dt.timedelta(days=1), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
+        self.assertEqual(len(self.docs), 3)
         # 세 번 실패한 회사는 7일 동안 다시 묻지 않는다
         doc3 = {"events": events}
         lp.attach(doc3, doc2, "KEY", NOW + dt.timedelta(days=2), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
