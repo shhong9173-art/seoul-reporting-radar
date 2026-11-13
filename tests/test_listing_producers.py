@@ -40,6 +40,9 @@ class Glossary(unittest.TestCase):
         self.assertEqual(names(ACETONE), ["아세톤"])
         self.assertEqual(names("Sunset Review investigation concerning imports of Toluene Di-isocyanate (TDI) from Korea RP"), ["TDI"])
         self.assertEqual(names("Suspension Grade PVC Resin from Korea RP"), ["PVC"])
+        # 11-14 운영에서 본 줄 그대로: CPVC는 PVC가 아니다
+        self.assertEqual(names("Anti-Dumping investigation concerning imports of ‘Chlorinated Polyvinyl Chloride (CPVC)- Whether or not further processed into compound’ from Korea RP and China PR"), ["CPVC"])
+        self.assertEqual(names("Poly Vinyl Chloride Paste Resin from Korea RP"), ["PVC"])
         self.assertEqual(names("Welded Stainless Steel Pipes and Tubes"), ["스테인리스", "강관"])
         self.assertEqual(names("Hot Rolled flat products of alloy or non-alloy steel"), ["열연"])
         self.assertEqual(names("Styrene Butadiene Rubber (SBR) of 1500 series"), ["SBR"])
@@ -138,7 +141,7 @@ class Attach(unittest.TestCase):
         tdi = {c["company"]: c for c in doc2["listingProducers"]["t1"]["products"][0]["companies"]}
         self.assertEqual((tdi["한화솔루션"]["status"], tdi["한화솔루션"]["term"], tdi["LG화학"]["status"]), ("found", "TDI", "none"))
         # 낱말 세는 규칙이 바뀌기 전에 만든 색인(iv 다름)은 버리고 다시 받는다
-        stale = {**doc2, "producerIndex": {k: {**v, "iv": 1} for k, v in doc2["producerIndex"].items()}}
+        stale = {**doc2, "producerIndex": {k: {**v, "iv": lp.INDEX_VERSION - 1} for k, v in doc2["producerIndex"].items()}}
         self.docs.clear()
         lp.attach({"events": events}, stale, "KEY", NOW + dt.timedelta(days=1), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
         self.assertEqual(len(self.docs), 3)

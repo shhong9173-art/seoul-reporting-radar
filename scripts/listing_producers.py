@@ -26,7 +26,7 @@ from datetime import timedelta
 import ktc_producers as kp
 
 EV_VERSION = 3
-INDEX_VERSION = 2      # 낱말 세는 규칙이 바뀌면 올린다 — 예전 규칙으로 만든 색인은 버리고 보고서를 다시 받는다
+INDEX_VERSION = 3      # 낱말 세는 규칙이 바뀌면 올린다 — 예전 규칙으로 만든 색인은 버리고 보고서를 다시 받는다
 TIME_BUDGET = 540      # 한 실행에 보고서를 받는 데 쓰는 시간(초). 넘으면 남은 회사는 다음 실행. 11-14 운영: 보고서 한 곳에 50초쯤(8곳 6분 반)
 FETCH_TRIES = 3        # 보고서를 못 받은 회사는 이 횟수까지 다시(그 뒤로는 7일에 한 번)
 WINDOW_DAYS = 45
@@ -45,7 +45,9 @@ GLOSSARY = [
     ("비스페놀A", r"bisphenol[\s-]*a\b", ("BPA",), ["비스페놀", "BPA"], "화학"),
     ("TDI", r"toluene\s+di-?\s?isocyanate", ("TDI",), ["TDI", "톨루엔디이소시아네이트"], "화학"),
     ("MDI", r"methylene\s+di-?\s?phenyl\s+di-?\s?isocyanate", ("MDI",), ["MDI"], "화학"),
-    ("PVC", r"poly\s?vinyl\s+chloride", ("PVC", "S-PVC"), ["PVC", "폴리염화비닐"], "화학"),
+    # CPVC(염소화 PVC)는 PVC와 다른 품목이다 — 11-14 운영: 인도 DGTR 'Chlorinated Polyvinyl Chloride (CPVC)' 줄에 PVC 낱말로 세 회사가 붙었다
+    ("PVC", r"(?<!chlorinated )poly\s?vinyl\s+chloride", ("PVC", "S-PVC"), ["PVC", "폴리염화비닐"], "화학"),
+    ("CPVC", r"chlorinated\s+poly\s?vinyl\s+chloride", ("CPVC",), ["CPVC", "염소화 PVC", "염소화PVC"], "화학"),
     ("가성소다", r"caustic\s+soda|sodium\s+hydroxide", (), ["가성소다", "수산화나트륨"], "화학"),
     ("ECH", r"epichlorohydrin", (), ["에피클로로히드린", "ECH"], "화학"),
     ("에폭시 수지", r"epoxy\s+resin", (), ["에폭시"], "화학"),
