@@ -140,10 +140,22 @@ class Attach(unittest.TestCase):
         lp.attach(doc7, doc4, "KEY", dt.datetime(2027, 4, 2, 7, 40, tzinfo=KST), list_fetch=self.list_fetch, doc_fetch=self.doc_fetch)
         self.assertEqual((doc7["producerIndex"], doc7["listingProducers"]), ({}, {}))
 
+    def test_fetch_false_only_uses_the_stored_index(self):
+        # 무역구제 결과를 저장하기 전 단계: 보고서를 받지 않는다(색인이 비어 있으면 줄도 안 붙는다)
+        doc = {"events": [ev("a1", ACETONE)]}
+        self.assertEqual(lp.attach(doc, None, "KEY", NOW, fetch=False, list_fetch=self.list_fetch, doc_fetch=self.doc_fetch), (1, 0))
+        self.assertEqual((self.lists, doc["producerIndex"], doc["listingProducers"]["a1"]["line"]), ([], {}, ""))
+        # 저장한 뒤 단계: 같은 doc을 이전 상태로 넘겨 색인을 채우고 줄을 다시 대조한다
+        self.assertEqual(lp.attach(doc, doc, "KEY", NOW, list_fetch=self.list_fetch, doc_fetch=self.doc_fetch), (1, 3))
+        self.assertIn("LG화학 2곳", doc["listingProducers"]["a1"]["line"])
+        doc2 = {"events": [ev("a1", ACETONE), ev("t1", "Toluene Di-isocyanate (TDI) from Korea RP")]}
+        self.assertEqual(lp.attach(doc2, doc, "KEY", NOW + dt.timedelta(days=1), fetch=False), (2, 0))
+        self.assertIn("한화솔루션", doc2["listingProducers"]["t1"]["line"])
+
     def test_time_budget_defers_the_rest_to_the_next_run(self):
-        # 11-14 첫 운영: 19곳 보고서를 한 실행에 받느라 무역구제 감시가 길어졌다 — 한 실행 90초까지, 남은 회사는 다음 실행
+        # 11-14 첫 운영: 보고서 한 곳에 50초쯤 — 한 실행 TIME_BUDGET초까지, 남은 회사는 다음 실행
         self.codes.pop("롯데케미칼")
-        ticks = iter([0, 10, 100, 200, 300, 400, 500, 600, 700, 800])
+        ticks = iter([0, 10, lp.TIME_BUDGET + 10, 2000, 3000, 4000, 5000, 6000, 7000, 8000])
         doc = {"events": [ev("a1", ACETONE)]}
         n, reports = lp.attach(doc, None, "KEY", NOW, list_fetch=self.list_fetch, doc_fetch=self.doc_fetch, clock=lambda: next(ticks))
         self.assertEqual((n, reports, sorted(doc["producerIndex"])), (1, 1, ["LG화학"]))          # 첫 회사만 받고 멈춤
