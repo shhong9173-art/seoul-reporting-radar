@@ -4480,6 +4480,34 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   assert.match(a.text, /- 개시 2026-10-01 · 현대차 · 민원 점검\n/);
   assert.match(a.text, /Commission Determination 〔처리 이력 있음: \[보류·예약 중\] 한화 ITC 337-1494 재검토 · 11-13 — 그 뒤 새 항목일 수 있음\(새 사실인지 확인\)〕$/);
   assert.equal(annotateHandled(txt, { entries: [] }).marked, 0);
+
+  // 11-13 운영에서 본 잘못 붙은 표시와 빠진 표시
+  // ① 영문 낱말은 낱말 경계로만: 'Fat/Cat'의 Cat이 'Application'에 걸려 기아 조지아 대기 허가 기준선 줄에 OSHA 건이 붙었다
+  const air = ['- [기준선] 조지아 · 기아 · KIA Georgia, Inc. · 대기 허가 발급(PSD/NSR) · 허가 3711-285-0084-P-01-0(시설 285-00084) · 발급 2007-07-27',
+    '   원문: https://air.gaepd.org/Permits/View/PI-17363', '   문서: Preliminary Determination https://air.gaepd.org/Permits/View/PP-17363 · Application Summary https://air.gaepd.org/Permits/View/PA-17363'].join('\n');
+  assert.equal(annotateHandled(air, L).marked, 0);
+  assert.equal(of({ id: 'gaair:1', watch: '미국 주 환경 허가·공고', kind: '대기 허가 발급', company: '기아', date: '2026-11-01', fact: '조지아 · KIA Georgia, Inc. · 대기 허가 발급(PSD/NSR) · Application Summary' }), null);
+  // ② EDIS 접수일은 2026/11/24 꼴 — 예약해 둔 결정이 나온 날의 줄은 〔이미 처리〕가 아니라 〔처리 이력 있음〕
+  const ed = annotateHandled(['- B · 접수 2026/10/29 16:14 · 337-1494 Notice · Commission Determination to Extend the Due Date', '   제출 USITC',
+    '- A · 접수 2026/11/24 10:02 · 337-1494 Notice · Commission Determination to Review'].join('\n'), L).text.split('\n');
+  assert.match(ed[0], /Due Date 〔이미 처리: \[보류·예약 중\] 한화 ITC 337-1494 재검토/);
+  assert.match(ed[2], /to Review 〔처리 이력 있음: \[보류·예약 중\] 한화 ITC 337-1494 재검토 · 11-13 — 그 뒤 새 항목일 수 있음/);
+  // ③ 묶음 머리줄 아래 여러 사건: 표시는 처리한 그 사건 줄에만(머리줄에 붙으면 묶음 전체가 처리된 것으로 읽힌다)
+  const grp = annotateHandled(['- 출입처 사건 · 최근 30일 2건', '  A · 2026-11-10 13:30 · LS전선 · 중앙노동위원회 심판회의 · 사건 2026부노46 「엘에스전선 주식회사 부당노동행위 구제 재심신청」',
+    '     원문: https://www.nlrc.go.kr/a', '  B · 2026-11-19 16:00 · 한국GM · 인천지방노동위원회 심판회의 · 사건 2026부해920 「한국지엠 주식회사 부당해고 구제신청」', '     원문: https://www.nlrc.go.kr/b',
+    '   검증 상태: 노동위원회 공개 회의 일정(자동). 사건명은 신청 주장'].join('\n'), L);
+  assert.equal(grp.marked, 1);
+  assert.deepEqual(grp.text.split('\n').map((l) => l.includes('〔이미 처리')), [false, true, false, false, false, false]);
+  // ④ 흔한 말뿐인 제목(굴뚝 '가동중지')도 같은 회사 + 지역·품목 낱말 둘이면 잇는다 — 처리한 뒤 새로 잡힌 줄은 이력만
+  const L2 = ledgerEntries([pk('kgsteel-incheon-dangjin-stacks', "KG스틸 인천·당진 굴뚝 동시 '가동중지' — 당진은 회사 '설비 합리화 투자 공사' 답변, 인천 미확인", '보류', '2026-11-04T01:23:00Z'),
+    pk('uk-tra-pvc-korea-pms-1113', '[보강 메모] 영국 S-PVC(AD0092) PMS — 11/9 정부·수출자 PMS 질의서(회신 11/24)', '접음', '2026-11-13T07:16:00Z')], []);
+  const stack = { id: 'stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-13', watch: '굴뚝 측정(공장 가동 신호)', kind: '사업장 가동 중단 신호', company: 'KG스틸', date: '2026-11-12T15:20:00Z',
+    fact: "케이지스틸(주) 당진공장: 평소 움직이던 배출구 3개 중 2개가 3번 연속 평소의 10% 아래 — 6번(상태 '가동중지')" };
+  assert.equal(matchHandled(stack, L2).similar?.key, 'kgsteel-incheon-dangjin-stacks');
+  assert.equal(matchHandled({ ...stack, date: '2026-11-03T15:20:00Z' }, L2).entry?.key, 'kgsteel-incheon-dangjin-stacks');
+  assert.equal(matchHandled({ ...stack, company: '현대제철', fact: "현대제철㈜ 당진제철소 굴뚝: 상태 '가동중지'" }, L2), null);   // 다른 회사
+  assert.equal(matchHandled({ ...stack, fact: 'KG스틸 당진공장 건축허가 신축 1,200㎡' , watch: '공장 부지 건축허가', kind: '새 허가' }, L2), null);   // 같은 회사 다른 일
+  assert.match(annotateHandled('- 2026-11-10T07:40 · 영국 · 영국 무역구제청(TRA) 조사 목록\n   잡힌 사실: No. AD0092 Case Suspension Polyvinyl Chloride', L2).text, /〔이미 처리: \[접음·보강 메모\] 영국 S-PVC\(AD0092\) PMS · 11-13/);
 });
 
 test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 킬한 유형을 걷어내고 실적 있는 유형부터, 후보가 없으면 없다고 한다', async () => {

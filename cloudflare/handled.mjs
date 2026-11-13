@@ -89,7 +89,10 @@ export function wordsOf(subject, companies = new Set()) {
 const PLACE_EN = { 조지아: 'georgia', 앨라배마: 'alabama', 테네시: 'tennessee', 루이지애나: 'louisiana', 텍사스: 'texas', 인디애나: 'indiana', 미시간: 'michigan',
   오하이오: 'ohio', 켄터키: 'kentucky', 영국: 'united kingdom', 호주: 'australia', 캐나다: 'canada', 인도네시아: 'indonesia', 베트남: 'vietnam' };
 const rare = (w) => !COMMON.has(w) && !AGENCY.has(w.toUpperCase());
-const inText = (flat, w) => flat.includes(w.toLowerCase()) || (PLACE_EN[w] ? flat.includes(PLACE_EN[w].replace(/\s+/g, '')) : false);
+// 영문 낱말은 낱말 경계로만 맞춘다 — 붙여 쓴 글에서 찾으면 'Cat'이 'Application'에 걸린다(11-13 운영: 기아 조지아 OSHA 건이 대기 허가 기준선 줄에 붙음)
+const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const latinIn = (low, w) => new RegExp(`(?<![a-z])${esc(w.toLowerCase()).replace(/\s+/g, '\\s+')}(?![a-z])`).test(low);
+const inText = (flat, low, w) => (/^[A-Za-z]+$/.test(w) ? latinIn(low, w) : flat.includes(w.toLowerCase())) || (PLACE_EN[w] ? latinIn(low, PLACE_EN[w]) : false);
 
 const idsIn = (body) => {
   const out = new Set();
@@ -138,10 +141,12 @@ export function wordMatch(text, companyText, e) {
   const codes = [...e.codes].filter((c) => new RegExp(`(?<![A-Z0-9])${c.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Z0-9])`).test(up));
   if (codes.length) return { codes, words: [] };
   const flat = squash(text);
-  const major = [...e.words.major].filter((w) => inText(flat, w));
+  const low = String(text).toLowerCase();
+  const major = [...e.words.major].filter((w) => inText(flat, low, w));
   const minor = [...e.words.minor].filter((w) => flat.includes(w));
   const R = major.filter(rare).length;
-  const ok = known ? (R >= 2 || (R >= 1 && (major.length >= 2 || minor.length >= 1)) || (major.length >= 2 && minor.length >= 1))
+  // 마지막 조건: 흔한 큰 낱말 하나 + 품목·지역 낱말 둘(같은 회사) — 'KG스틸 인천·당진 굴뚝 … 가동중지'처럼 흔한 말뿐인 제목
+  const ok = known ? (R >= 2 || (R >= 1 && (major.length >= 2 || minor.length >= 1)) || (major.length >= 2 && minor.length >= 1) || (major.length >= 1 && minor.length >= 2))
     : (R >= 2 && major.length + minor.length >= 3);   // 회사를 못 맞춘 쪽은 더 엄격하게
   return ok ? { codes, words: [...major, ...minor] } : null;
 }
@@ -171,32 +176,46 @@ export function annotateHandled(text, ledger) {
   if (!entries.length || !text) return { text, marked: 0 };
   const lines = String(text).split('\n');
   const skip = /^(?:\s|\[|규칙|다음:|\(|…|정리:|판정은|읽는 법|$)/;
+  const indent = (l) => /^\s*/.exec(l)[0].length;
+  // 묶음 머리줄('- 출입처 사건 · 최근 30일 3건') 아래 들여쓴 항목 줄 — 표시는 머리줄이 아니라 그 항목 줄에 붙인다(머리줄에 붙이면 묶음 전체가 처리된 것으로 읽힌다)
+  const SUB = /^\s+(?:[ABC] · |\[기준선\]|\[신규\])/;
+  const TAIL = /^\s*(?:검증 상태|규칙|읽는 법)/;
   let marked = 0;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (skip.test(lines[i])) continue;
-    let j = i + 1;
-    while (j < lines.length && /^\s+\S/.test(lines[j])) j += 1;
-    const block = lines.slice(i, j).join('\n');
-    if (block.length < 12 || block.includes('〔이미 처리') || block.includes('〔처리 이력')) { i = j - 1; continue; }
+  const mark = (from, to) => {
+    const block = lines.slice(from, to).join('\n');
+    if (block.length < 12 || block.includes('〔이미 처리') || block.includes('〔처리 이력')) return;
     let hit = null;
     for (const e of entries) {
       if ([...e.urls].some((u) => block.includes(u)) || [...e.ids].some((id) => block.includes(`id ${id}`))) { hit = e; break; }
       if (wordMatch(block, block, e)) { hit = e; break; }
     }
-    if (hit) {
-      const d = /\b(20\d{2}-\d{2}-\d{2})\b/.exec(lines[i]);
-      const later = d && Date.parse(`${d[1]}T00:00:00+09:00`) > hit.at + DAY;
-      lines[i] += later ? ` 〔처리 이력 있음: ${entryLabel(hit)} · ${mmdd(hit.at)} — 그 뒤 새 항목일 수 있음(새 사실인지 확인)〕`
-        : ` 〔이미 처리: ${entryLabel(hit)} · ${mmdd(hit.at)} — 단독 추천에서 뺀다(새 사실이 붙었을 때만 다시)〕`;
-      marked += 1;
-    }
+    if (!hit) return;
+    const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
+    const later = d && Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) > hit.at + DAY;
+    lines[from] += later ? ` 〔처리 이력 있음: ${entryLabel(hit)} · ${mmdd(hit.at)} — 그 뒤 새 항목일 수 있음(새 사실인지 확인)〕`
+      : ` 〔이미 처리: ${entryLabel(hit)} · ${mmdd(hit.at)} — 단독 추천에서 뺀다(새 사실이 붙었을 때만 다시)〕`;
+    marked += 1;
+  };
+  for (let i = 0; i < lines.length; i += 1) {
+    if (skip.test(lines[i])) continue;
+    let j = i + 1;
+    while (j < lines.length && /^\s+\S/.test(lines[j])) j += 1;
+    const subs = [];
+    for (let k = i + 1; k < j; k += 1) if (SUB.test(lines[k])) subs.push(k);
+    if (!subs.length) mark(i, j);
+    else subs.forEach((k, n) => {
+      let end = k + 1;
+      const stop = subs[n + 1] ?? j;
+      while (end < stop && indent(lines[end]) > indent(lines[k]) && !TAIL.test(lines[end])) end += 1;
+      mark(k, end);
+    });
     i = j - 1;
   }
   return { text: lines.join('\n'), marked };
 }
 
 export function entryLabel(e) { return entryLabelOf(e); }
-const entryLabelOf = (e) => `[${e.state}${e.tag && e.tag !== e.state && !/^(?:킬|보강 메모)$/.test(e.tag) ? `·${e.tag}` : ''}] ${e.subject || e.key}`;
+const entryLabelOf = (e) => `[${e.state}${e.tag && e.tag !== e.state && e.tag !== '킬' ? `·${e.tag}` : ''}] ${e.subject || e.key}`;
 
 export async function loadLedger(ctx, feedback = null) {
   const [{ rows: packages }, fb] = await Promise.all([storeOp(ctx, 'packages.digest', {}),
