@@ -25,7 +25,8 @@ from datetime import timedelta
 
 import ktc_producers as kp
 
-EV_VERSION = 2
+EV_VERSION = 3
+INDEX_VERSION = 2      # 낱말 세는 규칙이 바뀌면 올린다 — 예전 규칙으로 만든 색인은 버리고 보고서를 다시 받는다
 TIME_BUDGET = 540      # 한 실행에 보고서를 받는 데 쓰는 시간(초). 넘으면 남은 회사는 다음 실행. 11-14 운영: 보고서 한 곳에 50초쯤(8곳 6분 반)
 FETCH_TRIES = 3        # 보고서를 못 받은 회사는 이 횟수까지 다시(그 뒤로는 7일에 한 번)
 WINDOW_DAYS = 45
@@ -64,7 +65,6 @@ GLOSSARY = [
     ("가소제", r"plastici[sz]er|dioctyl", ("DOTP", "DOP"), ["가소제", "DOTP", "DOP"], "화학"),
     ("옥탄올(2-EH)", r"2-?\s?ethyl\s?hexanol|\boctanol\b", ("2-EH", "2EH"), ["옥탄올", "2-EH", "에틸헥산올"], "화학"),
     ("2-EHA", r"2-?\s?ethyl\s?hexyl\s+acrylate", ("2-EHA", "2EHA"), ["2-EHA", "에틸헥실"], "화학"),
-    ("아크릴산·아크릴레이트", r"acrylic\s+acid|butyl\s+acrylate", (), ["아크릴산", "아크릴레이트"], "화학"),
     ("부탄올", r"\bn-?\s?butanol\b|normal\s+butanol|butyl\s+alcohol", (), ["부탄올"], "화학"),
     ("IPA", r"isopropyl\s+alcohol|isopropanol", ("IPA",), ["IPA", "이소프로필알코올", "이소프로필알콜"], "화학"),
     ("아크릴로니트릴", r"acrylonitrile(?![\s-]+butadiene)", (), ["아크릴로니트릴"], "화학"),
@@ -106,11 +106,19 @@ def products_in(text):
     return out[:3]
 
 
+# 한글 낱말 뒤에 이 말이 이어지면 다른 품목이다: 폴리에틸렌테레프탈레이트(PET)·폴리프로필렌글리콜(PPG)·아크릴로니트릴부타디엔스티렌(ABS)
+NOT_FOLLOWED = {"폴리에틸렌": r"\s?테레프탈", "폴리프로필렌": r"\s?글리콜", "아크릴로니트릴": r"[\s·-]?부타디엔"}
+
+
 def term_rx(term):
-    """약어·영문 낱말은 앞뒤가 영문자·숫자가 아닐 때만('SSBR' 속 'SBR', 'ABS'가 든 다른 낱말을 세지 않는다). 한글 낱말은 그대로."""
+    """약어·영문 낱말은 앞뒤가 영문자·숫자가 아닐 때만('SSBR' 속 'SBR'을 세지 않는다).
+    한글 낱말은 바로 앞이 한글이 아닐 때만 — 11-14 첫 운영에서 '페놀'이 롯데케미칼 보고서의 '비스페놀A'에 걸려 다른 품목을 가리켰다
+    ('분석도구' 속 '석도', '메타아크릴산'·'디에틸렌글리콜' 같은 앞가지 붙은 다른 품목도 같은 이유로 뺀다). 붙여 쓴 같은 품목('저밀도폴리에틸렌')은
+    놓칠 수 있다 — 틀린 회사를 가리키는 것보다 빠지는 쪽을 택한다."""
     if re.fullmatch(r"[A-Za-z0-9-]+", term):
         return re.compile(rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])")
-    return re.compile(re.escape(term))
+    tail = f"(?!{NOT_FOLLOWED[term]})" if term in NOT_FOLLOWED else ""
+    return re.compile(rf"(?<![가-힣]){re.escape(term)}{tail}")
 
 
 def find(text, terms):
@@ -160,7 +168,7 @@ def build_index(previous_index, needed, key, now, *, clock=time.monotonic, fetch
     돌려줌: (색인, 이번에 받은 보고서 수)."""
     year = kp.report_year(now)
     stamp = now.isoformat(timespec="seconds")
-    idx = {k: v for k, v in (previous_index or {}).items() if isinstance(v, dict) and v.get("year") == year}
+    idx = {k: v for k, v in (previous_index or {}).items() if isinstance(v, dict) and v.get("year") == year and v.get("iv") == INDEX_VERSION}
     if not key or not fetch:
         return idx, 0
     codes, start, fetched = kp.corp_codes(), clock(), 0
@@ -173,7 +181,7 @@ def build_index(previous_index, needed, key, now, *, clock=time.monotonic, fetch
         if clock() - start > TIME_BUDGET:
             break                                      # 남은 회사는 다음 실행(색인에 없으면 '대기')
         got = fetch_section(name, key, year, codes, **kw)
-        row = {"year": year, "status": got["status"], "checkedAt": stamp}
+        row = {"year": year, "iv": INDEX_VERSION, "status": got["status"], "checkedAt": stamp}
         if got["status"] == "found":
             row.update(receiptNo=got["receiptNo"], terms=index_text(got["text"]))
             fetched += 1
