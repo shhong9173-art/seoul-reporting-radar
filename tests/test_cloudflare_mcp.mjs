@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
-import { RadarStore } from '../cloudflare/store.mjs';
+import { LINK_LINE, RadarStore } from '../cloudflare/store.mjs';
+import { annotateHandled, codesOf, companiesIn, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
 import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
@@ -4415,4 +4416,162 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.match(local2, /첨부 원문에서 뽑은 사업 개요\(자동·기자 컴퓨터에서 읽음 — 첨부 원문 확인\): 공사기간 2026\. 11\. ~ 2027\. 6\./);
   assert.doesNotMatch(local2, /첨부는 기자가 직접/);
   assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
+});
+
+test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패키지와 이어진 항목은 radar_today에서 숨기고 구역 도구엔 〔이미 처리〕를 붙인다', async () => {
+  // 실제 패키지 제목(11-13 운영)과 실제 항목 글 발췌
+  const pk = (name, title, state, updated_at, body = '') => ({ name, title, state, updated_at, created_at: updated_at, body });
+  const L = ledgerEntries([
+    pk('posco-hyrex-site-fishing-refusal', '포스코 수소환원제철 부지 한정어업 거절(포항시의회 행감) — 기자 판단 11/12 접음', '접음', '2026-11-12T09:03:00Z'),
+    pk('hyundai-factory-delisted-anseong-guess', '[킬] 현대차 안성 공장등록 목록에서 빠짐 — 앞서 킬, 재추천 금지', '접음', '2026-11-13T06:45:00Z'),
+    pk('lscable-nlrc-review-20261110', '중노위, LS전선 부당노동행위 재심(2026부노46) 11/10 심문 — 기자 판단 11/12 접음', '접음', '2026-11-12T09:03:00Z'),
+    pk('hanwha-itc-1494-with-prejudice', '[예약 중] 한화 ITC 337-1494 재검토 — 11/24 예약 확인 걸려 있음, 그 전 재추천 금지', '보류', '2026-11-13T06:45:00Z'),
+    pk('kia-georgia-osha-fatcat-0901', '[답변 대기] 기아 조지아 OSHA Fat/Cat 점검(9/1 개시) — 기자 문의 중, 답 오기 전 재추천 금지', '보류', '2026-11-13T06:45:00Z',
+      '원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811 확인'),
+    pk('uk-tra-plate-ad0071-provisional-rejected', '[킬] 영국 한국산 후판 반덤핑(AD0071) — 기자 판단: 판 작고 계기 없음', '접음', '2026-11-13T07:39:00Z'),
+    pk('posco-hr-cvd-cit-2023ar', '[단독 작성] 포스코, 美 열연 상계관세(2023년분 3.68%) CIT 제소(11/2 현지) — 11/9 18:35 기준 미보도', '발제함', '2026-11-09T09:35:00Z'),
+    pk('hmgma-sep-ioniq-shipments-drop', '현대차 메타플랜트(HMGMA) 9월 판매 1,121대 — 직전 3개월 평균의 30%', '미발제·확인 필요', '2026-11-09T12:30:00Z', `본문\n${LINK_LINE} sales:hmgma:202609`),
+    pk('alert-20261112', '단독 후보 즉시 알림 11-12 · 누적 3건', '미발제·확인 필요', '2026-11-12T09:45:00Z', '알림 전문\n보낸 id: clik:AAA, execm:BBB'),
+    pk('afternoon-20261112', '오후 출입처 체크 11-12', '미발제·확인 필요', '2026-11-12T05:25:00Z', '본 접수번호: 2026…'),
+  ], []);
+  assert.deepEqual(L.entries.map((e) => e.state), ['접음', '접음', '접음', '보류', '보류', '접음', '발제함', '앞서 추천']);   // 자동 기록(오후 체크·알림)은 장부 줄이 아니다
+  assert.deepEqual([...L.alerted], [['clik:AAA', '11-12'], ['execm:BBB', '11-12']]);
+  const of = (x) => { const r = matchHandled(x, L); return r?.entry ? `${r.entry.state}:${r.entry.key}` : r?.similar ? `비슷:${r.similar.key}` : null; };
+  const fishing = { id: 'clik:1', watch: '지방의회 회의록', kind: '지방의회 회의록', company: '포스코', date: '2026-11-12T00:10:00Z',
+    fact: '경상북도 포항시의회 경제산업위원회행정사무감사(20261020) 회의록 · 포스코 대목 「어업인들이 수소환원제철소 예정 부지 인근 해역에 한정어업 허가 신청을 했거든요. 그런데 포스코가 이를 받아들이지 않는」' };
+  assert.equal(of(fishing), '접음:posco-hyrex-site-fishing-refusal');
+  // 같은 날 같은 의회의 다른 발언(악취 민원 — 수소환원제철소는 지나가는 말)은 다른 건
+  assert.equal(of({ ...fishing, id: 'clik:2', fact: '포항시의회 자치행정위원회행정사무감사 회의록 · 포스코 대목 「포스코에서도 수소환원제철소를 내년도에 건립할 예정이 있습니다마는 협화라고하는 비료공장이 있어요 악취가」' }), null);
+  const gone = { id: 'fac:415502024161684:gone:2026-11-12', watch: '공장등록·관보', kind: '공장 목록에서 빠짐', company: '현대차', date: '2026-11-11T23:10:00Z',
+    fact: '목록에서 빠짐: 현대자동차(주) ·  — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요) · 이 회사 조회 공장 22→21곳' };
+  assert.equal(of(gone), '접음:hyundai-factory-delisted-anseong-guess');
+  // 처리한 뒤(하루 넘게) 새로 잡힌 같은 종류 항목은 숨기지 않고 이력만 알린다 — 다른 공장일 수 있다
+  assert.equal(of({ ...gone, id: 'fac:9:gone:2026-12-01', date: '2026-12-01T23:10:00Z' }), '비슷:hyundai-factory-delisted-anseong-guess');
+  assert.equal(of({ id: 'fac:10:new', watch: '공장등록·관보', kind: '공장 새 등록', company: '현대차', date: '2026-11-10', fact: '공장 등록 현대자동차(주) 울산 · 주생산품 전기차 배터리팩' }), null);
+  // 사건 번호·문서 번호
+  assert.equal(of({ id: 'labor:00:2026부노46:2026-11-10', watch: '노동위 회의(조정·심판)', kind: '노동위 심판 회의', company: 'LS전선', date: '2026-11-04T01:28:00Z',
+    fact: '중앙노동위원회 심판회의 2026-11-10 13:30 · 사건 2026부노46 「엘에스전선 주식회사 부당노동행위 구제 재심신청」' }), '접음:lscable-nlrc-review-20261110');
+  const edis = { id: 'edis:1', watch: '무역구제', kind: '미국 ITC 337(특허) 문서', company: '한화솔루션', date: '2026-11-01', fact: 'EDIS 337-TA-1494 Petition for Review (Hanwha Solutions)' };
+  assert.equal(of(edis), '보류:hanwha-itc-1494-with-prejudice');
+  assert.equal(of({ ...edis, id: 'edis:2', date: '2026-11-24', fact: 'EDIS 337-TA-1494 Commission Determination' }), '비슷:hanwha-itc-1494-with-prejudice');   // 예약해 둔 결정이 실제로 나오면 새 항목
+  assert.equal(of({ id: 'trade:uk:1', watch: '무역구제', kind: '해외 조사 uk', company: '', date: '2026-11-10', fact: '영국 TRA AD0071 Hot-rolled plate from Korea — provisional' }), '접음:uk-tra-plate-ad0071-provisional-rejected');
+  // 원문 주소, 영문 원문의 한글 지명(조지아 ↔ GEORGIA)
+  const osha = { id: 'osha:insp:349146811', watch: '미국 OSHA 점검·위반', kind: '미국 OSHA 점검 개시', company: '기아', date: '2026-10-30', fact: 'KIA GEORGIA, INC. (WEST POINT, GA) 사망·중대사고(M) 점검 개시 2026-09-01' };
+  assert.equal(matchHandled({ ...osha, url: 'https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811' }, L).how, '원문 주소');
+  assert.match(matchHandled(osha, L).how, /^낱말\(조지아·OSHA/);
+  // 기자가 쓴 단독(열연 상계관세 CIT 제소)과 같은 회사의 다른 사건(후판 상계관세 판결 고시)은 가른다 — 흔한 낱말 둘로는 안 잇는다
+  assert.equal(of({ id: 'cl:1', watch: '미국 소송·ITC', kind: '국제무역법원', company: '포스코', date: '2026-11-03', fact: 'POSCO v. United States — 국제무역법원(CIT) 접수 · 열연 상계관세 연례재심' }), '발제함:posco-hr-cvd-cit-2023ar');
+  assert.equal(of({ id: 'fr:1', watch: '무역구제', kind: '미국 관보', company: '포스코', date: '2026-11-09T07:17:00Z',
+    fact: 'Certain Carbon and Alloy Steel Cut-to-Length Plate From the Republic of Korea: Notice of Court Decision Not in Harmony — 후판 상계관세 CIT 판결' }), null);
+  assert.equal(of({ id: 'cl:75108202', watch: '미국 소송·ITC', kind: '분류 없음', company: '기아', date: '2026-11-12', fact: 'District Court, S.D. California 「Mora v. Kia America, Inc.」 접수' }), null);
+  // 패키지에 적어 둔 레이더 id(package_save item_ids) — 앞서 추천(미발제)도 이어진다
+  assert.equal(of({ id: 'sales:hmgma:202609', watch: '월간 통계(물가·생산·수입차·완성차 판매)', kind: '판매 급감', company: '현대차', date: '2026-11-03', fact: '9월 1,121대' }), '앞서 추천:hmgma-sep-ioniq-shipments-drop');
+  // 부호: 연도·날짜·금액·차종 이름은 부호가 아니다
+  assert.deepEqual([...codesOf('한화 ITC 337-1494 재검토 2026년 11/24 4882억원 EV6 GV70 AD0071 kia georgia osha 0901 2026부노46 26V539000')].sort(), ['1494', '2026부노46', '26V539000', 'AD0071']);
+  assert.deepEqual([...companiesIn('KIA GEORGIA, INC. · 엘지화학 · Hanwha Qcells')].sort(), ['LG화학', '기아', '한화솔루션']);
+
+  // 구역 도구 글에 붙이는 표시: 처리한 건은 〔이미 처리〕, 처리한 뒤 날짜의 줄은 〔처리 이력 있음〕
+  const txt = ['[미국 OSHA 점검·위반 · 출입처 미국 법인·공장] 2건', '규칙: 점검은 위반 확정이 아니다', '- 개시 2026-09-01 · 기아 · 사망·중대사고(M) 점검 · 진행 중',
+    '   사업장: KIA GEORGIA, INC. (WEST POINT, GA) · 종업원 3000명', '   원문: https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811',
+    '- 개시 2026-10-01 · 현대차 · 민원 점검', '   사업장: HYUNDAI MOTOR MANUFACTURING ALABAMA', '- 2026-11-24 · 한화솔루션 · EDIS 337-TA-1494 Commission Determination'].join('\n');
+  const a = annotateHandled(txt, L);
+  assert.equal(a.marked, 2);
+  assert.match(a.text, /- 개시 2026-09-01 · 기아 · 사망·중대사고\(M\) 점검 · 진행 중 〔이미 처리: \[보류·답변 대기\] 기아 조지아 OSHA Fat\/Cat 점검\(9\/1 개시\) · 11-13 — 단독 추천에서 뺀다\(새 사실이 붙었을 때만 다시\)〕\n/);
+  assert.match(a.text, /- 개시 2026-10-01 · 현대차 · 민원 점검\n/);
+  assert.match(a.text, /Commission Determination 〔처리 이력 있음: \[보류·예약 중\] 한화 ITC 337-1494 재검토 · 11-13 — 그 뒤 새 항목일 수 있음\(새 사실인지 확인\)〕$/);
+  assert.equal(annotateHandled(txt, { entries: [] }).marked, 0);
+});
+
+test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 킬한 유형을 걷어내고 실적 있는 유형부터, 후보가 없으면 없다고 한다', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const fishing = '경상북도 포항시의회 경제산업위원회행정사무감사(20261020) 회의록 · 포스코 대목 「어업인들이 수소환원제철소 예정 부지 인근 해역에 한정어업 허가 신청을 했거든요. 그런데 포스코가 이를 받아들이지 않는」';
+  const odor = '경상북도 포항시의회 자치행정위원회행정사무감사(20261020) 회의록 · 포스코 대목 「포스코에서도 수소환원제철소를 내년도에 건립할 예정이 있습니다마는 협화라고하는 비료공장 악취가」';
+  assert.equal((await post('council-minutes', { schema: 'council_minutes/v1', generatedAt: recent, status: 'complete', items: [], checks: [{ source: '국회도서관 지방의회 회의록(CLIK)', status: 'ok' }],
+    events: [{ id: 'clik:FISH', tier: 'A', kind: '지방의회 회의록', company: '포스코', council: '포항시의회', detectedAt: recent, text: fishing },
+      { id: 'clik:ODOR', tier: 'A', kind: '지방의회 회의록', company: '포스코', council: '포항시의회', detectedAt: recent, text: odor }] })).status, 200);
+  await post('kr-official', { schema: 'kr_official/v1', generatedAt: recent, checks: [{ source: '공장등록 현대차', status: 'ok' }], factories: [], gazette: [],
+    events: [{ id: 'fac:415:gone', kind: '목록에서 빠짐', company: '현대차', factoryId: 'fac:415', name: '현대자동차(주)', text: '현대자동차(주) ·  — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)', detectedAt: recent }] });
+  const eha = { id: 'ktc:case:00000873', pageId: 'ktc', ktcKind: 'case', country: 'KR', tier: 'B', beat: true, product: '아크릴산 2-에틸헥실', label: '무역위 새 조사 · 구제23-2026-10호',
+    text: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-10-25', url: 'https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000873&invstg_type_code=10100001', detectedAt: recent };
+  const ahead = new Date(NOW.getTime() + 9 * 3600000 + 10 * 86400000).toISOString().slice(0, 10);
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [eha], checks: [{ source: '무역위원회', status: 'ok' }],
+    ktc: { checkedAt: recent, listComplete: true, meetings: [], news: [], cases: [
+      { id: '00000867', no: '구제 23-2026-4호', title: '중국산 폴리염화비닐 서스펜션 수지의 덤핑사실 및 국내산업피해 유무', product: '폴리염화비닐 서스펜션 수지', opened: '2026-07-08', kind: '반덤핑조사', review: '원심',
+        country: '중국', beat: true, timeline: [['조사개시', '2026-07-08'], ['예비조사', ahead]], pending: ['공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?867',
+        applicant: { names: ['한화솔루션'], beat: ['한화솔루션'], newsId: '00002147', title: '무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의' } },
+      { id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', opened: '2026-07-10', kind: '반덤핑조사', review: '원심', country: '중국', beat: true,
+        timeline: [['조사개시', '2026-07-10'], ['예비조사', ahead]], pending: [], url: 'https://www.ktc.go.kr/v?868', applicant: { names: ['티씨씨스틸'], beat: [], newsId: '00002147', title: 't' } }] } });
+  const stk = (i) => ({ id: `stk:down:KG스틸:당진:${i}`, kind: '사업장 가동 중단 신호', tier: 'B', company: 'KG스틸', site: '케이지스틸(주) 당진공장', text: `케이지스틸(주) 당진공장: 평소 움직이던 배출구 3개 중 2개 (${i})`, detectedAt: recent });
+  await post('kr-stacks', { schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }], sites: [], events: [stk(1), stk(2)] });
+
+  // 아직 아무것도 처리하지 않았을 때: 실적 있는 유형(무역위 새 조사)이 맨 위, 굴뚝·의회 발언·공장 목록 변동은 약한 유형으로 접힌다
+  const d0 = (await call('scoop_desk', {}, opts)).text;
+  assert.match(d0, /^단독 데스크 · 10-26 09:00 KST · 최근 7일 · 레이더 항목 6건 → 걷어낸 뒤 후보 1건\n/);
+  assert.match(d0, /\[1\. 새 후보 — 실적 있는 유형부터\] 1건\n〈실적 있는 유형〉\n- A · [^\n]* · 국내 무역위\(출입처 신청·판정 예고\) · 아크릴산 2-에틸헥실\n   무역위 새 조사 · 구제23-2026-10호: 중국, 미국, 말레이시아산 아크릴산 2-에틸헥실/);
+  assert.match(d0, /   〔이 유형 실적〕 11-06 \[단독\] LG화학 2-EHA 반덤핑 신청/);
+  assert.match(d0, /자세히: trade_remedies · id ktc:case:00000873\n/);
+  assert.match(d0, new RegExp(`\\[2\\. 다가오는 일정 — 출입처가 신청인인 무역위 사건, 앞으로 21일\\] 1건\\n- ${ahead} 예비조사 · 구제 23-2026-4호 중국산 폴리염화비닐 서스펜션 수지[^\\n]* · 신청인 출입처 한화솔루션 · 원문: https://www.ktc.go.kr/v\\?867`));
+  assert.doesNotMatch(d0, /석도강판의 덤핑사실/);   // 신청인이 출입처가 아닌 사건은 일정에 안 올린다
+  assert.match(d0, /- 이미 처리\(다시 내지 않음\): 처리 장부 0건 · 판정 0건\n- 이미 보도\(자동 대조 '관련 보도 있음'\): 0건\n- 약한 유형: 5건 — (?=[^\n]*굴뚝 측정 2)(?=[^\n]*지방의회 회의록 발언 2)(?=[^\n]*공장등록 고용·목록 변동 1)[^\n]* \(include_weak=true로 펼침\)/);
+  assert.match(d0, /\[5\. 기자가 이미 처리한 건 — 최근 30일 0건\]/);
+  assert.doesNotMatch(d0, /한정어업 허가 신청/);   // 약한 유형은 펼치기 전엔 글이 안 나온다
+  const dw = (await call('scoop_desk', { include_weak: true }, opts)).text;
+  assert.match(dw, /   〈지방의회 회의록 발언〉 접음 1건\(11-12 포스코 한정어업\)[^\n]*\n   · A · 2026-10-25 · 포스코 · [^\n]*id clik:(?:FISH|ODOR)/);
+  assert.match(dw, /   〈굴뚝 측정〉 킬 16건/);
+
+  // 기자가 처리: 한정어업 건은 접음(낱말로 이어짐), 공장 목록 빠짐은 킬(레이더 id로), 무역위 새 조사는 회사에 문의해 답변 대기(보류 + item_ids)
+  const saved = await call('package_save', { name: 'posco-hyrex-site-fishing-refusal', title: '포스코 수소환원제철 부지 한정어업 거절(포항시의회 행감) — 기자 판단 접음', state: '접음', body: '의원 질의뿐, 판 작음' }, opts);
+  assert.match(saved.text, /^새로 저장: \[접음\] posco-hyrex-site-fishing-refusal/);
+  const linked = await call('package_save', { name: 'lgchem-2eha-ad-ask', title: '[답변 대기] LG화학 2-EHA 반덤핑 신청 여부 — 홍보팀 문의 중', state: '보류', body: '신청인 확인 질문 보냄', item_ids: ['ktc:case:00000873', ' ', 'ktc:case:00000873'] }, opts);
+  assert.match(linked.text, /· 연결한 레이더 항목 1건$/);
+  assert.match((await call('scoop_packages', { name: 'lgchem-2eha-ad-ask' }, opts)).text, /신청인 확인 질문 보냄\n연결한 레이더 항목: ktc:case:00000873$/);
+  await call('package_save', { name: 'lgchem-2eha-ad-ask', title: '[답변 대기] LG화학 2-EHA 반덤핑 신청 여부 — 홍보팀 문의 중', state: '보류',
+    body: '신청인 확인 질문 보냄\n연결한 레이더 항목: ktc:case:00000873', item_ids: ['ktc:case:00000873'] }, opts);
+  assert.equal((await call('scoop_packages', { name: 'lgchem-2eha-ad-ask' }, opts)).text.split('연결한 레이더 항목:').length, 2);   // 다시 저장해도 줄이 겹치지 않는다
+  await call('candidate_feedback', { item_id: 'fac:415:gone', verdict: '킬', reason: '안성 — 앞서 확인' }, opts);
+
+  const t = (await call('radar_today', {}, opts)).text;
+  assert.doesNotMatch(t, /한정어업 허가 신청/);
+  assert.doesNotMatch(t, /id ktc:case:00000873/);
+  assert.match(t, /id clik:ODOR/);                // 같은 의회의 다른 발언은 그대로
+  assert.match(t, /\(처리 장부로 숨김 2건 — 기자가 이미 처리한 취재 패키지와 이어진 항목 · include_judged=true로 보기\)\n(?=[\s\S]*   \[보류·답변 대기\] LG화학 2-EHA 반덤핑 신청 여부 ← 1건\(무역구제, id\))(?=[\s\S]*   \[접음\] 포스코 수소환원제철 부지 한정어업 거절\(포항시의회 행감\) ← 1건\(지방의회 회의록, 낱말\(수소환원제철·한정어업)/);
+  assert.match(t, /\(판정한 1건 숨김: 킬 1/);
+  const tj = (await call('radar_today', { include_judged: true }, opts)).text;
+  assert.match(tj, /id clik:FISH 〔이미 처리: \[접음\] 포스코 수소환원제철 부지 한정어업 거절\(포항시의회 행감\) — 단독 추천에서 뺀다〕/);
+  assert.match(tj, /id fac:415:gone 〔판정: 킬〕/);
+
+  // 데스크: 남는 후보가 없으면 없다고 하고, 처리한 건 목록을 준다
+  const d1 = (await call('scoop_desk', {}, opts)).text;
+  assert.match(d1, /레이더 항목 5건 → 걷어낸 뒤 후보 0건/);
+  assert.match(d1, /\[1\. 새 후보 — 실적 있는 유형부터\] 0건\n없음 — 오늘은 걷어내고 남는 후보가 없다\. 약한 유형에서 억지로 올리지 않는다/);
+  assert.match(d1, /- 이미 처리\(다시 내지 않음\): 처리 장부 2건 · 판정 1건\(킬 1\)\n(?=[\s\S]*   \[보류·답변 대기\] LG화학 2-EHA 반덤핑 신청 여부 ← 1건\(무역구제\))(?=[\s\S]*   \[접음\] 포스코 수소환원제철 부지 한정어업 거절\(포항시의회 행감\) ← 1건\(지방의회 회의록\))/);
+  assert.match(d1, /- 약한 유형: 3건 — /);
+  assert.match(d1, /\[5\. 기자가 이미 처리한 건 — 최근 30일 2건\][^\n]*\n(?=[\s\S]*- \[보류·답변 대기\] LG화학 2-EHA 반덤핑 신청 여부 · 10-26)(?=[\s\S]*- \[접음\] 포스코 수소환원제철 부지 한정어업 거절\(포항시의회 행감\) · 10-26)/);
+
+  // 구역 도구: 원문 주소를 적어 둔 건(예약 걸어 둔 PVC 예비판정)의 사건 줄에 표시가 붙고, 다른 사건에는 안 붙는다
+  await call('package_save', { name: 'hanwha-pvc-suspension-prelim', title: '[예약 중] 한화솔루션 중국산 PVC 서스펜션 예비판정 — 회의 뒤 확인 예약', state: '보류', body: '예비조사 일정 확인',
+    item_ids: ['https://www.ktc.go.kr/v?867'] }, opts);
+  const sec = (await call('trade_remedies', { section: 'ktc' }, opts)).text;
+  assert.match(sec, /- 구제 23-2026-4호 · 중국산 폴리염화비닐 서스펜션 수지[^\n]* 〔이미 처리: \[보류·예약 중\] 한화솔루션 중국산 PVC 서스펜션 예비판정 · 10-26 — 단독 추천에서 뺀다\(새 사실이 붙었을 때만 다시\)〕\n   원문: https:\/\/www\.ktc\.go\.kr\/v\?867/);
+  assert.equal(sec.split('\n').filter((l) => l.startsWith('- ') && l.includes('〔이미 처리:')).length, 1);
+  assert.match(sec, /\n처리 장부: 〔이미 처리〕 1건은 기자가 킬·보류\(답변 대기·예약·후배에게 넘김\)·작성 중으로 남긴 건이다/);
+
+  // 처리하고 사흘 뒤 같은 사건에 새 항목(예: 무역위 진행일정 새 줄)이 잡히면 숨기지 않고 이력만 붙인다
+  const later = new Date(NOW.getTime() + 3 * 86400000);
+  const lateOpts = { ...opts, now: later };
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: later.toISOString(), quotas: [], notices: [], checks: [{ source: '무역위원회', status: 'ok' }],
+    events: [{ ...eha, id: 'ktc:case:00000999', label: '무역위 새 조사 · 구제23-2026-11호', text: '중국산 아크릴산 2-에틸헥실 우회덤핑 아님 — 품목 아크릴산 2-에틸헥실 신규 덤핑 조사', detectedAt: new Date(later.getTime() - 3600000).toISOString() }] });
+  const d2 = (await call('scoop_desk', {}, lateOpts)).text;
+  assert.match(d2, /id ktc:case:00000999/);
+  assert.match(d2, /\[1\. 새 후보 — 실적 있는 유형부터\] 1건/);
+
+  // 장부를 못 읽으면 숨기지 않는다(판정으로 숨기는 것은 그대로)
+  const tools = (await rpc('tools/list', {}, opts)).body.result.tools;
+  assert.ok(tools.some((x) => x.name === 'scoop_desk'));
+  assert.match(tools.find((x) => x.name === 'package_save').description, /item_ids에 관련 레이더 항목 id나 원문 주소/);
+  assert.ok(!(await rpc('tools/list')).body.result.tools.some((x) => x.name === 'scoop_desk'));   // 공개 연결엔 없다
+  assert.match((await rpc('initialize', { protocolVersion: '2025-03-26' }, opts)).body.result.instructions, /단독 후보를 달라는 요청에는 scoop_desk부터/);
 });

@@ -12,6 +12,8 @@ import { trademarks } from './trademarks.mjs';
 import { patentsAbroad } from './patents_abroad.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
+import { scoopDesk } from './desk.mjs';
+import { annotateHandled, loadLedger } from './handled.mjs';
 import { BROWSER_CITIES, BROWSER_LABOR, BROWSER_PAGES, VIAS, browserUploadKey, localNoticeSubmit } from './local_browser.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
@@ -19,6 +21,8 @@ const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 �
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
   '하루 시작은 radar_today(기자 전용): 감시 35개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
+  "단독 후보를 달라는 요청에는 scoop_desk부터(기자 전용): 기자가 이미 처리한 건(킬·보류·답변 대기·예약·후배에게 넘김·작성 중)과 이미 보도된 것, 여러 번 킬한 유형을 걷어내고 기자가 실제로 단독을 쓴 유형부터 보여 준다. 맨 아래 '기자가 이미 처리한 건' 목록과 같은 사건은 어디서 찾았든 다시 내지 않는다 — 새 사실이 붙었을 때만, 무엇이 새로운지 밝히고 낸다. 구역 도구의 줄 끝 〔이미 처리: …〕 표시도 같은 뜻이다. 후보가 약하면 약하다고 말하고 개수를 채우지 않는다.",
+  '기자가 후보를 킬·보류하거나 회사에 문의해 답을 기다리거나 후배에게 넘기거나 예약을 걸면 그 자리에서 기록한다: 레이더 항목은 candidate_feedback(item_ids, verdict, reason), 그 밖은 package_save(state=접음/보류/발제함, item_ids=[관련 레이더 id·원문 주소]). 기록하지 않으면 다음에 또 나온다.',
   '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings(해외 낙찰·영국 법인 등기·인도 법인 공시 포함)·trade_remedies(국내 무역위원회 회의 안건 포함)·us_litigation·us_recalls·us_epa(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보·협력사 회생·파산·공장 부지 건축허가·지자체 고시·공고·사업장 인력(국민연금)·굴뚝 측정(가동 신호)·노동위 회의(조정·심판)·노조 성명·지방의회 회의록) → kr_fuel(기자 전용, 국내 연비 신고) → kr_signals(기자 전용, 타사 공시 속 출입처·임원 명단 변화·공정위 의결서·한전 입찰·원자재 가격·전기위원회 발전사업 허가·원안위 안건) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록·완성차 모델별·공장별 판매; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → patents_abroad(기자 전용, 출입처 유럽·국제 특허 공개 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
@@ -124,9 +128,10 @@ export const TOOLS = [
     description: `취재 패키지 목록(name 비우면) 또는 전문. 상태: ${PACKAGE_STATES.join('/')}. 발제함은 후속만, 접음은 다시 내지 않는다.`,
     inputSchema: obj({ name: str('패키지 이름(비우면 목록)') }) },
   { name: 'package_save', access: 'private', handler: packageSave,
-    description: '취재 패키지 저장·갱신(비공개 저장소). 발제문·근거·이미 났나·약점·확인 필요·물을 곳을 body에.',
+    description: '취재 패키지 저장·갱신(비공개 저장소). 발제문·근거·이미 났나·약점·확인 필요·물을 곳을 body에. 기자가 처리한 건(킬=접음, 답변 대기·예약·후배에게 넘김=보류, 작성 중=발제함)은 item_ids에 관련 레이더 항목 id나 원문 주소를 넣어 저장한다 — 그 항목이 단독 추천(scoop_desk·radar_today)에서 빠지고 구역 도구에 〔이미 처리〕 표시가 붙는다. 제목은 사건이 드러나게(회사·사건 번호·품목), 처리 상태는 제목 앞 [답변 대기]·[예약 중]·[후배 토스]·[킬]로.',
     inputSchema: obj({ name: str('짧은 영문/한글 이름(예: lselectric-busan-capa)'), title: str('한 줄 요약'),
-      state: { type: 'string', enum: PACKAGE_STATES }, body: str('패키지 전문') }, ['name', 'title', 'state', 'body']) },
+      state: { type: 'string', enum: PACKAGE_STATES }, body: str('패키지 전문'),
+      item_ids: strList('이 건과 이어지는 레이더 항목 id(줄 끝 id …)나 원문 주소(최대 30)') }, ['name', 'title', 'state', 'body']) },
   { name: 'candidate_submit', access: 'private', handler: candidateSubmit,
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
@@ -152,6 +157,10 @@ export const TOOLS = [
   { name: 'browser_upload_key', access: 'private', handler: browserUploadKey,
     description: '기자 컴퓨터 Aside가 수집 결과를 직접 올릴 때 쓰는 열쇠의 SHA-256 지문 등록(열쇠 글자는 받지 않는다 — 열쇠는 기자 컴퓨터 Aside 브라우저의 이 사이트 저장소에만 있다). sha256 없이 부르면 등록 상태(지문 앞 8자·등록·마지막 올림 시각). 새로 등록하면 이전 열쇠는 못 쓴다.',
     inputSchema: obj({ sha256: str('열쇠의 SHA-256 16진수 64자(Aside 등록 코드가 찍은 FINGERPRINT 값)') }) },
+  { name: 'scoop_desk', access: 'private', handler: scoopDesk,
+    description: "단독 데스크 — 단독 후보를 달라는 요청에는 여기부터. radar_today와 같은 항목(최근 N일)에서 ① 기자가 이미 처리한 것(처리 장부: 접음·보류(답변 대기·예약·후배에게 넘김)·발제함 패키지와 판정) ② 자동 보도 대조가 '관련 보도 있음'인 것 ③ 기자가 여러 번 킬한 유형(굴뚝 측정·미국 서비스 캠페인·국민연금 현장명·지방의회 발언·다른 회사 임원 명단·제목뿐인 해외 파트너 공시 등)을 걷어내고, 기자가 실제로 단독을 쓴 유형(국내 무역위 신청·판정 예고, 미국 법원·ITC 당사자 사건, 해외 무역구제·규제 문서, 공시 정정·소송·계약, 공장 부지 건축허가)부터 보여 준다. 출입처가 신청인인 무역위 사건의 다가오는 일정(21일), 앞서 추천했고 판정 없는 것, 걷어낸 건수와 이유, 기자가 최근 30일 처리한 건 목록을 함께 준다. 등급(A·B·C)은 바꾸지 않는다. 후보가 없으면 없다고 나온다 — 약한 것으로 채우지 않는다.",
+    inputSchema: obj({ days: int('최근 N일(기본 7, 최대 14)', 1, 14), company: str('기업·낱말로 거르기'),
+      include_weak: bool('걷어낸 약한 유형도 펼쳐 보기'), limit: int('후보 줄 수(기본 12)', 1, 40) }) },
   { name: 'radar_today', access: 'private', handler: radarToday,
     description: '오늘의 레이더(하루 시작): 기자 전용 감시 35개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 미국 OSHA, 미국 주 환경 허가·공고, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 해외 특허 공개(EP·WO), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·12:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),
@@ -229,6 +238,23 @@ export const TOOLS = [
     inputSchema: obj({ days: int('최근 N일(기본 7, 최대 60)', 1, 60) }) },
 ];
 
+// 구역 도구는 '지금 상태'를 보여 줘서 기자가 이미 처리한 건(답변 대기 중인 OSHA 점검, 접은 무역구제 사건)이 볼 때마다 다시 나온다(11-13).
+// 결과 글의 항목마다 처리 장부와 맞춰 줄 끝에 〔이미 처리: …〕를 붙인다. 장부를 못 읽으면 결과를 그대로 둔다.
+const MARK_HANDLED = new Set(['kr_official', 'kr_signals', 'kr_stats', 'kr_fuel', 'trade_remedies', 'us_litigation', 'us_recalls', 'us_epa', 'us_comments',
+  'partner_filings', 'page_changes', 'trademarks', 'patents_abroad', 'assembly_bills', 'scoop_screen', 'governance_changes', 'radar_clues']);
+async function markHandled(ctx, result) {
+  try {
+    const part = (result?.content ?? []).find((c) => c.type === 'text');
+    if (!part || result.isError) return result;
+    const { text, marked } = annotateHandled(part.text, await loadLedger(ctx));
+    if (!marked) return result;
+    part.text = `${text}\n\n처리 장부: 〔이미 처리〕 ${marked}건은 기자가 킬·보류(답변 대기·예약·후배에게 넘김)·작성 중으로 남긴 건이다 — 단독 후보로 다시 내지 않는다. 〔처리 이력 있음〕은 처리한 뒤 새로 잡힌 줄이라 새 사실인지 확인한다.`;
+    return result;
+  } catch {
+    return result;
+  }
+}
+
 function rpcError(id, code, message) {
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
 }
@@ -260,7 +286,8 @@ async function handleMessage(msg, ctx) {
     const tool = TOOLS.find((t) => t.name === params.name);
     if (!tool || (tool.access === 'private' && !ctx.private)) return rpcError(id, -32602, `Unknown tool: ${params.name}`);
     try {
-      return { jsonrpc: '2.0', id, result: await tool.handler(ctx, params.arguments ?? {}) };
+      const result = await tool.handler(ctx, params.arguments ?? {});
+      return { jsonrpc: '2.0', id, result: ctx.private && MARK_HANDLED.has(tool.name) ? await markHandled(ctx, result) : result };
     } catch (e) {
       return { jsonrpc: '2.0', id, result: textResult(`도구 실행 실패: ${String(e.message ?? e)} — 이 도구의 결과는 미확인으로 적는다.`, true) };
     }
