@@ -76,6 +76,9 @@ export const SLOTS = [
   { at: '07:20', workflow: 'reverse-check.yml', daily: true },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
+  // 11-14: 무역구제 저녁·토요일 칸. 인도 DGTR은 인도 업무시간(한국 13:00~21:30)에 올린다 — 아침 한 번뿐이라 금요일(11-06) 흄드실리카 일몰재심
+  // 'Final Findings'를 월요일(11-09)에야 봤고 다른 매체가 11-11에 썼다. 평일 21:30(인도 18:00)과 토 09:30(금요일 저녁 인도·영국·미국 게시분).
+  { at: '21:30', workflow: 'trade-remedy.yml' }, { at: '09:30', workflow: 'trade-remedy.yml', days: [6] },
   // DART 출입처 공시(목록·원문): GitHub 예약 07:45가 11-02에 10:50에야 돌았고 OpenDART 시간 초과로 실패했다. 정시 07:45·17:45,
   // 재시도 10:45·20:45(직전 결과가 4시간 안이면 워크플로 첫 단계에서 건너뜀). 주말에도 공시가 올라온다(정정·자회사).
   { at: '07:40', workflow: 'dart-beat-monitor.yml', daily: true },
