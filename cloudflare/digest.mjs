@@ -13,7 +13,7 @@ import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { dgtrCaseNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -661,6 +661,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : e.pageId === 'taric' || tr?.dgtrCases?.[e.url]?.latest ? '' : ' — 목록에 새로 보인 줄(새 조사인지는 원문의 개시일 확인)'}`
         // 인도 DGTR: 사건 페이지 일정표에서 읽은 개시일·가장 최근 문서(dgtr_cases.py) — 읽었으면 위 '확인하라' 문구 대신 이것을 적는다
         + (/^in-dgtr/.test(e.pageId) && tr?.dgtrCases?.[e.url] ? ` · ${dgtrCaseNote(tr.dgtrCases[e.url])}` : '')
+        + (/^in-dgtr/.test(e.pageId) && dgtrDocNote(tr?.dgtrCases?.[e.url]) ? ` · ${dgtrDocNote(tr.dgtrCases[e.url])}` : '')
         // 영문 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py) — 누구에게 먼저 물을지. 조사 대상 수출자라는 뜻이 아니다
         + (tr?.listingProducers?.[e.id]?.line ? ` · ${tr.listingProducers[e.id].line}` : ''), url: e.url });
   }

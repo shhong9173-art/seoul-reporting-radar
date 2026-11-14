@@ -942,6 +942,8 @@ def main():
         dg = dgtr_cases.attach(doc, previous, now, get=requests.get)
         print(f"::notice title=trade-remedy-dgtr-cases::인도 DGTR 사건 페이지 — 최근 줄의 사건 {dg['cases']}건 · 이번에 읽음 {dg['read']} · 실패 {dg['failed']} · 다음 실행으로 {dg['waiting']} · "
               f"갈래 {dg['kinds']} · 명단 PDF 이번 {dg['pdfs']} · 한국 줄 있는 사건 {dg['korea']} · 출입처 이름 있는 사건 {dg['beat']}")
+        print(f"::notice title=trade-remedy-dgtr-docs::인도 DGTR 판정문·개시 고시 PDF — 이번에 읽음 판정문 {dg['findings']}·개시 고시 {dg['initiations']}(글자 인식 {dg['ocr']}) · 실패 {dg['docFailed']} · "
+              f"다음 실행으로 {dg['docWaiting']}")
     except Exception as e:  # noqa: BLE001 — 사건 페이지 읽기 실패가 무역구제 저장을 막지 않는다
         doc["dgtrCases"] = (previous or {}).get("dgtrCases") or {}
         print(f"::warning title=trade-remedy-dgtr-cases::사건 페이지 읽기 실패({type(e).__name__}) — 미확인")

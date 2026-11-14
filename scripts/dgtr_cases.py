@@ -18,6 +18,8 @@
   ('8. LG Chem Ltd ⏎ Exporter/ ⏎ Producer', '9. ⏎ Korea Chemical ⏎ Industry ⏎ Association Association'). 번호로 줄을 다시 묶어 한 곳을 한 줄로 만들고,
   'Korea'·한국 기업 이름 낱말·출입처 영문 이름이 든 줄만 원문 그대로 남긴다(이메일 주소는 뺀다). 명단에 나라 칸이 없어 이름 낱말로 고른 것이라
   빠진 한국 업체가 있을 수 있다. 계열사 이름은 원문 줄에 그대로 보일 뿐 출입처로 바꿔 적지 않는다.
+- 판정문·개시 고시(dgtr_docs.py, 11-14): 이번 절차의 가장 최근 판정문(Final·Preliminary Findings)과 개시 고시 PDF를 한 실행 DOC_BUDGET개씩 읽어
+  사건 설명 줄·한국 문장·권고·세율 표 줄(판정문), 신청인·조사 대상 기간·기한(개시 고시)을 원문 그대로 붙인다. 개시 고시는 스캔본이라 글자 인식으로 읽는다.
 - 결과는 기자 전용 저장소(trade-remedy)의 dgtrCases에만. 공개 로그엔 건수만.
 """
 from __future__ import annotations
@@ -41,7 +43,9 @@ PDF_PAGES = 12
 GAP = 1.5
 NEW_DAYS = 30
 MAX_LINES = 10
-VERSION = 2            # 일정표 읽는 규칙이 바뀌면 올린다 — 저장된 사건을 다시 읽는다
+VERSION = 3            # 일정표 읽는 규칙이 바뀌면 올린다 — 저장된 사건을 다시 읽는다(3: 판정문·개시 고시 주소)
+DOC_BUDGET = 3         # 한 실행에 읽는 판정문 수, 개시 고시 수(각각). 개시 고시 글자 인식은 한 건 20초쯤(탐침 235)
+INIT_WINDOW_DAYS = 400 # 이번 절차 개시가 이 안일 때만 개시 고시를 읽는다(진행 중인 조사)
 PARTIES_VERSION = 3    # 명단 읽는 규칙(3: 꼬리말로 보고 멈추지 않는다)
 # 절차 공지: 조사 내용이 아니라 일정·연락처·명단·질문서 기한 같은 것
 PROCEDURAL = re.compile(r"e-?\s?mail|extension|corrigendum|\bPUC\b|\bPCN\b|interested\s+part|address|contact|clarification|schedule|questionnaire", re.I)
@@ -52,6 +56,8 @@ INITIATION = re.compile(r"initiation", re.I)
 # 개시 고시를 고친 문서는 개시가 아니다
 NOT_INITIATION = re.compile(r"corrigend|amend|addend|errat|extension|clarif", re.I)
 PARTIES = re.compile(r"interested\s+part", re.I)
+# 판정문: 'Final Findings'·'FINAL FINDING'·'Preliminary Findings'. 고친 문서(Corrigendum)는 읽을 대상이 아니다
+FINDINGS = re.compile(r"\bfindings?\b", re.I)
 KOREA = re.compile(r"\bKorea\b|\bROK\b", re.I)
 # 한국 기업 이름 낱말(명단에 나라 칸이 없다) — 이름 낱말로 고르는 것일 뿐 한국 업체라는 확인이 아니다
 KR_NAME = re.compile(r"\b(?:LG|SK|GS|LS|DL|OCI|KCC|KPX|KG|HD)\b|\b(?:Kumho|Lotte|Hanwha|Hyundai|Kia|POSCO|Samsung|Kolon|Hyosung|Daelim|Taekwang|Aekyung|Dongkuk|"
@@ -115,11 +121,15 @@ def summarize(rows, today):
     # 명단은 이번 절차 개시 뒤에 나온 것만(지난 재심의 명단을 지금 명단처럼 보이지 않게)
     parties = [r for r in rows if PARTIES.search(r["title"]) and r.get("url") and (not initiated or r["date"] >= initiated)]
     last_party = max(parties, key=lambda r: r["date"]) if parties else None
+    findings = [r for r in rows if FINDINGS.search(r["title"]) and not NOT_INITIATION.search(r["title"]) and r.get("url") and (not initiated or r["date"] >= initiated)]
+    last_findings = max(findings, key=lambda r: r["date"]) if findings else None
     return {"initiated": initiated, **({"initTitle": inits[-1]["title"]} if inits else {}),
+            **({"initUrl": inits[-1]["url"]} if inits and inits[-1].get("url") else {}),
             **({"firstInitiated": inits[0]["date"]} if inits and inits[0]["date"] != initiated else {}),
             "latest": {"title": latest["title"], "date": latest["date"]}, "steps": len(rows),
             "kind": kind_of(initiated, latest, today),
-            **({"partiesUrl": last_party["url"], "partiesDate": last_party["date"]} if last_party else {})}
+            **({"partiesUrl": last_party["url"], "partiesDate": last_party["date"]} if last_party else {}),
+            **({"findingsUrl": last_findings["url"], "findingsDate": last_findings["date"], "findingsTitle": last_findings["title"]} if last_findings else {})}
 
 
 def clean(x):
@@ -207,6 +217,16 @@ def parties_from_text(text, pages, beat_rx):
             "beat": [name for name, rx in beat_rx if re.search(rx, text or "", re.I)]}
 
 
+def read_findings(url, *, get, beat_rx):
+    import dgtr_docs
+    return dgtr_docs.read_findings(url, get=get, beat_rx=beat_rx)
+
+
+def read_initiation(url, *, get, beat_rx):
+    import dgtr_docs
+    return dgtr_docs.read_initiation(url, get=get, beat_rx=beat_rx)
+
+
 def attach(doc, previous, now, *, get, sleep=time.sleep):
     """doc['dgtrCases'][사건 주소] = {status, checkedAt, initiated, latest, steps, kind, parties?}. 반환: 공개 로그용 건수 dict."""
     old = (previous or {}).get("dgtrCases") or {}
@@ -233,8 +253,10 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
             summary = summarize(parse_case(r.text), today)
             if not summary:
                 raise RuntimeError("일정표 줄 없음(형식 변경 의심)")
-            keep_parties = {"parties": prev["parties"]} if prev.get("parties") and prev["parties"].get("url") == summary.get("partiesUrl") else {}
-            store[u] = {"status": "ok", "v": VERSION, "checkedAt": stamp, **summary, **keep_parties}
+            # 이미 읽은 PDF는 주소가 같으면 그대로 둔다(사건 페이지만 다시 읽은 것)
+            keep = {k: prev[k] for k, link in (("parties", "partiesUrl"), ("findings", "findingsUrl"), ("initiation", "initUrl"))
+                    if prev.get(k) and prev[k].get("url") == summary.get(link)}
+            store[u] = {"status": "ok", "v": VERSION, "checkedAt": stamp, **summary, **keep}
             read += 1
         except Exception as e:  # noqa: BLE001 — 한 사건 실패가 다른 사건을 막지 않는다
             store[u] = {**{k: v for k, v in prev.items() if k not in ("status", "error")}, "status": "failed", "error": str(e)[:60] or type(e).__name__,
@@ -257,6 +279,35 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
         except Exception as e:  # noqa: BLE001
             c["parties"] = {"url": c["partiesUrl"], "date": c.get("partiesDate"), "status": "failed", "error": str(e)[:60] or type(e).__name__, "tries": tries}
         pdfs += 1
+    # 판정문·개시 고시 PDF(dgtr_docs): 아직 안 읽었거나 읽는 규칙이 바뀐 것만, 새로 뜬 사건부터
+    import dgtr_docs
+    import tra_file_watch as tra
+    beat_rx = tra.beat_names()
+    docs = {"findings": 0, "initiations": 0, "ocr": 0, "docFailed": 0}
+    since_init = (now - dt.timedelta(days=INIT_WINDOW_DAYS)).date().isoformat()
+
+    def wants(c, key, link):
+        d = c.get(key) or {}
+        if c.get("status") != "ok" or not c.get(link):
+            return False
+        if key == "initiation" and str(c.get("initiated") or "") < since_init:
+            return False
+        return not d or d.get("url") != c[link] or (d.get("status") == "ok" and d.get("v") != dgtr_docs.DOC_VERSION) or (d.get("status") == "failed" and (d.get("tries") or 1) < 3)
+
+    for key, link, date_key, title_key, reader, counter in (("findings", "findingsUrl", "findingsDate", "findingsTitle", read_findings, "findings"),
+                                                            ("initiation", "initUrl", "initiated", "initTitle", read_initiation, "initiations")):
+        for u in sorted((u for u in newest if wants(store.get(u) or {}, key, link)), key=lambda u: newest[u], reverse=True)[:DOC_BUDGET]:
+            sleep(GAP)
+            c = store[u]
+            base = {"url": c[link], "date": c.get(date_key), "title": c.get(title_key)}
+            tries = ((c.get(key) or {}).get("tries") or 0) + 1 if (c.get(key) or {}).get("url") == c[link] else 1
+            try:
+                c[key] = {**base, "status": "ok", **reader(c[link], get=get, beat_rx=beat_rx)}
+                docs[counter] += 1
+                docs["ocr"] += 1 if c[key].get("ocr") else 0
+            except Exception as e:  # noqa: BLE001
+                c[key] = {**base, "status": "failed", "error": str(e)[:60] or type(e).__name__, "tries": tries}
+                docs["docFailed"] += 1
     doc["dgtrCases"] = store
     kinds = {}
     for u in newest:
@@ -264,4 +315,5 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
         kinds[k] = kinds.get(k, 0) + 1
     return {"cases": len(newest), "read": read, "failed": failed, "waiting": max(0, len(todo) - PAGE_BUDGET), "pdfs": pdfs, "kinds": kinds,
             "korea": sum(1 for u in newest if (store.get(u, {}).get("parties") or {}).get("koreaLines")),
-            "beat": sum(1 for u in newest if (store.get(u, {}).get("parties") or {}).get("beat"))}
+            "beat": sum(1 for u in newest if (store.get(u, {}).get("parties") or {}).get("beat")), **docs,
+            "docWaiting": sum(1 for u in newest for key, link in (("findings", "findingsUrl"), ("initiation", "initUrl")) if wants(store.get(u) or {}, key, link))}

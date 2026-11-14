@@ -140,9 +140,11 @@ export async function scoopDesk(ctx, args) {
     out.push(`- ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''}`);
     // 줄 끝의 사업보고서 단서(listing_producers.py·ktc_producers.py)는 긴 줄에 묻혀 잘리지 않게 따로 적는다
     const rest = String(x.fact ?? '').slice(ownText(x).length).replace(/^ · /, '');
-    const [casePart, lead] = rest.startsWith('DGTR 사건 페이지: ') ? rest.split(/ · (?=품목 (?:이름|낱말)이 나온 출입처 )/) : ['', rest];
+    const [caseAll, lead] = rest.startsWith('DGTR 사건 페이지: ') ? rest.split(/ · (?=품목 (?:이름|낱말)이 나온 출입처 )/) : ['', rest];
+    const [casePart, docPart] = caseAll.split(/ · DGTR 문서: /);
     out.push(`   ${clipAt(rest ? ownText(x) : x.fact, 420)}`);
     if (casePart) out.push(`   〔사건 페이지〕 ${clipAt(casePart.replace(/^DGTR 사건 페이지: /, ''), 620)}`);
+    if (docPart) out.push(`   〔판정문·개시 고시〕 ${clipAt(docPart, 900)}`);
     if (lead) out.push(`   〔출입처 단서〕 ${clipAt(lead, 520)}`);
     if (type.why) out.push(`   〔이 유형 실적〕 ${type.why}`);
     if (type.note) out.push(`   〔볼 것〕 ${type.note}`);
