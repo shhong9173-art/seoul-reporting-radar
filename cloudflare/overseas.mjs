@@ -521,6 +521,8 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
   const from = String(fromIso).slice(0, 10);
   const out = [`\n[캐나다 CBSA · 한국 관련 사건 ${cases.length}건(조사·종료재심·행정재심) · 확인 ${String(cbsa.checkedAt).slice(0, 16)} · 기준선 ${String(cbsa.baselineAt ?? '').slice(0, 10)}]`];
   if (failed.length) out.push(`미확인(0건 아님): ${failed.join(' · ')} — 아래는 직전에 읽은 것`);
+  const shownSor = new Set();
+  const sorRows = (rows) => { const n = showAll ? 12 : 6; return `${rows.slice(0, n).map((r) => `${r.exporter} ${Object.entries(r.vals ?? {}).map(([k, v]) => `${k} ${v}`).join('·')}`).join(' · ')}${rows.length > n ? ' 외' : ''}`; };
   const line = (c) => {
     const docs = [...(c.docs ?? [])].filter((d) => !/^(?:Exhibit list|Listing of counsel)/i.test(d.title)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const last = docs.slice(0, showAll ? 8 : 3).map((d) => `${d.date || '날짜 없음'} 「${d.title}」`).join(' · ');
@@ -528,9 +530,8 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
     out.push(`   ${c.state ? `${CBSA_STATE[c.state] ?? c.state} ${c.stateDate || '날짜 미정'}` : '상태 표시 없음'} · 문서 ${c.n ?? '?'}건${last ? ` · 최근: ${last}` : c.latest ? ` · 가장 최근 문서 ${c.latest}` : ''}`);
     // 판정 이유서(Statement of reasons)에서 읽은 한국 수출자별 덤핑 마진·보조금(11-15, cbsa_cases.parse_sor) — 가장 최근 이유서부터 2건까지
     for (const d of docs.filter((x) => (cbsa.sor?.[x.url]?.rows ?? []).length).slice(0, 2)) {
-      const rows = cbsa.sor[d.url].rows;
-      const n = showAll ? 12 : 6;
-      out.push(`   판정 이유서의 한국 수출자(${d.date || '날짜 없음'} 「${d.title}」): ${rows.slice(0, n).map((r) => `${r.exporter} ${Object.entries(r.vals ?? {}).map(([k, v]) => `${k} ${v}`).join('·')}`).join(' · ')}${rows.length > n ? ' 외' : ''} — ${d.url}`);
+      shownSor.add(d.url);
+      out.push(`   판정 이유서의 한국 수출자(${d.date || '날짜 없음'} 「${d.title}」): ${sorRows(cbsa.sor[d.url].rows)} — ${d.url}`);
     }
     const d0 = docs[0];
     if (d0?.url) out.push(`   원문(가장 최근 문서): ${d0.url}`);
@@ -544,6 +545,18 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
   out.push(`끝난 사건 중 최근 문서(문서일 ${from} 이후) ${recent.length}건:`);
   for (const c of recent.slice(0, showAll ? limit : Math.min(limit, 5))) line(c);
   if (!recent.length) out.push('없음');
+  // 위 사건 줄에 안 나온 판정 이유서(끝난 지 오래된 사건 등)에서 읽은 한국 수출자 — 읽어 둔 것이 화면에 안 보이는 일이 없게(11-15)
+  const restSor = Object.entries(cbsa.sor ?? {}).filter(([u, v]) => (v?.rows ?? []).length && !shownSor.has(u)
+    && matches(q, v.case, v.title, (v.companies ?? []).join(' '), v.rows.map((r) => r.exporter).join(' '))).sort((a, b) => String(b[1].date).localeCompare(String(a[1].date)));
+  if (restSor.length) {
+    const n = showAll ? limit : 3;
+    out.push(`그 밖에 읽어 둔 판정 이유서 ${restSor.length}건(위 사건 줄에 없는 것 · 판정일 최근 순):`);
+    for (const [u, v] of restSor.slice(0, n)) {
+      out.push(`- ${v.date || '날짜 없음'} ${String(v.case ?? '').split('—')[0].trim()} 「${v.title}」${(v.companies ?? []).length ? ` · 출입처 이름 ${v.companies.join('·')}` : ''}`);
+      out.push(`   한국 수출자: ${sorRows(v.rows)} — ${u}`);
+    }
+    if (restSor.length > n) out.push(`… 남은 ${restSor.length - n}건(show_all=true)`);
+  }
   // 시행 중 조치의 한국 수출자 표
   const ms = Object.entries(cbsa.measures ?? {}).map(([url, m]) => ({ ...m, url })).filter((m) => matches(q, m.code, m.product, (m.companies ?? []).join(' '), (m.exporters ?? []).map((x) => x.name).join(' ')));
   const named = ms.filter((m) => (m.companies ?? []).length || showAll).sort((a, b) => String(b.exporters?.map((x) => x.revised).sort().pop() ?? '').localeCompare(String(a.exporters?.map((x) => x.revised).sort().pop() ?? '')));

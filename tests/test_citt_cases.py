@@ -13,8 +13,9 @@ DEC = "https://decisions.citt-tcce.gc.ca/citt-tcce/ra/en/item"
 
 
 def table(caption, rows):
-    body = "".join(f"<tr><td>{f'<a href=\"{href}\">{doc}</a>' if href else doc}</td><td>{when}</td></tr>" for doc, when, href in rows)
-    return f'<table class="table" style="width:100%;"><caption>{caption}</caption><thead><tr><th scope="col">Document</th><th scope="col">Date issued or updated</th></tr></thead><tbody>{body}</tbody></table>'
+    # 탐침 244(2026-11-15)에서 본 실제 마크업: 문서 칸은 <th scope="row">, 날짜 칸은 <td>, 머리줄은 th 두 칸
+    body = "".join(f"<tr><th scope=\"row\">{f'<a href=\"{href}\">{doc}</a>' if href else doc}</th><td>{when}</td></tr>" for doc, when, href in rows)
+    return f'<table class="table" style="width:100%;"><caption>{caption}</caption><thead><tr><th scope="row">Document</th><th scope="col">Date issued or updated</th></tr></thead><tbody>{body}</tbody></table>'
 
 
 # 탐침 243(2026-11-15): 표 제목과 일정 줄 그대로(13건 중 일부)
@@ -71,6 +72,22 @@ class Citt(unittest.TestCase):
         self.assertEqual(list(sec["cases"]), ["RR-2026-007"])
         sec2, ev2, chk2 = run(sec, BASE, days=1)
         self.assertEqual((ev2, chk2["baseline"], sec2["baselineAt"]), ([], False, sec["baselineAt"]))
+
+    def test_td_only_rows_still_parse_and_header_row_is_skipped(self):
+        old_style = BASE.replace('<th scope="row">', "<td>").replace("</th><td>", "</td><td>")
+        self.assertEqual(c.parse(old_style)[0][2]["rows"], c.parse(BASE)[0][2]["rows"])
+        self.assertNotIn("Document", [x["doc"] for x in c.parse(BASE)[0][2]["rows"]])
+
+    def test_stored_case_without_rows_takes_rows_as_baseline(self):
+        # 11-15 첫 운영 기준선은 줄을 못 읽어 rows가 비어 있었다 — 고친 뒤 첫 실행에서 '일정 줄이 새로 생김'을 내면 안 된다
+        sec, _, _ = run(None, BASE)
+        sec["cases"]["RR-2026-007"]["rows"] = []
+        sec2, ev, chk = run(sec, BASE, days=1)
+        self.assertEqual((ev, chk["moved"], chk["issued"]), ([], 0, 0))
+        self.assertEqual(len(sec2["cases"]["RR-2026-007"]["rows"]), 4)
+        moved = BASE.replace("August 5, 2027", "August 19, 2027")
+        _, ev3, _ = run(sec2, moved, days=2)
+        self.assertEqual([(e["id"], e["tier"]) for e in ev3], [("citt:RR-2026-007:moved:Order and reasons:2027-08-19", "B")])
 
     def test_changes(self):
         sec, _, _ = run(None, BASE)
