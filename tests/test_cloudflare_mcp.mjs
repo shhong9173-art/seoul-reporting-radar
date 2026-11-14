@@ -17,7 +17,7 @@ import { allowedUrl, relayKey } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
-import { memoGloss, productKo, tradePoint } from '../cloudflare/overseas.mjs';
+import { memoGloss, productKo, tradePoint, dgtrCaseNote } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
@@ -3319,6 +3319,25 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
   const desk2 = (await call('scoop_desk', {}, opts2)).text;
   assert.match(desk2, /해외 무역구제 목록 새 줄\(한국산\) · 인도\n[^\n]*Sunset Review Investigation — 목록에 새로 보인 줄\(새 조사인지는 원문의 개시일 확인\)\n   〔출입처 단서〕 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳[^\n]*미확인\(회사 확인\)\n   〔볼 것〕/);
   assert.doesNotMatch(desk2.split('〈그 밖')[0], /Toluene DiIsocyanate/);          // 실적 있는 유형 칸에는 올리지 않는다
+  // 11-14: 인도 DGTR 사건 페이지 일정표(dgtr_cases.py) — 개시일·가장 최근 문서를 읽었으면 '개시일 확인하라' 문구 대신 그것을 적는다.
+  // 이해관계자 명단에 출입처 이름이 있어도 목록 줄의 유형·등급은 그대로다
+  const caseUrl = three[1].url;
+  const opts3 = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: three.map((e) => ({ ...e, pageId: 'in-dgtr' })),   // 운영의 목록 id
+      listingProducers: { 'dgtr:2': { v: 1, line: lead }, 'dgtr:1': { v: 1, line: lead } },
+      dgtrCases: { [caseUrl]: { status: 'ok', checkedAt: at, initiated: '2026-03-19', latest: { title: 'Updation of E-mail ID', date: '2026-11-13' }, steps: 7, kind: 'procedural',
+        parties: { status: 'ok', date: '2026-07-23', beat: ['한화솔루션'], koreaLines: ['12 M/s Hanwha Solutions Corporation, Korea RP Producer/Exporter', '13 M/s ABC Co., Korea RP', '14 Embassy of the Republic of Korea'] } } } }) }), opts3.env, {})).status, 200);
+  const r3 = (await call('radar_today', {}, opts3)).text;
+  assert.match(r3, /Sunset Review Investigation · DGTR 사건 페이지: 개시 고시 2026-03-19 · 가장 최근 문서 2026-11-13 「Updation of E-mail ID」\(문서 7건\) — 진행 중인 조사의 절차 공지\(새 조사 아님\) · 이해관계자 명단\(2026-07-23\): 출입처 영문 이름 한화솔루션 · 'Korea'가 든 줄 「12 M\/s Hanwha Solutions Corporation, Korea RP Producer\/Exporter」 「13 M\/s ABC Co\., Korea RP」 외 1줄 · 품목 낱말이 나온 출입처/);
+  assert.doesNotMatch(r3, /목록에 새로 보인 줄/);
+  assert.match(r3, /\n\[B · 확인할 공식 변화\] 1건/);                                              // 등급은 그대로 B
+  const desk3 = (await call('scoop_desk', {}, opts3)).text;
+  assert.match(desk3, /Sunset Review Investigation\n   〔사건 페이지〕 개시 고시 2026-03-19 · 가장 최근 문서 2026-11-13 「Updation of E-mail ID」[^\n]*출입처 영문 이름 한화솔루션[^\n]*\n   〔출입처 단서〕 품목 낱말이 나온 출입처/);
+  assert.doesNotMatch(desk3.split('〈그 밖')[0], /Toluene DiIsocyanate/);                           // 명단에 출입처 이름이 있어도 실적 유형 칸으로 올리지 않는다
+  assert.match((await call('trade_remedies', { section: 'notices' }, opts3)).text, /   사건 페이지: 개시 고시 2026-03-19[^\n]*「14 Embassy of the Republic of Korea」\n   출입처 단서:/);   // 구역 도구는 한국 줄 전부
+  assert.equal(dgtrCaseNote({ status: 'failed', error: 'HTTP 503' }), 'DGTR 사건 페이지: 못 읽음(HTTP 503) — 새 조사인지 미확인');
+  assert.match(dgtrCaseNote({ status: 'ok', initiated: '2026-11-02', latest: { title: 'Initiation Notification', date: '2026-11-02' }, steps: 1, kind: 'new' }), /— 새 조사\(개시 30일 안\)$/);
   assert.match((await call('trade_remedies', { section: 'notices' }, opts2)).text, /잡힌 사실: Ongoing Investigation[^\n]*\n   출입처 단서: 품목 낱말이 나온 출입처 2025 사업보고서/);
 });
 

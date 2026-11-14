@@ -936,6 +936,15 @@ def main():
         doc["listingProducers"] = (previous or {}).get("listingProducers") or {}
         doc["producerIndex"] = (previous or {}).get("producerIndex") or {}
         print(f"::warning title=trade-remedy-listing-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
+    # 인도 DGTR 사건 페이지 일정표(11-14, scripts/dgtr_cases.py): 목록의 '새 줄'이 새 조사인지 진행 중인 조사의 절차 공지인지, 이해관계자 명단의 한국 줄
+    import dgtr_cases
+    try:
+        dg = dgtr_cases.attach(doc, previous, now, get=requests.get)
+        print(f"::notice title=trade-remedy-dgtr-cases::인도 DGTR 사건 페이지 — 최근 줄의 사건 {dg['cases']}건 · 이번에 읽음 {dg['read']} · 실패 {dg['failed']} · 다음 실행으로 {dg['waiting']} · "
+              f"갈래 {dg['kinds']} · 명단 PDF 이번 {dg['pdfs']} · 한국 줄 있는 사건 {dg['korea']} · 출입처 이름 있는 사건 {dg['beat']}")
+    except Exception as e:  # noqa: BLE001 — 사건 페이지 읽기 실패가 무역구제 저장을 막지 않는다
+        doc["dgtrCases"] = (previous or {}).get("dgtrCases") or {}
+        print(f"::warning title=trade-remedy-dgtr-cases::사건 페이지 읽기 실패({type(e).__name__}) — 미확인")
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
