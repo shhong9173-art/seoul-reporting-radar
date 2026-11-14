@@ -22,7 +22,8 @@
   '조사' 목록의 새 사건은 기존 목록 줄 감시(ca-cbsa)가 이미 내므로 여기서는 내지 않는다. 'Exhibit list'·'Listing of counsel'은 세지만 이벤트로 내지 않는다.
 - 조치 쪽: 새 Action 줄, 새 수출자, 'Last revised'가 바뀐 수출자를 이벤트로 낸다(한국 수출자만).
 - 처음 읽는 목록·쪽은 기준선이다(이벤트 없음). 못 읽으면 직전 상태를 그대로 두고 미확인.
-- 등급: 판정·개시·종결 문서와 출입처 이름이 든 것은 B, 일정·연장 같은 절차 문서는 C. **A는 붙이지 않는다**(새 원천 — 올릴지는 기자가 정한다).
+- 등급(기자 11-14 22:36): **직접 출입처 이름이 든 문서·수출자 표 변화는 A**(일정·연장 같은 절차 문서는 이름이 있어도 B). 출입처 이름이 없는 판정·개시·종결 문서와
+  '(관련)' 회사만 든 것은 B, 이름 없는 절차 문서와 출입처가 아닌 수출자의 개정은 C.
 - 공개 로그엔 건수만.
 """
 from __future__ import annotations
@@ -44,6 +45,9 @@ PAGE_ID = "cbsa"
 GAP = 1.5
 MIF_BUDGET = 20          # 한 실행에 여는 조치 쪽(한국 줄 13쪽)
 FULL_DAYS = 500          # 이 안에 문서가 붙은 사건·진행 중 사건만 문서 줄을 통째로 저장(나머지는 열쇠만)
+FRESH_DAYS = 120         # 새 사건·새 문서로 알리는 것은 진행 중이거나 문서 날짜가 이 안일 때만
+# 11-14 내 실수: 열쇠 만드는 법을 바꾼 실행에서, 열쇠가 겹쳐 저장되지 않았던 2008~2016년 재조사 9건이 '새 사건'(B)으로 나갔다.
+# 오래전 끝난 사건이 목록에 새로 보이는 것(보관 쪽 정리·열쇠 변경)은 소식이 아니다 — 알리지 않고, 이미 나간 것은 retracted로 표시해 화면에서 뺀다(지우지 않음).
 KOREA = re.compile(r"\bKorea\b", re.I)
 MONTHS = {m: i + 1 for i, m in enumerate("jan feb mar apr may jun jul aug sep oct nov dec".split())}
 STATE = re.compile(r"\b(Concludes|Concluded|Terminated|Undertaking Accepted|Suspended)\b[^—\-–]{0,20}?\bon\b", re.I)
@@ -90,11 +94,17 @@ def doc_key(url, title):
 
 
 def case_key(list_id, docs, title):
+    """사건 열쇠: 첫 문서 주소의 폴더·파일 머리('ar-ra/lp22026/lp2202601'). 옛 주소 꼴('ad1358-ri15-nc', 'ad1292f')은 파일 이름째로.
+    11-14 운영: 제목으로 만든 열쇠가 겹쳐(같은 품목의 해마다 다른 재조사) 읽은 사건 94건이 85건으로 저장됐다 — 주소로 만든다."""
     for d in docs:
         m = re.search(r"/sima-lmsi/[a-z-]+/([a-z0-9]+)/([a-z0-9]+?)-[a-z0-9]+-eng\.html", d.get("url") or "")
         if m:
             return f"{list_id}/{m.group(1)}/{m.group(2)}"
-    return f"{list_id}/" + re.sub(r"\W+", "-", re.split(r"—| - Conclud| – ", title)[0].lower())[:60]
+    for d in docs:
+        m = re.search(r"/sima-lmsi/[a-z-]+/([^/]+)/([^/]+?)(?:-eng)?\.html", d.get("url") or "")
+        if m:
+            return f"{list_id}/{m.group(1)}/{m.group(2)}"
+    return f"{list_id}/" + re.sub(r"\W+", "-", title.lower())[:80]
 
 
 def parse_list(page, list_id, base):
@@ -186,13 +196,56 @@ def parse_measure(page, base):
     return actions, exporters
 
 
+# 출입처의 자회사 이름은 출입처로 적지 않는다(11-14 운영: 조치 쪽 수출자 'Hyundai Steel Pipe Co., Ltd.'(현대스틸파이프)가 '현대제철'로 붙었다)
+AFFILIATE = re.compile(r"Hyundai Steel Pipe", re.I)
+
+
 def beat_in(text):
     import tra_file_watch as tra
-    return tra.companies_in(text)
+    return tra.companies_in(AFFILIATE.sub("(affiliate)", text or ""))
+
+
+def direct(companies):
+    """직접 출입처만('효성중공업(관련)'·'일진전기(관련)'처럼 출입처가 아닌 관련 회사 이름은 뺀다)."""
+    return [x for x in companies or [] if not x.endswith("(관련)")]
 
 
 def tier_of(doc_title, companies):
-    return "C" if PROCEDURAL.search(doc_title) and not companies else "B"
+    """기자 11-14 22:36: 출입처 이름이 든 문서·수출자 표 변화는 A. 일정·연장 같은 절차 문서는 출입처 이름이 있어도 B, 없으면 C."""
+    if PROCEDURAL.search(doc_title):
+        return "B" if companies else "C"
+    return "A" if direct(companies) else "B"
+
+
+def named_tier(companies, fallback="B"):
+    return "A" if direct(companies) else fallback
+
+
+NEW_DOC_DATE = re.compile(r"새 문서 「.*」\((\d{4}-\d{2}-\d{2})\)\s*$")
+STATE_DATE = re.compile(r"사건 머리 바뀜: .* → \w[\w ]*? (\d{4}-\d{2}-\d{2})\s*$")
+TITLE_END = re.compile(r"Conclud\w* on (\d{4}-\d{2}-\d{2})")
+
+
+def retract_stale(events, section, now):
+    """이미 저장된 CBSA 이벤트 가운데 오래전 일을 새 일처럼 알린 것을 retracted로 표시한다(지우지 않음). 표시한 수를 돌려준다.
+    11-14 내 실수 두 번: ① 15:58 실행 — 제목으로 만든 열쇠가 겹쳐 2008~2016년 재조사끼리 서로 '새 문서'·'사건 머리 바뀜'으로 나갔다(20건)
+    ② 16:06 실행 — 열쇠를 고치자 저장돼 있지 않던 같은 사건들이 '새 사건'으로 나갔다(9건).
+    기준: 이벤트가 말하는 날짜(문서 날짜·바뀐 상태의 날짜·사건 종결일)가 감지일보다 FRESH_DAYS 넘게 앞이면 소식이 아니다."""
+    n = 0
+    for e in events:
+        if e.get("pageId") != PAGE_ID or e.get("retracted"):
+            continue
+        text = str(e.get("text") or "")
+        try:
+            seen = dt.datetime.fromisoformat(str(e.get("detectedAt"))).date()
+        except ValueError:
+            seen = now.date()
+        fresh_from = (seen - dt.timedelta(days=FRESH_DAYS)).isoformat()
+        m = NEW_DOC_DATE.search(text) or STATE_DATE.search(text) or (TITLE_END.search(text) if text.startswith("새 사건") else None)
+        if m and m.group(1) < fresh_from:
+            e["retracted"] = "오래전 일 — 새 소식이 아님(수집기 사건 열쇠가 겹치거나 바뀌어 잘못 나감)"
+            n += 1
+    return n
 
 
 def collect(previous, now, *, get, sleep=time.sleep):
@@ -200,6 +253,7 @@ def collect(previous, now, *, get, sleep=time.sleep):
     prev = previous if isinstance(previous, dict) else {}
     stamp = now.isoformat(timespec="seconds")
     full_from = (now - dt.timedelta(days=FULL_DAYS)).date().isoformat()
+    fresh_from = (now - dt.timedelta(days=FRESH_DAYS)).date().isoformat()
     out = {"checkedAt": stamp, "baselineAt": prev.get("baselineAt") or stamp, "lists": {}, "measures": {}}
     events, errors, counts = [], [], {"cases": 0, "docs": 0, "open": 0, "newDocs": 0, "newCases": 0, "stateChanges": 0, "measures": 0, "exporters": 0}
 
@@ -230,26 +284,33 @@ def collect(previous, now, *, get, sleep=time.sleep):
             continue
         old_cases = old.get("cases") or {}
         baseline = not old_cases
+        by_title = {v.get("title"): v for v in old_cases.values()}
         kept = {}
         for c in cases:
             o = old_cases.get(c["key"])
-            seen = set((o or {}).get("seen") or [])
+            moved = False
+            if o is None and c["title"] in by_title:        # 열쇠 만드는 법이 바뀐 사건: 제목이 같은 직전 기록을 잇는다(새 사건·새 문서로 알리지 않는다)
+                o, moved = by_title[c["title"]], True
+            seen = set((o or {}).get("seen") or []) | ({d["key"] for d in c["docs"]} if moved else set())
             firms = beat_in(c["title"])
-            if o is None and not baseline and list_id != "i-e":
+            dates0 = [d["date"] for d in c["docs"] if d["date"]]
+            fresh = c["state"] == "Concludes" or (max(dates0) if dates0 else "") >= fresh_from
+            if o is None and not baseline and list_id != "i-e" and fresh:
                 first = next((d for d in c["docs"] if not SILENT.match(d["title"])), None)
                 event(c["key"], f"캐나다 CBSA {kind}", f"새 사건 — {c['title']} · 문서 {len(c['docs'])}건" + (f"(「{first['title']}」 {first['date']})" if first else ""),
-                      (first or {}).get("url") or url, "B", firms)
+                      (first or {}).get("url") or url, named_tier(firms), firms)
                 counts["newCases"] += 1
             elif o is not None:
                 for d in c["docs"]:
-                    if d["key"] in seen or SILENT.match(d["title"]):
+                    if d["key"] in seen or SILENT.match(d["title"]) or (d["date"] and d["date"] < fresh_from):   # 옛 날짜 문서가 새로 걸린 것(보관 쪽 정리)은 알리지 않는다
                         continue
                     both = sorted(set(firms + beat_in(d["title"])))
                     event(f"{c['key']}:{d['key']}", f"캐나다 CBSA {kind}", f"{c['title']} — 새 문서 「{d['title']}」({d['date'] or '날짜 없음'})", d["url"] or url, tier_of(d["title"], both), both)
                     counts["newDocs"] += 1
-                if (o.get("state"), o.get("stateDate")) != (c["state"], c["stateDate"]) and c["state"]:
+                # 상태 바뀜도 진행 중이거나 바뀐 날짜가 최근일 때만(옛 사건의 머리가 달라 보이는 것은 소식이 아니다)
+                if (o.get("state"), o.get("stateDate")) != (c["state"], c["stateDate"]) and c["state"] and (c["state"] == "Concludes" or (c["stateDate"] or "9999") >= fresh_from):
                     event(f"{c['key']}:state:{c['state']}:{c['stateDate']}", f"캐나다 CBSA {kind}",
-                          f"{c['title']} — 사건 머리 바뀜: {o.get('state') or '표시 없음'} {o.get('stateDate') or ''} → {c['state']} {c['stateDate'] or '날짜 미정'}".replace("  ", " "), url, "B", firms)
+                          f"{c['title']} — 사건 머리 바뀜: {o.get('state') or '표시 없음'} {o.get('stateDate') or ''} → {c['state']} {c['stateDate'] or '날짜 미정'}".replace("  ", " "), url, named_tier(firms), firms)
                     counts["stateChanges"] += 1
             dates = [d["date"] for d in c["docs"] if d["date"]]
             ongoing = c["state"] == "Concludes"
@@ -289,18 +350,18 @@ def collect(previous, now, *, get, sleep=time.sleep):
             for a in actions:
                 if f"{a['title']}|{a['date']}" not in seen_a:
                     firms = beat_in(a["title"])
-                    event(f"mif:{m['code']}:{a['date']}:{doc_key(a['url'], a['title'])}", label, f"조치 쪽에 새 절차 줄 「{a['title']}」({a['date'] or '날짜 없음'})", a["url"] or m["url"], "B", firms)
+                    event(f"mif:{m['code']}:{a['date']}:{doc_key(a['url'], a['title'])}", label, f"조치 쪽에 새 절차 줄 「{a['title']}」({a['date'] or '날짜 없음'})", a["url"] or m["url"], named_tier(firms), firms)
             old_e = {x.get("name"): x for x in o.get("exporters") or []}
             for x in exporters:
                 firms = beat_in(x["name"])
                 if x["name"] not in old_e:
-                    event(f"mif:{m['code']}:exp:{x['name'][:40]}", label, f"정상가격을 받은 한국 수출자에 새 이름 「{x['name']}」(협조 시작 {x['since'] or '?'} · 마지막 개정 {x['revised'] or '?'})", m["url"], "B", firms)
+                    event(f"mif:{m['code']}:exp:{x['name'][:40]}", label, f"정상가격을 받은 한국 수출자에 새 이름 「{x['name']}」(협조 시작 {x['since'] or '?'} · 마지막 개정 {x['revised'] or '?'})", m["url"], named_tier(firms), firms)
                 elif old_e[x["name"]].get("revised") != x["revised"]:
                     event(f"mif:{m['code']}:rev:{x['name'][:40]}:{x['revised']}", label,
-                          f"한국 수출자 「{x['name']}」의 정상가격 마지막 개정 {old_e[x['name']].get('revised') or '?'} → {x['revised'] or '?'}", m["url"], "B" if firms else "C", firms)
+                          f"한국 수출자 「{x['name']}」의 정상가격 마지막 개정 {old_e[x['name']].get('revised') or '?'} → {x['revised'] or '?'}", m["url"], named_tier(firms, "B" if firms else "C"), firms)
             for name in old_e:
                 if name not in {x["name"] for x in exporters}:
-                    event(f"mif:{m['code']}:gone:{name[:40]}", label, f"정상가격을 받은 한국 수출자 표에서 「{name}」이 빠짐", m["url"], "B", beat_in(name))
+                    event(f"mif:{m['code']}:gone:{name[:40]}", label, f"정상가격을 받은 한국 수출자 표에서 「{name}」이 빠짐", m["url"], named_tier(beat_in(name)), beat_in(name))
         out["measures"][m["url"]] = {"code": m["code"], "product": m["product"], "type": m["type"], "actions": actions[-6:], "exporters": exporters,
                                      "seenActions": sorted({f"{a['title']}|{a['date']}" for a in actions}),
                                      "companies": sorted({f for x in exporters for f in beat_in(x["name"])}), "checkedAt": stamp}
