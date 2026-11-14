@@ -563,7 +563,7 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   const all = Object.entries(epr.cases ?? {}).map(([no, c]) => ({ ...c, no }));
   const hit = (c) => matches(q, c.no, c.title, c.commodity, c.countries, AU_KIND[String(c.kind ?? '').toLowerCase()] ?? '', (c.companies ?? []).join(' '), (c.docs ?? []).map((d) => d.title).join(' '));
   const live = all.filter((c) => !c.missing && hit(c)).sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
-  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${String(epr.fetchedAt ?? '').slice(0, 16)}Z · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
+  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${Number.isNaN(Date.parse(epr.fetchedAt)) ? '?' : new Date(Date.parse(epr.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')}(한국시간) · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
   if (epr.status !== 'ok') out.push(`미확인(0건 아님): ${epr.error ?? epr.status} — 아래는 직전에 읽은 것`);
   const docLine = (d) => `${d.date || '날짜 없음'} EPR ${d.no}번 ${d.type} 「${d.title}」${(d.companies ?? []).length ? `(${d.companies.join('·')})` : ''}`;
   for (const c of live.slice(0, limit)) {
@@ -586,6 +586,7 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((c) => `${c.no} ${c.commodity ?? ''}(${String(c.gone).slice(0, 10)} 감지)`).join(' · ')} — 종결·보관으로 옮겨졌을 수 있음`);
   const ev = (events ?? []).filter((e) => e.pageId === 'au-epr' && !e.retracted && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C')
     && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
+  ev.sort((a, b) => String(a.tier).localeCompare(String(b.tier)) || String(b.detectedAt).localeCompare(String(a.detectedAt)));
   out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true)'}`);
   for (const e of ev.slice(0, limit)) {
     out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);

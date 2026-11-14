@@ -75,6 +75,12 @@ class AuEpr(unittest.TestCase):
         self.assertEqual(d["16"], {"no": "16", "type": "Submission", "title": "Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698", "date": "2026-10-15",
                                    "url": a.HOST + PDF + "/2026-10/698-16-submission-exporter-kg-dongbu-steel-co-ltd-response-to-sef-698.pdf", "companies": ["KG스틸"]})
         self.assertNotIn("companies", d["17"])                       # 베트남 업체
+        # 제목은 첫 문서 제목만 — 뒤에 이어 붙은 첨부 이름은 떼지만, 출입처 이름은 첨부 이름에서도 찾는다
+        _, more = a.parse_rows([row("list", "28", "1"), row("case", "706", "x", "706", "Investigation", "Korea", "SEF", "01/11/2026", "-"),
+                                row("doc", "706", "15", "Submission", "Australian Industry - BlueScope Steel Limited - Response to SEF 698 [pdf 288 KB] Non-Confidential Attachment - Appendix A [pdf 224 KB]", "15/10/2026"),
+                                row("doc", "706", "12", "Questionnaire", "Importer - Acme Pty Ltd - Importer Questionnaire [pdf 1 MB] Exhibit 3 - POSCO price list [pdf 2 MB]", "31/08/2026")])
+        self.assertEqual([(x["title"], x.get("companies")) for x in more["706"]["docs"]],
+                         [("Australian Industry - BlueScope Steel Limited - Response to SEF 698", None), ("Importer - Acme Pty Ltd - Importer Questionnaire", ["포스코"])])
         self.assertEqual(d["13"]["companies"], ["KG스틸"])            # 호주 업체 의견서 제목에 든 이름
         self.assertIsNone(d["13"]["url"])
         d6 = {x["no"]: x.get("companies") for x in cases["706"]["docs"]}
@@ -87,11 +93,16 @@ class AuEpr(unittest.TestCase):
         self.assertEqual(a.iso_date("5 March 2027"), "2027-03-05")
         self.assertEqual(a.iso_date("20 days after publication of SEF"), "")
         self.assertEqual(a.iso_date("31/02/2026"), "")
-        self.assertEqual(a.tier_of("Submission", ["KG스틸"]), "B")
-        self.assertEqual(a.tier_of("Report", []), "B")
-        self.assertEqual(a.tier_of("Verification Report", []), "C")
-        self.assertEqual(a.tier_of("Notice - TRN", []), "C")           # 공지는 TRN 목록 감시가 따로 알린다
-        self.assertEqual(a.tier_of("Submission", ["효성중공업(관련)"]), "C")  # 직접 출입처가 아닌 관련 회사 이름만
+        # 기자 11-15: 직접 출입처 이름이 든 문서는 A(캐나다 CBSA와 같은 규칙), 절차 문서는 이름이 있어도 B
+        self.assertEqual(a.tier_of("Submission", "Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698", ["KG스틸"]), "A")
+        self.assertEqual(a.tier_of("File Note", "Meeting with POSCO", ["포스코"]), "A")
+        self.assertEqual(a.tier_of("Notice - TRN", "TRN 2026/150 - Extension of time for POSCO verification", ["포스코"]), "B")
+        self.assertEqual(a.tier_of("Report", "Statement of Essential Facts (SEF 698)", []), "B")
+        self.assertEqual(a.tier_of("Report", "Day 60 Status Report", []), "C")                 # 현황 보고는 절차 문서
+        self.assertEqual(a.tier_of("Verification Report", "Exporter - Hoa Sen Group - Exporter verification report", []), "C")
+        self.assertEqual(a.tier_of("Notice - TRN", "TRN 2026/143 - Extension of time to publish SEF", []), "C")   # 공지는 TRN 목록 감시가 따로 알린다
+        self.assertEqual(a.tier_of("Submission", "Hyosung Heavy Industries submission", ["효성중공업(관련)"]), "C")  # 직접 출입처가 아닌 관련 회사 이름만
+        self.assertEqual((a.named_tier(["포스코"]), a.named_tier(["효성중공업(관련)"]), a.named_tier(None)), ("A", "B", "B"))
         self.assertEqual(a.kind_ko("Continuation"), "종료재심")
         self.assertEqual(a.kind_ko("Something new"), "Something new")
 
@@ -122,7 +133,7 @@ class AuEpr(unittest.TestCase):
         got = {e["id"]: e for e in ev}
         self.assertEqual(sorted(got), ["au-epr:698:doc:18", "au-epr:706:doc:23", "au-epr:706:doc:24", "au-epr:710:doc:14"])
         e = got["au-epr:706:doc:23"]
-        self.assertEqual((e["tier"], e["companies"], e["country"], e["pageId"]), ("B", ["포스코"], "호주", "au-epr"))
+        self.assertEqual((e["tier"], e["companies"], e["country"], e["pageId"]), ("A", ["포스코"], "호주", "au-epr"))
         self.assertEqual(e["label"], "호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)")
         self.assertEqual(e["text"], "새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」(2026-11-13)")
         self.assertEqual(e["url"], a.HOST + PDF + "/2026-11/706-23.pdf")
@@ -148,7 +159,7 @@ class AuEpr(unittest.TestCase):
         self.assertEqual(len(ev), 1)
         self.assertEqual(ev[0]["id"], "au-epr:706:docs:2026-11-16")
         self.assertIn("새 문서 9건(EPR 23~31번)", ev[0]["text"])
-        self.assertEqual((ev[0]["tier"], ev[0]["companies"], ev[0]["url"]), ("B", ["동국씨엠"], a.HOST + EPR + "/706"))
+        self.assertEqual((ev[0]["tier"], ev[0]["companies"], ev[0]["url"]), ("A", ["동국씨엠"], a.HOST + EPR + "/706"))
         self.assertEqual(chk["newDocs"], 9)
 
     def test_stage_dates_new_case_and_gone(self):
@@ -181,7 +192,7 @@ class AuEpr(unittest.TestCase):
         tue = mon + dt.timedelta(hours=17)
         sec3, ev3, chk3 = a.collect(upload(rows, tue), sec2, tue + dt.timedelta(minutes=10))
         self.assertEqual([e["id"] for e in ev3], ["au-epr:698:gone"])
-        self.assertEqual((ev3[0]["tier"], ev3[0]["companies"]), ("B", ["KG스틸"]))
+        self.assertEqual((ev3[0]["tier"], ev3[0]["companies"]), ("A", ["KG스틸"]))   # 문서에 직접 출입처 이름이 있던 사건
         self.assertIn("진행 사건 목록에서 빠짐", ev3[0]["text"])
         _, ev4, _ = a.collect(upload(rows, tue + dt.timedelta(days=1)), sec3, tue + dt.timedelta(days=1, minutes=10))
         self.assertEqual(ev4, [])                                        # 다시 알리지 않는다

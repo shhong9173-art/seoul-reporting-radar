@@ -682,10 +682,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       continue;
     }
     if (e.pageId === 'au-epr') {
-      // 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py): 직접 출입처 이름이 든 문서와 Report(SEF·종결 보고서 등)·새 사건·목록에서 빠짐은 B,
-      // 그 밖(출입처 이름 없는 의견서·질문서, 공지 — TRN 목록 감시가 따로 알림 —, 단계·일정 바뀜)은 C. 등급은 수집기. A는 기자가 정하기 전이라 내지 않는다.
+      // 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py). 기자 11-15 02:21: 캐나다 CBSA와 같은 규칙 — 직접 출입처 이름이 든 문서는 A
+      // (연장·일정 같은 절차 문서는 B), 이름이 없으면 Report(SEF·종결 보고서 등)·새 사건·목록에서 빠짐만 B,
+      // 그 밖(출입처 이름 없는 의견서·질문서, 공지 — TRN 목록 감시가 따로 알림 —, 단계·일정 바뀜)은 C. 등급은 수집기가 매긴다.
       const firms = e.companies ?? [];
-      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: '호주 ATRC 사건 공개기록', id: e.id, date: e.detectedAt,
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '호주 ATRC 사건 공개기록', id: e.id, date: e.detectedAt,
         company: firms.join('·') || '호주', fact: `${e.label}: ${e.text} — 문서 제목·날짜만 읽음(내용은 원문 PDF)`, url: e.url,
         check: firms.length ? hint(firms[0], ['호주', '반덤핑']) : undefined });
       continue;

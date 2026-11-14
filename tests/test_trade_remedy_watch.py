@@ -486,7 +486,7 @@ class KoreaLines(unittest.TestCase):
         b4 = {"pages": [b2["pages"][0], {"id": "au-epr", "fetchedAt": (NOW + dt.timedelta(hours=9)).isoformat(), "rows": more}]}
         nxt = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=base, get=get, sleep=lambda s: None, browser=b4)
         ev = [e for e in nxt["events"] if e["pageId"] == "au-epr"]
-        self.assertEqual([(e["id"], e["tier"], e["companies"]) for e in ev], [("au-epr:706:doc:23", "B", ["포스코"])])
+        self.assertEqual([(e["id"], e["tier"], e["companies"]) for e in ev], [("au-epr:706:doc:23", "A", ["포스코"])])
         self.assertFalse(any("industry.gov.au" in u for u in fetched))
         # 브라우저 문서를 못 읽은 실행(browser=None)은 직전 구역을 그대로 둔다
         kept = w.run(cfg, now=NOW + dt.timedelta(days=1, hours=1), previous=nxt, get=get, sleep=lambda s: None)
