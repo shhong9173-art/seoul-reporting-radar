@@ -140,6 +140,7 @@
   - 왜: 11-06 흄드실리카 판정문 — 목록 줄은 `China PR & Korea RP`인데 판정문 7항은 "the present review was not initiated in respect of imports from Korea RP"(이번 일몰재심은 중국만)였다. 목록만으로는 알 수 없다.
   - 판정문(탐침 234·235: 52쪽 글자 PDF): 1쪽의 사건 설명 줄·사건 번호, `Korea`가 든 문장(결정에 닿는 낱말이 있는 문단 먼저, 본문 사이 통계 표 숫자 줄은 뺌), 마지막 `RECOMMENDATION` 아래 결론 문장, 끝의 `Duty Table` 줄(칸이 줄마다 끊겨 `금액 단위 통화`로 한 줄을 닫아 묶음 — Korea 든 줄, 없으면 "N줄에 Korea 든 줄 없음"), 출입처 영문 이름이 든 문장.
   - 개시 고시(탐침 234·235: **스캔본이라 글자 0자** → tesseract 영문 200dpi, 8쪽 21초): 신청인(`… (hereinafter referred to as the ‘applicant’) has filed an application` 둘레), 조사 대상 기간, 국내 산업, 기한. **한국 수출자 이름은 개시 고시에 없다**("are being informed separately"). 글자 인식본은 숫자·날짜가 틀리게 읽힐 수 있어(`Ist April`) 화면에 '글자 인식'이라고 적는다. 개시가 400일 안인 절차만 읽는다.
+  - 11-14 운영에서 고친 것(`DOC_VERSION 2`): 판정문 1항이 번호 없이 `F. No. …: Having regard to`로 시작해 사건 설명 줄에 본문이 딸려 왔다 → 설명 줄이 시작된 뒤 머리 꼴 줄이 나오면 끊는다. 권고 맨 앞에 절차 문장(`duly notified …`)이 나왔다 → 뺀다. 페놀 개시 고시는 글자층이 있는 스캔본이라 '글자 인식' 표시 없이 틀린 글자(`I "t January`)가 있었다 → 개시 고시는 늘 '숫자·날짜는 원문 확인'이라고 적는다.
   - 스캔 판정문은 앞 3쪽·끝 10쪽만 글자 인식. 도구가 없거나 시간(문서당 120초)이 모자라면 '못 읽음'(세 번까지 다시).
   - 화면: radar_today 줄 끝 `· DGTR 문서: 판정문(…): 「사건 설명」 · 한국 문장 「…」 · 권고 「…」 · 세율 표 … · 개시 고시(…, 글자 인식): 신청인 「…」 · 조사 대상 기간 「…」`, 단독 데스크 `〔판정문·개시 고시〕`, `trade_remedies section=notices`의 `판정문·개시 고시(PDF에서 뽑은 원문 대목):`(한국 문장 전부·세율 표 앞 줄·국내 산업·기한까지). 등급·유형은 그대로.
   - `source_document`는 `dgtr.gov.in` 사건 페이지(HTML)는 열지만 PDF는 못 읽는다 — PDF는 이 대목으로 본다.

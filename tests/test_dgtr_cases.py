@@ -6,6 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import dgtr_cases as d  # noqa: E402
+import dgtr_docs  # noqa: E402
 
 KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime(2026, 11, 14, 7, 40, tzinfo=KST)
@@ -194,12 +195,12 @@ class Attach(unittest.TestCase):
             self.doc_calls.append(("findings", url.rsplit("/", 1)[-1]))
             if url in self.doc_down:
                 raise RuntimeError("HTTP 503")
-            return {"v": 1, "pages": 52, "ocr": False, "subject": "Sunset review … from China PR", "korea": ["(7항) … not initiated in respect of imports from Korea RP."], "koreaTotal": 1,
+            return {"v": dgtr_docs.DOC_VERSION, "pages": 52, "ocr": False, "subject": "Sunset review … from China PR", "korea": ["(7항) … not initiated in respect of imports from Korea RP."], "koreaTotal": 1,
                     "recommendation": "continuation … five years.", "duty": {"rows": 3, "korea": [], "sample": []}, "beat": [], "beatLines": []}
 
         def initiation(url, *, get, beat_rx):
             self.doc_calls.append(("initiation", url.rsplit("/", 1)[-1]))
-            return {"v": 1, "pages": 8, "ocr": True, "subject": "Initiation of …", "applicant": "M/s X (… ‘applicant’)", "poi": "1st April 2025 to 31st March 2026", "industry": "", "timeLimit": "", "beat": [], "beatLines": []}
+            return {"v": dgtr_docs.DOC_VERSION, "pages": 8, "ocr": True, "subject": "Initiation of …", "applicant": "M/s X (… ‘applicant’)", "poi": "1st April 2025 to 31st March 2026", "industry": "", "timeLimit": "", "beat": [], "beatLines": []}
         d.read_findings, d.read_initiation = findings, initiation
 
     def tearDown(self):
