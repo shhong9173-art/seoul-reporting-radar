@@ -271,25 +271,79 @@ class Collect(unittest.TestCase):
         self.assertTrue(any(x["id"] == "880000" and not x["isNew"] for x in ed2["docs"]))
         self.assertEqual([p.get("investigationNumber") for _, p, _ in calls if p.get("investigationNumber")], ["337-1450"])
 
-    def test_no_token_expired_and_rejected(self):
+    def test_no_token_expired_and_rejected_are_not_failures(self):
+        # 기자 11-15: 토큰은 필요할 때만 갱신한다 — 없거나 만료된 것은 고장이 아니라 본문 읽기가 꺼진 상태(목록·당사자는 그대로 읽힌다)
         (ed, _, check), calls = first_run(token="")
-        self.assertEqual(check["status"], "partial")
-        self.assertIn("EDIS_API_TOKEN 미설정", check["error"])
+        self.assertEqual((check["status"], check["bodyReading"]), ("ok", False))
+        self.assertNotIn("error", check)
+        self.assertIn("EDIS 토큰 없음 — 첨부 본문·337 제소장 표지 읽기 꺼짐(토큰은 필요할 때만 갱신)", ed["tokenNote"])
         self.assertFalse(any("/download/" in u for u, _, _ in calls))
+        # 본문을 못 읽은 A·B 문서에는 그 사실을 적는다
+        self.assertTrue(next(x for x in ed["docs"] if x["id"] == "898408")["bodyError"].startswith("토큰 없음"))
         (ed, _, check), calls = first_run(token=jwt(NOW - dt.timedelta(hours=1)))
-        self.assertIn("토큰 만료", check["error"])
+        self.assertEqual(check["status"], "ok")
+        self.assertIn("EDIS 토큰 만료(", ed["tokenNote"])
         self.assertFalse(any("/download/" in u for u, _, _ in calls))
         get = fake([[doc(898408, "Petition", "2026/10/31 16:30:00", by=HANWHA)]], attach={"898408": att(898408)},
                    files={dl(898408): (401, b"")})
         ed, _, check = w.collect(None, NOW, get=get, token=TOKEN, sleep=NOSLEEP)
-        self.assertEqual(check["status"], "partial")
+        self.assertEqual((check["status"], check["bodyReading"]), ("ok", False))
         self.assertIn("토큰 거부", ed["tokenNote"])
+        self.assertTrue(next(x for x in ed["docs"] if x["id"] == "898408")["bodyError"].startswith("토큰 거부"))
 
-    def test_expiry_within_three_days_warns_but_still_reads(self):
+    def test_expiry_soon_is_silent_and_still_reads(self):
+        # 만료 3일 전 경고는 없앴다(필요할 때만 갱신)
         (ed, _, check), calls = first_run(token=jwt(NOW + dt.timedelta(days=2)))
-        self.assertEqual(check["status"], "ok")
-        self.assertIn("만료 예정", ed["tokenNote"])
+        self.assertEqual((check["status"], check["bodyReading"]), ("ok", True))
+        self.assertIsNone(ed["tokenNote"])
+        self.assertEqual(ed["tokenExpires"][:10], (NOW + dt.timedelta(days=2)).astimezone(dt.timezone.utc).date().isoformat())
         self.assertTrue(any("/download/" in u for u, _, _ in calls))
+
+    def test_complaints_unread_without_token_wait_and_are_read_after_renewal(self):
+        (ed, _, _), _ = first_run()
+        d1 = NOW + dt.timedelta(days=1)
+        pages = [[doc(900100, "Brief on Review/Remedy", "2026/11/02 15:00:00", title="Respondents' brief", by=HANWHA),
+                  doc(900101, "Complaint", "2026/11/02 14:00:00", inv="337-3900", status="Preinstitution", title="Complaint", by="Acme Corp."),
+                  doc(900102, "Complaint", "2026/11/02 13:00:00", inv="337-3901", status="Preinstitution", title="Complaint", by="Other Inc."),
+                  doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc.")]]
+        calls = []
+        ed2, events, check = w.collect(ed, d1, get=fake(pages, calls=calls), token="", sleep=NOSLEEP)
+        # 토큰 없음: 출입처가 낸 서면은 제목·당사자로 그대로 알리고(본문 미확인 표시), 제소장 두 건은 적어 둔다
+        self.assertEqual([e["id"] for e in events], ["edis:900100"])
+        self.assertIn("본문 미확인(토큰 없음 — 필요하면 새로 받거나 EDIS 누리집에서 문서 번호로)", events[0]["text"])
+        self.assertEqual((check["status"], check["pendingComplaints"]), ("ok", 2))
+        self.assertEqual([x["id"] for x in ed2["pendingComplaints"]], ["900101", "900102"])
+        self.assertFalse(any("/download/" in u or "/attachment" in u for u, _, _ in calls))
+        # 며칠 뒤 토큰을 새로 받음: 그사이 목록에서 밀려난 제소장도 적어 둔 것에서 읽어 알린다
+        d5 = NOW + dt.timedelta(days=5)
+        later = [[doc(900300, "Notice of Appearance", "2026/11/05 10:00:00", by="Hyundai Steel Company"),
+                  doc(900100, "Brief on Review/Remedy", "2026/11/02 15:00:00", title="Respondents' brief", by=HANWHA)]]   # 지난 실행의 마지막 문서
+        get = fake(later, attach={"900101": att(900101), "900102": att(900102)},
+                   files={dl(900101): (200, COMPLAINT_PDF), dl(900102): (200, pdf([["COMPLAINT", "Proposed Respondents: Foo Ltd."]]))})
+        ed3, events, check = w.collect(ed2, d5, get=get, token=TOKEN, sleep=NOSLEEP)
+        self.assertEqual([e["id"] for e in events], ["edis:900101"])
+        self.assertEqual((events[0]["tier"], events[0]["companies"]), ("A", ["현대모비스"]))
+        rec = next(x for x in ed3["docs"] if x["id"] == "900101")
+        self.assertIn("토큰을 새로 받은 뒤 뒤늦게 읽음", rec["why"])
+        self.assertNotIn("late", rec)
+        self.assertEqual((ed3["pendingComplaints"], check["pendingComplaints"], check["status"]), ([], 0, "ok"))
+        self.assertIn("337-3900", ed3["watched"])
+        # 45일 넘게 못 읽은 것은 버린다
+        old = dict(ed2, pendingComplaints=[dict(ed2["pendingComplaints"][0], officialReceivedDate="2026/09/01 10:00:00")])
+        ed4, _, _ = w.collect(old, d5, get=fake(later), token="", sleep=NOSLEEP)
+        self.assertEqual(ed4["pendingComplaints"], [])
+
+    def test_complaint_download_failures_are_retried_three_times(self):
+        (ed, _, _), _ = first_run()
+        pages = [[doc(900101, "Complaint", "2026/11/02 14:00:00", inv="337-3900", status="Preinstitution", title="Complaint", by="Acme Corp.")]]
+        get = fake(pages, attach={"900101": att(900101)}, files={dl(900101): (503, b"")})
+        state = ed
+        for n in (1, 2):
+            state, events, check = w.collect(state, NOW + dt.timedelta(days=n), get=get, token=TOKEN, sleep=NOSLEEP)
+            self.assertEqual((events, [x["id"] for x in state["pendingComplaints"]], state["pendingComplaints"][0]["tries"]), ([], ["900101"], n))
+            self.assertIn("337 제소장 1건 표지 미확인(다음 실행)", check["error"])
+        state, _, check = w.collect(state, NOW + dt.timedelta(days=3), get=get, token=TOKEN, sleep=NOSLEEP)
+        self.assertEqual(state["pendingComplaints"], [])
 
     def test_stored_procedural_b_docs_are_retiered_c_and_get_party_hits(self):
         (ed, _, _), _ = first_run()

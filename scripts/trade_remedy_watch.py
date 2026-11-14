@@ -1021,8 +1021,9 @@ def main():
     fresh_docs = [x for x in ed.get("docs", []) if x.get("firstSeen") == doc["generatedAt"]]
     emit(f"::notice title=trade-remedy-edis::USITC EDIS 새로 본 관련 문서 {len(fresh_docs)}(A·B {sum(1 for x in fresh_docs if x.get('tier') in ('A', 'B'))})"
           f" · 본문 읽음 {sum(1 for x in fresh_docs if 'pages' in x)} · 이번 이벤트 {len(edev)} · 지켜보는 337 조사 {len(ed.get('watched') or {})}")
-    if ed.get("tokenNote"):
-        emit("::warning title=trade-remedy-edis-token::EDIS API 토큰 만료·거부·미설정 또는 3일 안 만료 — EDIS 로그인 → 'API Token Generator'에서 다시 발급해 비밀값 교체")
+    # 기자 11-15: EDIS 토큰은 필요할 때만 갱신 — 없거나 만료된 것은 경고가 아니라 상태 한 줄(본문 읽기 꺼짐)
+    emit(f"::notice title=trade-remedy-edis-token::EDIS 첨부 본문 읽기 {'꺼짐(토큰 없음·만료·거부 — 필요할 때만 갱신)' if ed.get('tokenNote') else '켜짐'}"
+         f"{' · 토큰 만료 ' + str(ed['tokenExpires'])[:10] if ed.get('tokenExpires') else ''} · 표지를 못 읽고 적어 둔 새 337 제소장 {len(ed.get('pendingComplaints') or [])}건")
     if not token:
         emit("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
