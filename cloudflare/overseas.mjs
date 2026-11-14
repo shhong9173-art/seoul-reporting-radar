@@ -574,33 +574,59 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
 // 기자 컴퓨터 수집(평일 09:00·16:00)이 올린 줄을 읽는다. 처음 읽은 것은 기준선이라 이 구역은 저장된 사건·일정·문서를 그대로 보여 준다.
 const AU_KIND = { investigation: '조사', continuation: '종료재심', review: '재심', 'accelerated review': '신속 재심', 'anti-circumvention': '우회 조사',
   exemption: '면제 조사', 'duty assessment': '관세 정산' };
-const AU_DATES = [['Initiation Date', '개시'], ['PAD* earliest date', '예비 판정(PAD) 가능일'], ['SEF* no later than', '필수사실 보고서(SEF) 기한'],
+// 일정 이름은 사건마다 별표 수가 다르다('SEF* no later than'·'SEF** no later than', 운영 11-15 688) — 별표를 떼고 맞춘다
+const AU_DATES = [['Initiation Date', '개시'], ['PAD earliest date', '예비 판정(PAD) 가능일'], ['SEF no later than', '필수사실 보고서(SEF) 기한'],
   ['Final recommendation due no later than', '최종 권고 기한']];
+const auDate = (dates, key) => Object.entries(dates ?? {}).find(([k]) => k.replace(/\*+/g, '').trim() === key)?.[1];
 export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fromIso = '') {
   if (!epr) return ['\n[호주 ATRC 사건 공개기록(EPR)] 아직 수집 전 — 미확인(기자 컴퓨터 수집이 사건 페이지를 올린 뒤부터)'];
   const all = Object.entries(epr.cases ?? {}).map(([no, c]) => ({ ...c, no }));
-  const hit = (c) => matches(q, c.no, c.title, c.commodity, c.countries, AU_KIND[String(c.kind ?? '').toLowerCase()] ?? '', (c.companies ?? []).join(' '), (c.docs ?? []).map((d) => d.title).join(' '));
-  const live = all.filter((c) => !c.missing && hit(c)).sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
-  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${Number.isNaN(Date.parse(epr.fetchedAt)) ? '?' : new Date(Date.parse(epr.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')}(한국시간) · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
+  const pdf = epr.pdf ?? {};
+  const read = (c, d) => pdf[`${c.no}-${d.no}`];
+  const hit = (c) => matches(q, c.no, c.title, c.commodity, c.countries, AU_KIND[String(c.kind ?? '').toLowerCase()] ?? '', (c.companies ?? []).join(' '), (c.docs ?? []).map((d) => d.title).join(' '),
+    (c.docs ?? []).flatMap((d) => read(c, d)?.excerpts ?? []).join(' '));
+  const byDate = (a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? ''));
+  const live = all.filter((c) => !c.missing && !c.archived && hit(c)).sort(byDate);
+  const archived = all.filter((c) => c.archived && hit(c)).sort(byDate);
+  const texts = Object.values(pdf).filter((x) => (x.excerpts ?? []).length).length;
+  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중)${archived.length ? ` · 종결·보관 ${archived.length}건` : ''} · 수집 ${Number.isNaN(Date.parse(epr.fetchedAt)) ? '?' : new Date(Date.parse(epr.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')}(한국시간) · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
   if (epr.status !== 'ok') out.push(`미확인(0건 아님): ${epr.error ?? epr.status} — 아래는 직전에 읽은 것`);
+  if (texts || (epr.want ?? []).length) out.push(`본문: 출입처 이름이 든 문서 ${texts}건의 PDF에서 한국·출입처 대목을 읽음${(epr.want ?? []).length ? ` · 다음 수집(평일 09:00·16:00)에 받을 문서 ${epr.want.length}건(${epr.want.map((w) => `EPR ${w.key}`).join(', ')})` : ''}`);
   const docLine = (d) => `${d.date || '날짜 없음'} EPR ${d.no}번 ${d.type} 「${d.title}」${(d.companies ?? []).length ? `(${d.companies.join('·')})` : ''}`;
-  for (const c of live.slice(0, limit)) {
+  const caseLines = (c) => {
     const docs = c.docs ?? [];
     const shown = docs.slice(0, showAll ? 12 : 4);
     const named = docs.filter((d) => (d.companies ?? []).length && !shown.includes(d)).slice(0, showAll ? 12 : 6);
-    out.push(`- 사건 ${c.no} · ${c.title ?? c.commodity ?? ''} · ${AU_KIND[String(c.kind ?? '').toLowerCase()] ?? c.kind ?? '사건'}${(c.companies ?? []).length ? ` · 문서 제목에 나온 출입처 이름 ${c.companies.join('·')}` : ''}`
+    out.push(`- 사건 ${c.no} · ${c.title ?? c.commodity ?? ''} · ${c.archived ? '종결·보관' : AU_KIND[String(c.kind ?? '').toLowerCase()] ?? c.kind ?? '사건'}${(c.companies ?? []).length ? ` · 문서 제목에 나온 출입처 이름 ${c.companies.join('·')}` : ''}`
       + `${c.error ? ` · ⚠ 이번에 사건 페이지를 못 읽음(${c.error}) — 직전 문서 줄` : ''}`);
-    const dates = AU_DATES.map(([k, ko]) => (c.dates?.[k] && !/^N\/?A$/i.test(c.dates[k]) ? `${ko} ${c.dates[k]}` : null)).filter(Boolean);
-    out.push(`   다음 단계 ${c.milestone || '?'} · 목록 마지막 갱신 ${c.updated || '?'} · 문서 ${c.n ?? docs.length}건${dates.length ? ` · ${dates.join(' · ')}` : ''}`);
+    const dates = AU_DATES.map(([k, ko]) => { const v = auDate(c.dates, k); return v && !/^N\/?A$/i.test(v) ? `${ko} ${v}` : null; }).filter(Boolean);
+    out.push(c.archived ? `   가장 최근 공지 ${c.subject ? `「${c.subject}」` : '?'}(${c.updated || '?'}) · 문서 ${c.n ?? docs.length}건${dates.length ? ` · ${dates.join(' · ')}` : ''}`
+      : `   다음 단계 ${c.milestone || '?'} · 목록 마지막 갱신 ${c.updated || '?'} · 문서 ${c.n ?? docs.length}건${dates.length ? ` · ${dates.join(' · ')}` : ''}`);
     const who = c.info?.Applicant ?? c.info?.Applicants;
     if (who || c.info?.['Inquiry Period']) out.push(`   ${who ? `신청인 ${who}` : ''}${who && c.info?.['Inquiry Period'] ? ' · ' : ''}${c.info?.['Inquiry Period'] ? `조사 대상 기간 ${c.info['Inquiry Period']}` : ''}`);
     if (shown.length) out.push(`   최근 문서: ${shown.map(docLine).join(' · ')}`);
     if (named.length) out.push(`   그 밖에 출입처 이름이 든 문서: ${named.map(docLine).join(' · ')}`);
+    // 기자 컴퓨터가 올린 PDF에서 읽은 한국·출입처 대목(au_epr_docs.py) — 의견서는 낸 쪽의 주장이다. 최근 문서부터 3건(show_all이면 전부)
+    for (const d of docs.filter((x) => read(c, x)).slice(0, showAll ? 20 : 3)) {
+      const t = read(c, d);
+      const n = showAll ? 6 : 2;
+      if ((t.excerpts ?? []).length) {
+        out.push(`   본문 대목(EPR ${d.no}번 ${d.type} · ${t.pages ?? '?'}쪽 · 한국·출입처 이름이 든 문장 ${t.hits ?? '?'}개 중 ${Math.min(n, t.excerpts.length)}개): ${t.excerpts.slice(0, n).map((x) => `"${x}"`).join(' / ')}`
+          + `${(t.margins ?? []).length ? ` · 마진·보조금 표현: ${t.margins.slice(0, 3).map((x) => `"${x}"`).join(', ')}` : ''}`);
+      } else if (showAll || t.scan || t.error) {
+        out.push(`   본문 미확인(EPR ${d.no}번): ${t.scan ? '글자가 없는 스캔본' : t.error ? `${t.error} — 다시 받는 중(${t.tries ?? 1}/3)` : '한국·출입처 이름이 든 문장 없음'}`);
+      }
+    }
     out.push(`   원문: ${c.url}`);
-  }
+  };
+  for (const c of live.slice(0, limit)) caseLines(c);
   if (live.length > limit) out.push(`… 남은 ${live.length - limit}건`);
   if (!live.length) out.push('없음(수집을 못 읽었으면 미확인)');
-  const gone = all.filter((c) => c.gone && hit(c));
+  if (archived.length) {
+    out.push(`종결·보관 사건(TRN 목록의 최근 공지가 150일 안) ${archived.length}건:`);
+    for (const c of archived.slice(0, showAll ? limit : Math.min(limit, 4))) caseLines(c);
+  }
+  const gone = all.filter((c) => c.gone && !c.archived && hit(c));
   if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((c) => `${c.no} ${c.commodity ?? ''}(${String(c.gone).slice(0, 10)} 감지)`).join(' · ')} — 종결·보관으로 옮겨졌을 수 있음`);
   const ev = (events ?? []).filter((e) => e.pageId === 'au-epr' && !e.retracted && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C')
     && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
@@ -610,7 +636,7 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
     out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);
     out.push(`   원문: ${e.url}`);
   }
-  out.push('   검증 상태: 호주 ATRC 누리집 사건 페이지를 기자 컴퓨터 브라우저로 읽은 것(자동). 문서 제목·종류·날짜만 읽었다 — 내용(마진·판단·주장)은 원문 PDF에서 확인. 의견서는 낸 쪽의 주장이고 조사기관 판단이 아니다. 제목에 회사 이름이 있다는 것만으로 그 회사가 낸 문서라고 단정하지 않는다(다른 당사자가 그 회사를 다룬 문서일 수 있다). 회사 입장은 회사 확인');
+  out.push('   검증 상태: 호주 ATRC 누리집 사건 페이지를 기자 컴퓨터 브라우저로 읽은 것(자동). 문서 제목·종류·날짜와, 출입처 이름이 든 문서는 PDF에서 한국·출입처 이름이 든 문장을 그대로 옮겼다(자동 고르기 — 앞뒤 맥락·표·수치는 원문 PDF에서 확인). 의견서는 낸 쪽의 주장이고 조사기관 판단이 아니다. 제목에 회사 이름이 있다는 것만으로 그 회사가 낸 문서라고 단정하지 않는다(다른 당사자가 그 회사를 다룬 문서일 수 있다). 회사 입장은 회사 확인');
   return out;
 }
 

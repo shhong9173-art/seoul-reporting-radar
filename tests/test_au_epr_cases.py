@@ -221,6 +221,77 @@ class AuEpr(unittest.TestCase):
         _, ev5, _ = a.collect(upload(back, mon + dt.timedelta(days=1)), sec3, mon + dt.timedelta(days=1, minutes=10))
         self.assertEqual([e["id"] for e in ev5], ["au-epr:706:doc:23"])
 
+    def test_archived_cases(self):
+        # 보관(종결) 사건: 수집 코드가 TRN 목록에서 최근 공지가 있는 보관 사건의 사건 페이지도 읽어 acase 줄로 올린다(11-15)
+        ARC = "/australian-trade-remedies-commission/archive-cases-and-electronic-public-record-epr"
+        arc = [row("acase", "688", "Certain flat rolled steel products", "Findings of subsidy investigation", "China, Korea", "24/09/2026", link=f"{ARC}/688"),
+               row("title", "688", "688 - Certain flat rolled steel products from China, Korea", "41"),
+               row("date", "688", "Initiation Date", "20 October 2025"),
+               row("doc", "688", "41", "Notice - TRN", "TRN 2026/104 - Findings of subsidy investigation [pdf 1 KB]", "24/09/2026"),
+               row("doc", "688", "40", "Report", "Final Report 688 [pdf 2 MB]", "24/09/2026", link=f"{PDF}/2026-09/688-40-final-report.pdf"),
+               row("doc", "688", "33", "Submission", "Exporter - Hyundai Steel Company - Response to SEF 688 [pdf 1 KB]", "10/08/2026", link=f"{PDF}/2026-08/688-33.pdf")]
+        _, cases = a.parse_rows(ROWS + arc)
+        c = cases["688"]
+        self.assertEqual((c["archived"], c["commodity"], c["subject"], c["countries"], c["updated"], c["url"]),
+                         (True, "Certain flat rolled steel products", "Findings of subsidy investigation", "China, Korea", "2026-09-24", a.HOST + ARC + "/688"))
+        self.assertNotIn("archived", cases["706"])
+        # 처음 보는 보관 사건은 기준선(기준선이 이미 있어도), 진행 사건 수에는 넣지 않는다
+        sec, _, _ = a.collect(upload(ROWS, FRI), None, NOW)
+        mon = dt.datetime(2026, 11, 16, 16, 2, tzinfo=KST)
+        sec2, ev, chk = a.collect(upload(ROWS + arc, mon), sec, mon + dt.timedelta(minutes=10))
+        self.assertEqual((ev, chk["cases"], chk["archived"], sec2["cases"]["688"]["archived"]), ([], 3, 1, True))
+        self.assertEqual(a.label_of("688", sec2["cases"]["688"]), "호주 ATRC 사건 688 Certain flat rolled steel products(종결·보관)")
+        # 보관 사건에 새로 붙는 문서도 같은 규칙으로 알린다
+        tue = mon + dt.timedelta(hours=17)
+        more = arc + [row("doc", "688", "42", "Notice - ADN", "ADN 2026/150 - Minister's decision - POSCO exempted [pdf 1 KB]", "16/11/2026")]
+        sec3, ev3, _ = a.collect(upload(ROWS + more, tue), sec2, tue + dt.timedelta(minutes=10))
+        self.assertEqual([(e["id"], e["tier"], e["companies"]) for e in ev3], [("au-epr:688:doc:42", "A", ["포스코"])])
+        self.assertEqual(ev3[0]["label"], "호주 ATRC 사건 688 Certain flat rolled steel products(종결·보관)")
+        # 진행 목록에 있던 698이 보관 사건으로 올라옴: 두 번 기다리지 않고 바로 알리고, '목록에서 빠짐'은 따로 내지 않는다
+        rows = [r for r in ROWS if r["cells"][1] != "698" or r["cells"][0] == "list"]
+        moved = [row("acase", "698", "Aluminium zinc coated steel (≥600mm)", "Findings of continuation inquiry", "Korea, Vietnam", "17/11/2026", link=f"{ARC}/698"),
+                 row("title", "698", "698 - Aluminium zinc coated steel (≥600mm) from Korea, Vietnam", "19"),
+                 row("doc", "698", "19", "Notice - TRN", "TRN 2026/170 - Findings of continuation inquiry [pdf 1 KB]", "17/11/2026"),
+                 row("doc", "698", "18", "Report", "Final Report 698 [pdf 1 MB]", "17/11/2026"),
+                 row("doc", "698", "17", "Submission", "Exporter - Hoa Sen Group - Response to SEF 698 [pdf 85 KB]", "15/10/2026"),
+                 row("doc", "698", "16", "Submission", "Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698 [pdf 169 KB]", "15/10/2026"),
+                 row("doc", "698", "14", "Report", "Statement of Essential Facts (SEF 698) [pdf 734 KB]", "24/09/2026"),
+                 row("doc", "698", "13", "Submission", "Australian Industry - BlueScope Steel Limited - Submission on PMS in the Korean HRC market and response to KG Dongbu submission [pdf 310 KB]", "15/09/2026"),
+                 row("doc", "698", "2", "Notice - ADN", "ADN 2026/027 - Initiation of Continuation inquiry 698 [pdf 324 KB]", "10/02/2026")]
+        wed = tue + dt.timedelta(days=1)
+        sec4, ev4, chk4 = a.collect(upload(rows + more + moved, wed), sec3, wed + dt.timedelta(minutes=10))
+        got = {e["id"]: e for e in ev4}
+        self.assertEqual(sorted(got), ["au-epr:698:archived", "au-epr:698:doc:18", "au-epr:698:doc:19"])
+        arch = got["au-epr:698:archived"]
+        self.assertEqual((arch["tier"], arch["companies"]), ("A", ["KG스틸"]))       # 문서 제목에 직접 출입처 이름이 있던 사건
+        self.assertIn("보관(종결) 목록으로 옮겨짐: 「698 - Aluminium zinc coated steel (≥600mm) from Korea, Vietnam」 · 가장 최근 공지 「Findings of continuation inquiry」(2026-11-17)", arch["text"])
+        self.assertEqual((got["au-epr:698:doc:18"]["tier"], got["au-epr:698:doc:19"]["tier"]), ("B", "C"))
+        self.assertEqual((chk4["cases"], chk4["archived"], sec4["cases"]["698"].get("missing")), (2, 2, None))
+        _, ev5, _ = a.collect(upload(rows + more + moved, wed + dt.timedelta(hours=7)), sec4, wed + dt.timedelta(hours=7, minutes=10))
+        self.assertEqual(ev5, [])
+        # 보관 사건이 수집에서 빠지면(공지일이 150일을 넘김) 조용히 내려놓는다
+        sec6, ev6, _ = a.collect(upload(rows, wed + dt.timedelta(days=1)), sec4, wed + dt.timedelta(days=1, minutes=10))
+        self.assertEqual((ev6, sorted(sec6["cases"])), ([], ["706", "710"]))
+
+    def test_want_list_asks_for_unread_beat_documents(self):
+        sec, _, _ = a.collect(upload(ROWS, FRI), None, NOW)
+        # 직접 출입처 이름이 들고 같은 사이트 PDF 링크가 있는 문서만: 의견서·보고서·공지 먼저, 그다음 최근 순, 4건까지
+        self.assertEqual(sec["want"], [{"key": "698-16", "url": PDF + "/2026-10/698-16-submission-exporter-kg-dongbu-steel-co-ltd-response-to-sef-698.pdf"},
+                                       {"key": "706-20", "url": "/sites/default/files/adc/public-record/2026-09/706-20-file-note-meeting-with-posco.pdf"}])
+        self.assertEqual(sec["pdf"], {})
+        self.assertEqual((a.pdf_path(a.HOST + "/sites/default/files/x/y.pdf"), a.pdf_path("https://evil.example/sites/default/files/x.pdf"), a.pdf_path("/sites/default/files/../x.pdf"),
+                          a.pdf_path("/sites/default/files/x.docx"), a.pdf_path(None)), ("/sites/default/files/x/y.pdf", "", "", "", ""))
+        # 읽은 것·세 번 실패한 것은 다시 달라고 하지 않고, 본문 기록은 다음 수집에도 이어진다
+        sec["pdf"] = {"698-16": {"v": a.PDF_VERSION, "date": "2026-10-15", "excerpts": ["x"]}, "706-20": {"v": a.PDF_VERSION, "tries": 3, "error": "PDF 아님"},
+                      "999-1": {"v": a.PDF_VERSION, "excerpts": []}}
+        mon = dt.datetime(2026, 11, 16, 16, 2, tzinfo=KST)
+        sec2, _, _ = a.collect(upload(ROWS, mon), sec, mon + dt.timedelta(minutes=10))
+        self.assertEqual((sec2["want"], sorted(sec2["pdf"])), ([], ["698-16", "706-20"]))      # 문서 줄에 없는 999-1 기록은 버린다
+        sec["pdf"]["706-20"]["tries"] = 2
+        self.assertEqual([w["key"] for w in a.want_list(sec["cases"], sec["pdf"], NOW)], ["706-20"])
+        old = dict(sec["cases"]["698"], docs=[dict(d, date="2025-01-01") for d in sec["cases"]["698"]["docs"]])
+        self.assertEqual(a.want_list({"698": old}, {}, NOW), [])                               # 400일 넘은 문서는 받지 않는다
+
     def test_rows_outside_listed_cases_are_ignored(self):
         _, cases = a.parse_rows([row("list", "28", "1"), row("case", "698", "x", "698", "Continuation", "Korea", "SEF", "01/11/2026", "-"),
                                  row("doc", "999", "1", "Report", "Not listed", "01/11/2026"), row("doc", "../x", "1", "Report", "Bad", "01/11/2026"),

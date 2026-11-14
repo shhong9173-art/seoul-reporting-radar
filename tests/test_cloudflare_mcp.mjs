@@ -9,7 +9,7 @@ import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
 import { deskType } from '../cloudflare/desk.mjs';
-import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
+import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
@@ -4550,6 +4550,74 @@ test('Aside 직접 올리기(/upload/browser): 등록한 열쇠 지문과 맞을
   assert.ok((await call('local_notice_submit', { uploadKeySha256: 'zz' }, opts)).isError);
 });
 
+test('호주 사건 문서 PDF 올리기(11-15): 감시가 받아 달라고 한 문서만, 열쇠가 맞을 때만 조각으로 받고, 감시가 받아 가면 칸을 비운다', async () => {
+  const fetch = async () => new Response(null, { status: 204 });
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const sha = (k) => createHash('sha256').update(k).digest('hex');
+  const key = 'k'.repeat(43);
+  await call('browser_upload_key', { sha256: sha(key) }, opts);
+  const auth = { Authorization: `Bearer ${TOKEN}` };
+  const u13 = '/sites/default/files/adc/public-record/2026-09/698-13-submission-bluescope-pms.pdf';
+  const u16 = '/sites/default/files/atrc/public-record/2026-10/698-16-submission-kg-dongbu.pdf';
+  // 무역구제 감시가 '본문을 읽고 싶은 문서'를 적어 둔다(auEpr.want) — 꼴이 안 맞는 것은 올리기 응답에 넣지 않는다
+  const want = [{ key: '698-13', url: u13 }, { key: '698-16', url: u16 }, { key: '706-20', url: 'https://evil.example/x.pdf' }, { key: '../x', url: u13 }, { key: '706-21', url: '/sites/default/files/../secret.pdf' }];
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: auth,
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [], auEpr: { status: 'ok', cases: {}, want } }) }), opts.env, {})).status, 200);
+  const up = await (await browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST', headers: { Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ via: 'aside', labor: [{ commission: '제주지방노동위원회', error: '시험' }] }) }), opts.env, { fetch })).json();
+  assert.deepEqual(up.want, [{ key: '698-13', url: u13 }, { key: '698-16', url: u16 }]);
+  const post = (k, body) => worker.fetch(new Request(ORIGIN + '/upload/browser-file', { method: 'POST', headers: { Authorization: `Bearer ${k}` }, body: JSON.stringify(body) }), opts.env, {});
+  const b64 = Buffer.from('%PDF-1.7 ' + 'x'.repeat(3000)).toString('base64');
+  const half = Math.ceil(b64.length / 2 / 4) * 4;
+  // 열쇠가 틀리면 404, 꼴이 안 맞으면 400, 받아 달라고 하지 않은 문서는 409
+  assert.equal((await post('w'.repeat(43), { key: '698-13', url: u13, part: 0, parts: 1, b64 })).status, 404);
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/upload/browser-file'), opts.env, {})).status, 405);
+  for (const bad of [{ key: '698-13', url: u13, part: 0, parts: 4, b64 }, { key: '698-13', url: u13, part: 2, parts: 2, b64 }, { key: '698-13', url: u13, part: 0, parts: 1, b64: 'not base64!' },
+    { key: '698-13', url: 'https://www.industry.gov.au' + u13, part: 0, parts: 1, b64 }, { key: '698 13', url: u13, part: 0, parts: 1, b64 }]) {
+    assert.equal((await post(key, bad)).status, 400, JSON.stringify(bad).slice(0, 80));
+  }
+  assert.equal((await post(key, { key: '698-99', url: u13, part: 0, parts: 1, b64 })).status, 409);
+  assert.equal((await post(key, { key: '698-13', url: u16, part: 0, parts: 1, b64 })).status, 409);       // 주소가 받아 달라고 한 것과 다름
+  assert.equal((await browserFileUpload(new Request(ORIGIN + '/upload/browser-file', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: 'x'.repeat(952_001) }), opts.env)).status, 413);
+  // 두 조각으로 올림: 첫 조각만 올라온 동안은 덜 올라온 파일
+  assert.deepEqual(await (await post(key, { key: '698-13', url: u13, part: 0, parts: 2, b64: b64.slice(0, half) })).json(), { ok: true, slot: 'a', got: 1, parts: 2 });
+  const list = (q = '') => worker.fetch(new Request(ORIGIN + '/ingest/browser-files' + q, { headers: auth }), opts.env, {});
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/browser-files'), opts.env, {})).status, 404);   // MCP 토큰 없이는 안 열린다
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/browser-files', { headers: { Authorization: `Bearer ${key}` } }), opts.env, {})).status, 404);   // 올리기 열쇠로도 안 열린다
+  let files = (await (await list()).json()).files;
+  assert.deepEqual(files.map((f) => [f.slot, f.key, f.complete, f.got]), [['a', '698-13', false, [0]]]);
+  assert.equal((await list('?slot=a&part=1')).status, 404);
+  await post(key, { key: '698-13', url: u13, part: 1, parts: 2, b64: b64.slice(half) });
+  await post(key, { key: '698-13', url: u13, part: 1, parts: 2, b64: b64.slice(half) });     // 같은 조각을 다시 올려도 한 번으로 센다
+  assert.deepEqual(await (await post(key, { key: '698-16', url: u16, part: 0, parts: 1, b64 })).json(), { ok: true, slot: 'b', got: 1, parts: 1 });
+  files = (await (await list()).json()).files;
+  assert.deepEqual(files.map((f) => [f.slot, f.key, f.url, f.complete, f.chars]), [['a', '698-13', u13, true, b64.length], ['b', '698-16', u16, true, b64.length]]);
+  const joined = (await (await list('?slot=a&part=0')).json()).b64 + (await (await list('?slot=a&part=1')).json()).b64;
+  assert.equal(Buffer.from(joined, 'base64').toString().slice(0, 9), '%PDF-1.7 ');
+  // 다 올라온 문서는 다음 올리기 응답의 목록에서 빠진다(다시 받지 않게)
+  const up2 = await (await browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST', headers: { Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ via: 'aside', labor: [{ commission: '제주지방노동위원회', error: '시험' }] }) }), opts.env, { fetch })).json();
+  assert.equal(up2.want, undefined);
+  // 감시가 받아 간 칸을 비운다
+  const done = await worker.fetch(new Request(ORIGIN + '/ingest/browser-files', { method: 'POST', headers: auth, body: JSON.stringify({ done: ['a', 'z', 'c'] }) }), opts.env, {});
+  assert.deepEqual(await done.json(), { cleared: 1 });
+  files = (await (await list()).json()).files;
+  assert.deepEqual(files.map((f) => f.slot), ['b']);
+  assert.equal((await list('?slot=a&part=0')).status, 404);
+  assert.equal((await browserFiles(new Request(ORIGIN + '/ingest/browser-files', { method: 'PUT', headers: auth }), opts.env)).status, 405);
+  // 칸 넷이 다 차면 409, 사흘 넘게 안 받아 간 칸은 새 파일에 내준다
+  const many = ['700-1', '700-2', '700-3', '700-4'].map((k) => ({ key: k, url: `/sites/default/files/x/${k}.pdf` }));
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: auth,
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [], auEpr: { status: 'ok', cases: {}, want: many } }) }), opts.env, {})).status, 200);
+  const st = [];
+  for (const w of many) st.push((await post(key, { ...w, part: 0, parts: 1, b64 })).status);
+  assert.deepEqual(st, [200, 200, 200, 409]);
+  const later = await browserFileUpload(new Request(ORIGIN + '/upload/browser-file', { method: 'POST', headers: { Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ ...many[3], part: 0, parts: 1, b64 }) }), opts.env, { now: new Date(Date.now() + 4 * 86400000) });
+  assert.equal(later.status, 200);
+});
+
 test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓고, 두 번 이상 연달아 실패한 프로그램을 radar_today 맨 위에', async () => {
   assert.equal(pollDue(new Date('2026-11-08T00:00:30Z')), true);   // 09:00 KST
   assert.equal(pollDue(new Date('2026-11-08T00:35:00Z')), true);   // 09:30 칸
@@ -5107,6 +5175,27 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [] }) }), o2.env, {})).status, 200);
   assert.match((await call('trade_remedies', { section: 'au' }, o2)).text, /\[호주 ATRC 사건 공개기록\(EPR\)\] 아직 수집 전 — 미확인/);
+  // 보관(종결) 사건과 PDF에서 읽은 본문 대목(11-15): 진행 사건 수에는 넣지 않고 따로, 대목은 문서 줄 아래에 문장 그대로
+  const o3 = PRIVATE();
+  const withText = { ...auEpr, want: [{ key: '698-16', url: '/sites/default/files/b.pdf' }], pdf: {
+    '698-13': { v: 1, readAt: at, date: '2026-09-15', pages: 9, chars: 21000, hits: 12, margins: ['dumping margin of 2.1%'],
+      excerpts: ['BlueScope submits that a particular market situation (PMS) exists in the Korean hot-rolled coil (HRC) market.', 'The Commission should construct normal values for KG Dongbu Steel Co., Ltd.', 'Third sentence about Korea.'] },
+    '698-9': { v: 1, readAt: at, date: '2026-06-29', pages: 3, chars: 20, excerpts: [], margins: [], hits: 0, scan: true } },
+  cases: { ...auEpr.cases, 688: { archived: true, commodity: 'Certain flat rolled steel products', subject: 'Findings of subsidy investigation', countries: 'China, Korea', updated: '2026-09-24',
+    url: 'https://www.industry.gov.au/australian-trade-remedies-commission/archive-cases-and-electronic-public-record-epr/688', title: '688 - Certain flat rolled steel products from China, Korea', n: 41,
+    companies: ['현대제철'], info: {}, dates: { 'Initiation Date': '24 October 2025', 'SEF** no later than': '23 June 2026' }, docs: [{ no: '41', type: 'Notice - TRN', title: 'TRN 2026/104 - Findings of subsidy investigation', date: '2026-09-24', url: null },
+      { no: '33', type: 'Submission', title: 'Exporter - Hyundai Steel Company - Response to SEF 688', date: '2026-08-10', url: null, companies: ['현대제철'] }] } } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [], auEpr: withText }) }), o3.env, {})).status, 200);
+  const sec3 = (await call('trade_remedies', { section: 'au' }, o3)).text;
+  assert.match(sec3, /한국 관련 진행 사건 2건\(진행 목록 28건 중\) · 종결·보관 1건 · 수집 /);
+  assert.match(sec3, /\n본문: 출입처 이름이 든 문서 1건의 PDF에서 한국·출입처 대목을 읽음 · 다음 수집\(평일 09:00·16:00\)에 받을 문서 1건\(EPR 698-16\)\n/);
+  assert.match(sec3, /\n   본문 대목\(EPR 13번 Submission · 9쪽 · 한국·출입처 이름이 든 문장 12개 중 2개\): "BlueScope submits that a particular market situation \(PMS\) exists in the Korean hot-rolled coil \(HRC\) market\." \/ "The Commission should construct normal values for KG Dongbu Steel Co\., Ltd\." · 마진·보조금 표현: "dumping margin of 2\.1%"\n/);
+  assert.doesNotMatch(sec3, /Third sentence about Korea/);
+  assert.match(sec3, /\n   본문 미확인\(EPR 9번\): 글자가 없는 스캔본\n/);
+  assert.match(sec3, /\n종결·보관 사건\(TRN 목록의 최근 공지가 150일 안\) 1건:\n- 사건 688 · 688 - Certain flat rolled steel products from China, Korea · 종결·보관 · 문서 제목에 나온 출입처 이름 현대제철\n   가장 최근 공지 「Findings of subsidy investigation」\(2026-09-24\) · 문서 41건 · 개시 24 October 2025 · 필수사실 보고서\(SEF\) 기한 23 June 2026\n   최근 문서: 2026-09-24 EPR 41번 Notice - TRN 「TRN 2026\/104 - Findings of subsidy investigation」 · 2026-08-10 EPR 33번 Submission 「Exporter - Hyundai Steel Company - Response to SEF 688」\(현대제철\)\n   원문: https:\/\/www\.industry\.gov\.au\/australian-trade-remedies-commission\/archive-cases-and-electronic-public-record-epr\/688\n/);
+  assert.match((await call('trade_remedies', { section: 'au', show_all: true }, o3)).text, /문장 12개 중 3개\)[^\n]*Third sentence about Korea/);
+  assert.match((await call('trade_remedies', { section: 'au', company: 'particular market situation' }, o3)).text, /한국 관련 진행 사건 1건[^\n]*\n[\s\S]*- 사건 698 /);   // 본문 대목으로도 찾는다
   // radar_today: 출입처 이름이 든 새 문서는 A, 이름 없는 Report는 B, 이름 없는 의견서·모르는 등급은 C
   const r = (await call('radar_today', {}, o)).text;
   assert.match(r, /\n\[A · [^\n]*\] 1건/);
