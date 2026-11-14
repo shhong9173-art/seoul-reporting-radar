@@ -139,9 +139,12 @@ def parse_rows(rows):
                 cases[no]["dates" if kind == "date" else "info"].setdefault(key, val)
         elif kind == "doc" and len(cells) >= 6:
             num = clean(cells[2], 12)
-            title = PDF_SIZE.sub("", clean(cells[4], 280)).strip()
+            # 제목 칸에는 첫 문서 제목 뒤에 첨부 이름이 이어 붙는다('… [pdf 288 KB] Non-Confidential Attachment - Appendix A [pdf 224 KB]').
+            # 보여 주는 제목은 첫 문서 제목만(운영 11-15: 첨부 이름까지 붙어 한 줄이 너무 길었다), 출입처 이름은 첨부 이름까지 본다
+            whole = PDF_SIZE.sub("", clean(cells[4], 280)).strip()
+            title = re.split(r"\s*\[pdf", clean(cells[4], 280), maxsplit=1, flags=re.I)[0].strip() or whole
             if num and title and len(cases[no]["docs"]) < MAX_DOCS and not any(d["no"] == num for d in cases[no]["docs"]):
-                firms = beat_in(title)
+                firms = beat_in(whole)
                 cases[no]["docs"].append({"no": num, "type": clean(cells[3], 40), "title": title, "date": iso_date(cells[5]), "url": link_of(r),
                                           **({"companies": firms} if firms else {})})
         elif kind == "error":

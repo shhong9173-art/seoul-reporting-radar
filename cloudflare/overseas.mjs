@@ -563,7 +563,7 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   const all = Object.entries(epr.cases ?? {}).map(([no, c]) => ({ ...c, no }));
   const hit = (c) => matches(q, c.no, c.title, c.commodity, c.countries, AU_KIND[String(c.kind ?? '').toLowerCase()] ?? '', (c.companies ?? []).join(' '), (c.docs ?? []).map((d) => d.title).join(' '));
   const live = all.filter((c) => !c.missing && hit(c)).sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
-  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${String(epr.fetchedAt ?? '').slice(0, 16)}Z · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
+  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${Number.isNaN(Date.parse(epr.fetchedAt)) ? '?' : new Date(Date.parse(epr.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')}(한국시간) · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
   if (epr.status !== 'ok') out.push(`미확인(0건 아님): ${epr.error ?? epr.status} — 아래는 직전에 읽은 것`);
   const docLine = (d) => `${d.date || '날짜 없음'} EPR ${d.no}번 ${d.type} 「${d.title}」${(d.companies ?? []).length ? `(${d.companies.join('·')})` : ''}`;
   for (const c of live.slice(0, limit)) {

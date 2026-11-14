@@ -75,6 +75,12 @@ class AuEpr(unittest.TestCase):
         self.assertEqual(d["16"], {"no": "16", "type": "Submission", "title": "Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698", "date": "2026-10-15",
                                    "url": a.HOST + PDF + "/2026-10/698-16-submission-exporter-kg-dongbu-steel-co-ltd-response-to-sef-698.pdf", "companies": ["KG스틸"]})
         self.assertNotIn("companies", d["17"])                       # 베트남 업체
+        # 제목은 첫 문서 제목만 — 뒤에 이어 붙은 첨부 이름은 떼지만, 출입처 이름은 첨부 이름에서도 찾는다
+        _, more = a.parse_rows([row("list", "28", "1"), row("case", "706", "x", "706", "Investigation", "Korea", "SEF", "01/11/2026", "-"),
+                                row("doc", "706", "15", "Submission", "Australian Industry - BlueScope Steel Limited - Response to SEF 698 [pdf 288 KB] Non-Confidential Attachment - Appendix A [pdf 224 KB]", "15/10/2026"),
+                                row("doc", "706", "12", "Questionnaire", "Importer - Acme Pty Ltd - Importer Questionnaire [pdf 1 MB] Exhibit 3 - POSCO price list [pdf 2 MB]", "31/08/2026")])
+        self.assertEqual([(x["title"], x.get("companies")) for x in more["706"]["docs"]],
+                         [("Australian Industry - BlueScope Steel Limited - Response to SEF 698", None), ("Importer - Acme Pty Ltd - Importer Questionnaire", ["포스코"])])
         self.assertEqual(d["13"]["companies"], ["KG스틸"])            # 호주 업체 의견서 제목에 든 이름
         self.assertIsNone(d["13"]["url"])
         d6 = {x["no"]: x.get("companies") for x in cases["706"]["docs"]}

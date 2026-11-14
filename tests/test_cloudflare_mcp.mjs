@@ -5072,7 +5072,7 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events, auEpr }) }), o.env, {})).status, 200);
   const sec = (await call('trade_remedies', { section: 'au' }, o)).text;
-  assert.match(sec, /\[호주 ATRC 사건 공개기록\(EPR\) · 한국 관련 진행 사건 2건\(진행 목록 28건 중\) · 수집 2026-11-16T07:03Z · 기준선 2026-11-16\]/);
+  assert.match(sec, /\[호주 ATRC 사건 공개기록\(EPR\) · 한국 관련 진행 사건 2건\(진행 목록 28건 중\) · 수집 11-16 16:03\(한국시간\) · 기준선 2026-11-16\]/);
   // 목록 마지막 갱신이 최근인 사건부터. 다음 단계·주요 일정·신청인, 최근 문서 4줄 + 그 밖에 출입처 이름이 든 문서
   assert.match(sec, /- 사건 698 · 698 - Aluminium zinc coated steel \(≥600mm\) from Korea, Vietnam · 종료재심 · 문서 제목에 나온 출입처 이름 KG스틸\n   다음 단계 Final Report · 목록 마지막 갱신 2026-10-15 · 문서 17건 · 개시 10 February 2026 · 필수사실 보고서\(SEF\) 기한 24 September 2026 · 최종 권고 기한 16 November 2026\n   신청인 Bluescope Steel Limited \(BSL\) · 조사 대상 기간 1 January 2025 – 31 December 2025\n   최근 문서: 2026-10-15 EPR 17번 Submission 「Exporter - Hoa Sen Group - Response to SEF 698」 · 2026-10-15 EPR 16번 Submission 「Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698」\(KG스틸\)/);
   assert.match(sec, /\n   그 밖에 출입처 이름이 든 문서: 2026-09-15 EPR 13번 Submission 「Australian Industry - BlueScope Steel Limited - Submission on PMS in the Korean HRC market and response to KG Dongbu submission」\(KG스틸\) · 2026-06-29 EPR 9번/);
