@@ -25,8 +25,8 @@ FINAL FINDINGS
 Case No. AD (SSR)-05/2026
 Sunset review investigation concerning anti -dumping duty imposed on the imports of
 “Untreated Fumed Silica” originating in or exported from China PR
-1. F. No. 7/09/2026-DGTR: Having regard to the Customs Tariff Act, 1975, as amended from
-time to time, the Designated Authority hereby issues these final findings.
+F. No. 7/09/2026-DGTR: Having regard to the Customs Tariff Act, 1975, as amended from
+time to time (hereinafter referred to as the “Act”) and the Customs Tariff Rules, 1995, the Designated Authority hereby issues these final findings.
 A. BACKGROUND OF THE CASE
 2. The Authority received an application from the domestic industry.
 3. The original anti -dumping investigation concerning imports of the product under
@@ -165,6 +165,7 @@ class Findings(unittest.TestCase):
     def test_subject_and_case_number_come_from_the_first_page(self):
         self.assertEqual(self.f["subject"], "Sunset review investigation concerning anti -dumping duty imposed on the imports of “Untreated Fumed Silica” originating in or exported from China PR")
         self.assertEqual((self.f["caseNo"], self.f["pages"], self.f["ocr"]), ("AD (SSR) – 05/2026", 52, False))
+        self.assertNotIn("hereinafter", self.f["subject"])                                          # 11-14 운영: 번호 없는 1항('F. No. …: Having regard to')이 설명 줄에 딸려 왔다
 
     def test_korea_sentences_are_original_and_decisive_first(self):
         k = self.f["korea"]
@@ -179,6 +180,8 @@ class Findings(unittest.TestCase):
     def test_recommendation_and_duty_table(self):
         self.assertIn("continuation of the existing anti - dumping duties is required in the present case for a further period of five years.", self.f["recommendation"])
         self.assertNotIn("Shandong", self.f["recommendation"])
+        self.assertTrue(self.f["recommendation"].startswith("Pursuant to the sunset review, the Authority has arrived at the conclusion"))   # 절차 문장('duly notified …')은 앞에 오지 않는다
+        self.assertNotIn("duly notified", self.f["recommendation"])
         duty = self.f["duty"]
         self.assertEqual((duty["rows"], duty["korea"]), (3, []))                                    # 세율 표에 한국 줄이 없다 — 이번 재심은 중국만
         self.assertEqual(duty["sample"][0], "1 2811220 0 Untreated Fumed Silica China PR Any country includi ng China PR Shandong Dongyue Silicone Material Co., Ltd. 1,296 MT USD")

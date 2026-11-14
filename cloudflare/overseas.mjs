@@ -898,7 +898,8 @@ export function dgtrDocNote(c, all = false) {
     const parts = [i.applicant && `신청인 「${cut(i.applicant, all ? 460 : 200)}」`, i.poi && `조사 대상 기간 「${cut(i.poi, all ? 360 : 170)}」`,
       all && i.industry && `국내 산업 「${i.industry}」`, all && i.timeLimit && `기한 「${i.timeLimit}」`,
       (i.beat ?? []).length && `출입처 영문 이름 ${i.beat.join('·')}`].filter(Boolean);
-    out.push(`개시 고시(${i.date ?? '?'}${i.title && all ? ` 「${i.title}」` : ''}${i.ocr ? ', 글자 인식 — 숫자·날짜는 원문 확인' : ''}): ${parts.length ? parts.join(' · ') : '신청인·조사 대상 기간 줄을 못 찾음'}`);
+    // 11-14 운영: 페놀 개시 고시는 글자층이 있는 스캔본이라 글자 인식 표시는 없는데 'I "t January'·'refened'처럼 틀리게 읽힌 글자가 있었다 — 개시 고시는 늘 원문 확인이라고 적는다
+    out.push(`개시 고시(${i.date ?? '?'}${i.title && all ? ` 「${i.title}」` : ''}${i.ocr ? ', 글자 인식' : ''} — 스캔본이 많아 숫자·날짜는 원문 확인): ${parts.length ? parts.join(' · ') : '신청인·조사 대상 기간 줄을 못 찾음'}`);
   }
   return out.length ? `DGTR 문서: ${out.join(' · ')}` : '';
 }

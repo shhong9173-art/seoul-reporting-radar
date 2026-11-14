@@ -28,7 +28,7 @@ import subprocess
 import tempfile
 import time
 
-DOC_VERSION = 1
+DOC_VERSION = 2         # 2: 사건 설명 줄 끊는 자리, 권고의 절차 문장 빼기
 MAX_DOC_BYTES = 20_000_000
 MAX_PAGES = 220
 SCAN_CHARS = 400        # 글자가 이보다 적으면 스캔본으로 본다
@@ -50,6 +50,8 @@ HEAD_SKIP = re.compile(r"^(?:Case No|SETU|F\.\s*No|Dated?\b|\(.*\)$|To be publis
 CASE_NO = re.compile(r"Case No\.?\s*[:\-–]?\s*([A-Z]{2,4}\s*\(?[A-Z-]{0,6}\)?\s*[-–]\s*\d{1,3}\s*/\s*\d{4})")
 DECISIVE = re.compile(r"not initiated|terminat|de ?minimis|negligible|continu|recommend|\bduty\b|\bduties\b|margin|undertaking|exclu|revok|withdraw", re.I)
 ROW_END = re.compile(r"(?:^|\s)(?:\d[\d,]*(?:\.\d+)?|NIL)\s+[A-Za-z.]{1,8}\s+(?:USD|US\$|US Dollars?|INR|Rs\.?)\s*$|\d+(?:\.\d+)?\s*%\s*$", re.I)
+RECO = re.compile(r"recommend|arrived at the conclusion|conclud|terminat|revok|withdraw|impos|is required|not required", re.I)
+RECO_BOILER = re.compile(r"duly notified|adequate opportunity|conducted in accordance|proceedings were conducted", re.I)
 COLUMN_NUMBERS = re.compile(r"^1\s+2\s+3\s+4\s+5(?:\s+\d+)*$")
 APPLICANT = re.compile(r"referred to as\s+(?:the\s+)?[‘’'“”\"`]*\s*(?:applicants?|petitioners?)", re.I)
 
@@ -101,14 +103,24 @@ def blocks(lines):
 
 
 def subject_of(lines):
-    """문서 머리의 사건 설명 줄('Sunset review investigation concerning … from China PR')."""
+    """문서 머리의 사건 설명 줄('Sunset review investigation concerning … from China PR').
+    11-14 운영: 판정문 1항이 번호 없이 'F. No. 7/09/2026-DGTR: Having regard to …'로 시작해 설명 줄 뒤에 본문이 딸려 왔다 — 설명 줄이 시작된 뒤 머리 꼴 줄이 다시 나오면 거기서 끊는다."""
     first = next((i for i, x in enumerate(lines[:80]) if (PARA.match(x) and int(PARA.match(x).group(1)) == 1) or SECTION.match(x)), min(len(lines), 40))
     start = max((i for i, x in enumerate(lines[:first]) if TITLE.match(x)), default=None)
     if start is None:
         return ""
-    head = re.sub(r"^Subject\s*:\s*", "", lines[start], flags=re.I) if re.match(r"^Subject\s*:", lines[start], re.I) else ""
-    rest = [x for x in lines[start + 1:first] if not HEAD_SKIP.match(x) and not TITLE.match(x)]
-    return clip(" ".join([head] + rest), 420)
+    out = [re.sub(r"^Subject\s*:\s*", "", lines[start], flags=re.I)] if re.match(r"^Subject\s*:", lines[start], re.I) else []
+    for x in lines[start + 1:first]:
+        if TITLE.match(x):
+            continue
+        if HEAD_SKIP.match(x) or re.search(r"Having regards? to", x):
+            if out:
+                break
+            continue
+        out.append(x)
+        if len(out) >= 8:
+            break
+    return clip(" ".join(out), 420)
 
 
 def sentences_with(text, rx, limit, prefer=None):
@@ -164,9 +176,10 @@ def recommendation(blks):
         if len(" ".join(out)) > 1600:
             break
     # 절차 설명 문단(모든 당사자에게 기회를 줬다)보다 결론 문장을 앞에
-    text = " ".join(out)
-    decisive = sentences_with(text, re.compile(r"recommend|conclusion|continu|terminat|revok|withdraw|impos", re.I), 900)
-    return decisive or clip(text, 900)
+    # 절차 설명 문장(모든 당사자에게 기회를 줬다 — 11-14 운영에서 이 문장이 권고 맨 앞에 나왔다)은 빼고 결론 문장만
+    parts = [x for x in re.split(r"(?<=[.;])\s+(?=[A-Z(“\"])", " ".join(out)) if x and not RECO_BOILER.search(x)]
+    text = " ".join(parts)
+    return sentences_with(text, RECO, 900) or clip(text, 900)
 
 
 def duty_rows(lines):
