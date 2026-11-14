@@ -445,11 +445,13 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
   // 기자 11-15: 토큰은 필요할 때만 갱신한다 — 없거나 만료된 것은 고장이 아니라 본문 읽기가 꺼진 상태(목록·제목·당사자는 토큰 없이 읽힌다)
   if (ed.tokenNote) out.push(`첨부 본문 읽기 꺼짐: ${ed.tokenNote}`);
   else if (ed.tokenExpires) out.push(`첨부 본문 읽기 켜짐(토큰 만료 ${String(ed.tokenExpires).slice(0, 10)} — 만료돼도 목록·제목·당사자는 계속 읽고, 본문이 필요할 때만 새로 받으면 된다)`);
-  const pend = (ed.pendingComplaints ?? []).filter((x) => matches(q, x.investigationNumber, x.investigationTitle, x.documentTitle, x.firmOrganization, x.filedBy));
+  // 사건 제목의 품목이 출입 업종 낱말과 겹치는 것부터(기자 11-15 02:54) — 낱말이 겹친다는 것뿐, 출입처가 피제소인이라는 뜻이 아니다
+  const pend = (ed.pendingComplaints ?? []).filter((x) => matches(q, x.investigationNumber, x.investigationTitle, x.documentTitle, x.firmOrganization, x.filedBy, (x.products ?? []).join(' ')))
+    .sort((a, b) => ((b.products ?? []).length ? 1 : 0) - ((a.products ?? []).length ? 1 : 0) || String(b.officialReceivedDate).localeCompare(String(a.officialReceivedDate)));
   if (pend.length) {
     out.push(`표지를 못 읽은 새 337 제소장 ${pend.length}건(피제소인에 출입처가 있는지 미확인 — 토큰을 새로 받으면 다음 실행에서 읽는다, 급하면 EDIS 누리집에서 문서 번호로):`);
     for (const x of pend.slice(0, showAll ? 40 : 8)) {
-      out.push(`- 접수 ${String(x.officialReceivedDate).slice(0, 16)} · ${x.investigationNumber} · ${x.investigationTitle || x.documentTitle} · 제출 ${x.firmOrganization || x.filedBy || '?'} · EDIS 문서 번호 ${x.id}`);
+      out.push(`- ${(x.products ?? []).length ? `★ 품목이 출입 업종 낱말과 겹침(${x.products.join(', ')}) · ` : ''}접수 ${String(x.officialReceivedDate).slice(0, 16)} · ${x.investigationNumber} · ${x.investigationTitle || x.documentTitle} · 제출 ${x.firmOrganization || x.filedBy || '?'} · EDIS 문서 번호 ${x.id}`);
     }
     if (pend.length > (showAll ? 40 : 8)) out.push(`… 남은 ${pend.length - (showAll ? 40 : 8)}건(show_all=true)`);
   }

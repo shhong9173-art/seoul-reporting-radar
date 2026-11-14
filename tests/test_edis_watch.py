@@ -308,9 +308,20 @@ class Collect(unittest.TestCase):
                   doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc.")]]
         calls = []
         ed2, events, check = w.collect(ed, d1, get=fake(pages, calls=calls), token="", sleep=NOSLEEP)
-        # 토큰 없음: 출입처가 낸 서면은 제목·당사자로 그대로 알리고(본문 미확인 표시), 제소장 두 건은 적어 둔다
-        self.assertEqual([e["id"] for e in events], ["edis:900100"])
-        self.assertIn("본문 미확인(토큰 없음 — 필요하면 새로 받거나 EDIS 누리집에서 문서 번호로)", events[0]["text"])
+        # 토큰 없음: 출입처가 낸 서면은 제목·당사자로 그대로 알리고(본문 미확인 표시), 제소장 두 건은 적어 둔다.
+        # 사건 제목(태양광 셀)이 출입 업종 낱말과 겹쳐 두 건 모두 B로 한 번 알린다(기자 11-15 02:54) — 피제소인은 미확인
+        self.assertEqual([e["id"] for e in events], ["edis:unread:900102", "edis:unread:900101", "edis:900100"])
+        un = events[1]
+        self.assertEqual((un["tier"], un["label"], un.get("companies")), ("B", "USITC 337-3900 Complaint", None))
+        self.assertIn("새 337 제소장 — 피제소인 미확인(토큰이 꺼져 표지를 못 읽음)", un["text"])
+        self.assertIn("품목이 출입 업종 낱말과 겹침: 태양광(topcon)(출입처가 피제소인이라는 뜻이 아님", un["text"])
+        self.assertIn("문서 번호 900101", un["text"])
+        self.assertEqual(ed2["pendingComplaints"][0]["products"], ["태양광(topcon)"])
+        self.assertNotIn("fresh", ed2["pendingComplaints"][0])
+        self.assertIn("본문 미확인(토큰 없음 — 필요하면 새로 받거나 EDIS 누리집에서 문서 번호로)", events[2]["text"])
+        # 같은 제소장을 다음 실행에서 다시 알리지 않는다
+        _, again, _ = w.collect(ed2, d1 + dt.timedelta(hours=6), get=fake(pages), token="", sleep=NOSLEEP)
+        self.assertEqual(again, [])
         self.assertEqual((check["status"], check["pendingComplaints"]), ("ok", 2))
         self.assertEqual([x["id"] for x in ed2["pendingComplaints"]], ["900101", "900102"])
         self.assertFalse(any("/download/" in u or "/attachment" in u for u, _, _ in calls))
@@ -332,6 +343,32 @@ class Collect(unittest.TestCase):
         old = dict(ed2, pendingComplaints=[dict(ed2["pendingComplaints"][0], officialReceivedDate="2026/09/01 10:00:00")])
         ed4, _, _ = w.collect(old, d5, get=fake(later), token="", sleep=NOSLEEP)
         self.assertEqual(ed4["pendingComplaints"], [])
+
+    def test_beat_product_words(self):
+        self.assertEqual(w.beat_products("Certain Electric Vehicle Battery Packs and Components Thereof; DN 3950"), ["자동차·부품(vehicle)", "배터리·소재(battery)"])
+        self.assertEqual(w.beat_products("Certain Power Transformers and Circuit Breakers"), ["전력기기·전선(transformers)"])
+        self.assertEqual(w.beat_products("Certain TOPCon Solar Cells, Modules, Panels"), ["태양광(topcon)"])
+        self.assertEqual(w.beat_products("Certain Wearable Devices and Smartwatches"), [])
+        self.assertEqual(w.beat_products("Certain Carbon and Alloy Steel Products"), ["철강·비철(steel)"])
+        self.assertEqual(w.beat_products("Certain Tired Wheels"), [])           # 낱말 경계: tired는 tire가 아니다
+        # 넓게 잡히는 낱말은 뺐다: 충전 케이블·전원 공급 장치·플라스틱 용기 같은 가전·생활용품 제소가 섞인다
+        self.assertEqual(w.beat_products("Certain USB Charging Cables and Power Supplies"), [])
+        self.assertEqual(w.beat_products("Certain High-Voltage Power Cables"), ["전력기기·전선(power cables)"])
+        self.assertEqual(w.beat_products("Certain Plastic Food Containers"), [])
+        self.assertEqual(w.beat_products(None), [])
+
+    def test_unread_complaint_without_beat_product_or_with_token_is_not_an_event(self):
+        (ed, _, _), _ = first_run()
+        pages = [[doc(900500, "Complaint", "2026/11/02 14:00:00", inv="337-3960", status="Preinstitution", title="Complaint", by="Acme Corp.", ititle="Certain Wearable Devices; DN 3960"),
+                  doc(900501, "Complaint", "2026/11/02 13:00:00", inv="337-3961", status="Preinstitution", title="Complaint", by="Other Inc.", ititle="Certain Steel Wheels; DN 3961")]]
+        ed2, events, _ = w.collect(ed, NOW + dt.timedelta(days=1), get=fake(pages), token="", sleep=NOSLEEP)
+        self.assertEqual([e["id"] for e in events], ["edis:unread:900501"])                 # 웨어러블은 적어만 둔다
+        self.assertEqual(len(ed2["pendingComplaints"]), 2)
+        # 토큰이 살아 있으면 표지를 읽으므로 품목만으로 알리지 않는다(표지에 출입처 이름이 없으면 조용히 넘어간다)
+        get = fake(pages, attach={"900500": att(900500), "900501": att(900501)},
+                   files={dl(900500): (200, pdf([["COMPLAINT", "Proposed Respondents: Foo Ltd."]])), dl(900501): (200, pdf([["COMPLAINT", "Proposed Respondents: Bar Ltd."]]))})
+        ed3, events, _ = w.collect(ed, NOW + dt.timedelta(days=1), get=get, token=TOKEN, sleep=NOSLEEP)
+        self.assertEqual((events, ed3["pendingComplaints"]), ([], []))
 
     def test_complaint_download_failures_are_retried_three_times(self):
         (ed, _, _), _ = first_run()

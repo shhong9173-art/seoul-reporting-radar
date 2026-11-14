@@ -36,6 +36,26 @@ WATCH_IDLE_DAYS = 180
 PENDING_MAX = 40     # 토큰이 없어 표지를 못 읽은 새 337 제소장을 이만큼, PENDING_DAYS일까지 적어 둔다(토큰을 새로 받으면 그때 읽는다)
 PENDING_DAYS = 45
 PENDING_TRIES = 3
+# 기자 11-15 02:54: 토큰이 꺼진 동안 올라온 새 337 제소장 가운데 사건 제목의 품목이 출입 업종 낱말과 겹치면 B로 알린다(피제소인은 미확인).
+# 낱말이 겹친다는 것뿐이다 — 출입처가 피제소인이라는 뜻이 아니다. 표지를 봐야 안다.
+BEAT_PRODUCTS = (
+    ("자동차·부품", re.compile(r"\b(?:vehicles?|automotive|automobiles?|tires?|tyres?|brak(?:e|es|ing)|steering|airbags?|powertrains?|charging (?:stations?|systems?))\b", re.I)),
+    ("배터리·소재", re.compile(r"\b(?:batter(?:y|ies)|cathodes?|anodes?)\b", re.I)),
+    ("철강·비철", re.compile(r"\b(?:steel|alumin(?:um|ium)|zinc|copper|tubular)\b", re.I)),
+    ("전력기기·전선", re.compile(r"\b(?:transformers?|switchgear|circuit breakers?|inverters?|(?:power|submarine|high[- ]voltage|electric(?:al)?) cables?)\b", re.I)),
+    ("태양광", re.compile(r"\b(?:solar|photovoltaic|topcon|polysilicon)\b", re.I)),
+    ("화학·정유", re.compile(r"\b(?:polymers?|resins?|chemicals?|polyethylene|polypropylene|rubber|lubricants?)\b", re.I)),
+)
+
+
+def beat_products(title):
+    """사건 제목에서 출입 업종 낱말을 찾는다 → ['태양광(solar)', …]."""
+    out = []
+    for name, rx in BEAT_PRODUCTS:
+        m = rx.search(str(title or ""))
+        if m:
+            out.append(f"{name}({m.group(0).lower()})")
+    return out
 # 기자 11-15 02:21: 토큰은 14일마다 직접 새로 받아야 해서 '필요할 때만' 갱신한다. 토큰이 없거나 만료된 것은 고장이 아니라 본문 읽기가 꺼진 상태다.
 TOKEN_OFF = ("첨부 본문·337 제소장 표지 읽기 꺼짐(토큰은 필요할 때만 갱신) — 본문이 필요하면 EDIS 로그인 → 이름 아래 'API Token Generator'에서 "
              "새로 받아 비밀값 EDIS_API_TOKEN 교체, 급하면 EDIS 누리집에서 문서 번호로 직접 열기")
@@ -286,7 +306,9 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
         tier, why, who = classify(d, watched)
         if not tier:
             if is_new_complaint(d):
-                pending.setdefault(d["id"], {**{k: d[k] for k in FIELDS}, "late": False})
+                words = beat_products(d["investigationTitle"])
+                pending.setdefault(d["id"], {**{k: d[k] for k in FIELDS}, "late": False, **({"products": words} if words else {}),
+                                             "fresh": not baseline and d["officialReceivedDate"] >= floor})
                 seen.add(d["id"])
             continue
         seen.add(d["id"])
@@ -329,6 +351,8 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
                         "isNew": not baseline and (d["officialReceivedDate"] >= floor or bool(d.get("late"))), "pages": n, "snippets": snippets(body, who),
                         "partyHits": party_hits(d["onBehalfOf"])}
         read += 1
+    # 토큰이 꺼져 표지를 못 읽은 새 제소장 가운데 품목이 출입 업종 낱말과 겹치는 것: 한 번만 B로 알린다(피제소인 미확인을 밝힌다)
+    blind = [d for d in pending.values() if d.pop("fresh", False) and d.get("products") and (not auth or token_note)]
     for d in pending.values():   # 이번에 못 읽고 남은 것은 다음 실행부터 '뒤늦게 읽음'
         d["late"] = True
     pend = sorted(pending.values(), key=lambda x: x["officialReceivedDate"], reverse=True)[:PENDING_MAX]
@@ -356,7 +380,12 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
             continue
         rec["pages"], rec["snippets"] = n, snippets(" ".join(pages_text), rec["companies"])
         read += 1
-    events = []
+    events = [{"id": f"edis:unread:{d['id']}", "pageId": "edis", "country": "미국", "tier": "B",
+               "label": f"USITC {d['investigationNumber']} {d['documentType']}"[:120],
+               "text": (f"새 337 제소장 — 피제소인 미확인(토큰이 꺼져 표지를 못 읽음): {d['investigationTitle'] or d['documentTitle']} — 제출 {d['firmOrganization'] or d['filedBy']}"
+                        f" · 접수 {d['officialReceivedDate']} · 품목이 출입 업종 낱말과 겹침: {', '.join(d['products'])}(출입처가 피제소인이라는 뜻이 아님 — "
+                        f"EDIS 누리집에서 문서 번호 {d['id']}로 표지를 보거나 토큰을 새로 받으면 다음 실행에서 읽는다)")[:600],
+               "url": f"{BASE}/document/{d['id']}", "detectedAt": stamp} for d in sorted(blind, key=lambda x: x["officialReceivedDate"])]
     for rec in sorted(out.values(), key=lambda x: x["officialReceivedDate"]):
         if rec["firstSeen"] != stamp or not rec["isNew"] or rec["tier"] not in ("A", "B"):
             continue
