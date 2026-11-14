@@ -1,7 +1,7 @@
 // Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 여섯 토막을
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
-// 하는 일(읽기만): 해외 IP(GitHub)에서 막히거나 들쑥날쑥한 시·군 12곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
-// 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
+// 하는 일(읽기만): 해외 IP(GitHub)에서 막히거나 들쑥날쑥한 시·군 12곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록과 한국이 든 진행 사건의
+// 공개기록(EPR) 문서 표(11-14 기자 승인 — 사건 6건까지, 사건마다 최근 60줄), 노동위원회 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
 // 그 공고의 첨부 공고문(hwpx·hwp, 공고마다 3개까지 — 11-06·11-07 기자 승인)을 같은 사이트에서 내려받아 글자만 앞 4000자 보낸다(파일은 저장하지 않음).
 // 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
 // Worker는 SHA-256 지문만 안다. 열쇠가 없거나 실패하면 sdds local_notice_submit 인자 한 줄 JSON(SUBMIT)을 찍고, 예약 작업이 글자를 고치지 않고 올린다.
@@ -291,12 +291,13 @@
   }
 }
 
-// ===== 토막 5: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
+// ===== 토막 5: 호주 무역구제 공지(TRN)·진행 사건 공개기록(EPR)과 노동위 달력 14곳(동시에, 40초 안) =====
 {
   const R = globalThis.__R || (globalThis.__R = { cities: [], timing: {} });
   const T0 = Date.now();
   const within = (p, ms, what) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`${what} 시간 초과 ${ms / 1000}초`)), ms))]);
   const TRN = 'https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns';
+  const EPR = 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr';
   const LABOR = 'https://www.nlrc.go.kr/nlrc/meetingSche/index.do';
   const NAMES = ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회', '강원지방노동위원회',
     '충북지방노동위원회', '충남지방노동위원회', '전북지방노동위원회', '전남지방노동위원회', '경북지방노동위원회', '경남지방노동위원회',
@@ -305,7 +306,7 @@
     try {
       const r = await within(fetch(TRN), 35000, 'TRN');
       if (r.status !== 200) throw new Error('HTTP ' + r.status);
-      const tab = R.tab || await openTab('about:blank');
+      const tab = R.tab || (R.tab = await openTab('about:blank'));   // 토막 6이 닫는다
       const b64 = Buffer.from(await r.arrayBuffer()).toString('base64');
       const rows = await tab.evaluate((a) => {
         const u = Uint8Array.from(atob(a), (c) => c.charCodeAt(0));
@@ -316,6 +317,73 @@
       }, b64);
       return rows.length ? { id: 'au-trn', rows } : { id: 'au-trn', error: '한국 줄 0줄' };
     } catch (e) { return { id: 'au-trn', error: String(e && e.message || e).slice(0, 100) }; }
+  };
+  // 호주 진행 사건 목록에서 한국이 든 줄 → 그 사건 페이지의 사건 정보·주요 일정·공개기록(EPR) 문서 표(번호·종류·제목·날짜·첫 PDF 링크).
+  // 11-14 내장 브라우저 확인: 진행 28건 중 한국 3건(698·706·710), 사건 페이지 약 180KB·2.5~3.5초, 문서 13~22줄, 쪽 나눔 없음.
+  // 줄 첫 칸이 종류(list·case·title·info·date·doc·error), 둘째 칸이 사건 번호 — 레이더(au_epr_cases.py)가 읽는다. 빈 칸은 '-'(칸 순서를 지키려고).
+  const epr = async () => {
+    try {
+      const tab = R.tab || (R.tab = await openTab('about:blank'));   // 토막 6이 닫는다
+      const left = () => Math.max(4000, 36000 - (Date.now() - T0));      // TRN 뒤에 남은 시간(토막을 45초 안에 끝내기)
+      const page = async (url, what) => {
+        const r = await within(fetch(url), left(), what);
+        if (r.status !== 200) throw new Error('HTTP ' + r.status);
+        return Buffer.from(await r.arrayBuffer()).toString('base64');
+      };
+      const list = await tab.evaluate((a) => {
+        const u = Uint8Array.from(atob(a), (c) => c.charCodeAt(0));
+        const d = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(u), 'text/html');
+        const t = (n) => n.textContent.replace(/\s+/g, ' ').trim();
+        const all = [...(d.querySelector('main') || d.body).querySelectorAll('tr')].filter((tr) => tr.querySelector('td'));
+        const rows = [];
+        for (const tr of all.filter((x) => /korea/i.test(x.textContent))) {
+          const m = [...tr.querySelectorAll('a')].map((x) => /\/current-cases-and-electronic-public-record-epr\/([A-Za-z0-9-]{1,20})\/?$/.exec(x.getAttribute('href') || '')).find(Boolean);
+          if (m && !rows.some((x) => x.no === m[1])) rows.push({ no: m[1], cells: [...tr.querySelectorAll('td')].slice(0, 7).map((c) => t(c).slice(0, 200) || '-') });
+        }
+        return { total: all.length, rows };
+      }, await page(EPR, 'EPR 목록'));
+      if (!list.total) throw new Error('진행 사건 목록 0줄');
+      const parseCase = (a) => {
+        const u = Uint8Array.from(atob(a), (c) => c.charCodeAt(0));
+        const d = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(u), 'text/html');
+        const t = (n) => n.textContent.replace(/\s+/g, ' ').trim();
+        const main = d.querySelector('main') || d.body;
+        const h1 = main.querySelector('h1');
+        const got = { title: h1 ? t(h1).slice(0, 200) : '', info: [], dates: [], docs: [], total: 0 };
+        for (const tb of main.querySelectorAll('table')) {
+          const trs = [...tb.querySelectorAll('tr')];
+          const head = trs.length ? t(trs[0]) : '';                       // 표 이름은 머리 줄(thead)에 있기도, 첫 줄 한 칸에 있기도 하다(698)
+          if (/^EPR number/i.test(head)) {
+            const body = trs.slice(1).filter((tr) => tr.children.length >= 4);
+            got.total += body.length;
+            for (const tr of body.slice(0, 60)) {
+              const a1 = tr.querySelector('a[href]');
+              got.docs.push({ cells: [...tr.children].slice(0, 4).map((c) => t(c).slice(0, 280) || '-'), link: a1 ? a1.getAttribute('href') : null });
+            }
+          } else if (/^(?:Case information|Key Dates)$/i.test(head)) {
+            const into = /^Key/i.test(head) ? got.dates : got.info;
+            for (const tr of trs.slice(1)) {
+              const c = [...tr.children].map(t);
+              for (let i = 0; i + 1 < c.length; i += 2) if (c[i] && c[i + 1] && !/contact|mailing/i.test(c[i])) into.push([c[i].slice(0, 120), c[i + 1].slice(0, 280)]);
+            }
+          }
+        }
+        return got;
+      };
+      const cases = list.rows.slice(0, 6);
+      const per = await Promise.all(cases.map(async (c) => {
+        try {
+          const got = await tab.evaluate(parseCase, await page(EPR + '/' + c.no, '사건 ' + c.no));
+          if (!got.title && !got.docs.length) throw new Error('사건 페이지 형식 미상');
+          return [{ cells: ['title', c.no, got.title || '-', String(got.total)] },
+            ...got.info.slice(0, 6).map(([k, v]) => ({ cells: ['info', c.no, k, v] })),
+            ...got.dates.slice(0, 12).map(([k, v]) => ({ cells: ['date', c.no, k, v] })),
+            ...got.docs.map((x) => ({ cells: ['doc', c.no, ...x.cells], ...(x.link ? { links: [x.link] } : {}) }))];
+        } catch (e) { return [{ cells: ['error', c.no, String(e && e.message || e).slice(0, 100)] }]; }
+      }));
+      return { id: 'au-epr', rows: [{ cells: ['list', String(list.total), String(list.rows.length)] },
+        ...cases.map((c) => ({ cells: ['case', c.no, ...c.cells], links: [EPR.replace('https://www.industry.gov.au', '') + '/' + c.no] })), ...per.flat()] };
+    } catch (e) { return { id: 'au-epr', error: String(e && e.message || e).slice(0, 100) }; }
   };
   const labor = async () => {
     try {
@@ -346,9 +414,12 @@
       return out;
     } catch (e) { return NAMES.map((commission) => ({ commission, error: String(e && e.message || e).slice(0, 100) })); }
   };
-  [R.pages, R.labor] = await Promise.all([trn(), labor()]);
+  // TRN 다음에 EPR(같은 사이트라 차례로), 노동위 달력은 그와 동시에
+  [[R.pages, R.epr], R.labor] = await Promise.all([(async () => [await trn(), await epr()])(), labor()]);
   R.timing.trnLabor = Date.now() - T0;
-  console.log(`TRN ${R.pages.error ? '실패(' + R.pages.error + ')' : R.pages.rows.length + '줄'} · 노동위 ${R.labor.filter((x) => !x.error).length}/14곳 `
+  const kind = (k) => (R.epr.rows || []).filter((x) => x.cells[0] === k).length;
+  console.log(`TRN ${R.pages.error ? '실패(' + R.pages.error + ')' : R.pages.rows.length + '줄'} · `
+    + `EPR ${R.epr.error ? '실패(' + R.epr.error + ')' : `사건 ${kind('case')}건·문서 ${kind('doc')}줄${kind('error') ? '·못 읽은 사건 ' + kind('error') : ''}`} · 노동위 ${R.labor.filter((x) => !x.error).length}/14곳 `
     + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
 }
 
@@ -363,17 +434,19 @@
     return !c ? { city: name, error: lost } : c.error ? { city: name, error: c.error }
       : { city: name, rows: c.rows.map((x) => ({ mgt: x.mgt, cells: x.cells, ...(x.detail ? { detail: x.detail } : {}) })) };   // 첨부 링크·Referer는 보내지 않음
   });
-  const pages = [R && R.pages ? R.pages : { id: 'au-trn', error: lost }];
+  const pages = [R && R.pages ? R.pages : { id: 'au-trn', error: lost }, R && R.epr ? R.epr : { id: 'au-epr', error: lost }];
   const labor = R && R.labor ? R.labor : ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회',
     '강원지방노동위원회', '충북지방노동위원회', '충남지방노동위원회', '전북지방노동위원회', '전남지방노동위원회', '경북지방노동위원회',
     '경남지방노동위원회', '울산지방노동위원회', '제주지방노동위원회'].map((commission) => ({ commission, error: lost }));
   const payload = { cities, pages, labor, via: 'aside' };
+  // 대화로 옮겨 올릴 때(SUBMIT)는 사건 공개기록(au-epr)을 뺀다 — 양이 많아 옮겨 적다 틀리기 쉽다. 레이더는 직전에 올린 것을 그대로 둔다(오래되면 미확인)
+  const small = { ...payload, pages: pages.slice(0, 1) };
   try { if (R && R.tab) await closeTab(R.tab); } catch (e) { /* 그대로 둔다 */ }
   console.log('TIMING ' + JSON.stringify(R ? R.timing : {}));
   if (!R || !R.cities || !R.cities.length) {
     // 토막 사이에 Aside REPL이 새로 시작돼 앞 결과가 사라졌다 — 오류만 든 인자를 올리지 않고 예약 작업이 토막 1부터 한 번 다시 한다
     console.log('LOST 앞 토막 결과가 없음(REPL 새로 시작) — 토막 1부터 한 번 다시. 두 번째도 LOST면 아래 SUBMIT을 그대로 올린다');
-    console.log('SUBMIT ' + JSON.stringify(payload));
+    console.log('SUBMIT ' + JSON.stringify(small));
   } else {
     // 직접 올리기(11-06): 열쇠는 이 사이트 저장소(localStorage)에만 있다 — 코드는 읽어서 보내기만 하고 찍지 않는다
     let up = null;
@@ -394,7 +467,7 @@
     }
     if (!done) {
       console.log('UPLOAD 못 함(' + (up ? (up.skip || up.error || 'HTTP ' + up.status) : '?') + ') — 아래 SUBMIT을 local_notice_submit으로 올린다');
-      console.log('SUBMIT ' + JSON.stringify(payload));
+      console.log('SUBMIT ' + JSON.stringify(small));
     }
   }
 }

@@ -681,6 +681,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         check: firms.length ? hint(firms[0], ['캐나다', '반덤핑']) : undefined });
       continue;
     }
+    if (e.pageId === 'au-epr') {
+      // 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py): 직접 출입처 이름이 든 문서와 Report(SEF·종결 보고서 등)·새 사건·목록에서 빠짐은 B,
+      // 그 밖(출입처 이름 없는 의견서·질문서, 공지 — TRN 목록 감시가 따로 알림 —, 단계·일정 바뀜)은 C. 등급은 수집기. A는 기자가 정하기 전이라 내지 않는다.
+      const firms = e.companies ?? [];
+      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: '호주 ATRC 사건 공개기록', id: e.id, date: e.detectedAt,
+        company: firms.join('·') || '호주', fact: `${e.label}: ${e.text} — 문서 제목·날짜만 읽음(내용은 원문 PDF)`, url: e.url,
+        check: firms.length ? hint(firms[0], ['호주', '반덤핑']) : undefined });
+      continue;
+    }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     // 인도 DGTR 절차 공지뿐인 줄은 C(기자 11-14 22:36 — 11-14 새 줄 8건 중 7건이 이메일 주소 변경·질문서 기한 연장 같은 공지였다). 사건 페이지를 못 읽었으면 B 그대로
     push(e.repeats || dgtrProcedural(e) ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
@@ -1625,7 +1634,7 @@ export async function radarToday(ctx, args) {
 // 해외 조사 목록(인도 DGTR 등)은 조사 하나가 한 실행에 세 줄로 잡힌다(11-13 운영: 제목 줄 · 'Ongoing Investigation …' 상태 줄 · 'Country: … Type of Proceeding: …' 나라 줄).
 // 같은 실행·같은 목록에서 ① 원문 주소가 같은 줄은 가장 긴 줄 하나만 남기고 ② 나라 줄('Country:'로 시작, 목록 주소)은 그 실행에 조사가 하나뿐일 때 그 줄에 붙인다.
 // 조사가 여럿이면 어느 조사 것인지 알 수 없어 나라 줄은 그대로 둔다. 국내 무역위·수입규제DB·EDIS·영국 공개기록·EU 쿼터는 손대지 않는다.
-const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric', 'cbsa']);
+const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric', 'cbsa', 'au-epr']);
 export function mergeListingLines(events) {
   const drop = new Set();
   const merged = new Map();

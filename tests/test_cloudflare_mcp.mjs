@@ -4605,7 +4605,7 @@ test('radar_today 수집 상태: 기자 컴퓨터(Aside) 수집이 예정 시각
     pages: [{ id: 'au-trn', error: '시험' }] }, { ...opts, now: new Date(iso) });
   assert.ok(!(await submit('aside', '2026-11-06T07:42:00Z')).isError);  // 금 16:42 KST
   // 월 09:00: 가장 최근 예정(금 16:00)은 올라옴 — 이 길뿐인 시·군 중 못 읽은 곳만(양산은 GitHub 직접 조회가 있어 뺌)
-  assert.equal(await line('2026-11-09T00:00:00Z'), '- 기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN): '
+  assert.equal(await line('2026-11-09T00:00:00Z'), '- 기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN·사건 공개기록): '
     + '시·군 못 읽음 1곳(구미: ReadTimeout) — 해당 부분 0건은 미확인');
   // 월 10:00: 09:00 예정 수집이 안 올라옴(컴퓨터 꺼짐 등)
   assert.match(await line('2026-11-09T01:00:00Z'), /: ⚠ 마지막 11-06 16:42 KST\(65시간 전\) — 11-09 09:00 KST 예정 수집이 안 올라옴\(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인\. 예정 시각에 컴퓨터 연결이 없으면 예약 작업이 저절로 꺼질 수 있다 — Claude 앱 예약 작업 목록에서 '새올 고시·공고 브라우저 수집'이 켜져 있는지도 확인\)\. 그 뒤 인천 부평구·구미·청주·순천·함평 고시·공고는 미확인 — /);
@@ -4705,6 +4705,24 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   const pg3 = await call('local_notice_submit', { pages: [{ id: 'au-trn', error: 'HTTP 503' }] }, opts);
   assert.match(pg3.text, /- 무역구제 au-trn: 미확인\(HTTP 503\)[\s\S]*실행 요청 안 함\(한국 줄을 받은 목록 없음\)/);
   assert.equal(seen.length, 2);
+  // 호주 사건 공개기록(au-epr, 11-14): 줄 첫 칸(종류)·둘째 칸(사건 번호)을 그대로 두고 같은 사이트 링크만. 먼저 올린 au-trn은 그대로 남는다
+  const eprRows = [{ cells: ['list', '28', '3'] },
+    { cells: ['case', '698', 'Aluminium zinc coated steel (≥600mm)', '698', 'Continuation', 'Korea, Vietnam', 'Final Report', '15/10/2026', '-'],
+      links: ['/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/698'] },
+    { cells: ['doc', '698', '16', 'Submission', 'Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698 [pdf 169 KB]', '15/10/2026'],
+      links: ['/sites/default/files/atrc/public-record/2026-10/698-16.pdf', 'https://evil.example/y', '//evil.example/z'] }];
+  const pg4 = await call('local_notice_submit', { pages: [{ id: 'au-epr', rows: eprRows }] }, opts);
+  assert.match(pg4.text, /- 무역구제 au-epr: 사건·문서 줄 3\n/);
+  const tb2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.deepEqual(tb2.pages.map((x) => x.id).sort(), ['au-epr', 'au-trn']);
+  const stored = tb2.pages.find((x) => x.id === 'au-epr');
+  assert.deepEqual(stored.rows.map((x) => x.cells.length), [3, 9, 6]);
+  assert.deepEqual(stored.rows[2].links, ['/sites/default/files/atrc/public-record/2026-10/698-16.pdf']);
+  // 줄 한도는 목록마다: TRN은 200줄, 사건 공개기록은 600줄
+  const lots = Array.from({ length: 640 }, (_, i) => ({ cells: ['doc', '698', String(i), 'Submission', `t${i}`, '15/10/2026'] }));
+  assert.match((await call('local_notice_submit', { pages: [{ id: 'au-epr', rows: lots }] }, opts)).text, /au-epr: 사건·문서 줄 600 · 버린 줄 40/);
+  assert.match((await call('local_notice_submit', { pages: [{ id: 'au-trn', rows: lots }] }, opts)).text, /au-trn: 한국 줄 200 · 버린 줄 440/);
+  assert.match((await call('local_notice_submit', { pages: [{ id: 'au-epr', rows: [] }] }, opts)).text, /au-epr: 미확인\(사건·문서 줄 0줄/);
   assert.ok((await call('local_notice_submit', {}, opts)).isError);
   // kr_official names the cities read on the reporter's computer
   const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
@@ -5018,6 +5036,68 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match(tools.find((x) => x.name === 'package_save').description, /item_ids에 관련 레이더 항목 id나 원문 주소/);
   assert.ok(!(await rpc('tools/list')).body.result.tools.some((x) => x.name === 'scoop_desk'));   // 공개 연결엔 없다
   assert.match((await rpc('initialize', { protocolVersion: '2025-03-26' }, opts)).body.result.instructions, /단독 후보를 달라는 요청에는 scoop_desk부터/);
+});
+
+test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정·문서 줄, 출입처 이름이 든 새 문서는 B(A·실적 유형 아님), 그 밖은 C', async () => {
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  const epr = 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr';
+  // 11-14 기자 컴퓨터 브라우저로 읽은 사건 698·706(문서 줄 일부)
+  const auEpr = { status: 'ok', checkedAt: at, fetchedAt: '2026-11-16T07:03:10.000Z', baselineAt: '2026-11-16T16:10:00+09:00', listTotal: 28, cases: {
+    698: { commodity: 'Aluminium zinc coated steel (≥600mm)', kind: 'Continuation', countries: 'Korea, Vietnam', milestone: 'Final Report', updated: '2026-10-15', url: `${epr}/698`,
+      title: '698 - Aluminium zinc coated steel (≥600mm) from Korea, Vietnam', n: 17, companies: ['KG스틸'],
+      info: { Applicant: 'Bluescope Steel Limited (BSL)', 'Inquiry Period': '1 January 2025 – 31 December 2025' },
+      dates: { 'Initiation Date': '10 February 2026', 'SEF* no later than': '24 September 2026', 'Final recommendation due no later than': '16 November 2026' },
+      docs: [{ no: '17', type: 'Submission', title: 'Exporter - Hoa Sen Group - Response to SEF 698', date: '2026-10-15', url: 'https://www.industry.gov.au/sites/default/files/a.pdf' },
+        { no: '16', type: 'Submission', title: 'Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698', date: '2026-10-15', url: 'https://www.industry.gov.au/sites/default/files/b.pdf', companies: ['KG스틸'] },
+        { no: '15', type: 'Submission', title: 'Australian Industry - BlueScope Steel Limited - Response to SEF 698', date: '2026-10-15', url: null },
+        { no: '14', type: 'Report', title: 'Statement of Essential Facts (SEF 698)', date: '2026-09-24', url: null },
+        { no: '13', type: 'Submission', title: 'Australian Industry - BlueScope Steel Limited - Submission on PMS in the Korean HRC market and response to KG Dongbu submission', date: '2026-09-15', url: null, companies: ['KG스틸'] },
+        { no: '9', type: 'Submission', title: "Exporter - KG Dongbu Steel Co., Ltd - Submission on responding to BlueScope's Korean HRC PMS Claim", date: '2026-06-29', url: null, companies: ['KG스틸'] }] },
+    706: { commodity: 'Zinc coated (galvanised) steel', kind: 'Investigation', countries: 'Korea, Vietnam', milestone: 'SEF', updated: '2026-10-02', url: `${epr}/706`,
+      title: '706 - Zinc coated (galvanised) steel from Korea, Vietnam', n: 22, companies: ['동국씨엠', '동국제강', '포스코'], error: '사건 706 시간 초과 4초',
+      info: {}, dates: { 'Initiation Date': '19 June 2026', 'PAD* earliest date': 'NA', 'SEF* no later than': '5 March 2027' },
+      docs: [{ no: '22', type: 'Notice - TRN', title: 'TRN 2026/141 - Extension of Time to Publish SEF and Final Report', date: '2026-10-02', url: null }] },
+    640: { commodity: 'Wind towers', kind: 'Review', countries: 'China, Korea', title: '640 - Wind towers from China, Korea', url: `${epr}/640`, docs: [], missing: 3, gone: '2026-11-10T07:40:00+09:00' } } };
+  const events = [
+    { id: 'au-epr:706:doc:23', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)', tier: 'B', companies: ['포스코'], detectedAt: at,
+      url: 'https://www.industry.gov.au/sites/default/files/706-23.pdf', text: '새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」(2026-11-13)' },
+    { id: 'au-epr:706:doc:24', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)', tier: 'C', detectedAt: at,
+      url: `${epr}/706`, text: '새 문서 EPR 24번 Submission 「Importer - MantaMesh Pty Ltd - Further submission」(2026-11-13)' },
+    // 수집기가 A를 내더라도(기자가 정하기 전) 화면은 C로 둔다
+    { id: 'au-epr:698:doc:18', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 698 Aluminium zinc coated steel (≥600mm)(종료재심)', tier: 'A', detectedAt: at,
+      url: `${epr}/698`, text: '새 문서 EPR 18번 Note for File 「Something」(2026-11-13)' }];
+  const o = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events, auEpr }) }), o.env, {})).status, 200);
+  const sec = (await call('trade_remedies', { section: 'au' }, o)).text;
+  assert.match(sec, /\[호주 ATRC 사건 공개기록\(EPR\) · 한국 관련 진행 사건 2건\(진행 목록 28건 중\) · 수집 2026-11-16T07:03Z · 기준선 2026-11-16\]/);
+  // 목록 마지막 갱신이 최근인 사건부터. 다음 단계·주요 일정·신청인, 최근 문서 4줄 + 그 밖에 출입처 이름이 든 문서
+  assert.match(sec, /- 사건 698 · 698 - Aluminium zinc coated steel \(≥600mm\) from Korea, Vietnam · 종료재심 · 문서 제목에 나온 출입처 이름 KG스틸\n   다음 단계 Final Report · 목록 마지막 갱신 2026-10-15 · 문서 17건 · 개시 10 February 2026 · 필수사실 보고서\(SEF\) 기한 24 September 2026 · 최종 권고 기한 16 November 2026\n   신청인 Bluescope Steel Limited \(BSL\) · 조사 대상 기간 1 January 2025 – 31 December 2025\n   최근 문서: 2026-10-15 EPR 17번 Submission 「Exporter - Hoa Sen Group - Response to SEF 698」 · 2026-10-15 EPR 16번 Submission 「Exporter - KG Dongbu Steel Co Ltd - Response to SEF 698」\(KG스틸\)/);
+  assert.match(sec, /\n   그 밖에 출입처 이름이 든 문서: 2026-09-15 EPR 13번 Submission 「Australian Industry - BlueScope Steel Limited - Submission on PMS in the Korean HRC market and response to KG Dongbu submission」\(KG스틸\) · 2026-06-29 EPR 9번/);
+  assert.match(sec, /\n   원문: https:\/\/www\.industry\.gov\.au\/australian-trade-remedies-commission\/current-cases-and-electronic-public-record-epr\/698\n- 사건 706 /);
+  assert.match(sec, /- 사건 706 [^\n]* · 조사 · 문서 제목에 나온 출입처 이름 동국씨엠·동국제강·포스코 · ⚠ 이번에 사건 페이지를 못 읽음\(사건 706 시간 초과 4초\) — 직전 문서 줄\n   다음 단계 SEF · 목록 마지막 갱신 2026-10-02 · 문서 22건 · 개시 19 June 2026 · 필수사실 보고서\(SEF\) 기한 5 March 2027\n/);   // 'NA' 일정은 뺀다
+  assert.match(sec, /진행 목록에서 빠진 사건: 640 Wind towers\(2026-11-10 감지\)/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true\)\n- B · [^\n]*새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」\(2026-11-13\) · 출입처 포스코\n   원문: https:\/\/www\.industry\.gov\.au\/sites\/default\/files\/706-23\.pdf/);
+  assert.match(sec, /의견서는 낸 쪽의 주장이고 조사기관 판단이 아니다/);
+  assert.match((await call('trade_remedies', { section: 'au', show_all: true }, o)).text, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건\n/);
+  assert.match((await call('trade_remedies', { section: 'au', company: 'KG스틸' }, o)).text, /한국 관련 진행 사건 1건/);
+  assert.match((await call('trade_remedies', { section: 'au', company: 'galvanised' }, o)).text, /한국 관련 진행 사건 1건[\s\S]*- 사건 706 /);
+  assert.match((await call('trade_remedies', {}, o)).text, /\[호주 ATRC 사건 공개기록\(EPR\) · 한국 관련 진행 사건 2건/);          // 구역을 안 고르면 같이 나온다
+  assert.doesNotMatch((await call('trade_remedies', { section: 'notices' }, o)).text, /EPR 23번/);                      // 공고 변화 구역에는 겹쳐 내지 않는다
+  // 수집 전·실패
+  const o2 = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [] }) }), o2.env, {})).status, 200);
+  assert.match((await call('trade_remedies', { section: 'au' }, o2)).text, /\[호주 ATRC 사건 공개기록\(EPR\)\] 아직 수집 전 — 미확인/);
+  // radar_today: 출입처 이름이 든 새 문서는 B(A 아님), 이름 없는 의견서는 C
+  const r = (await call('radar_today', {}, o)).text;
+  assert.match(r, /\n\[A · [^\n]*\] 0건/);
+  assert.match(r, /\n\[B · 확인할 공식 변화\] 1건/);
+  assert.match(r, /포스코[^\n]*\n   호주 ATRC 사건 706 Zinc coated \(galvanised\) steel\(조사\): 새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」\(2026-11-13\) — 문서 제목·날짜만 읽음\(내용은 원문 PDF\)/);
+  assert.doesNotMatch(r, /MantaMesh|EPR 18번/);
+  assert.match((await call('radar_today', { include_minor: true }, o)).text, /MantaMesh[\s\S]*EPR 18번|EPR 18번[\s\S]*MantaMesh/);
+  // 단독 데스크: 새 원천이라 '실적 있는 유형'으로 올리지 않는다(올릴지는 기자가 정한다)
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '호주 ATRC 사건 공개기록', company: '포스코', fact: '호주 ATRC 사건 706: 새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」' }).key, 'other');
 });
 
 test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 출입처 이름이 든 것은 A·실적 유형, 그 밖의 문서는 B·절차 문서는 C', async () => {
