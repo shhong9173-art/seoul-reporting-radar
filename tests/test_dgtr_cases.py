@@ -156,6 +156,12 @@ class Parse(unittest.TestCase):
         self.assertEqual(got["koreaLines"], ["4. LG Chem Ltd Exporter/ Producer", "2. Kumho P and B Chemicals Inc Exporter/ Producer", "5. Lotte GS Chemical Corporation Exporter/",
                                              "6. Korea Chemical Industry Association Association", "9. Embassy of South Korea. Embassy Self"])   # 출입처 줄 먼저, 사건 제목·꼬리말 줄은 없음
         self.assertNotIn("@", " ".join(got["koreaLines"]))
+        # 탐침 233(페놀 명단): 한 곳이 17줄이고 그 안에 괄호 줄·줄표 줄이 있어도 뒤 번호를 계속 읽는다(처음엔 여기서 멈춰 34곳 중 27곳만 읽고 대사관 줄을 놓쳤다)
+        long_row = "9. Big Trading House\n(through counsel)\n– Importer\n" + "\n".join(f"m{i}@example.in" for i in range(14)) + "\n10.\nEmbassy of the\nRepublic of\nKorea Embassy\nSelf\nz@example.kr\n"
+        more = d.parties_from_text(PARTIES_TEXT.replace("9. Embassy of South Korea. Embassy\nSelf f@example.kr\n", long_row), 4, BEAT)
+        self.assertEqual((more["entries"], more["lastNo"]), (10, 10))
+        self.assertIn("10. Embassy of the Republic of Korea Embassy Self", more["koreaLines"])
+        self.assertNotIn("Korea should not be read from this footer", " ".join(more["koreaLines"]))
         # 번호 줄 몇 개가 안 잡혀도(3·4번이 점 없이 나옴) 뒤 번호에서 다시 묶는다 — 못 가른 줄 수는 lastNo와 entries 차이로 남는다
         broken = d.parties_from_text(PARTIES_TEXT.replace("3. Kempar", "3 Kempar").replace("4. LG Chem", "4 LG Chem"), 3, BEAT)
         self.assertEqual((broken["entries"], broken["lastNo"], broken["beat"]), (7, 9, ["LG화학"]))
