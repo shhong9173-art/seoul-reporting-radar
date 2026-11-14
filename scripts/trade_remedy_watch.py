@@ -810,7 +810,7 @@ def mark_renumbered(events, page_ids):
 
 
 def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None,
-        edis_get=None, edis_token="", tra_get=None):
+        edis_get=None, edis_token="", tra_get=None, cbsa_get=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -856,6 +856,12 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         import tra_file_watch
         tra, tra_events, tcheck = tra_file_watch.collect(tra, now, get=tra_get, sleep=sleep, extra_cases=tuple(cfg.get("traCases", [])))
         checks.append(tcheck)
+    # 캐나다 CBSA 사건 문서·시행 중 조치(11-14, cbsa_cases.py): 조사·종료재심·행정재심 목록의 한국 사건 문서 줄, 조치 쪽의 한국 수출자 표
+    cbsa, cbsa_events = (previous or {}).get("cbsa"), []
+    if cbsa_get is not None:
+        import cbsa_cases
+        cbsa, cbsa_events, ccheck = cbsa_cases.collect(cbsa, now, get=cbsa_get, sleep=sleep)
+        checks.append(ccheck)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -865,7 +871,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + [
+    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + cbsa_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -879,7 +885,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
-            **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}),
+            **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}), **({"cbsa": cbsa} if cbsa else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
@@ -889,6 +895,17 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
                       "무역협회 수입규제DB는 각국 조치를 무역협회가 정리한 2차 자료다. 마진·판정은 단계마다 붙은 원문 링크(관보·WTO 통보 등)로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
+
+
+def emit(line):
+    """공개 로그 알림 한 줄. GitHub은 한 단계에서 알림을 10개까지만 보여 준다(11-14: 13번째 '저장소 전송' 알림이 잘릴 뻔했다) —
+    TRADE_NOTICE_FILE이 있으면 파일에 모아 두고 워크플로의 다음 단계들이 나눠 찍는다. 없으면(로컬·테스트) 바로 찍는다."""
+    path = os.environ.get("TRADE_NOTICE_FILE", "").strip()
+    if not path:
+        print(line)
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(line.replace("\n", " ") + "\n")
 
 
 def main():
@@ -902,7 +919,7 @@ def main():
         try:
             previous = private_store.get("trade-remedy", token)
         except private_store.StoreError as e:
-            print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
+            emit(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
     if private_store.late_scheduled_duplicate(previous, now):
         return
     browser = None
@@ -910,22 +927,22 @@ def main():
         try:
             browser = private_store.get("trade-remedy-browser", token)
         except private_store.StoreError as e:
-            print(f"::warning title=trade-remedy-browser::브라우저 수집 문서 조회 실패({e}) — 그 목록은 미확인")
+            emit(f"::warning title=trade-remedy-browser::브라우저 수집 문서 조회 실패({e}) — 그 목록은 미확인")
     import kita_watch
     import ktc_watch
     import requests
     doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
-              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get)
+              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get, cbsa_get=requests.get)
     # 무역위 새 조사 품목 → 출입처 사업보고서 '사업의 내용' 대조(11-11, scripts/ktc_producers.py) — 신청인 확인 질문용 원문 단서
     import ktc_producers
     try:
         pc, pr = ktc_producers.attach(doc, previous, os.environ.get("DART_API_KEY", "").strip(), now)
         prods = (doc.get("ktc") or {}).get("producers") or {}
-        print(f"::notice title=trade-remedy-ktc-producers::새 조사 품목 사업보고서 대조 이번 {pc}건(보고서 {pr}곳) · 저장 {len(prods)}건 · "
+        emit(f"::notice title=trade-remedy-ktc-producers::새 조사 품목 사업보고서 대조 이번 {pc}건(보고서 {pr}곳) · 저장 {len(prods)}건 · "
               f"낱말 찾은 회사 {sum(1 for v in prods.values() for c in v.get('companies', []) if c.get('status') == 'found')}"
               + ("" if os.environ.get("DART_API_KEY", "").strip() else " · DART 키 없음(대조 안 함)"))
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다
-        print(f"::warning title=trade-remedy-ktc-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
+        emit(f"::warning title=trade-remedy-ktc-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
     # 해외 조사 목록 새 줄(영문 품목) → 그 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py).
     # 여기서는 저장된 낱말 색인으로만 대조한다(DART 안 부름). 보고서를 새로 받는 일은 본 결과를 저장한 뒤 맨 끝에서 한다 —
     # 11-14 첫 운영에서 보고서 8곳에 6분 반이 걸려 평소 2분인 실행이 8분 반이 됐다(20분 상한을 넘기면 결과 전체가 저장되지 않는다).
@@ -935,81 +952,84 @@ def main():
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다(지난 결과는 이어 간다)
         doc["listingProducers"] = (previous or {}).get("listingProducers") or {}
         doc["producerIndex"] = (previous or {}).get("producerIndex") or {}
-        print(f"::warning title=trade-remedy-listing-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
+        emit(f"::warning title=trade-remedy-listing-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
     # 인도 DGTR 사건 페이지 일정표(11-14, scripts/dgtr_cases.py): 목록의 '새 줄'이 새 조사인지 진행 중인 조사의 절차 공지인지, 이해관계자 명단의 한국 줄
     import dgtr_cases
     try:
         dg = dgtr_cases.attach(doc, previous, now, get=requests.get)
-        print(f"::notice title=trade-remedy-dgtr-cases::인도 DGTR 사건 페이지 — 최근 줄의 사건 {dg['cases']}건 · 이번에 읽음 {dg['read']} · 실패 {dg['failed']} · 다음 실행으로 {dg['waiting']} · "
+        emit(f"::notice title=trade-remedy-dgtr-cases::인도 DGTR 사건 페이지 — 최근 줄의 사건 {dg['cases']}건 · 이번에 읽음 {dg['read']} · 실패 {dg['failed']} · 다음 실행으로 {dg['waiting']} · "
               f"갈래 {dg['kinds']} · 명단 PDF 이번 {dg['pdfs']} · 한국 줄 있는 사건 {dg['korea']} · 출입처 이름 있는 사건 {dg['beat']}")
-        print(f"::notice title=trade-remedy-dgtr-docs::인도 DGTR 판정문·개시 고시 PDF — 이번에 읽음 판정문 {dg['findings']}·개시 고시 {dg['initiations']}(글자 인식 {dg['ocr']}) · 실패 {dg['docFailed']} · "
+        emit(f"::notice title=trade-remedy-dgtr-docs::인도 DGTR 판정문·개시 고시 PDF — 이번에 읽음 판정문 {dg['findings']}·개시 고시 {dg['initiations']}(글자 인식 {dg['ocr']}) · 실패 {dg['docFailed']} · "
               f"다음 실행으로 {dg['docWaiting']}")
     except Exception as e:  # noqa: BLE001 — 사건 페이지 읽기 실패가 무역구제 저장을 막지 않는다
         doc["dgtrCases"] = (previous or {}).get("dgtrCases") or {}
-        print(f"::warning title=trade-remedy-dgtr-cases::사건 페이지 읽기 실패({type(e).__name__}) — 미확인")
+        emit(f"::warning title=trade-remedy-dgtr-cases::사건 페이지 읽기 실패({type(e).__name__}) — 미확인")
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
     new_events = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     checks = " ;; ".join(f"{c['source']}={c['status']}({c.get('returned', 0)}{', ' + c['error'] if c.get('error') else ''})" for c in doc["checks"])
     named = sum(1 for x in doc["federalRegister"] if x.get("named"))
-    print(f"::notice title=trade-remedy::{doc['quarter']} 분기 쿼터 {len(q)}/{len(doc['quotas'])} 조회 · 소진 {exhausted} · 표시 {hot} · "
+    emit(f"::notice title=trade-remedy::{doc['quarter']} 분기 쿼터 {len(q)}/{len(doc['quotas'])} 조회 · 소진 {exhausted} · 표시 {hot} · "
           f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named}) · 이번 신규 이벤트 {new_events}")
-    print(f"::notice title=trade-remedy-checks::{checks}")
+    emit(f"::notice title=trade-remedy-checks::{checks}")
     frs = doc.get("federalRegister") or []
-    print(f"::notice title=trade-remedy-rates::관보 판정 세율 표 {sum(1 for x in frs if (x.get('rateTable') or {}).get('rows'))}건(출입처 줄 "
+    emit(f"::notice title=trade-remedy-rates::관보 판정 세율 표 {sum(1 for x in frs if (x.get('rateTable') or {}).get('rows'))}건(출입처 줄 "
           f"{sum(1 for x in frs if (x.get('rateTable') or {}).get('rates'))}건) · 직전 판정 찾음 {sum(1 for x in frs if (x.get('prior') or {}).get('final') or (x.get('prior') or {}).get('prelim'))} · "
           f"못 찾음 {sum(1 for x in frs if (x.get('prior') or {}).get('none'))} · 조회 실패 {sum(1 for x in frs if x.get('priorError'))} · 크게 바뀜 {sum(1 for x in frs if x.get('rateChange'))}건")
     k = doc.get("ktc") or {}
     kev = [e for e in doc["events"] if e.get("pageId") == "ktc" and e["detectedAt"] == doc["generatedAt"]]
-    print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
+    emit(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
           f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))}"
           f"(첨부 신청인 읽음 {sum(1 for n in k.get('news', []) if 'applicants' in n)}, 신청인 있음 {sum(1 for n in k.get('news', []) if n.get('applicants'))}, "
           f"출입처 신청 {sum(1 for n in k.get('news', []) if any(a.get('beat') for a in n.get('applicants') or []))}, 한글 파일로 읽음 {sum(1 for n in k.get('news', []) if str(n.get('applicantsFrom') or '').startswith('hwp'))}, "
           f"첨부 실패 {sum(1 for n in k.get('news', []) if n.get('applicantsError'))}, 새 규칙으로 읽기 대기 "
           f"{sum(1 for n in k.get('news', []) if ktc_watch.APPLICANT_TITLE.search(n.get('title') or '') and n.get('applicantsV') != ktc_watch.APPLICANTS_V and not (n.get('applicantsError') and n.get('applicantsErrorV') == ktc_watch.APPLICANTS_V))})"
           f" · 이번 이벤트 {len(kev)}")
+    cchk = next((x for x in doc["checks"] if x["source"] == "캐나다 CBSA 사건 문서·시행 중 조치"), {})
+    emit(f"::notice title=trade-remedy-cbsa::캐나다 CBSA 한국 관련 사건 {cchk.get('cases', 0)}건(진행 중 {cchk.get('open', 0)}) · 문서 줄 {cchk.get('docs', 0)} · 조치 쪽 {cchk.get('measures', 0)} · 한국 수출자 줄 {cchk.get('exporters', 0)} · "
+          f"이번 이벤트 {cchk.get('events', 0)}(새 문서 {cchk.get('newDocs', 0)}·상태 바뀜 {cchk.get('stateChanges', 0)}·새 사건 {cchk.get('newCases', 0)}) · 상태 {cchk.get('status', '?')}")
     tr = doc.get("tra") or {}
     trev = [e for e in doc["events"] if e.get("pageId") == "trafile" and e["detectedAt"] == doc["generatedAt"]]
     tchk = next((c for c in doc["checks"] if c["source"] == "영국 TRA 공개기록"), {})
     # 공개 로그에는 건수만(문서 제목·당사자는 기자 전용 저장소로만)
-    print(f"::notice title=trade-remedy-tra::영국 TRA 공개기록 한국산 조사 {len(tr.get('cases', []))} · 문서 줄 {tchk.get('returned', 0)} · 이번에 새로 본 문서 {tchk.get('newDocs', 0)}"
+    emit(f"::notice title=trade-remedy-tra::영국 TRA 공개기록 한국산 조사 {len(tr.get('cases', []))} · 문서 줄 {tchk.get('returned', 0)} · 이번에 새로 본 문서 {tchk.get('newDocs', 0)}"
           f" · 제출 페이지 {tchk.get('pagesRead', 0)} · PDF {tchk.get('pdfsRead', 0)} · 이번 이벤트 {len(trev)}(A {sum(1 for e in trev if e.get('tier') == 'A')}·B {sum(1 for e in trev if e.get('tier') == 'B')})"
           f" · 본문 못 읽음 {sum(1 for d in tr.get('docs', []) if d.get('pdfError'))} · 읽기 대기 {sum(1 for d in tr.get('docs', []) if d.get('detail') == 'pending')}"
           f" · 저장 문서 전체 {len(json.dumps(doc, ensure_ascii=False)) // 1000}천 자(한도 2,000천 자)")
     ki = doc.get("kita") or {}
     kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
-    print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"
+    emit(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"
           f"({', '.join(sorted({e['tier'] for e in kiev}))})")
     ed = doc.get("edis") or {}
     edev = [e for e in doc["events"] if e.get("pageId") == "edis" and e["detectedAt"] == doc["generatedAt"]]
     fresh_docs = [x for x in ed.get("docs", []) if x.get("firstSeen") == doc["generatedAt"]]
-    print(f"::notice title=trade-remedy-edis::USITC EDIS 새로 본 관련 문서 {len(fresh_docs)}(A·B {sum(1 for x in fresh_docs if x.get('tier') in ('A', 'B'))})"
+    emit(f"::notice title=trade-remedy-edis::USITC EDIS 새로 본 관련 문서 {len(fresh_docs)}(A·B {sum(1 for x in fresh_docs if x.get('tier') in ('A', 'B'))})"
           f" · 본문 읽음 {sum(1 for x in fresh_docs if 'pages' in x)} · 이번 이벤트 {len(edev)} · 지켜보는 337 조사 {len(ed.get('watched') or {})}")
     if ed.get("tokenNote"):
-        print("::warning title=trade-remedy-edis-token::EDIS API 토큰 만료·거부·미설정 또는 3일 안 만료 — EDIS 로그인 → 'API Token Generator'에서 다시 발급해 비밀값 교체")
+        emit("::warning title=trade-remedy-edis-token::EDIS API 토큰 만료·거부·미설정 또는 3일 안 만료 — EDIS 로그인 → 'API Token Generator'에서 다시 발급해 비밀값 교체")
     if not token:
-        print("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
+        emit("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
     if all(c["status"] != "ok" for c in doc["checks"]):
         sys.exit("모든 원천 조회 실패 — 이전 결과 유지(0건 아님)")
     status = private_store.put("trade-remedy", doc, token)
-    print(f"::notice title=trade-remedy-push::기자 전용 저장소 전송 HTTP {status}")
+    emit(f"::notice title=trade-remedy-push::기자 전용 저장소 전송 HTTP {status}")
     if status == 404:
-        print(f"::warning title=trade-remedy-token::토큰 거부 가능성 — {private_store.token_shape(private_store.normalize_token(token))}")
+        emit(f"::warning title=trade-remedy-token::토큰 거부 가능성 — {private_store.token_shape(private_store.normalize_token(token))}")
     if status != 200:
         sys.exit(1)
     # 본 결과를 저장한 뒤: 낱말 색인에 없는 회사의 사업보고서를 받는다(한 실행 TIME_BUDGET초까지). 받은 게 있으면 줄을 다시 대조해 한 번 더 저장한다.
     try:
         lc, lr = listing_producers.attach(doc, doc, os.environ.get("DART_API_KEY", "").strip(), now)
         store, pidx = doc.get("listingProducers") or {}, doc.get("producerIndex") or {}
-        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 {lc}줄 · 이번에 받은 보고서 {lr}곳 · "
+        emit(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 {lc}줄 · 이번에 받은 보고서 {lr}곳 · "
               f"낱말 색인 {sum(1 for v in pidx.values() if v.get('status') == 'found')}/{len(pidx)}곳 · 저장 {len(store)}줄 · "
               f"낱말 찾은 줄 {sum(1 for v in store.values() if v.get('line'))}")
         if lr:
-            print(f"::notice title=trade-remedy-push-2::낱말 색인 반영 뒤 다시 저장 HTTP {private_store.put('trade-remedy', doc, token)}")
+            emit(f"::notice title=trade-remedy-push-2::낱말 색인 반영 뒤 다시 저장 HTTP {private_store.put('trade-remedy', doc, token)}")
     except Exception as e:  # noqa: BLE001 — 본 결과는 이미 저장됐다
-        print(f"::warning title=trade-remedy-listing-producers::사업보고서 색인 만들기 실패({type(e).__name__}) — 다음 실행에서 다시")
+        emit(f"::warning title=trade-remedy-listing-producers::사업보고서 색인 만들기 실패({type(e).__name__}) — 다음 실행에서 다시")
 
 
 if __name__ == "__main__":

@@ -4984,3 +4984,66 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.ok(!(await rpc('tools/list')).body.result.tools.some((x) => x.name === 'scoop_desk'));   // 공개 연결엔 없다
   assert.match((await rpc('initialize', { protocolVersion: '2025-03-26' }, opts)).body.result.instructions, /단독 후보를 달라는 요청에는 scoop_desk부터/);
 });
+
+test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 새 문서는 B·절차 문서는 C — 실적 유형으로 올리지 않는다', async () => {
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  const day = (n) => new Date(NOW.getTime() + n * 86400000).toISOString().slice(0, 10);
+  // 탐침 237·239에서 본 꼴: 소형 변압기 종료재심, 라인파이프 행정재심, 대형 변압기 조치 쪽의 수출자 표
+  const cbsa = { checkedAt: at, baselineAt: at, lists: {
+    'er-rre': { status: 'ok', kind: '종료재심', cases: { 'er-rre/spt2026/spt2026': { title: 'Small Power Transformers: Dumping (Chinese Taipei and South Korea)—Concludes on February 26, 2027', state: 'Concludes', stateDate: day(100), n: 4, latest: day(-25),
+      docs: [{ title: 'Notice of initiation of expiry review investigation', date: day(-43), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/er-rre/spt2026/spt2026-ni-eng.html' },
+        { title: 'Listing of counsel granted disclosure', date: day(-25), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/er-rre/spt2026/spt2026-lc-eng.html' }] } } },
+    'ar-ra': { status: 'ok', kind: '행정재심', cases: {
+      'ar-ra/lp22026/lp2202601': { title: 'Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concludes on December 14, 2026', state: 'Concludes', stateDate: day(30), n: 5, latest: day(-39),
+        docs: [{ title: 'Notice of initiation of administrative review', date: day(-141), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-ni-eng.html' },
+          { title: 'Notice of extension of an administrative review', date: day(-39), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-ne-eng.html' }] },
+      'ar-ra/slpt2026/slpt202601': { title: 'Small and Large Power Transformers: Dumping (South Korea and Chinese Taipei)—Concluded on August 14, 2026', state: 'Concluded', stateDate: day(-92), n: 7, latest: day(-92),
+        docs: [{ title: 'Notice of conclusion of administrative review', date: day(-92), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/slpt2026/slpt202601-nc-eng.html' }] },
+      'ar-ra/old/old1': { title: 'Old pipe: Dumping (South Korea)—Concluded on 2019-01-22', state: 'Concluded', stateDate: '2019-01-22', n: 6, latest: '2019-02-06' } } },
+    'i-e': { status: 'failed', error: 'HTTP 503', cases: {} } },
+  measures: { 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/tr-eng.html': { code: 'TR', product: 'Large power transformers', type: 'Dumping', companies: ['HD현대일렉트릭', '일진전기(관련)'],
+    actions: [{ title: 'Administrative Review', date: day(-92), url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/slpt2026/slpt202601-nc-eng.html' }],
+    exporters: [{ name: 'HD Hyundai Electric Co., Ltd.', since: '2014-03', revised: '2025-07' }, { name: 'Iljin Electric Co., Ltd.', since: '2026-08', revised: '2026-08' }] },
+  'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/cpf-eng.html': { code: 'CPF', product: 'Copper pipe fittings', type: 'Dumping', companies: [], actions: [], exporters: [{ name: 'Small Maker Co.', since: '2014-03', revised: '2017-07' }] } } };
+  const events = [
+    { id: 'cbsa:ar-ra/lp22026/lp2202601:lp2202601-nc', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'B', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-nc-eng.html',
+      text: 'Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concluded on December 14, 2026 — 새 문서 「Notice of conclusion of administrative review」(2026-12-14)' },
+    { id: 'cbsa:ar-ra/lp22026/lp2202601:lp2202601-su', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'C', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/x',
+      text: 'Carbon and alloy steel line pipe 2: Dumping (South Korea) — 새 문서 「Updated schedule」(2026-12-01)' },
+    { id: 'cbsa:mif:TR:rev:HD Hyundai Electric Co., Ltd.:2026-12', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 시행 중 조치 TR(Large power transformers)', tier: 'B', companies: ['HD현대일렉트릭'], detectedAt: at,
+      url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/tr-eng.html', text: '한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12' }];
+  const o = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '캐나다 CBSA 사건 문서·시행 중 조치', status: 'partial', returned: 4, error: '조사 HTTP 503' }], events, cbsa }) }), o.env, {})).status, 200);
+  const sec = (await call('trade_remedies', { section: 'cbsa' }, o)).text;
+  assert.match(sec, /\[캐나다 CBSA · 한국 관련 사건 4건\(조사·종료재심·행정재심\)/);
+  assert.match(sec, /미확인\(0건 아님\): 조사\(HTTP 503\) — 아래는 직전에 읽은 것/);
+  // 진행 중: 결론 예정일이 가까운 라인파이프가 먼저, '열람 허가 변호사 목록'은 최근 문서에 넣지 않는다
+  assert.match(sec, /진행 중\(결론 예정\) 2건 — 결론 예정일이 가까운 순:\n- 행정재심 · Carbon and alloy steel line pipe 2: Dumping \(South Korea\)—Concludes on December 14, 2026\n   결론 예정 \d{4}-\d{2}-\d{2} · 문서 5건 · 최근: \d{4}-\d{2}-\d{2} 「Notice of extension of an administrative review」 · \d{4}-\d{2}-\d{2} 「Notice of initiation of administrative review」\n   원문\(가장 최근 문서\): https:\/\/www\.cbsa-asfc\.gc\.ca\/sima-lmsi\/ar-ra\/lp22026\/lp2202601-ne-eng\.html\n- 종료재심 · Small Power Transformers/);
+  assert.doesNotMatch(sec.split('끝난 사건')[0], /Listing of counsel/);
+  assert.match(sec, /끝난 사건 중 최근 문서\(문서일 \d{4}-\d{2}-\d{2} 이후\) 1건:\n- 행정재심 · Small and Large Power Transformers[^\n]*\n   종결 /);
+  assert.doesNotMatch(sec, /Old pipe/);                                                             // 오래전 끝난 사건은 펼치지 않는다
+  // 수출자 표: 출입처 이름이 있는 조치만, 마지막 개정이 최근인 곳부터
+  assert.match(sec, /시행 중 조치 2건 중 정상가격을 받은 한국 수출자에 출입처 이름이 있는 1건\(마지막 개정이 최근인 순\):\n- TR Large power transformers\(Dumping\) · 출입처 이름 HD현대일렉트릭·일진전기\(관련\)\n   한국 수출자 2곳: Iljin Electric Co\., Ltd\.\(협조 2026-08~ · 개정 2026-08\) \/ HD Hyundai Electric Co\., Ltd\.\(협조 2014-03~ · 개정 2025-07\)\n   가장 최근 절차 줄: \d{4}-\d{2}-\d{2} 「Administrative Review」/);
+  assert.doesNotMatch(sec, /Small Maker/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(절차 문서 C는 show_all=true\)\n- B · [^\n]*새 문서 「Notice of conclusion of administrative review」/);
+  assert.match(sec, /수출자 표의 이름은 정상가격을 받은 곳이라는 뜻이고 덤핑 판정 대상이라는 뜻이 아니다/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /Small Maker Co\.[\s\S]*기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건\n/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', company: '변압기' }, o)).text, /한국 관련 사건 0건/);   // 영문 사건 이름은 영문 낱말로 거른다
+  assert.match((await call('trade_remedies', { section: 'cbsa', company: 'transformers' }, o)).text, /한국 관련 사건 2건/);
+  // 공고 변화 구역에는 겹쳐 내지 않는다
+  assert.doesNotMatch((await call('trade_remedies', { section: 'notices' }, o)).text, /lp2202601|Administrative Review/);
+  // radar_today: 판정·종결 문서와 출입처 이름이 든 것은 B(A 아님), 절차 문서는 C
+  const r = (await call('radar_today', {}, o)).text;
+  assert.match(r, /\n\[B · 확인할 공식 변화\] 2건/);
+  assert.match(r, /HD현대일렉트릭[^\n]*\n   캐나다 CBSA 시행 중 조치 TR\(Large power transformers\): 한국 수출자 「HD Hyundai Electric Co\., Ltd\.」의 정상가격 마지막 개정 2025-07 → 2026-12 — 문서 제목·날짜만 읽음\(판정 내용·세율은 원문\)/);
+  assert.match(r, /\n\[A · [^\n]*\n없음\n\n\[B · 확인할 공식 변화\]/);                                    // A 칸에 없다
+  assert.doesNotMatch(r, /Updated schedule/);
+  assert.match((await call('radar_today', { include_minor: true }, o)).text, /Updated schedule/);
+  // 단독 데스크: '실적 있는 유형'으로 올리지 않는다(새 원천 — 표를 고치는 건 기자가 정한다)
+  const desk = (await call('scoop_desk', {}, o)).text;
+  assert.match(desk, /〈실적 있는 유형〉 없음/);
+  assert.match(desk, /〈그 밖[^\n]*\n- B · [^\n]*\n   캐나다 CBSA /);
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: 'HD현대일렉트릭', fact: '캐나다 CBSA 시행 중 조치 TR: 한국 수출자 「HD Hyundai Electric Co., Ltd.」' }).key, 'other');
+  assert.ok((await rpc('tools/list', {}, o)).body.result.tools.find((x) => x.name === 'trade_remedies').inputSchema.properties.section.enum.includes('cbsa'));
+});

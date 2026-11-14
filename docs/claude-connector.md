@@ -146,6 +146,17 @@
 - 공개 로그는 건수만(사건 수·갈래별 수·명단 수·판정문·개시 고시 수).
 - 실행 칸(11-14): 무역구제 감시는 평일 07:40 한 번뿐이었다. 인도 DGTR은 인도 업무시간(한국 13:00~21:30)에 올리므로 금요일(11-06) 흄드실리카 일몰재심 `Final Findings`를 월요일(11-09 00:05, 그것도 다른 변경을 올리다 돈 실행)에야 봤고 다른 매체가 11-11에 썼다. Cloudflare 칸에 **평일 21:30**(인도 18:00)·**토 09:30**(금요일 저녁 게시분)을 더했다. 원천마다 하루 한 번 더 묻는 것이고 요청 간격은 그대로다.
 
+## 캐나다 CBSA 사건 문서·시행 중 조치(cbsa_cases — 11-14)
+
+- 왜: 레이더는 CBSA '조사 목록'(`i-e/menu`)의 사건 머리 줄만 봤다. 머리는 거의 안 바뀌고 새 문서는 머리 아래 표에 붙는다 — 10-26 기준선 뒤 캐나다 새 줄이 0건이었다. 종료재심·행정재심 목록은 아예 안 봤다.
+- 탐침 236~239가 찾은, 레이더 화면에 없던 것: 종료재심 `Small Power Transformers: Dumping (Chinese Taipei and South Korea)—Concludes on February 26, 2027`(2026-10-02 개시), 행정재심 `Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concludes on December 14, 2026`(2026-06-26 개시·10-06 연장), `Small and Large Power Transformers … Concluded on August 14, 2026`, 대형 변압기 조치 쪽 수출자 표의 `Iljin Electric Co., Ltd.`(협조 2026-08~).
+- 원천(GitHub에서 로그인 없이, robots.txt는 `/sima-lmsi/`를 막지 않는다): 조사 `i-e` · 종료재심 `er-rre` · 행정재심 `ar-ra`(옛 재조사 `ri-re`가 옮겨 감) 목록이 같은 꼴 — `<details><summary><h4>사건 이름: Dumping (나라)—Concludes on <time datetime>…</h4></summary><table>문서 | 날짜</table></details>`. 사건 130·131·202건 중 한국 관련 22·28·44건. 시행 중 조치 목록 `mif-mev/menu`의 한국 줄 14개(13쪽)는 쪽마다 `Investigation information` 표(Action | Date)와 수출자 표(Exporter | Exporter ID | Cooperative since | Last revised).
+- 하는 일(`scripts/cbsa_cases.py`, 무역구제 감시 안, 요청 17번쯤·1.5초 간격): 머리나 표에 Korea가 든 사건의 머리(결론 예정·종결 날짜)와 문서 줄을 `cbsa.lists`에, 조치 쪽의 절차 줄과 **한국 수출자**(나라 칸 또는 바로 앞 h3로 가름, 나라 칸이 여러 줄에 걸친 것도)를 `cbsa.measures`에 둔다. 문서 줄은 진행 중이거나 500일 안에 문서가 붙은 사건만 통째로, 나머지는 열쇠만.
+- 이벤트(`pageId: cbsa`): 새 문서 줄 · 사건 머리의 상태 바뀜(Concludes → Concluded) · 새 사건(조사 목록의 새 사건은 기존 목록 줄 감시가 내므로 뺌) · 조치 쪽의 새 절차 줄 · 수출자 표의 새 이름·빠진 이름·`Last revised` 바뀜. `Exhibit list`·`Listing of counsel`은 세기만 한다. **처음 읽은 목록·쪽은 기준선**(이벤트 없음). 못 읽으면 직전 상태 그대로(미확인), 사건 줄이 안 보이면 '형식 변경 의심'.
+- **등급**: 판정·개시·종결 문서와 출입처 이름이 든 것은 B, 일정·연장 같은 절차 문서와 출입처가 아닌 수출자의 개정은 C. **A는 없다.** 단독 데스크 '실적 있는 유형' 표에도 넣지 않았다(kind `캐나다 CBSA 사건 문서` → 그 밖). 올릴지는 기자가 정한다.
+- 화면: `trade_remedies section=cbsa`(기본 180일) — 진행 중 사건을 결론 예정일이 가까운 순으로, 끝난 사건 중 최근 문서, 정상가격을 받은 한국 수출자에 출입처 이름이 있는 조치(마지막 개정이 최근인 순), 기준선 뒤 새로 잡힌 것. 기준선에 묻힌 것도 이 화면에서는 보인다. 수출자 표의 이름은 '정상가격을 받은 곳'이라는 뜻이지 덤핑 판정 대상이라는 뜻이 아니다. 문서 제목·날짜만 읽는다 — 판정 내용·세율은 `source_document`로 원문(`.gc.ca` 허용).
+- 공개 로그 알림(11-14): GitHub은 한 단계에서 알림을 10개까지만 보여 준다. 무역구제 감시 알림이 13개가 돼 '저장소 전송' 줄이 잘릴 뻔했다 — 수집기가 `TRADE_NOTICE_FILE`에 모으고 워크플로의 `Notices 1~3` 단계가 9줄씩 찍는다(건수만).
+
 ## 해외 조사 목록 줄의 출입처 단서(listing_producers — 11-14)
 
 - 왜: 인도 DGTR 등 해외 조사 목록은 영문 품목 이름만 주고 한국 수출자 이름이 없다. 단독 데스크는 이 줄에 '그 품목을 만드는 출입처가 있는지부터'라고만 적었다. 국내 무역위 새 조사에는 이미 같은 대조가 붙어 있다(`ktc_producers.py`, 11-11).

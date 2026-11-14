@@ -655,6 +655,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         check: firms.length ? hint(firms[0], ['영국', '반덤핑']) : undefined });
       continue;
     }
+    if (e.pageId === 'cbsa') {
+      // 캐나다 CBSA 사건 문서·시행 중 조치(11-14, cbsa_cases.py): 판정·개시·종결 문서와 출입처 이름이 든 것은 B, 일정·연장 같은 절차 문서는 C. 등급은 수집기.
+      // 새 원천이라 A는 없다(올릴지는 기자가 정한다). 유형도 '실적 있는 유형' 표에 넣지 않았다.
+      const firms = e.companies ?? [];
+      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: '캐나다 CBSA 사건 문서', id: e.id, date: e.detectedAt,
+        company: firms.join('·') || '캐나다', fact: `${e.label}: ${e.text} — 문서 제목·날짜만 읽음(판정 내용·세율은 원문)`, url: e.url,
+        check: firms.length ? hint(firms[0], ['캐나다', '반덤핑']) : undefined });
+      continue;
+    }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       // 해외 조사 목록(인도 DGTR 등)의 '새 줄'은 새 조사가 아닐 수 있다 — 11-14 확인: '페놀' 줄은 3-19 개시 조사에 절차 공지가 붙어 다시 뜬 것
@@ -1598,7 +1607,7 @@ export async function radarToday(ctx, args) {
 // 해외 조사 목록(인도 DGTR 등)은 조사 하나가 한 실행에 세 줄로 잡힌다(11-13 운영: 제목 줄 · 'Ongoing Investigation …' 상태 줄 · 'Country: … Type of Proceeding: …' 나라 줄).
 // 같은 실행·같은 목록에서 ① 원문 주소가 같은 줄은 가장 긴 줄 하나만 남기고 ② 나라 줄('Country:'로 시작, 목록 주소)은 그 실행에 조사가 하나뿐일 때 그 줄에 붙인다.
 // 조사가 여럿이면 어느 조사 것인지 알 수 없어 나라 줄은 그대로 둔다. 국내 무역위·수입규제DB·EDIS·영국 공개기록·EU 쿼터는 손대지 않는다.
-const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric']);
+const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric', 'cbsa']);
 export function mergeListingLines(events) {
   const drop = new Set();
   const merged = new Map();
