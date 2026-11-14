@@ -17,7 +17,7 @@ import { allowedUrl, relayKey } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
-import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote } from '../cloudflare/overseas.mjs';
+import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
@@ -3360,6 +3360,14 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
   assert.match((await call('trade_remedies', { section: 'notices' }, opts3)).text,
     /\n   판정문·개시 고시\(PDF에서 뽑은 원문 대목\): 판정문\(2026-11-06[^\n]*「\(100항\) Imports from Korea RP are negligible\.」 외 1곳[^\n]*세율 표 6줄에 Korea 든 줄 없음\(앞 줄 「1 2929101 0 TDI China PR Any country Producer A 1,296 MT USD」 「2 do do[^」]*NIL MT USD」\)[^\n]*개시 고시\(2026-09-30 「Initiation Notification-2nd SSR」, 글자 인식 — 스캔본이 많아[^\n]*국내 산업 「11\. The application has been filed by M\/s Example Chemicals Limited\.」 · 기한 「26\. … within thirty days\.」\n   출입처 단서:/);
   assert.equal(dgtrDocNote({ status: 'ok', latest: {} }), '');                                      // 읽은 문서가 없으면 아무것도 붙이지 않는다
+  // 짧은 화면의 한국 문장: 결정 낱말이 뒤쪽에 있으면 그 둘레를 남긴다(11-14 운영의 흄드실리카 7항 그대로)
+  const para7 = '(7항) Anti-dumping duties are in force on the imports of the product under consideration from China PR and Korea RP. Accordingly, since there was no duly substantiated application with regard to likelihood of continuation or recurrence of dumping and injury to the domestic industry in the event of cessation of anti-dumping duty from Korea RP, the present review was not initiated in respect of imports from Korea RP.';
+  const short = focusCut(para7, 280);
+  assert.match(short, /^\(7항\) …[^…]*the present review was not initiated in respect of imports from Korea RP\.$/);
+  assert.ok(short.length <= 290);
+  assert.equal(focusCut('(3항) The investigation against Korea RP was terminated. ' + 'x'.repeat(400), 100).slice(0, 60), '(3항) The investigation against Korea RP was terminated. xxxx');   // 결정 낱말이 앞에 있으면 앞에서
+  assert.equal(focusCut('short sentence about Korea RP.', 280), 'short sentence about Korea RP.');
+  assert.match(dgtrDocNote({ findings: { status: 'ok', date: '2026-11-06', title: 'Final Findings', pages: 52, subject: 's', korea: [para7], koreaTotal: 1, duty: { rows: 4, korea: [] } } }), /한국 문장 「\(7항\) …[^」]*not initiated in respect of imports from Korea RP\.」/);
   assert.equal(dgtrDocNote({ findings: { status: 'failed', date: '2026-11-06', title: 'Final Findings', error: 'HTTP 503' } }), 'DGTR 문서: 판정문(2026-11-06 「Final Findings」) 못 읽음(HTTP 503) — 미확인');
   assert.match(dgtrDocNote({ findings: { status: 'ok', date: '2026-11-06', title: 'Final Findings', pages: 40, ocr: true, subject: '', korea: [], duty: { rows: 4, korea: ['3 do do Korea RP Korea RP Any producer 301.5 MT USD'] } },
     initiation: { status: 'failed', date: '2026-09-30', error: '스캔 PDF — 글자 인식 도구 없음' } }),
