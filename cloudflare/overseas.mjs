@@ -442,7 +442,17 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
   const watched = Object.keys(ed.watched ?? {});
   const out = [`\n[미국 ITC 문서(EDIS) · 확인 ${String(ed.checkedAt).slice(0, 16)}${ed.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''} · 기준선 ${String(ed.baselineSince ?? '').slice(0, 10)}] `
     + `A·B ${all.filter((x) => x.tier !== 'C').length}건${showAll ? '' : ` · 일상 C ${all.length - shown.length}건 숨김(show_all=true)`} · 지켜보는 337 조사 ${watched.join(', ') || '없음'}`];
-  if (ed.tokenNote) out.push(`⚠ ${ed.tokenNote}`);
+  // 기자 11-15: 토큰은 필요할 때만 갱신한다 — 없거나 만료된 것은 고장이 아니라 본문 읽기가 꺼진 상태(목록·제목·당사자는 토큰 없이 읽힌다)
+  if (ed.tokenNote) out.push(`첨부 본문 읽기 꺼짐: ${ed.tokenNote}`);
+  else if (ed.tokenExpires) out.push(`첨부 본문 읽기 켜짐(토큰 만료 ${String(ed.tokenExpires).slice(0, 10)} — 만료돼도 목록·제목·당사자는 계속 읽고, 본문이 필요할 때만 새로 받으면 된다)`);
+  const pend = (ed.pendingComplaints ?? []).filter((x) => matches(q, x.investigationNumber, x.investigationTitle, x.documentTitle, x.firmOrganization, x.filedBy));
+  if (pend.length) {
+    out.push(`표지를 못 읽은 새 337 제소장 ${pend.length}건(피제소인에 출입처가 있는지 미확인 — 토큰을 새로 받으면 다음 실행에서 읽는다, 급하면 EDIS 누리집에서 문서 번호로):`);
+    for (const x of pend.slice(0, showAll ? 40 : 8)) {
+      out.push(`- 접수 ${String(x.officialReceivedDate).slice(0, 16)} · ${x.investigationNumber} · ${x.investigationTitle || x.documentTitle} · 제출 ${x.firmOrganization || x.filedBy || '?'} · EDIS 문서 번호 ${x.id}`);
+    }
+    if (pend.length > (showAll ? 40 : 8)) out.push(`… 남은 ${pend.length - (showAll ? 40 : 8)}건(show_all=true)`);
+  }
   for (const x of sorted.slice(0, limit)) {
     // 공동 피제소인 20여 곳을 한 줄에 적은 서면은 출입처가 뒤에서 잘린다(운영 10-31) — 출입처로 잡힌 법인 이름을 따로
     const long = String(x.onBehalfOf ?? '').length > 200;
@@ -457,7 +467,7 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
     out.push(`   원문: ${x.url} (EDIS 문서 번호 ${x.id})`);
   }
   if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
-  if (!sorted.length) out.push('이 기간 새로 본 관련 문서 없음(조회 실패·토큰 문제는 위 원천 상태 — 미확인).');
+  if (!sorted.length) out.push('이 기간 새로 본 관련 문서 없음(조회 실패는 위 원천 상태 — 미확인).');
   out.push('   검증 상태: EDIS 문서 목록(자동)·공개본 첫 첨부 발췌(자동, API 토큰). 제소장·청원·서면은 당사자 주장 — 결론은 위원회·판사 문서로. '
     + '출입처 이름이 나와도 피제소인·제3자·고객 중 무엇인지 원문 확인. 로펌 하나가 여러 피제소인을 대리하면 회사별 입장은 원문에서');
   return out;

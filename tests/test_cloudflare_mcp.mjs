@@ -2087,12 +2087,25 @@ test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unles
   const doc = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'partial', quotas: [], federalRegister: [], pages: [], rules: [],
     checks: [{ source: 'USITC EDIS 문서', status: 'ok', returned: 180, pages: 2, bodiesRead: 3 }],
     edis: { checkedAt: recent, baselineSince: '2026-11-02T07:40:00+09:00', docs, watched: { '337-1494': 'seed', '337-3900': '2026/11/02 14:00:00' },
-      tokenNote: "EDIS 토큰 2026-11-14 만료 예정 — 'API Token Generator'에서 다시 발급해 GitHub 비밀값 EDIS_API_TOKEN 교체" },
+      tokenExpires: '2026-11-28T13:00:00+00:00', tokenNote: null },
     events: [ev(docs[0]), ev(docs[1]), ev(docs[2])] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('trade_remedies', { section: 'edis' }, opts);
   assert.match(t.text, /\[미국 ITC 문서\(EDIS\) · 확인 [^\]]*\] A·B 4건 · 일상 C 1건 숨김\(show_all=true\) · 지켜보는 337 조사 337-1494, 337-3900/);
-  assert.match(t.text, /⚠ EDIS 토큰 2026-11-14 만료 예정/);
+  // 기자 11-15: 토큰은 필요할 때만 갱신 — 켜짐·꺼짐을 경고가 아니라 상태로 적고, 꺼진 동안 표지를 못 읽은 새 337 제소장을 보여 준다
+  assert.match(t.text, /\n첨부 본문 읽기 켜짐\(토큰 만료 2026-11-28 — 만료돼도 목록·제목·당사자는 계속 읽고, 본문이 필요할 때만 새로 받으면 된다\)\n/);
+  assert.doesNotMatch(t.text, /⚠ EDIS 토큰|표지를 못 읽은 새 337 제소장/);
+  const off = { ...doc, edis: { ...doc.edis, tokenExpires: '2026-11-14T13:00:00+00:00',
+    tokenNote: "EDIS 토큰 만료(2026-11-14) — 첨부 본문·337 제소장 표지 읽기 꺼짐(토큰은 필요할 때만 갱신) — 본문이 필요하면 EDIS 로그인 → 이름 아래 'API Token Generator'에서 새로 받아 비밀값 EDIS_API_TOKEN 교체, 급하면 EDIS 누리집에서 문서 번호로 직접 열기",
+    pendingComplaints: [{ id: '901500', documentType: 'Complaint', documentTitle: 'Complaint', investigationNumber: '337-3950', investigationTitle: 'Certain Electric Vehicle Battery Packs',
+      firmOrganization: 'Fish & Richardson', filedBy: 'A. Lawyer', officialReceivedDate: '2026/11/16 14:00:00', late: true }] } };
+  const o2 = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(off) }), o2.env, {})).status, 200);
+  const t2 = (await call('trade_remedies', { section: 'edis' }, o2)).text;
+  assert.match(t2, /\n첨부 본문 읽기 꺼짐: EDIS 토큰 만료\(2026-11-14\) — 첨부 본문·337 제소장 표지 읽기 꺼짐\(토큰은 필요할 때만 갱신\)/);
+  assert.match(t2, /\n표지를 못 읽은 새 337 제소장 1건\(피제소인에 출입처가 있는지 미확인[^\n]*\n- 접수 2026\/11\/16 14:00 · 337-3950 · Certain Electric Vehicle Battery Packs · 제출 Fish & Richardson · EDIS 문서 번호 901500\n/);
+  assert.doesNotMatch(t2, /⚠ EDIS/);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'edis', company: '한화솔루션' }, o2)).text, /표지를 못 읽은/);
   assert.ok(t.text.indexOf('337-3900 Complaint') < t.text.indexOf('337-1494 Notice'));  // A first
   assert.ok(t.text.indexOf('337-1494 Notice') < t.text.indexOf('337-1494 Petition'));  // then newest B
   assert.match(t.text, /제출 Sidley Austin LLP \(당사자 Hanwha Solutions Corporation; Hanwha Q CELLS USA, Inc\.\) · 출입처가 당사자인 서면 · 출입처 한화솔루션/);

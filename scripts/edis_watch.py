@@ -33,7 +33,12 @@ COMPLAINT_BUDGET = 4
 MAX_PDF_BYTES = 25_000_000
 WATCH_MAX = 15
 WATCH_IDLE_DAYS = 180
-TOKEN_WARN_DAYS = 3
+PENDING_MAX = 40     # 토큰이 없어 표지를 못 읽은 새 337 제소장을 이만큼, PENDING_DAYS일까지 적어 둔다(토큰을 새로 받으면 그때 읽는다)
+PENDING_DAYS = 45
+PENDING_TRIES = 3
+# 기자 11-15 02:21: 토큰은 14일마다 직접 새로 받아야 해서 '필요할 때만' 갱신한다. 토큰이 없거나 만료된 것은 고장이 아니라 본문 읽기가 꺼진 상태다.
+TOKEN_OFF = ("첨부 본문·337 제소장 표지 읽기 꺼짐(토큰은 필요할 때만 갱신) — 본문이 필요하면 EDIS 로그인 → 이름 아래 'API Token Generator'에서 "
+             "새로 받아 비밀값 EDIS_API_TOKEN 교체, 급하면 EDIS 누리집에서 문서 번호로 직접 열기")
 SEED_WATCH = ("337-1494",)
 KOREA = re.compile(r"\bKorea\b", re.I)
 FIELDS = ("id", "documentType", "documentTitle", "securityLevel", "investigationNumber", "investigationPhase", "investigationStatus",
@@ -258,9 +263,9 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
     exp = token_expiry(token) if token else None
     token_note = None
     if not token:
-        token_note = "EDIS_API_TOKEN 미설정 — 첨부 본문·337 제소장 피제소인 미확인(기본 정보만)"
+        token_note = f"EDIS 토큰 없음 — {TOKEN_OFF}"
     elif exp and exp <= now:
-        token_note = f"EDIS 토큰 만료({exp.date()}) — EDIS 로그인 → 이름 아래 'API Token Generator'에서 다시 발급"
+        token_note = f"EDIS 토큰 만료({exp.date()}) — {TOKEN_OFF}"
     # 다운로드에 Accept: application/xml을 붙이면 406(탐침 29) — 토큰과 UA만
     auth = {"User-Agent": UA, "Authorization": f"Bearer {token}"} if token and not token_note else None
     out, a_invs, read = dict(known), {x["investigationNumber"] for x in known.values() if x.get("tier") == "A"}, 0
@@ -271,14 +276,18 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
             rec["partyHits"] = party_hits(rec.get("onBehalfOf"))
         if any(caps(x) for x in rec.get("snippets") or []):
             rec["snippets"] = [x for x in rec["snippets"] if not caps(x)]
-    complaints = []
+    # 아직 표지를 못 읽은 새 337 제소장(토큰 없음·한 번에 읽는 수 넘음·내려받기 실패): 적어 두었다가 토큰이 있는 실행에서 최근 것부터 읽는다
+    pend_floor = (now - dt.timedelta(days=PENDING_DAYS)).strftime("%Y/%m/%d %H:%M:%S")
+    pending = {x["id"]: x for x in prev.get("pendingComplaints") or []
+               if isinstance(x, dict) and x.get("id") and str(x.get("officialReceivedDate") or "") >= pend_floor and x["id"] not in known}
     for d in sorted(by_id.values(), key=lambda x: x["officialReceivedDate"]):
         if d["id"] in seen:
             continue
         tier, why, who = classify(d, watched)
         if not tier:
-            if is_new_complaint(d) and auth:
-                complaints.append(d)
+            if is_new_complaint(d):
+                pending.setdefault(d["id"], {**{k: d[k] for k in FIELDS}, "late": False})
+                seen.add(d["id"])
             continue
         seen.add(d["id"])
         inv = d["investigationNumber"]
@@ -290,39 +299,48 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
                         "isNew": not baseline and d["officialReceivedDate"] >= floor, "partyHits": party_hits(d["onBehalfOf"])}
     # 새 337 제소장: 표지(앞 3쪽)에 출입처 이름이 있으면 피제소인 후보(A), 본문 앞쪽에만 있으면 B — 피제소인 여부는 원문 확인
     scanned = 0
-    for d in sorted(complaints, key=lambda x: x["officialReceivedDate"], reverse=True)[:COMPLAINT_BUDGET]:
-        seen.add(d["id"])
+    for d in sorted(pending.values(), key=lambda x: x["officialReceivedDate"], reverse=True)[:COMPLAINT_BUDGET] if auth else []:
         try:
             n, pages_text, err, denied = fetch_pdf(d["id"], get=get, headers=headers, auth=auth, limit=20)
         except Exception as e:  # noqa: BLE001
             n, pages_text, err, denied = None, None, str(e)[:60] or type(e).__name__, False
         sleep(0.5)
         if denied:
-            token_note = "EDIS 토큰 거부(HTTP 401, 만료 가능) — 'API Token Generator'에서 다시 발급"
-            seen.discard(d["id"])
+            token_note = f"EDIS 토큰 거부(HTTP 401, 만료 가능) — {TOKEN_OFF}"
             break
-        if err:
-            seen.discard(d["id"])  # 다음 실행에 다시
+        if err:   # 다음 실행에 다시(PENDING_TRIES번까지)
+            d["tries"] = int(d.get("tries") or 0) + 1
+            if d["tries"] >= PENDING_TRIES:
+                pending.pop(d["id"], None)
             continue
         scanned += 1
+        pending.pop(d["id"], None)
         cover = companies_in(" ".join(pages_text[:3]))
         later = [c for c in companies_in(" ".join(pages_text[3:])) if c not in cover]
         if not cover and not later:
             continue
         tier, why = ("A", "337 제소장 표지에 출입처 이름(피제소인 후보 — 원문 확인)") if cover else ("B", "337 제소장 본문에 출입처 이름(역할 미확인)")
+        if d.get("late"):
+            why += " · 토큰을 새로 받은 뒤 뒤늦게 읽음"
         who = cover + later
         watched[d["investigationNumber"]] = max(watched.get(d["investigationNumber"]) or "", d["officialReceivedDate"])
         body = " ".join(pages_text)
-        out[d["id"]] = {**d, "tier": tier, "why": why, "companies": who, "firstSeen": stamp, "url": f"{BASE}/document/{d['id']}",
-                        "isNew": not baseline and d["officialReceivedDate"] >= floor, "pages": n, "snippets": snippets(body, who),
+        out[d["id"]] = {**{k: d[k] for k in FIELDS}, "tier": tier, "why": why, "companies": who, "firstSeen": stamp, "url": f"{BASE}/document/{d['id']}",
+                        "isNew": not baseline and (d["officialReceivedDate"] >= floor or bool(d.get("late"))), "pages": n, "snippets": snippets(body, who),
                         "partyHits": party_hits(d["onBehalfOf"])}
         read += 1
+    for d in pending.values():   # 이번에 못 읽고 남은 것은 다음 실행부터 '뒤늦게 읽음'
+        d["late"] = True
+    pend = sorted(pending.values(), key=lambda x: x["officialReceivedDate"], reverse=True)[:PENDING_MAX]
     # 첨부 본문(공개 문서만): 이번에 처음 본 A·B 문서 — 출입처가 낸 서면 먼저, 최근 것부터
     todo = [x for x in out.values() if x["firstSeen"] == stamp and x["tier"] in ("A", "B") and "pages" not in x
             and x["securityLevel"].lower() == "public"]
     todo.sort(key=lambda x: x["officialReceivedDate"], reverse=True)
     todo.sort(key=lambda x: (x["tier"], not x["companies"]))
     budget = PDF_BUDGET * 2 if baseline else PDF_BUDGET
+    if not auth or token_note:   # 토큰이 없어 본문을 못 읽는다: 화면·알림에 그 사실을 적는다(필요하면 그때 토큰을 받는다)
+        for rec in todo[:budget]:
+            rec["bodyError"] = "토큰 없음 — 필요하면 새로 받거나 EDIS 누리집에서 문서 번호로"
     for rec in todo[:budget] if auth and not token_note else []:
         try:
             n, pages_text, err, denied = fetch_pdf(rec["id"], get=get, headers=headers, auth=auth)
@@ -330,8 +348,8 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
             n, pages_text, err, denied = None, None, str(e)[:60] or type(e).__name__, False
         sleep(0.5)
         if denied:
-            token_note = "EDIS 토큰 거부(HTTP 401, 만료 가능) — 'API Token Generator'에서 다시 발급"
-            rec["bodyError"] = "토큰 거부"
+            token_note = f"EDIS 토큰 거부(HTTP 401, 만료 가능) — {TOKEN_OFF}"
+            rec["bodyError"] = "토큰 거부 — 필요하면 새로 받거나 EDIS 누리집에서 문서 번호로"
             break
         if err:
             rec["bodyError"] = err
@@ -345,7 +363,8 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
         hits = rec.get("partyHits") or []
         party = ("" if not rec["onBehalfOf"] or is_decision(rec) else
                  f"공동 당사자 중 출입처 {'; '.join(hits)}" if hits and len(rec["onBehalfOf"]) > 200 else rec["onBehalfOf"])
-        body = f" · 본문 발췌: {' / '.join(rec['snippets'])}" if rec.get("snippets") else ""
+        body = (f" · 본문 발췌: {' / '.join(rec['snippets'])}" if rec.get("snippets")
+                else f" · 본문 미확인({rec['bodyError']})" if str(rec.get("bodyError") or "").startswith("토큰") else "")
         events.append({"id": f"edis:{rec['id']}", "pageId": "edis", "country": "미국", "tier": rec["tier"],
                        "label": f"USITC {rec['investigationNumber']} {rec['documentType']}"[:120],
                        "text": (f"{rec['documentTitle']} — 제출 {rec['firmOrganization'] or rec['filedBy']}"
@@ -357,17 +376,14 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
     idle = (now - dt.timedelta(days=WATCH_IDLE_DAYS)).strftime("%Y/%m/%d")
     watched = {k: v for k, v in watched.items() if v == "seed" or v >= idle}
     last = max(_received(listed) + [prev.get("lastReceived") or ""]) or None
-    warn = None
-    if exp and not token_note and exp - now <= dt.timedelta(days=TOKEN_WARN_DAYS):
-        warn = f"EDIS 토큰 {exp.date()} 만료 예정 — 'API Token Generator'에서 다시 발급해 GitHub 비밀값 EDIS_API_TOKEN 교체"
     gap = None if reached or baseline or errors else f"최근 {pages}쪽 안에 지난 실행 시각이 없음 — 그 사이 일부 미확인"
-    left = len(complaints) - scanned if auth else len(complaints)
-    notes = [n for n in (token_note, warn, gap, f"337 제소장 {left}건 본문 미확인(다음 실행)" if left > 0 and auth else None) if n]
-    status = "failed" if errors and not listed else "partial" if errors or gap or token_note else "ok"
-    check = {"source": "USITC EDIS 문서", "status": status, "returned": len(by_id), "pages": pages, "bodiesRead": read,
+    # 토큰이 없거나 만료된 것은 실패로 치지 않는다(목록·제목·당사자는 토큰 없이 다 읽힌다) — 구역 머리와 문서 줄에만 적는다
+    notes = [n for n in (gap, f"337 제소장 {len(pend)}건 표지 미확인(다음 실행)" if pend and auth and not token_note else None) if n]
+    status = "failed" if errors and not listed else "partial" if errors or gap else "ok"
+    check = {"source": "USITC EDIS 문서", "status": status, "returned": len(by_id), "pages": pages, "bodiesRead": read, "bodyReading": not token_note, "pendingComplaints": len(pend),
              **({"error": "; ".join(errors[:3] + notes)[:300]} if errors or notes else {})}
     doc = {"checkedAt": stamp, "lastReceived": last, "docs": docs, "watched": watched, "seen": sorted(seen)[-SEEN_MAX:],
-           "tokenExpires": exp.isoformat() if exp else None, "tokenNote": token_note or warn,
+           "tokenExpires": exp.isoformat() if exp else None, "tokenNote": token_note, "pendingComplaints": pend,
            "baselineSince": prev.get("baselineSince") or stamp, "rules": RULES}
     return doc, events, check
 
