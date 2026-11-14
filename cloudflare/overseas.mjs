@@ -495,11 +495,65 @@ export function traSection(tra, q = '', limit = 15, showAll = false, fromIso = '
   return out;
 }
 
+// 캐나다 CBSA 사건 문서·시행 중 조치(cbsa_cases.py, 11-14). 레이더는 '조사 목록'의 사건 머리 줄만 봤고 종료재심·행정재심 목록은 안 봤다 —
+// 11-14 탐침: 소형 변압기 종료재심(2026-10-02 개시), 라인파이프 행정재심(2026-12-14 결론 예정), 대형 변압기 조치 쪽의 일진전기(2026-08 협조 시작)가 화면에 없었다.
+// 처음 읽은 것은 기준선이라 이벤트가 없다 — 그래서 이 구역은 이벤트가 아니라 저장된 사건·문서·수출자 표를 그대로 보여 준다.
+const CBSA_KIND = { 'i-e': '조사', 'er-rre': '종료재심', 'ar-ra': '행정재심' };
+const CBSA_STATE = { Concludes: '결론 예정', Concluded: '종결', Terminated: '종료', 'Undertaking accepted': '가격약속 수락', Suspended: '중지' };
+export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, fromIso = '') {
+  if (!cbsa) return ['\n[캐나다 CBSA 사건 문서·시행 중 조치] 아직 수집 전 — 미확인'];
+  const lists = cbsa.lists ?? {};
+  const failed = Object.entries(lists).filter(([, v]) => v.status !== 'ok').map(([k, v]) => `${CBSA_KIND[k] ?? k}(${v.error ?? v.status})`);
+  const cases = Object.entries(lists).flatMap(([k, v]) => Object.entries(v.cases ?? {}).map(([key, c]) => ({ ...c, key, list: k })))
+    .filter((c) => matches(q, c.title, (c.companies ?? []).join(' '), CBSA_KIND[c.list] ?? '', (c.docs ?? []).map((d) => d.title).join(' ')));
+  const from = String(fromIso).slice(0, 10);
+  const out = [`\n[캐나다 CBSA · 한국 관련 사건 ${cases.length}건(조사·종료재심·행정재심) · 확인 ${String(cbsa.checkedAt).slice(0, 16)} · 기준선 ${String(cbsa.baselineAt ?? '').slice(0, 10)}]`];
+  if (failed.length) out.push(`미확인(0건 아님): ${failed.join(' · ')} — 아래는 직전에 읽은 것`);
+  const line = (c) => {
+    const docs = [...(c.docs ?? [])].filter((d) => !/^(?:Exhibit list|Listing of counsel)/i.test(d.title)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const last = docs.slice(0, showAll ? 8 : 3).map((d) => `${d.date || '날짜 없음'} 「${d.title}」`).join(' · ');
+    out.push(`- ${CBSA_KIND[c.list] ?? c.list} · ${c.title}${(c.companies ?? []).length ? ` · 출입처 이름 ${c.companies.join('·')}` : ''}`);
+    out.push(`   ${c.state ? `${CBSA_STATE[c.state] ?? c.state} ${c.stateDate || '날짜 미정'}` : '상태 표시 없음'} · 문서 ${c.n ?? '?'}건${last ? ` · 최근: ${last}` : c.latest ? ` · 가장 최근 문서 ${c.latest}` : ''}`);
+    const d0 = docs[0];
+    if (d0?.url) out.push(`   원문(가장 최근 문서): ${d0.url}`);
+  };
+  const open = cases.filter((c) => c.state === 'Concludes').sort((a, b) => String(a.stateDate || '9999').localeCompare(String(b.stateDate || '9999')));
+  out.push(`진행 중(결론 예정) ${open.length}건 — 결론 예정일이 가까운 순:`);
+  for (const c of open.slice(0, limit)) line(c);
+  if (open.length > limit) out.push(`… 남은 ${open.length - limit}건`);
+  if (!open.length) out.push('없음(목록을 못 읽었으면 미확인)');
+  const recent = cases.filter((c) => c.state !== 'Concludes' && String(c.latest || '') >= from).sort((a, b) => String(b.latest).localeCompare(String(a.latest)));
+  out.push(`끝난 사건 중 최근 문서(문서일 ${from} 이후) ${recent.length}건:`);
+  for (const c of recent.slice(0, showAll ? limit : Math.min(limit, 5))) line(c);
+  if (!recent.length) out.push('없음');
+  // 시행 중 조치의 한국 수출자 표
+  const ms = Object.entries(cbsa.measures ?? {}).map(([url, m]) => ({ ...m, url })).filter((m) => matches(q, m.code, m.product, (m.companies ?? []).join(' '), (m.exporters ?? []).map((x) => x.name).join(' ')));
+  const named = ms.filter((m) => (m.companies ?? []).length || showAll).sort((a, b) => String(b.exporters?.map((x) => x.revised).sort().pop() ?? '').localeCompare(String(a.exporters?.map((x) => x.revised).sort().pop() ?? '')));
+  out.push(`시행 중 조치 ${ms.length}건 중 ${showAll ? '전부' : `정상가격을 받은 한국 수출자에 출입처 이름이 있는 ${named.length}건`}(마지막 개정이 최근인 순):`);
+  for (const m of named.slice(0, limit)) {
+    const ex = [...(m.exporters ?? [])].sort((a, b) => String(b.revised).localeCompare(String(a.revised)));
+    const act = [...(m.actions ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    out.push(`- ${m.code} ${m.product}(${m.type})${m.stale ? ' · ⚠ 이번에 못 읽음(직전 상태)' : ''}${(m.companies ?? []).length ? ` · 출입처 이름 ${m.companies.join('·')}` : ''}`);
+    out.push(`   한국 수출자 ${ex.length}곳: ${ex.slice(0, showAll ? 12 : 6).map((x) => `${x.name}(협조 ${x.since || '?'}~ · 개정 ${x.revised || '?'})`).join(' / ')}${ex.length > (showAll ? 12 : 6) ? ' 외' : ''}`);
+    if (act) out.push(`   가장 최근 절차 줄: ${act.date || '날짜 없음'} 「${act.title}」`);
+    out.push(`   원문: ${m.url}`);
+  }
+  if (!named.length) out.push('없음');
+  const ev = (events ?? []).filter((e) => e.pageId === 'cbsa' && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C') && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
+  out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(절차 문서 C는 show_all=true)'}`);
+  for (const e of ev.slice(0, limit)) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  out.push('   검증 상태: CBSA 누리집 목록·조치 쪽(자동). 문서 제목과 날짜만 읽었다 — 판정 내용·세율·정상가격은 원문 문서(Statement of reasons 등)에서 확인. 수출자 표의 이름은 정상가격을 받은 곳이라는 뜻이고 덤핑 판정 대상이라는 뜻이 아니다. 회사 입장은 회사 확인');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -551,11 +605,12 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
+  if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     // EDIS 문서는 위 [미국 ITC 문서] 구역에 본문 발췌와 함께 나온다
-    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && e.pageId !== 'cbsa' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
     const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');

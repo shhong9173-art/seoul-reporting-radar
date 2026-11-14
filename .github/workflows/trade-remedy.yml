@@ -12,6 +12,7 @@ on:
       - 'scripts/listing_producers.py'
       - 'scripts/dgtr_cases.py'
       - 'scripts/dgtr_docs.py'
+      - 'scripts/cbsa_cases.py'
       - 'tests/test_ktc_watch.py'
       - 'scripts/kita_watch.py'
       - 'tests/test_kita_watch.py'
@@ -46,10 +47,21 @@ jobs:
       # 인도 DGTR 개시 고시는 스캔 PDF(글자 0자)라 글자 인식으로 읽는다(11-14 탐침 235: 8쪽 21초). 설치가 안 되면 그 문서만 '못 읽음'으로 남는다
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils >/dev/null || echo "::warning title=ocr-tools::글자 인식 도구 설치 실패 — 스캔 PDF(DGTR 개시 고시)는 미확인"
       - name: Test trade remedy parsing
-        run: python -m unittest tests.test_trade_remedy_watch tests.test_ktc_watch tests.test_ktc_producers tests.test_listing_producers tests.test_dgtr_cases tests.test_dgtr_docs tests.test_kita_watch tests.test_edis_watch tests.test_tra_file_watch tests.test_private_store -v
+        run: python -m unittest tests.test_trade_remedy_watch tests.test_ktc_watch tests.test_ktc_producers tests.test_listing_producers tests.test_dgtr_cases tests.test_dgtr_docs tests.test_cbsa_cases tests.test_kita_watch tests.test_edis_watch tests.test_tra_file_watch tests.test_private_store -v
       - name: Watch trade remedies (counts-only log)
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           EDIS_API_TOKEN: ${{ secrets.EDIS_API_TOKEN }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          TRADE_NOTICE_FILE: ${{ runner.temp }}/trade_notices.txt
         run: python scripts/trade_remedy_watch.py
+      # 알림은 한 단계에 10개까지만 보인다 — 수집기가 파일에 모은 줄(건수만)을 나눠 찍는다
+      - name: Notices 1
+        if: always()
+        run: sed -n '1,9p' "$RUNNER_TEMP/trade_notices.txt" 2>/dev/null || true
+      - name: Notices 2
+        if: always()
+        run: sed -n '10,18p' "$RUNNER_TEMP/trade_notices.txt" 2>/dev/null || true
+      - name: Notices 3
+        if: always()
+        run: sed -n '19,27p' "$RUNNER_TEMP/trade_notices.txt" 2>/dev/null || true

@@ -387,6 +387,35 @@ class GapRows(unittest.TestCase):
         self.assertEqual(table["v"], w.RATE_RULES)
 
 
+class Notices(unittest.TestCase):
+    def test_notices_go_to_a_file_when_asked(self):
+        # GitHub은 한 단계에서 알림을 10개까지만 보여 준다 — 파일에 모아 워크플로의 다음 단계들이 나눠 찍는다
+        import contextlib
+        import io
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "n.txt")
+            old = os.environ.get("TRADE_NOTICE_FILE")
+            os.environ["TRADE_NOTICE_FILE"] = path
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    w.emit("::notice title=a::첫 줄")
+                    w.emit("::warning title=b::둘째\n줄")
+                self.assertEqual(buf.getvalue(), "")
+                self.assertEqual(open(path, encoding="utf-8").read(), "::notice title=a::첫 줄\n::warning title=b::둘째 줄\n")
+                os.environ.pop("TRADE_NOTICE_FILE")
+                with contextlib.redirect_stdout(buf):
+                    w.emit("::notice title=c::바로")
+                self.assertEqual(buf.getvalue(), "::notice title=c::바로\n")
+            finally:
+                if old is None:
+                    os.environ.pop("TRADE_NOTICE_FILE", None)
+                else:
+                    os.environ["TRADE_NOTICE_FILE"] = old
+
+
 if __name__ == "__main__":
     unittest.main()
 
