@@ -5011,7 +5011,10 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
     { id: 'cbsa:ar-ra/lp22026/lp2202601:lp2202601-su', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'C', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/x',
       text: 'Carbon and alloy steel line pipe 2: Dumping (South Korea) — 새 문서 「Updated schedule」(2026-12-01)' },
     { id: 'cbsa:mif:TR:rev:HD Hyundai Electric Co., Ltd.:2026-12', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 시행 중 조치 TR(Large power transformers)', tier: 'B', companies: ['HD현대일렉트릭'], detectedAt: at,
-      url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/tr-eng.html', text: '한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12' }];
+      url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/tr-eng.html', text: '한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12' },
+    // 11-14 운영: 수집기 열쇠 변경으로 잘못 나간 옛 사건 '새 사건' — retracted 표시가 붙으면 어느 화면에도 내지 않는다
+    { id: 'cbsa:ar-ra/ad1358/ad1358-ri15-nc', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'B', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/y', retracted: '오래전 끝난 사건',
+      text: '새 사건 — Copper pipe fittings: Dumping (China, Korea, and United-States) - Concluded on 2016-02-05 · 문서 2건' }];
   const o = PRIVATE();
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '캐나다 CBSA 사건 문서·시행 중 조치', status: 'partial', returned: 4, error: '조사 HTTP 503' }], events, cbsa }) }), o.env, {})).status, 200);
@@ -5026,9 +5029,10 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   // 수출자 표: 출입처 이름이 있는 조치만, 마지막 개정이 최근인 곳부터
   assert.match(sec, /시행 중 조치 2건 중 정상가격을 받은 한국 수출자에 출입처 이름이 있는 1건\(마지막 개정이 최근인 순\):\n- TR Large power transformers\(Dumping\) · 출입처 이름 HD현대일렉트릭·일진전기\(관련\)\n   한국 수출자 2곳: Iljin Electric Co\., Ltd\.\(협조 2026-08~ · 개정 2026-08\) \/ HD Hyundai Electric Co\., Ltd\.\(협조 2014-03~ · 개정 2025-07\)\n   가장 최근 절차 줄: \d{4}-\d{2}-\d{2} 「Administrative Review」/);
   assert.doesNotMatch(sec, /Small Maker/);
-  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(절차 문서 C는 show_all=true\)\n- B · [^\n]*새 문서 「Notice of conclusion of administrative review」/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(절차 문서 C는 show_all=true\) · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 끝난 사건\)\n- B · [^\n]*새 문서 「Notice of conclusion of administrative review」/);
+  assert.doesNotMatch(sec, /Concluded on 2016-02-05/);
   assert.match(sec, /수출자 표의 이름은 정상가격을 받은 곳이라는 뜻이고 덤핑 판정 대상이라는 뜻이 아니다/);
-  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /Small Maker Co\.[\s\S]*기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건\n/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /Small Maker Co\.[\s\S]*기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건 · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 끝난 사건\)\n/);
   assert.match((await call('trade_remedies', { section: 'cbsa', company: '변압기' }, o)).text, /한국 관련 사건 0건/);   // 영문 사건 이름은 영문 낱말로 거른다
   assert.match((await call('trade_remedies', { section: 'cbsa', company: 'transformers' }, o)).text, /한국 관련 사건 2건/);
   // 공고 변화 구역에는 겹쳐 내지 않는다
@@ -5039,6 +5043,7 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   assert.match(r, /HD현대일렉트릭[^\n]*\n   캐나다 CBSA 시행 중 조치 TR\(Large power transformers\): 한국 수출자 「HD Hyundai Electric Co\., Ltd\.」의 정상가격 마지막 개정 2025-07 → 2026-12 — 문서 제목·날짜만 읽음\(판정 내용·세율은 원문\)/);
   assert.match(r, /\n\[A · [^\n]*\n없음\n\n\[B · 확인할 공식 변화\]/);                                    // A 칸에 없다
   assert.doesNotMatch(r, /Updated schedule/);
+  assert.doesNotMatch((await call('radar_today', { include_minor: true }, o)).text, /Concluded on 2016-02-05/);   // 표시된 이벤트는 참고 칸에도 없다
   assert.match((await call('radar_today', { include_minor: true }, o)).text, /Updated schedule/);
   // 단독 데스크: '실적 있는 유형'으로 올리지 않는다(새 원천 — 표를 고치는 건 기자가 정한다)
   const desk = (await call('scoop_desk', {}, o)).text;

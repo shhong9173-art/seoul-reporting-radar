@@ -404,7 +404,7 @@ class Notices(unittest.TestCase):
                     w.emit("::notice title=a::첫 줄")
                     w.emit("::warning title=b::둘째\n줄")
                 self.assertEqual(buf.getvalue(), "")
-                self.assertEqual(open(path, encoding="utf-8").read(), "::notice title=a::첫 줄\n::warning title=b::둘째 줄\n")
+                self.assertEqual(Path(path).read_text(encoding="utf-8"), "::notice title=a::첫 줄\n::warning title=b::둘째 줄\n")
                 os.environ.pop("TRADE_NOTICE_FILE")
                 with contextlib.redirect_stdout(buf):
                     w.emit("::notice title=c::바로")

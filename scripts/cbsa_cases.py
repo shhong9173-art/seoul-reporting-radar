@@ -44,6 +44,9 @@ PAGE_ID = "cbsa"
 GAP = 1.5
 MIF_BUDGET = 20          # 한 실행에 여는 조치 쪽(한국 줄 13쪽)
 FULL_DAYS = 500          # 이 안에 문서가 붙은 사건·진행 중 사건만 문서 줄을 통째로 저장(나머지는 열쇠만)
+FRESH_DAYS = 120         # 새 사건·새 문서로 알리는 것은 진행 중이거나 문서 날짜가 이 안일 때만
+# 11-14 내 실수: 열쇠 만드는 법을 바꾼 실행에서, 열쇠가 겹쳐 저장되지 않았던 2008~2016년 재조사 9건이 '새 사건'(B)으로 나갔다.
+# 오래전 끝난 사건이 목록에 새로 보이는 것(보관 쪽 정리·열쇠 변경)은 소식이 아니다 — 알리지 않고, 이미 나간 것은 retracted로 표시해 화면에서 뺀다(지우지 않음).
 KOREA = re.compile(r"\bKorea\b", re.I)
 MONTHS = {m: i + 1 for i, m in enumerate("jan feb mar apr may jun jul aug sep oct nov dec".split())}
 STATE = re.compile(r"\b(Concludes|Concluded|Terminated|Undertaking Accepted|Suspended)\b[^—\-–]{0,20}?\bon\b", re.I)
@@ -205,11 +208,27 @@ def tier_of(doc_title, companies):
     return "C" if PROCEDURAL.search(doc_title) and not companies else "B"
 
 
+def retract_stale(events, section, now):
+    """이미 저장된 '새 사건' 이벤트 가운데 오래전 끝난 사건의 것을 retracted로 표시한다(지우지 않음). 표시한 수를 돌려준다."""
+    fresh_from = (now - dt.timedelta(days=FRESH_DAYS)).date().isoformat()
+    cases = {f"{PAGE_ID}:{key}": c for lst in ((section or {}).get("lists") or {}).values() for key, c in (lst.get("cases") or {}).items()}
+    n = 0
+    for e in events:
+        c = cases.get(e.get("id"))
+        if e.get("pageId") != PAGE_ID or e.get("retracted") or c is None or not str(e.get("text") or "").startswith("새 사건"):
+            continue
+        if c.get("state") != "Concludes" and str(c.get("latest") or "") < fresh_from:
+            e["retracted"] = "오래전 끝난 사건 — 새 사건이 아님(수집기 열쇠 변경으로 잘못 나감)"
+            n += 1
+    return n
+
+
 def collect(previous, now, *, get, sleep=time.sleep):
     """(section, events, check). section = {lists:{id:{status, cases:{key:case}}}, measures:{url:{…}}, checkedAt, baselineAt}."""
     prev = previous if isinstance(previous, dict) else {}
     stamp = now.isoformat(timespec="seconds")
     full_from = (now - dt.timedelta(days=FULL_DAYS)).date().isoformat()
+    fresh_from = (now - dt.timedelta(days=FRESH_DAYS)).date().isoformat()
     out = {"checkedAt": stamp, "baselineAt": prev.get("baselineAt") or stamp, "lists": {}, "measures": {}}
     events, errors, counts = [], [], {"cases": 0, "docs": 0, "open": 0, "newDocs": 0, "newCases": 0, "stateChanges": 0, "measures": 0, "exporters": 0}
 
@@ -249,14 +268,16 @@ def collect(previous, now, *, get, sleep=time.sleep):
                 o, moved = by_title[c["title"]], True
             seen = set((o or {}).get("seen") or []) | ({d["key"] for d in c["docs"]} if moved else set())
             firms = beat_in(c["title"])
-            if o is None and not baseline and list_id != "i-e":
+            dates0 = [d["date"] for d in c["docs"] if d["date"]]
+            fresh = c["state"] == "Concludes" or (max(dates0) if dates0 else "") >= fresh_from
+            if o is None and not baseline and list_id != "i-e" and fresh:
                 first = next((d for d in c["docs"] if not SILENT.match(d["title"])), None)
                 event(c["key"], f"캐나다 CBSA {kind}", f"새 사건 — {c['title']} · 문서 {len(c['docs'])}건" + (f"(「{first['title']}」 {first['date']})" if first else ""),
                       (first or {}).get("url") or url, "B", firms)
                 counts["newCases"] += 1
             elif o is not None:
                 for d in c["docs"]:
-                    if d["key"] in seen or SILENT.match(d["title"]):
+                    if d["key"] in seen or SILENT.match(d["title"]) or (d["date"] and d["date"] < fresh_from):   # 옛 날짜 문서가 새로 걸린 것(보관 쪽 정리)은 알리지 않는다
                         continue
                     both = sorted(set(firms + beat_in(d["title"])))
                     event(f"{c['key']}:{d['key']}", f"캐나다 CBSA {kind}", f"{c['title']} — 새 문서 「{d['title']}」({d['date'] or '날짜 없음'})", d["url"] or url, tier_of(d["title"], both), both)
