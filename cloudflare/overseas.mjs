@@ -568,6 +568,8 @@ export async function tradeRemedies(ctx, args) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
       if (doc.dgtrCases?.[e.url]) out.push(`   사건 페이지: ${dgtrCaseNote(doc.dgtrCases[e.url], true).replace(/^DGTR 사건 페이지: /, '')}`);
+      const docNote = dgtrDocNote(doc.dgtrCases?.[e.url], true);
+      if (docNote) out.push(`   판정문·개시 고시(PDF에서 뽑은 원문 대목): ${docNote.replace(/^DGTR 문서: /, '')}`);
       if (doc.listingProducers?.[e.id]?.line) out.push(`   출입처 단서: ${doc.listingProducers[e.id].line}`);
       if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
       out.push(`   원문: ${e.url}`);
@@ -809,6 +811,41 @@ export function dgtrCaseNote(c, all = false) {
     : '개시 고시 날짜 못 찾음';
   return `DGTR 사건 페이지: ${init} · 가장 최근 문서 ${c.latest.date} 「${c.latest.title}」(문서 ${c.steps ?? '?'}건) — ${DGTR_KIND[c.kind] ?? c.kind}`
     + `${party}${c.status !== 'ok' ? ' · 이번 실행은 못 읽어 직전 값' : ''}`;
+}
+
+// 인도 DGTR 판정문·개시 고시 PDF에서 뽑은 대목(dgtr_docs.py, 11-14). 원문 문장을 그대로 보여 줄 뿐 판정 결과를 풀어 적지 않는다.
+// 11-06 흄드실리카 판정문: 목록 줄은 'China PR & Korea RP'인데 이번 일몰재심은 중국만 대상이고 한국은 재심을 개시하지 않았다(7항) — 열어 봐야 알 수 있던 것.
+// 개시 고시는 스캔본이라 글자 인식으로 읽는다(숫자·날짜가 틀리게 읽힐 수 있어 그렇게 적는다). 한국 수출자 이름은 개시 고시에 없다.
+const cut = (v, n) => { const s = String(v ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? `${s.slice(0, n).trimEnd()}…` : s; };
+export function dgtrDocNote(c, all = false) {
+  if (!c) return '';
+  const out = [];
+  const f = c.findings;
+  if (f && f.status !== 'ok') out.push(`판정문(${f.date ?? '?'} 「${f.title ?? ''}」) 못 읽음(${f.error ?? '실패'}) — 미확인`);
+  else if (f) {
+    const k = f.korea ?? [];
+    const shown = all ? k : k.slice(0, 1).map((x) => cut(x, 260));
+    const total = f.koreaTotal ?? k.length;
+    const d = f.duty ?? {};
+    const rows = d.korea ?? [];
+    const duty = !d.rows ? '세율 표 못 찾음(없거나 표 꼴이 다름)'
+      : rows.length ? `세율 표 ${d.rows}줄 중 Korea 든 줄 「${(all ? rows : rows.slice(0, 2)).join('」 「')}」${!all && rows.length > 2 ? ` 외 ${rows.length - 2}줄` : ''}`
+        : `세율 표 ${d.rows}줄에 Korea 든 줄 없음${all && (d.sample ?? []).length ? `(앞 줄 「${d.sample.slice(0, 2).join('」 「')}」)` : ''}`;
+    out.push(`판정문(${f.date ?? '?'} 「${f.title ?? ''}」 ${f.pages ?? '?'}쪽${f.ocr ? ', 글자 인식 — 숫자는 원문 확인' : ''}${f.caseNo ? `, ${f.caseNo}` : ''}): ${f.subject ? `「${cut(f.subject, all ? 420 : 200)}」` : '사건 설명 줄 못 찾음'}`
+      + (k.length ? ` · 한국 문장 「${shown.join('」 「')}」${total > shown.length ? ` 외 ${total - shown.length}곳` : ''}` : ' · 본문에 Korea 문장 없음')
+      + (f.recommendation ? ` · 권고 「${cut(f.recommendation, all ? 900 : 220)}」` : '')
+      + ` · ${duty}`
+      + ((f.beat ?? []).length ? ` · 출입처 영문 이름 ${f.beat.join('·')}${(f.beatLines ?? []).length ? ` 「${(all ? f.beatLines : f.beatLines.slice(0, 1).map((x) => cut(x, 200))).join('」 「')}」` : ''}` : ''));
+  }
+  const i = c.initiation;
+  if (i && i.status !== 'ok') out.push(`개시 고시(${i.date ?? '?'}) 못 읽음(${i.error ?? '실패'}) — 미확인`);
+  else if (i) {
+    const parts = [i.applicant && `신청인 「${cut(i.applicant, all ? 460 : 200)}」`, i.poi && `조사 대상 기간 「${cut(i.poi, all ? 360 : 170)}」`,
+      all && i.industry && `국내 산업 「${i.industry}」`, all && i.timeLimit && `기한 「${i.timeLimit}」`,
+      (i.beat ?? []).length && `출입처 영문 이름 ${i.beat.join('·')}`].filter(Boolean);
+    out.push(`개시 고시(${i.date ?? '?'}${i.title && all ? ` 「${i.title}」` : ''}${i.ocr ? ', 글자 인식 — 숫자·날짜는 원문 확인' : ''}): ${parts.length ? parts.join(' · ') : '신청인·조사 대상 기간 줄을 못 찾음'}`);
+  }
+  return out.length ? `DGTR 문서: ${out.join(' · ')}` : '';
 }
 
 // 자동차리콜센터 '무상점검·수리' 게시판(kr_free_repair.py, 11-14): 연비 신고와 같은 저장소(kr-fuel)의 freeRepair 구역.

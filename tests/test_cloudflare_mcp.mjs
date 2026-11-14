@@ -17,7 +17,7 @@ import { allowedUrl, relayKey } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
-import { memoGloss, productKo, tradePoint, dgtrCaseNote } from '../cloudflare/overseas.mjs';
+import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
@@ -3335,16 +3335,35 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
       dgtrCases: { [caseUrl]: { status: 'ok', v: 2, checkedAt: at, initiated: '2026-09-30', initTitle: 'Initiation Notification-2nd SSR', firstInitiated: '2016-10-05',
         latest: { title: 'Letter regarding clarification on PUC/PCNs', date: '2026-11-12' }, steps: 20, kind: 'procedural',
         parties: { v: 2, status: 'ok', date: '2026-11-05', shape: 'table', entries: 27, koreaTotal: 5, beat: ['한화솔루션'],
-          koreaLines: ['12. Hanwha Solutions Corporation Exporter/ Producer', '13. Kumho Mitsui Chemicals Inc Exporter/ Producer', '14. Korea Chemical Industry Association Association', '27. Embassy of the Republic of Korea Embassy Self'] } } } }) }), opts3.env, {})).status, 200);
+          koreaLines: ['12. Hanwha Solutions Corporation Exporter/ Producer', '13. Kumho Mitsui Chemicals Inc Exporter/ Producer', '14. Korea Chemical Industry Association Association', '27. Embassy of the Republic of Korea Embassy Self'] },
+        // dgtr_docs.py(11-14): 판정문·개시 고시 PDF에서 뽑은 원문 대목(탐침 235의 흄드실리카 판정문·IPA 개시 고시 꼴)
+        findings: { v: 1, status: 'ok', date: '2026-11-06', title: 'Final Findings', pages: 52, ocr: false, caseNo: 'AD (SSR) – 05/2026',
+          subject: 'Sunset review investigation concerning anti -dumping duty imposed on the imports of “Toluene Di-isocyanate” originating in or exported from China PR',
+          korea: ['(7항) Anti-dumping duties are in force on the imports of the product under consideration from China PR and Korea RP. The present review was not initiated in respect of imports from Korea RP.', '(100항) Imports from Korea RP are negligible.'], koreaTotal: 3,
+          recommendation: 'The Authority has arrived at the conclusion that continuation of the existing anti - dumping duties is required in the present case for a further period of five years.',
+          duty: { rows: 6, korea: [], sample: ['1 2929101 0 TDI China PR Any country Producer A 1,296 MT USD', '2 do do China PR Any country Producer B NIL MT USD'] }, beat: ['한화솔루션'], beatLines: ['M/s Hanwha Solutions Corporation has not filed any questionnaire response.'] },
+        initiation: { v: 1, status: 'ok', date: '2026-09-30', title: 'Initiation Notification-2nd SSR', pages: 8, ocr: true, subject: 'Initiation of sunset review', applicant: '… M/s Example Chemicals Limited (hereinafter referred to as the ‘applicant’) has filed an application',
+          poi: '14. The Authority has considered the period of investigation as Ist April 2025 to 31st March 2026.', industry: '11. The application has been filed by M/s Example Chemicals Limited.', timeLimit: '26. … within thirty days.', beat: [], beatLines: [] } } } }) }), opts3.env, {})).status, 200);
   const r3 = (await call('radar_today', {}, opts3)).text;
-  assert.match(r3, /Sunset Review Investigation · DGTR 사건 페이지: 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」\(첫 조사 개시 2016-10-05\) · 가장 최근 문서 2026-11-12 「Letter regarding clarification on PUC\/PCNs」\(문서 20건\) — 진행 중인 조사·재심의 절차 공지\(새 개시 아님\) · 이해관계자 명단\(2026-11-05\): 출입처 영문 이름 한화솔루션 · 명단 27곳 가운데 이름 낱말로 고른 한국 관련 줄 「12\. Hanwha Solutions Corporation Exporter\/ Producer」 「13\. Kumho Mitsui Chemicals Inc Exporter\/ Producer」 「14\. Korea Chemical Industry Association Association」 외 2줄 · 품목 낱말이 나온 출입처/);
+  assert.match(r3, /Sunset Review Investigation · DGTR 사건 페이지: 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」\(첫 조사 개시 2016-10-05\) · 가장 최근 문서 2026-11-12 「Letter regarding clarification on PUC\/PCNs」\(문서 20건\) — 진행 중인 조사·재심의 절차 공지\(새 개시 아님\) · 이해관계자 명단\(2026-11-05\): 출입처 영문 이름 한화솔루션 · 명단 27곳 가운데 이름 낱말로 고른 한국 관련 줄 「12\. Hanwha Solutions Corporation Exporter\/ Producer」 「13\. Kumho Mitsui Chemicals Inc Exporter\/ Producer」 「14\. Korea Chemical Industry Association Association」 외 2줄 · DGTR 문서: 판정문/);
   assert.doesNotMatch(r3, /목록에 새로 보인 줄/);
   assert.match(r3, /\n\[B · 확인할 공식 변화\] 1건/);                                              // 등급은 그대로 B
+  // 판정문·개시 고시 대목: 줄 끝(사건 페이지 뒤, 출입처 단서 앞) — 짧은 화면은 한국 문장 하나·권고 앞부분
+  assert.match(r3, / 외 2줄 · DGTR 문서: 판정문\(2026-11-06 「Final Findings」 52쪽, AD \(SSR\) – 05\/2026\): 「Sunset review investigation concerning[^」]*from China PR」 · 한국 문장 「\(7항\)[^」]*not initiated in respect of imports from Korea RP\.」 외 2곳 · 권고 「[^」]*five years\.」 · 세율 표 6줄에 Korea 든 줄 없음 · 출입처 영문 이름 한화솔루션 「M\/s Hanwha Solutions Corporation has not filed any questionnaire response\.」 · 개시 고시\(2026-09-30, 글자 인식 — 숫자·날짜는 원문 확인\): 신청인 「[^」]*applicant’\) has filed an application」 · 조사 대상 기간 「[^」]*Ist April 2025 to 31st March 2026\.」 · 품목 낱말이 나온 출입처/);
   const desk3 = (await call('scoop_desk', {}, opts3)).text;
-  assert.match(desk3, /Sunset Review Investigation\n   〔사건 페이지〕 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」[^\n]*출입처 영문 이름 한화솔루션[^\n]*\n   〔출입처 단서〕 품목 낱말이 나온 출입처/);
-  assert.doesNotMatch(desk3.split('〈그 밖')[0], /Toluene DiIsocyanate/);                           // 명단에 출입처 이름이 있어도 실적 유형 칸으로 올리지 않는다
+  assert.match(desk3, /Sunset Review Investigation\n   〔사건 페이지〕 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」[^\n]*출입처 영문 이름 한화솔루션[^\n]*\n   〔판정문·개시 고시〕 [^\n]*\n   〔출입처 단서〕 품목 낱말이 나온 출입처/);
+  assert.match(desk3, /\n   〔사건 페이지〕 [^\n]*외 2줄\n   〔판정문·개시 고시〕 판정문\(2026-11-06 「Final Findings」 52쪽[^\n]*개시 고시\(2026-09-30, 글자 인식[^\n]*\n   〔출입처 단서〕 /);   // 사건 페이지 줄에 묻히지 않게 따로
+  assert.doesNotMatch(desk3.split('〈그 밖')[0], /Toluene DiIsocyanate/);                           // 명단·판정문에 출입처 이름이 있어도 실적 유형 칸으로 올리지 않는다
   assert.match((await call('trade_remedies', { section: 'notices' }, opts3)).text,
-    /   사건 페이지: 이번 절차 개시 고시 2026-09-30[^\n]*「27\. Embassy of the Republic of Korea Embassy Self」 외 1줄 — 나라 칸이 없어 빠진 한국 업체가 있을 수 있음\(원문 확인\)\n   출입처 단서:/);   // 구역 도구는 저장된 줄 전부
+    /   사건 페이지: 이번 절차 개시 고시 2026-09-30[^\n]*「27\. Embassy of the Republic of Korea Embassy Self」 외 1줄 — 나라 칸이 없어 빠진 한국 업체가 있을 수 있음\(원문 확인\)\n   판정문·개시 고시\(PDF에서 뽑은 원문 대목\): /);   // 구역 도구는 저장된 줄 전부
+  // 구역 도구: 한국 문장 전부·세율 표 앞 줄·국내 산업·기한까지
+  assert.match((await call('trade_remedies', { section: 'notices' }, opts3)).text,
+    /\n   판정문·개시 고시\(PDF에서 뽑은 원문 대목\): 판정문\(2026-11-06[^\n]*「\(100항\) Imports from Korea RP are negligible\.」 외 1곳[^\n]*세율 표 6줄에 Korea 든 줄 없음\(앞 줄 「1 2929101 0 TDI China PR Any country Producer A 1,296 MT USD」 「2 do do[^」]*NIL MT USD」\)[^\n]*개시 고시\(2026-09-30 「Initiation Notification-2nd SSR」, 글자 인식[^\n]*국내 산업 「11\. The application has been filed by M\/s Example Chemicals Limited\.」 · 기한 「26\. … within thirty days\.」\n   출입처 단서:/);
+  assert.equal(dgtrDocNote({ status: 'ok', latest: {} }), '');                                      // 읽은 문서가 없으면 아무것도 붙이지 않는다
+  assert.equal(dgtrDocNote({ findings: { status: 'failed', date: '2026-11-06', title: 'Final Findings', error: 'HTTP 503' } }), 'DGTR 문서: 판정문(2026-11-06 「Final Findings」) 못 읽음(HTTP 503) — 미확인');
+  assert.match(dgtrDocNote({ findings: { status: 'ok', date: '2026-11-06', title: 'Final Findings', pages: 40, ocr: true, subject: '', korea: [], duty: { rows: 4, korea: ['3 do do Korea RP Korea RP Any producer 301.5 MT USD'] } },
+    initiation: { status: 'failed', date: '2026-09-30', error: '스캔 PDF — 글자 인식 도구 없음' } }),
+  /^DGTR 문서: 판정문\(2026-11-06 「Final Findings」 40쪽, 글자 인식 — 숫자는 원문 확인\): 사건 설명 줄 못 찾음 · 본문에 Korea 문장 없음 · 세율 표 4줄 중 Korea 든 줄 「3 do do Korea RP Korea RP Any producer 301\.5 MT USD」 · 개시 고시\(2026-09-30\) 못 읽음\(스캔 PDF — 글자 인식 도구 없음\) — 미확인$/);
   assert.equal(dgtrCaseNote({ status: 'failed', error: 'HTTP 503' }), 'DGTR 사건 페이지: 못 읽음(HTTP 503) — 새 조사인지 미확인');
   // 재심이 없는 사건: '개시 고시 날짜'만(제목·첫 조사 덧붙임 없음)
   assert.match(dgtrCaseNote({ status: 'ok', initiated: '2026-11-02', initTitle: 'Initiation Notification', latest: { title: 'Initiation Notification', date: '2026-11-02' }, steps: 1, kind: 'new' }),

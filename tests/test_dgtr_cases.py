@@ -185,9 +185,26 @@ class Attach(unittest.TestCase):
             self.pdf_calls.append(url)
             return {"v": d.PARTIES_VERSION, "pages": 3, "chars": 900, "shape": "table", "entries": 4, "koreaLines": ["1. ABC Chemicals Ltd Korea Exporter"], "koreaTotal": 1, "beat": []}
         d.read_parties = fake
+        # 판정문·개시 고시 PDF 읽기(dgtr_docs)는 따로 시험한다 — 여기서는 무엇을 언제 읽는지만
+        self._docs = (d.read_findings, d.read_initiation)
+        self.doc_calls = []
+        self.doc_down = set()
+
+        def findings(url, *, get, beat_rx):
+            self.doc_calls.append(("findings", url.rsplit("/", 1)[-1]))
+            if url in self.doc_down:
+                raise RuntimeError("HTTP 503")
+            return {"v": 1, "pages": 52, "ocr": False, "subject": "Sunset review … from China PR", "korea": ["(7항) … not initiated in respect of imports from Korea RP."], "koreaTotal": 1,
+                    "recommendation": "continuation … five years.", "duty": {"rows": 3, "korea": [], "sample": []}, "beat": [], "beatLines": []}
+
+        def initiation(url, *, get, beat_rx):
+            self.doc_calls.append(("initiation", url.rsplit("/", 1)[-1]))
+            return {"v": 1, "pages": 8, "ocr": True, "subject": "Initiation of …", "applicant": "M/s X (… ‘applicant’)", "poi": "1st April 2025 to 31st March 2026", "industry": "", "timeLimit": "", "beat": [], "beatLines": []}
+        d.read_findings, d.read_initiation = findings, initiation
 
     def tearDown(self):
         d.read_parties = self._orig
+        d.read_findings, d.read_initiation = self._docs
 
     def test_reads_case_pages_once_and_again_only_when_relisted(self):
         events = [ev("a", PHENOL), ev("b", PHENOL), ev("c", LIST), ev("n", NEWCASE, detected="2026-11-13T07:40:00+09:00"),
@@ -213,6 +230,51 @@ class Attach(unittest.TestCase):
         doc3 = {"events": relisted}
         d.attach(doc3, doc2, NOW + dt.timedelta(days=6), get=site3.get, sleep=lambda s: None)
         self.assertEqual((site3.calls, doc3["dgtrCases"][PHENOL]["kind"], doc3["dgtrCases"][PHENOL]["latest"]["date"], len(self.pdf_calls)), ([PHENOL], "progress", "2026-11-19", 1))
+
+    def test_findings_and_initiation_pdfs_are_read_once_within_budget(self):
+        silica = PHENOL.replace("phenol", "silica")
+        tdi = PHENOL.replace("phenol", "tdi")
+        events = [ev("s", silica), ev("t", tdi, detected="2026-11-13T07:40:00+09:00"), ev("p", PHENOL, detected="2026-11-12T07:40:00+09:00")]
+        site = Site({silica: SILICA_PAGE, tdi: TDI_PAGE, PHENOL: PHENOL_PAGE})
+        doc = {"events": events}
+        n = d.attach(doc, None, NOW, get=site.get, sleep=lambda s: None)
+        c = doc["dgtrCases"][silica]
+        # 판정문: 이번 절차(2026-03-20 일몰재심 개시) 뒤의 가장 최근 것만 — 2021년 판정문은 읽지 않는다
+        self.assertEqual((c["findingsDate"], c["findingsTitle"], c["findings"]["status"], c["findings"]["date"], c["findings"]["pages"]), ("2026-11-06", "Final Findings", "ok", "2026-11-06", 52))
+        self.assertNotIn("findingsUrl", doc["dgtrCases"][tdi])                                       # TDI: 이번 2차 재심엔 아직 판정문이 없다(2017·2020·2022년 것은 지난 절차)
+        self.assertEqual([k for k, _ in self.doc_calls], ["findings", "initiation", "initiation", "initiation"])
+        self.assertEqual((n["findings"], n["initiations"], n["ocr"], n["docFailed"], n["docWaiting"]), (1, 3, 3, 0, 0))
+        self.assertEqual((doc["dgtrCases"][tdi]["initiation"]["title"], doc["dgtrCases"][tdi]["initiation"]["date"]), ("Initiation Notification-2nd SSR", "2026-09-30"))
+        # 다음 실행: 주소가 같으면 다시 받지 않는다
+        doc2 = {"events": events}
+        n2 = d.attach(doc2, doc, NOW + dt.timedelta(days=1), get=site.get, sleep=lambda s: None)
+        self.assertEqual((n2["findings"], n2["initiations"], len(self.doc_calls)), (0, 0, 4))
+        self.assertEqual(doc2["dgtrCases"][silica]["findings"]["status"], "ok")
+        # 같은 사건에 새 판정문이 붙으면(목록에 다시 뜸) 그것만 다시 읽는다
+        relisted = events + [ev("s2", silica, detected="2026-11-20T07:40:00+09:00")]
+        site3 = Site({silica: SILICA_PAGE.replace("</tbody>", row(6, "Corrigendum to Final Findings", "18/11/2026", "corr.pdf") + row(7, "Final Findings (Revised)", "19/11/2026", "ff2.pdf") + "</tbody>"), tdi: TDI_PAGE, PHENOL: PHENOL_PAGE})
+        doc3 = {"events": relisted}
+        d.attach(doc3, doc2, NOW + dt.timedelta(days=6), get=site3.get, sleep=lambda s: None)
+        self.assertEqual(self.doc_calls[4:], [("findings", "ff2.pdf")])                              # 고친 문서(Corrigendum)는 대상이 아니다
+        self.assertTrue(doc3["dgtrCases"][silica]["findings"]["url"].endswith("ff2.pdf"))
+
+    def test_document_failures_are_unconfirmed_and_retried_three_times(self):
+        silica = PHENOL.replace("phenol", "silica")
+        old = PHENOL.replace("phenol", "old")
+        events = [ev("s", silica), ev("o", old)]
+        # 개시가 400일보다 오래된 사건은 개시 고시를 읽지 않는다
+        site = Site({silica: SILICA_PAGE, old: page([row(1, "Initiation Notification", "01/02/2025", "old-init.pdf"), row(2, "Extension of time", "10/11/2026")])})
+        self.doc_down.add("https://dgtr.gov.in/sites/default/files/2026-03/x.pdf")                   # 실리카 판정문 주소(row 기본 파일 이름)
+        doc, prev = None, None
+        for k in range(4):
+            doc = {"events": events}
+            n = d.attach(doc, prev, NOW + dt.timedelta(days=k), get=site.get, sleep=lambda s: None)
+            prev = doc
+        f = doc["dgtrCases"][silica]["findings"]
+        self.assertEqual((f["status"], f["error"], f["tries"]), ("failed", "HTTP 503", 3))
+        self.assertEqual([c for c in self.doc_calls if c[0] == "findings"], [("findings", "x.pdf")] * 3)   # 네 번째 실행은 다시 묻지 않는다
+        self.assertFalse(any(name == "old-init.pdf" for _, name in self.doc_calls))
+        self.assertEqual(n["docWaiting"], 0)
 
     def test_old_rule_records_are_read_again(self):
         # 읽는 규칙이 바뀌면(VERSION) 저장된 사건·명단을 다시 읽는다 — 처음 구현이 남긴 '개시 2016'·제목 줄 명단을 그대로 두지 않는다
