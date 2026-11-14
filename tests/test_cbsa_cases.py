@@ -178,6 +178,31 @@ class Collect(unittest.TestCase):
         self.assertTrue(all(e["label"] == "캐나다 CBSA 시행 중 조치 TR(Large power transformers)" for e in events))
         self.assertEqual(len(events), 5)
 
+    def test_old_style_addresses_get_unique_keys_and_key_changes_are_quiet(self):
+        # 탐침 240: 옛 재조사는 주소 꼴이 달라 제목으로 열쇠를 만들었고, 같은 품목의 해마다 다른 재조사가 한 열쇠로 겹쳤다(읽은 94건 → 저장 85건)
+        old15 = case("Copper pipe fittings: Dumping (China, Korea, and United-States); Countervailing (China) - Concluded on 2015-11-25",
+                     [doc_row("/sima-lmsi/ri-re/ad1358/ad1358-ri15-nc-eng.html", "Notice of conclusion of re-investigation", "2015-11-25", True)])
+        old14 = case("Copper pipe fittings: Dumping (China, Korea, and United-States); Countervailing (China) - Concluded on 2014-10-20",
+                     [doc_row("/sima-lmsi/ri-re/ad1358/ad1358-ri14-nc-eng.html", "Notice of conclusion of re-investigation", "2014-10-20", True)])
+        wire = case("Stainless steel wire: Dumping (Korea, Switzerland and United-States) - Concluded on 2008-05-01", [doc_row("/sima-lmsi/ri-re/ad1292/ad1292nc-eng.html", "Notice of conclusion", "2008-05-01", True)])
+        cases, _ = c.parse_list(page([old15, old14, wire]), "ar-ra", AR)
+        self.assertEqual([x["key"] for x in cases], ["ar-ra/ad1358/ad1358-ri15-nc", "ar-ra/ad1358/ad1358-ri14-nc", "ar-ra/ad1292/ad1292nc"])
+        # 직전 저장분이 옛 열쇠(제목)로 돼 있어도 새 사건·새 문서로 알리지 않는다
+        s = site(pages={AR: page([LINE_PIPE, old15, old14])})
+        prev, _, _ = run(None, s)
+        cs = prev["lists"]["ar-ra"]["cases"]
+        cs["ar-ra/copper-pipe-fittings-old-title-key"] = {**cs.pop("ar-ra/ad1358/ad1358-ri15-nc"), "seen": []}
+        cs["ar-ra/another-old-key"] = {**cs.pop("ar-ra/ad1358/ad1358-ri14-nc"), "seen": []}
+        sec, events, check = run(prev, s, NOW + dt.timedelta(days=1))
+        self.assertEqual((events, check["newCases"], check["newDocs"]), ([], 0, 0))
+        self.assertEqual(sorted(sec["lists"]["ar-ra"]["cases"]), ["ar-ra/ad1358/ad1358-ri14-nc", "ar-ra/ad1358/ad1358-ri15-nc", "ar-ra/lp22026/lp2202601"])
+        self.assertTrue(sec["lists"]["ar-ra"]["cases"]["ar-ra/ad1358/ad1358-ri15-nc"]["seen"])                                      # 문서 열쇠도 이어받는다
+
+    def test_affiliate_names_are_not_beat_companies(self):
+        self.assertEqual(c.beat_in("Hyundai Steel Pipe Co., Ltd."), [])                                                            # 현대스틸파이프는 현대제철이 아니다
+        self.assertEqual(c.beat_in("Hyundai Steel Company"), ["현대제철"])
+        self.assertEqual(c.beat_in("Hyundai Steel Company; Hyundai Steel Pipe Co., Ltd."), ["현대제철"])
+
     def test_failures_keep_the_previous_state(self):
         prev, _, _ = run(None, site())
         sec, events, check = run(prev, site(down=[AR, TR_URL]), NOW + dt.timedelta(days=1))

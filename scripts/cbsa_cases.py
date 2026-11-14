@@ -90,11 +90,17 @@ def doc_key(url, title):
 
 
 def case_key(list_id, docs, title):
+    """사건 열쇠: 첫 문서 주소의 폴더·파일 머리('ar-ra/lp22026/lp2202601'). 옛 주소 꼴('ad1358-ri15-nc', 'ad1292f')은 파일 이름째로.
+    11-14 운영: 제목으로 만든 열쇠가 겹쳐(같은 품목의 해마다 다른 재조사) 읽은 사건 94건이 85건으로 저장됐다 — 주소로 만든다."""
     for d in docs:
         m = re.search(r"/sima-lmsi/[a-z-]+/([a-z0-9]+)/([a-z0-9]+?)-[a-z0-9]+-eng\.html", d.get("url") or "")
         if m:
             return f"{list_id}/{m.group(1)}/{m.group(2)}"
-    return f"{list_id}/" + re.sub(r"\W+", "-", re.split(r"—| - Conclud| – ", title)[0].lower())[:60]
+    for d in docs:
+        m = re.search(r"/sima-lmsi/[a-z-]+/([^/]+)/([^/]+?)(?:-eng)?\.html", d.get("url") or "")
+        if m:
+            return f"{list_id}/{m.group(1)}/{m.group(2)}"
+    return f"{list_id}/" + re.sub(r"\W+", "-", title.lower())[:80]
 
 
 def parse_list(page, list_id, base):
@@ -186,9 +192,13 @@ def parse_measure(page, base):
     return actions, exporters
 
 
+# 출입처의 자회사 이름은 출입처로 적지 않는다(11-14 운영: 조치 쪽 수출자 'Hyundai Steel Pipe Co., Ltd.'(현대스틸파이프)가 '현대제철'로 붙었다)
+AFFILIATE = re.compile(r"Hyundai Steel Pipe", re.I)
+
+
 def beat_in(text):
     import tra_file_watch as tra
-    return tra.companies_in(text)
+    return tra.companies_in(AFFILIATE.sub("(affiliate)", text or ""))
 
 
 def tier_of(doc_title, companies):
@@ -230,10 +240,14 @@ def collect(previous, now, *, get, sleep=time.sleep):
             continue
         old_cases = old.get("cases") or {}
         baseline = not old_cases
+        by_title = {v.get("title"): v for v in old_cases.values()}
         kept = {}
         for c in cases:
             o = old_cases.get(c["key"])
-            seen = set((o or {}).get("seen") or [])
+            moved = False
+            if o is None and c["title"] in by_title:        # 열쇠 만드는 법이 바뀐 사건: 제목이 같은 직전 기록을 잇는다(새 사건·새 문서로 알리지 않는다)
+                o, moved = by_title[c["title"]], True
+            seen = set((o or {}).get("seen") or []) | ({d["key"] for d in c["docs"]} if moved else set())
             firms = beat_in(c["title"])
             if o is None and not baseline and list_id != "i-e":
                 first = next((d for d in c["docs"] if not SILENT.match(d["title"])), None)
