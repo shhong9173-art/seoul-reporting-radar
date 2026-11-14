@@ -586,6 +586,7 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((c) => `${c.no} ${c.commodity ?? ''}(${String(c.gone).slice(0, 10)} 감지)`).join(' · ')} — 종결·보관으로 옮겨졌을 수 있음`);
   const ev = (events ?? []).filter((e) => e.pageId === 'au-epr' && !e.retracted && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C')
     && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
+  ev.sort((a, b) => String(a.tier).localeCompare(String(b.tier)) || String(b.detectedAt).localeCompare(String(a.detectedAt)));
   out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true)'}`);
   for (const e of ev.slice(0, limit)) {
     out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);

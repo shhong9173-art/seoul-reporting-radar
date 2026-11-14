@@ -5038,7 +5038,7 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match((await rpc('initialize', { protocolVersion: '2025-03-26' }, opts)).body.result.instructions, /단독 후보를 달라는 요청에는 scoop_desk부터/);
 });
 
-test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정·문서 줄, 출입처 이름이 든 새 문서는 B(A·실적 유형 아님), 그 밖은 C', async () => {
+test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정·문서 줄, 출입처 이름이 든 새 문서는 A·실적 있는 유형(기자 11-15), 이름 없는 Report는 B, 그 밖은 C', async () => {
   const at = new Date(NOW.getTime() - 3600000).toISOString();
   const epr = 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr';
   // 11-14 기자 컴퓨터 브라우저로 읽은 사건 698·706(문서 줄 일부)
@@ -5059,13 +5059,15 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
       docs: [{ no: '22', type: 'Notice - TRN', title: 'TRN 2026/141 - Extension of Time to Publish SEF and Final Report', date: '2026-10-02', url: null }] },
     640: { commodity: 'Wind towers', kind: 'Review', countries: 'China, Korea', title: '640 - Wind towers from China, Korea', url: `${epr}/640`, docs: [], missing: 3, gone: '2026-11-10T07:40:00+09:00' } } };
   const events = [
-    { id: 'au-epr:706:doc:23', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)', tier: 'B', companies: ['포스코'], detectedAt: at,
+    { id: 'au-epr:706:doc:23', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)', tier: 'A', companies: ['포스코'], detectedAt: at,
       url: 'https://www.industry.gov.au/sites/default/files/706-23.pdf', text: '새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」(2026-11-13)' },
     { id: 'au-epr:706:doc:24', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 706 Zinc coated (galvanised) steel(조사)', tier: 'C', detectedAt: at,
       url: `${epr}/706`, text: '새 문서 EPR 24번 Submission 「Importer - MantaMesh Pty Ltd - Further submission」(2026-11-13)' },
-    // 수집기가 A를 내더라도(기자가 정하기 전) 화면은 C로 둔다
-    { id: 'au-epr:698:doc:18', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 698 Aluminium zinc coated steel (≥600mm)(종료재심)', tier: 'A', detectedAt: at,
-      url: `${epr}/698`, text: '새 문서 EPR 18번 Note for File 「Something」(2026-11-13)' }];
+    { id: 'au-epr:698:doc:18', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 698 Aluminium zinc coated steel (≥600mm)(종료재심)', tier: 'B', detectedAt: at,
+      url: `${epr}/698`, text: '새 문서 EPR 18번 Report 「Final Report 698」(2026-11-16)' },
+    // 수집기가 모르는 등급을 내면 C로 둔다
+    { id: 'au-epr:698:doc:19', pageId: 'au-epr', country: '호주', label: '호주 ATRC 사건 698 Aluminium zinc coated steel (≥600mm)(종료재심)', tier: 'S', detectedAt: at,
+      url: `${epr}/698`, text: '새 문서 EPR 19번 Note for File 「Something」(2026-11-13)' }];
   const o = PRIVATE();
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events, auEpr }) }), o.env, {})).status, 200);
@@ -5077,9 +5079,9 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.match(sec, /\n   원문: https:\/\/www\.industry\.gov\.au\/australian-trade-remedies-commission\/current-cases-and-electronic-public-record-epr\/698\n- 사건 706 /);
   assert.match(sec, /- 사건 706 [^\n]* · 조사 · 문서 제목에 나온 출입처 이름 동국씨엠·동국제강·포스코 · ⚠ 이번에 사건 페이지를 못 읽음\(사건 706 시간 초과 4초\) — 직전 문서 줄\n   다음 단계 SEF · 목록 마지막 갱신 2026-10-02 · 문서 22건 · 개시 19 June 2026 · 필수사실 보고서\(SEF\) 기한 5 March 2027\n/);   // 'NA' 일정은 뺀다
   assert.match(sec, /진행 목록에서 빠진 사건: 640 Wind towers\(2026-11-10 감지\)/);
-  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true\)\n- B · [^\n]*새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」\(2026-11-13\) · 출입처 포스코\n   원문: https:\/\/www\.industry\.gov\.au\/sites\/default\/files\/706-23\.pdf/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건\(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true\)\n- A · [^\n]*새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」\(2026-11-13\) · 출입처 포스코\n   원문: https:\/\/www\.industry\.gov\.au\/sites\/default\/files\/706-23\.pdf\n- B · [^\n]*EPR 18번 Report/);
   assert.match(sec, /의견서는 낸 쪽의 주장이고 조사기관 판단이 아니다/);
-  assert.match((await call('trade_remedies', { section: 'au', show_all: true }, o)).text, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건\n/);
+  assert.match((await call('trade_remedies', { section: 'au', show_all: true }, o)).text, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 4건\n/);
   assert.match((await call('trade_remedies', { section: 'au', company: 'KG스틸' }, o)).text, /한국 관련 진행 사건 1건/);
   assert.match((await call('trade_remedies', { section: 'au', company: 'galvanised' }, o)).text, /한국 관련 진행 사건 1건[\s\S]*- 사건 706 /);
   assert.match((await call('trade_remedies', {}, o)).text, /\[호주 ATRC 사건 공개기록\(EPR\) · 한국 관련 진행 사건 2건/);          // 구역을 안 고르면 같이 나온다
@@ -5089,15 +5091,19 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [] }) }), o2.env, {})).status, 200);
   assert.match((await call('trade_remedies', { section: 'au' }, o2)).text, /\[호주 ATRC 사건 공개기록\(EPR\)\] 아직 수집 전 — 미확인/);
-  // radar_today: 출입처 이름이 든 새 문서는 B(A 아님), 이름 없는 의견서는 C
+  // radar_today: 출입처 이름이 든 새 문서는 A, 이름 없는 Report는 B, 이름 없는 의견서·모르는 등급은 C
   const r = (await call('radar_today', {}, o)).text;
-  assert.match(r, /\n\[A · [^\n]*\] 0건/);
+  assert.match(r, /\n\[A · [^\n]*\] 1건/);
   assert.match(r, /\n\[B · 확인할 공식 변화\] 1건/);
+  assert.match(r, /호주 ATRC 사건 698 [^\n]*EPR 18번 Report 「Final Report 698」/);
   assert.match(r, /포스코[^\n]*\n   호주 ATRC 사건 706 Zinc coated \(galvanised\) steel\(조사\): 새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」\(2026-11-13\) — 문서 제목·날짜만 읽음\(내용은 원문 PDF\)/);
-  assert.doesNotMatch(r, /MantaMesh|EPR 18번/);
-  assert.match((await call('radar_today', { include_minor: true }, o)).text, /MantaMesh[\s\S]*EPR 18번|EPR 18번[\s\S]*MantaMesh/);
-  // 단독 데스크: 새 원천이라 '실적 있는 유형'으로 올리지 않는다(올릴지는 기자가 정한다)
-  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '호주 ATRC 사건 공개기록', company: '포스코', fact: '호주 ATRC 사건 706: 새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」' }).key, 'other');
+  assert.doesNotMatch(r, /MantaMesh|EPR 19번/);
+  assert.match((await call('radar_today', { include_minor: true }, o)).text, /MantaMesh[\s\S]*EPR 19번|EPR 19번[\s\S]*MantaMesh/);
+  // 단독 데스크(기자 11-15): 직접 출입처 이름이 든 것은 '실적 있는 유형', 이름이 없으면 '그 밖', C는 올리지 않는다
+  const fact = '호주 ATRC 사건 706: 새 문서 EPR 23번 Submission 「Exporter - POSCO - Submission on PMS」';
+  assert.equal(deskType({ watch: '무역구제', tier: 'A', kind: '호주 ATRC 사건 공개기록', company: '포스코', fact }).key, 'foreigndoc');
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '호주 ATRC 사건 공개기록', company: '호주', fact: '호주 ATRC 사건 698: 새 문서 EPR 18번 Report 「Final Report 698」' }).key, 'other');
+  assert.equal(deskType({ watch: '무역구제', tier: 'C', kind: '호주 ATRC 사건 공개기록', company: '포스코', fact }).key, 'other');
 });
 
 test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 출입처 이름이 든 것은 A·실적 유형, 그 밖의 문서는 B·절차 문서는 C', async () => {

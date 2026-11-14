@@ -21,8 +21,10 @@ industry.gov.au는 GitHub·Cloudflare에서 막혀(응답 없음·HTTP 520) 기�
   넘게 새로 보이면 한 줄로 묶는다(수집 꼴이 바뀌어 한꺼번에 쏟아지는 것을 막는다).
 - 기준선 뒤 진행 목록에 새로 들어온 한국 사건: 개시일(Initiation Date)이 FRESH_DAYS 안일 때만.
 - 진행 목록의 다음 단계가 바뀜 / 주요 일정 날짜가 바뀜 / 진행 목록에서 두 번 연속 빠짐(종결돼 보관 목록으로 옮겨졌을 수 있음).
-등급: 직접 출입처 이름이 든 문서와 Report(SEF·종결 보고서·최종 보고서 등)는 B, 그 밖은 C. Notice(ADN·TRN)는 TRN 목록 감시가 따로
-알리므로 출입처 이름이 없으면 C. A는 내지 않는다 — 올릴지는 기자가 정한다. 문서 제목·날짜만 읽는다(PDF 본문은 읽지 않음).
+등급(기자 11-15 02:21 — 캐나다 CBSA와 같은 규칙, 첫 수집이 맞게 도는 것을 본 뒤 올림): 직접 출입처 이름이 든 문서는 A(연장·일정·
+현황 보고 같은 절차 문서는 이름이 있어도 B). 출입처 이름이 없으면 Report(SEF·종결 보고서·최종 보고서 등)만 B, 그 밖은 C —
+Notice(ADN·TRN)는 TRN 목록 감시가 따로 알린다. 새 사건·진행 목록에서 빠짐은 문서 제목에 직접 출입처 이름이 있으면 A, 없으면 B.
+단계·일정 바뀜은 C. 문서 제목·날짜만 읽는다(PDF 본문은 읽지 않음).
 """
 from __future__ import annotations
 
@@ -43,6 +45,8 @@ MAX_DOCS = 60
 CASE_NO = re.compile(r"^[A-Za-z0-9-]{1,20}$")
 MONTHS = {m: i + 1 for i, m in enumerate("january february march april may june july august september october november december".split())}
 PDF_SIZE = re.compile(r"\s*\[pdf[^\]]*\]", re.I)
+# 절차 문서: 기한 연장·일정·현황 보고(Day 60 Status Report 등) — 출입처 이름이 있어도 B
+PROCEDURAL = re.compile(r"extension of time|status report|timetable|schedule", re.I)
 KIND_KO = {"investigation": "조사", "continuation": "종료재심", "review": "재심", "accelerated review": "신속 재심",
            "anti-circumvention": "우회 조사", "exemption": "면제 조사", "duty assessment": "관세 정산"}
 
@@ -73,10 +77,17 @@ def direct(companies):
     return [x for x in companies or [] if not x.endswith("(관련)")]
 
 
-def tier_of(doc_type, companies):
+def tier_of(doc_type, title, companies):
+    """직접 출입처 이름이 든 문서는 A(절차 문서는 B). 이름이 없으면 Report만 B, 그 밖은 C."""
     if direct(companies):
-        return "B"
+        return "B" if PROCEDURAL.search(str(title or "")) else "A"
+    if PROCEDURAL.search(str(title or "")):
+        return "C"
     return "B" if re.fullmatch(r"report", str(doc_type or "").strip(), re.I) else "C"
+
+
+def named_tier(companies):
+    return "A" if direct(companies) else "B"
 
 
 def kind_ko(kind):
@@ -210,7 +221,7 @@ def collect(browser, previous, now):
             if started and started >= cutoff:
                 counts["newCases"] += 1
                 push(no, rec, "new", f"진행 사건 목록에 새로 들어옴: 「{rec.get('title') or no}」 · {kind_ko(rec.get('kind'))} · 개시 {started} · 나라 {rec.get('countries') or '?'}"
-                     f"{' · 문서에 나온 출입처 이름 ' + '·'.join(firms) if firms else ''}", "B", firms=firms)
+                     f"{' · 문서에 나온 출입처 이름 ' + '·'.join(firms) if firms else ''}", named_tier(firms), firms=firms)
             continue
         if not old.get("docs") and old.get("error"):
             continue   # 직전에 사건 페이지를 한 번도 못 읽었다: 이번이 기준선
@@ -219,7 +230,7 @@ def collect(browser, previous, now):
         if len(fresh) > BURST:
             names = sorted({f for d in fresh for f in d.get("companies") or []})
             top = fresh[0]
-            tier = "B" if any(tier_of(d["type"], d.get("companies")) == "B" for d in fresh) else "C"
+            tier = min(tier_of(d["type"], d["title"], d.get("companies")) for d in fresh)   # 'A' < 'B' < 'C"
             counts["newDocs"] += len(fresh)
             push(no, rec, f"docs:{stamp[:10]}", f"새 문서 {len(fresh)}건(EPR {fresh[-1]['no']}~{fresh[0]['no']}번) — 가장 최근: {top['type']} 「{top['title'][:160]}」({top['date']})"
                  f"{' · 출입처 이름 ' + '·'.join(names) if names else ''}", tier, url=rec.get("url"), firms=names)
@@ -227,7 +238,7 @@ def collect(browser, previous, now):
             for d in fresh:
                 counts["newDocs"] += 1
                 push(no, rec, f"doc:{d['no']}", f"새 문서 EPR {d['no']}번 {d['type']} 「{d['title'][:200]}」({d['date']})",
-                     tier_of(d["type"], d.get("companies")), url=d.get("url"), firms=d.get("companies"))
+                     tier_of(d["type"], d["title"], d.get("companies")), url=d.get("url"), firms=d.get("companies"))
         if old.get("milestone") and rec.get("milestone") and old["milestone"] != rec["milestone"]:
             counts["changes"] += 1
             push(no, rec, f"milestone:{rec['milestone'][:30]}", f"진행 목록의 다음 단계 바뀜: {old['milestone']} → {rec['milestone']}", "C")
@@ -246,8 +257,8 @@ def collect(browser, previous, now):
         if miss >= 2 and not old.get("gone"):
             rec["gone"] = stamp
             counts["gone"] += 1
-            push(no, old, "gone", f"진행 사건 목록에서 빠짐: 「{old.get('title') or no}」 — 종결돼 보관 목록으로 옮겨졌을 수 있음(최종 공지·판정은 TRN 목록에서 확인)", "B",
-                 firms=old.get("companies"))
+            push(no, old, "gone", f"진행 사건 목록에서 빠짐: 「{old.get('title') or no}」 — 종결돼 보관 목록으로 옮겨졌을 수 있음(최종 공지·판정은 TRN 목록에서 확인)",
+                 named_tier(old.get("companies")), firms=old.get("companies"))
         cases[no] = rec
     for no in got:
         cases[no].pop("missing", None)
