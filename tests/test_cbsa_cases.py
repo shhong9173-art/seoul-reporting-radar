@@ -171,9 +171,9 @@ class Collect(unittest.TestCase):
         sec, events, check = run(prev, site(pages={TR_URL: tr_page(action, ex)}), NOW + dt.timedelta(days=40))
         got = {e["text"]: (e["tier"], e.get("companies")) for e in events}
         self.assertEqual(got["조치 쪽에 새 절차 줄 「Administrative Review」(2026-08-14)"], ("B", None))
-        self.assertEqual(got["한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12"], ("B", ["HD현대일렉트릭"]))
-        self.assertEqual(got["정상가격을 받은 한국 수출자에 새 이름 「LS Electric Co., Ltd.」(협조 시작 2026-12 · 마지막 개정 2026-12)"], ("B", ["LS일렉트릭"]))
-        self.assertEqual(got["정상가격을 받은 한국 수출자 표에서 「Hyosung Heavy Industries」이 빠짐"], ("B", ["효성중공업(관련)"]))
+        self.assertEqual(got["한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12"], ("A", ["HD현대일렉트릭"]))                # 기자 11-14: 출입처 이름이 든 수출자 표 변화는 A
+        self.assertEqual(got["정상가격을 받은 한국 수출자에 새 이름 「LS Electric Co., Ltd.」(협조 시작 2026-12 · 마지막 개정 2026-12)"], ("A", ["LS일렉트릭"]))
+        self.assertEqual(got["정상가격을 받은 한국 수출자 표에서 「Hyosung Heavy Industries」이 빠짐"], ("B", ["효성중공업(관련)"]))               # 직접 출입처가 아닌 '(관련)' 회사만이면 B
         self.assertEqual(got["한국 수출자 「Small Maker Co.」의 정상가격 마지막 개정 2016-01 → 2017-07"], ("C", None))               # 출입처가 아닌 곳의 개정은 C
         self.assertTrue(all(e["label"] == "캐나다 CBSA 시행 중 조치 TR(Large power transformers)" for e in events))
         self.assertEqual(len(events), 5)
@@ -231,6 +231,22 @@ class Collect(unittest.TestCase):
         self.assertEqual(c.beat_in("Hyundai Steel Pipe Co., Ltd."), [])                                                            # 현대스틸파이프는 현대제철이 아니다
         self.assertEqual(c.beat_in("Hyundai Steel Company"), ["현대제철"])
         self.assertEqual(c.beat_in("Hyundai Steel Company; Hyundai Steel Pipe Co., Ltd."), ["현대제철"])
+
+    def test_tiers_follow_the_reporters_rule(self):
+        # 기자 11-14 22:36: 출입처 이름이 든 문서는 A. 일정·연장은 이름이 있어도 B, 이름이 없으면 C. '(관련)' 회사만이면 B
+        self.assertEqual(c.tier_of("Notice of conclusion of administrative review", ["세아제강"]), "A")
+        self.assertEqual(c.tier_of("Notice of conclusion of administrative review", []), "B")
+        self.assertEqual(c.tier_of("Notice of conclusion of administrative review", ["일진전기(관련)"]), "B")
+        self.assertEqual(c.tier_of("Administrative review schedule", ["세아제강"]), "B")
+        self.assertEqual(c.tier_of("Notice of extension of an administrative review", []), "C")
+        # 회사별 재심(사건 머리에 출입처 이름): 종결 문서는 A, 일정 문서는 B
+        seah = case('Carbon and alloy steel line pipe&nbsp;2 | SeAH Steel Corporation: <span class="noBold">Dumping (South Korea)&mdash;Concludes on <time datetime="2027-01-20">January 20, 2027</time></span>',
+                    [doc_row("/sima-lmsi/ar-ra/lp22026/lp2202602-ni-eng.html", "Notice of initiation of normal value review", "2026-11-10")])
+        prev, _, _ = run(None, site(pages={AR: page([LINE_PIPE, seah])}))
+        later = seah.replace("</tbody>", doc_row("/sima-lmsi/ar-ra/lp22026/lp2202602-nc-eng.html", "Notice of conclusion of normal value review", "2027-01-20")
+                             + doc_row("/sima-lmsi/ar-ra/lp22026/lp2202602-se-eng.html", "Normal value review schedule", "2026-12-01") + "</tbody>")
+        _, events, _ = run(prev, site(pages={AR: page([LINE_PIPE, later])}), NOW + dt.timedelta(days=70))
+        self.assertEqual({e["id"].rsplit(":", 1)[-1]: (e["tier"], e["companies"]) for e in events}, {"lp2202602-nc": ("A", ["세아제강"]), "lp2202602-se": ("B", ["세아제강"])})
 
     def test_failures_keep_the_previous_state(self):
         prev, _, _ = run(None, site())

@@ -611,6 +611,23 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
 
   const tr = docs['trade-remedy'];
   const listing = mergeListingLines(tr?.events ?? []);
+  // 인도 DGTR: 사건 페이지를 읽었고(ok) 갈래가 절차 공지면 그 줄은 C. 같은 실행에 잡힌 나라 줄('Country: …', 주소가 목록 쪽)은
+  // 그 실행의 사건 줄이 전부 절차 공지일 때만 같이 내린다(어느 사건의 나라 줄인지 알 수 없어서).
+  const dgKind = (e) => { const c = /^in-dgtr/.test(e.pageId ?? '') ? tr?.dgtrCases?.[e.url] : null; return c?.status === 'ok' ? c.kind : null; };
+  const dgGroups = new Map();
+  for (const e of tr?.events ?? []) {
+    if (!/^in-dgtr/.test(e?.pageId ?? '')) continue;
+    const k = `${e.pageId}|${e.detectedAt}`;
+    const g = dgGroups.get(k) ?? { kinds: [], unread: 0 };
+    if (tr?.dgtrCases?.[e.url]) { const kind = dgKind(e); if (kind) g.kinds.push(kind); else g.unread += 1; }
+    dgGroups.set(k, g);
+  }
+  const dgtrProcedural = (e) => {
+    if (!/^in-dgtr/.test(e.pageId ?? '')) return false;
+    if (tr?.dgtrCases?.[e.url]) return dgKind(e) === 'procedural';
+    const g = dgGroups.get(`${e.pageId}|${e.detectedAt}`);
+    return !!g && !g.unread && g.kinds.length > 0 && g.kinds.every((k) => k === 'procedural');
+  };
   for (const e0 of tr?.events ?? []) {
     if (!recent(e0.detectedAt) || e0.renumbered || e0.retracted) continue;  // 목록 일련번호만 밀린 재감지 · 수집기가 잘못 낸 것으로 표시한 이벤트(11-14 CBSA 옛 사건 9건)
     if (listing.drop.has(e0.id)) continue;                  // 같은 조사의 겹친 줄(제목 줄·상태 줄·나라 줄) — 남긴 한 줄에 합쳐 적는다
@@ -657,15 +674,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     }
     if (e.pageId === 'cbsa') {
       // 캐나다 CBSA 사건 문서·시행 중 조치(11-14, cbsa_cases.py): 판정·개시·종결 문서와 출입처 이름이 든 것은 B, 일정·연장 같은 절차 문서는 C. 등급은 수집기.
-      // 새 원천이라 A는 없다(올릴지는 기자가 정한다). 유형도 '실적 있는 유형' 표에 넣지 않았다.
+      // 기자 11-14 22:36: 출입처 이름이 든 문서·수출자 표 변화는 A·'실적 있는 유형'으로. 직접 출입처만(효성중공업·일진전기 같은 '(관련)' 이름만 있으면 B), 일정·연장 문서는 출입처 이름이 있어도 B.
       const firms = e.companies ?? [];
-      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: '캐나다 CBSA 사건 문서', id: e.id, date: e.detectedAt,
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '캐나다 CBSA 사건 문서', id: e.id, date: e.detectedAt,
         company: firms.join('·') || '캐나다', fact: `${e.label}: ${e.text} — 문서 제목·날짜만 읽음(판정 내용·세율은 원문)`, url: e.url,
         check: firms.length ? hint(firms[0], ['캐나다', '반덤핑']) : undefined });
       continue;
     }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
-    push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
+    // 인도 DGTR 절차 공지뿐인 줄은 C(기자 11-14 22:36 — 11-14 새 줄 8건 중 7건이 이메일 주소 변경·질문서 기한 연장 같은 공지였다). 사건 페이지를 못 읽었으면 B 그대로
+    push(e.repeats || dgtrProcedural(e) ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       // 해외 조사 목록(인도 DGTR 등)의 '새 줄'은 새 조사가 아닐 수 있다 — 11-14 확인: '페놀' 줄은 3-19 개시 조사에 절차 공지가 붙어 다시 뜬 것
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : e.pageId === 'taric' || tr?.dgtrCases?.[e.url]?.latest ? '' : ' — 목록에 새로 보인 줄(새 조사인지는 원문의 개시일 확인)'}`
         // 인도 DGTR: 사건 페이지 일정표에서 읽은 개시일·가장 최근 문서(dgtr_cases.py) — 읽었으면 위 '확인하라' 문구 대신 이것을 적는다
