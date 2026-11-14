@@ -207,14 +207,25 @@ class Collect(unittest.TestCase):
         sec, events, check = run(prev, site(pages={AR: page([relinked, COPPER, OTHER, old])}), NOW + dt.timedelta(days=1))
         self.assertEqual((events, check["newCases"], check["newDocs"]), ([], 0, 0))
         self.assertIn("ar-ra/ad1358/ad1358-ri15-nc", sec["lists"]["ar-ra"]["cases"])                                             # 저장은 한다
-        # 이미 나간 잘못된 '새 사건'은 표시만 하고 지우지 않는다. 진행 중 사건의 새 사건 이벤트는 그대로
-        stored = [{"id": "cbsa:ar-ra/ad1358/ad1358-ri15-nc", "pageId": "cbsa", "text": "새 사건 — Copper pipe fittings … Concluded on 2015-11-25", "detectedAt": "2026-11-14T16:06:00+09:00"},
-                  {"id": "cbsa:ar-ra/lp22026/lp2202601", "pageId": "cbsa", "text": "새 사건 — Carbon and alloy steel line pipe 2", "detectedAt": "2026-11-14T16:06:00+09:00"},
-                  {"id": "cbsa:ar-ra/ad1358/ad1358-ri15-nc:x", "pageId": "cbsa", "text": "… — 새 문서 「x」", "detectedAt": "2026-11-14T16:06:00+09:00"},
-                  {"id": "in-dgtr:x", "pageId": "in-dgtr", "text": "새 사건 아님", "detectedAt": "2026-11-14T16:06:00+09:00"}]
-        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=1)), 1)
-        self.assertEqual([bool(e.get("retracted")) for e in stored], [True, False, False, False])
-        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=2)), 0)                                              # 다시 세지 않는다
+        # 이미 나간 잘못된 것은 표시만 하고 지우지 않는다(11-14 운영에서 나간 꼴 그대로). 최근 날짜의 것·다른 원천은 그대로
+        at = "2026-11-14T15:58:00+09:00"
+        stored = [{"id": "cbsa:ar-ra/copper-old:ri15-nc", "pageId": "cbsa", "detectedAt": at, "text": "Copper pipe fittings: Dumping (China, Korea, and United-States) - Concluded on 2016-02-05 — 새 문서 「(Archived) - Notice of Conclusion of Re-investigation」(2016-02-05)"},
+                  {"id": "cbsa:ar-ra/copper-old:state:Concluded:2016-02-05", "pageId": "cbsa", "detectedAt": at, "text": "Copper pipe fittings … - Concluded on 2016-02-05 — 사건 머리 바뀜: Concluded 2007-07-16 → Concluded 2016-02-05"},
+                  {"id": "cbsa:ar-ra/ad1358/ad1358-ri15-nc", "pageId": "cbsa", "detectedAt": "2026-11-14T16:06:00+09:00", "text": "새 사건 — Copper pipe fittings: Dumping (China, Korea, and United-States) - Concluded on 2016-02-05 · 문서 2건(「(Archived) - Notice」 2016-02-05)"},
+                  {"id": "cbsa:ar-ra/lp22026/lp2202601:lp2202601-nc", "pageId": "cbsa", "detectedAt": "2026-12-15T07:40:00+09:00", "text": "Carbon and alloy steel line pipe 2 … — 새 문서 「Notice of conclusion of administrative review」(2026-12-14)"},
+                  {"id": "cbsa:ar-ra/lp22026/lp2202601:state:Concluded:2026-12-14", "pageId": "cbsa", "detectedAt": "2026-12-15T07:40:00+09:00", "text": "Carbon … — 사건 머리 바뀜: Concludes 2026-12-14 → Concluded 2026-12-14"},
+                  {"id": "cbsa:er-rre/octg22026/octg22026", "pageId": "cbsa", "detectedAt": "2026-12-15T07:40:00+09:00", "text": "새 사건 — Oil Country Tubular Goods 2: Dumping (South Korea)—Concludes on May 1, 2027 · 문서 1건"},
+                  {"id": "cbsa:mif:TR:rev:x", "pageId": "cbsa", "detectedAt": at, "text": "한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12"},
+                  {"id": "in-dgtr:x", "pageId": "in-dgtr", "detectedAt": at, "text": "x — 새 문서 「y」(2010-01-01)"}]
+        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=40)), 3)
+        self.assertEqual([bool(e.get("retracted")) for e in stored], [True, True, True, False, False, False, False, False])
+        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=41)), 0)                                             # 다시 세지 않는다
+        # 옛 사건의 머리가 달라 보여도(겹친 열쇠) 상태 바뀜으로 알리지 않는다
+        prev2, _, _ = run(None, site(pages={AR: page([LINE_PIPE, old])}))
+        key = "ar-ra/ad1358/ad1358-ri15-nc"
+        prev2["lists"]["ar-ra"]["cases"][key]["stateDate"] = "2007-07-16"
+        _, ev2, chk2 = run(prev2, site(pages={AR: page([LINE_PIPE, old])}), NOW + dt.timedelta(days=1))
+        self.assertEqual((ev2, chk2["stateChanges"]), ([], 0))
 
     def test_affiliate_names_are_not_beat_companies(self):
         self.assertEqual(c.beat_in("Hyundai Steel Pipe Co., Ltd."), [])                                                            # 현대스틸파이프는 현대제철이 아니다

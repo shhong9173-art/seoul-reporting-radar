@@ -208,17 +208,29 @@ def tier_of(doc_title, companies):
     return "C" if PROCEDURAL.search(doc_title) and not companies else "B"
 
 
+NEW_DOC_DATE = re.compile(r"새 문서 「.*」\((\d{4}-\d{2}-\d{2})\)\s*$")
+STATE_DATE = re.compile(r"사건 머리 바뀜: .* → \w[\w ]*? (\d{4}-\d{2}-\d{2})\s*$")
+TITLE_END = re.compile(r"Conclud\w* on (\d{4}-\d{2}-\d{2})")
+
+
 def retract_stale(events, section, now):
-    """이미 저장된 '새 사건' 이벤트 가운데 오래전 끝난 사건의 것을 retracted로 표시한다(지우지 않음). 표시한 수를 돌려준다."""
-    fresh_from = (now - dt.timedelta(days=FRESH_DAYS)).date().isoformat()
-    cases = {f"{PAGE_ID}:{key}": c for lst in ((section or {}).get("lists") or {}).values() for key, c in (lst.get("cases") or {}).items()}
+    """이미 저장된 CBSA 이벤트 가운데 오래전 일을 새 일처럼 알린 것을 retracted로 표시한다(지우지 않음). 표시한 수를 돌려준다.
+    11-14 내 실수 두 번: ① 15:58 실행 — 제목으로 만든 열쇠가 겹쳐 2008~2016년 재조사끼리 서로 '새 문서'·'사건 머리 바뀜'으로 나갔다(20건)
+    ② 16:06 실행 — 열쇠를 고치자 저장돼 있지 않던 같은 사건들이 '새 사건'으로 나갔다(9건).
+    기준: 이벤트가 말하는 날짜(문서 날짜·바뀐 상태의 날짜·사건 종결일)가 감지일보다 FRESH_DAYS 넘게 앞이면 소식이 아니다."""
     n = 0
     for e in events:
-        c = cases.get(e.get("id"))
-        if e.get("pageId") != PAGE_ID or e.get("retracted") or c is None or not str(e.get("text") or "").startswith("새 사건"):
+        if e.get("pageId") != PAGE_ID or e.get("retracted"):
             continue
-        if c.get("state") != "Concludes" and str(c.get("latest") or "") < fresh_from:
-            e["retracted"] = "오래전 끝난 사건 — 새 사건이 아님(수집기 열쇠 변경으로 잘못 나감)"
+        text = str(e.get("text") or "")
+        try:
+            seen = dt.datetime.fromisoformat(str(e.get("detectedAt"))).date()
+        except ValueError:
+            seen = now.date()
+        fresh_from = (seen - dt.timedelta(days=FRESH_DAYS)).isoformat()
+        m = NEW_DOC_DATE.search(text) or STATE_DATE.search(text) or (TITLE_END.search(text) if text.startswith("새 사건") else None)
+        if m and m.group(1) < fresh_from:
+            e["retracted"] = "오래전 일 — 새 소식이 아님(수집기 사건 열쇠가 겹치거나 바뀌어 잘못 나감)"
             n += 1
     return n
 
@@ -282,7 +294,8 @@ def collect(previous, now, *, get, sleep=time.sleep):
                     both = sorted(set(firms + beat_in(d["title"])))
                     event(f"{c['key']}:{d['key']}", f"캐나다 CBSA {kind}", f"{c['title']} — 새 문서 「{d['title']}」({d['date'] or '날짜 없음'})", d["url"] or url, tier_of(d["title"], both), both)
                     counts["newDocs"] += 1
-                if (o.get("state"), o.get("stateDate")) != (c["state"], c["stateDate"]) and c["state"]:
+                # 상태 바뀜도 진행 중이거나 바뀐 날짜가 최근일 때만(옛 사건의 머리가 달라 보이는 것은 소식이 아니다)
+                if (o.get("state"), o.get("stateDate")) != (c["state"], c["stateDate"]) and c["state"] and (c["state"] == "Concludes" or (c["stateDate"] or "9999") >= fresh_from):
                     event(f"{c['key']}:state:{c['state']}:{c['stateDate']}", f"캐나다 CBSA {kind}",
                           f"{c['title']} — 사건 머리 바뀜: {o.get('state') or '표시 없음'} {o.get('stateDate') or ''} → {c['state']} {c['stateDate'] or '날짜 미정'}".replace("  ", " "), url, "B", firms)
                     counts["stateChanges"] += 1

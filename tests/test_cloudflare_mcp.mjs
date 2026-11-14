@@ -5029,10 +5029,10 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   // 수출자 표: 출입처 이름이 있는 조치만, 마지막 개정이 최근인 곳부터
   assert.match(sec, /시행 중 조치 2건 중 정상가격을 받은 한국 수출자에 출입처 이름이 있는 1건\(마지막 개정이 최근인 순\):\n- TR Large power transformers\(Dumping\) · 출입처 이름 HD현대일렉트릭·일진전기\(관련\)\n   한국 수출자 2곳: Iljin Electric Co\., Ltd\.\(협조 2026-08~ · 개정 2026-08\) \/ HD Hyundai Electric Co\., Ltd\.\(협조 2014-03~ · 개정 2025-07\)\n   가장 최근 절차 줄: \d{4}-\d{2}-\d{2} 「Administrative Review」/);
   assert.doesNotMatch(sec, /Small Maker/);
-  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(절차 문서 C는 show_all=true\) · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 끝난 사건\)\n- B · [^\n]*새 문서 「Notice of conclusion of administrative review」/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 2건\(절차 문서 C는 show_all=true\) · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 일을 새 일처럼 알린 것\)\n- B · [^\n]*새 문서 「Notice of conclusion of administrative review」/);
   assert.doesNotMatch(sec, /Concluded on 2016-02-05/);
   assert.match(sec, /수출자 표의 이름은 정상가격을 받은 곳이라는 뜻이고 덤핑 판정 대상이라는 뜻이 아니다/);
-  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /Small Maker Co\.[\s\S]*기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건 · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 끝난 사건\)\n/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /Small Maker Co\.[\s\S]*기준선 뒤 새로 잡힌 것\(감지일 기준\): 3건 · 수집기가 잘못 낸 것으로 표시해 뺀 1건\(오래전 일을 새 일처럼 알린 것\)\n/);
   assert.match((await call('trade_remedies', { section: 'cbsa', company: '변압기' }, o)).text, /한국 관련 사건 0건/);   // 영문 사건 이름은 영문 낱말로 거른다
   assert.match((await call('trade_remedies', { section: 'cbsa', company: 'transformers' }, o)).text, /한국 관련 사건 2건/);
   // 공고 변화 구역에는 겹쳐 내지 않는다
