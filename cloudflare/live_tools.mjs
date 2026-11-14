@@ -318,6 +318,10 @@ const ALLOWED_SUFFIXES = [
   '.go.kr', 'dart.fss.or.kr', 'opendart.fss.or.kr', 'kind.krx.co.kr', 'kipris.or.kr', 'kosis.kr', 'kepco.co.kr',
   'khnp.co.kr', 'kpx.or.kr', 'kogas.or.kr', 'kosa.or.kr', 'koema.or.kr', 'kama.or.kr', 'kaida.co.kr',
   'kita.net', 'bok.or.kr', '.gov', 'europa.eu', 'nhtsa.gov', 'federalregister.gov', 'sec.gov',
+  // 11-14: 레이더가 이미 감시하는 해외 무역구제 기관의 정부 도메인 — 인도 DGTR(dgtr.gov.in), 캐나다 CBSA·CITT(.gc.ca), 영국 TRA(.gov.uk),
+  // 인도네시아 KADI(.go.id), 베트남 TRAV(.gov.vn). 11-14 운영: 흄드실리카 판정문 사건 페이지를 이 도구로 열지 못했다('.gov'는 미국만 맞는다).
+  // 호주(industry.gov.au)는 이 서버 접속을 막아(HTTP 520) 넣지 않는다 — 기자 컴퓨터 브라우저로만 읽는다.
+  '.gov.in', '.gc.ca', '.gov.uk', '.go.id', '.gov.vn',
   // direct-beat company and IR sites
   'hyundai.com', 'kia.com', 'mobis.com', 'hyundai-wia.com', 'hlmando.com', 'gm-korea.co.kr', 'kg-mobility.com',
   'renault.co.kr', 'mercedes-benz.co.kr', 'bmw.co.kr', 'volkswagen.co.kr', 'audi.co.kr', 'honda.co.kr',
@@ -381,7 +385,7 @@ export function sourceAgent(ctx, url) {
 
 export async function sourceDocument(ctx, args) {
   let url = allowedUrl(args.url);
-  if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
+  if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·해외 무역구제 기관(인도·캐나다·영국·인도네시아·베트남 정부)·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
   const offset = clampInt(args.offset, 0, 5_000_000, 0);
   const limit = clampInt(args.limit, 500, 16000, 16000);
   let response;
@@ -405,7 +409,10 @@ export async function sourceDocument(ctx, args) {
     return textResult(`원문 HTTP ${response.status}${sec} — 원문 미확인으로 적는다.`, true);
   }
   const type = response.headers.get('Content-Type') ?? '';
-  if (/pdf|octet-stream|zip|image/i.test(type)) return textResult(`본문이 ${type} 형식이라 텍스트로 읽지 못함. 원문 링크: ${url.href}`, true);
+  if (/pdf|octet-stream|zip|image/i.test(type)) {
+    const hint = /(^|\.)dgtr\.gov\.in$/.test(url.hostname) ? ' 인도 DGTR 판정문·개시 고시·이해관계자 명단은 수집기가 PDF에서 뽑아 둔 대목을 trade_remedies(section=notices)의 사건 페이지 줄에서 본다.' : '';
+    return textResult(`본문이 ${type} 형식이라 텍스트로 읽지 못함.${hint} 원문 링크: ${url.href}`, true);
+  }
   let bytes;
   try { bytes = await readCapped(response, 4_000_000); } catch (e) { return textResult(String(e.message), true); }
   let { text: raw, charset } = decodeBytes(bytes, type);

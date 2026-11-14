@@ -92,7 +92,7 @@ export const TOOLS = [
     description: '이미 났나: 구글·빙 뉴스(실시간)·네이버 뉴스(기자 전용, 키 필요)·[단독] 색인을 조회. 네이버 + 웹 색인(구글 또는 빙) + [단독] 색인이 모두 정상이어야 판정한다. 채널별로 조회 실패와 0건을 구분해 돌려준다. 낱말 2~3개, 한 번에 하나씩, 낱말을 바꿔 2~3번.',
     inputSchema: obj({ q: str('검색 낱말 2~3개'), days: int('최근 N일(기본 365)', 1, 365), limit: int('채널당 표시 줄 수', 1, 30) }, ['q']) },
   { name: 'source_document', access: 'public', handler: sourceDocument,
-    description: '공식 원문(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지)을 열어 텍스트 구간과 내용 해시(sha256)를 돌려준다. DART 공시 링크는 틀 대신 본문 문서를 읽고 다른 첨부 문서 주소도 준다. 긴 문서는 offset으로 이어 읽는다.',
+    description: '공식 원문(go.kr·DART·KIND·KIPRIS·.gov·EU·해외 무역구제 기관(인도 DGTR·캐나다 CBSA·영국 TRA 등 정부 도메인)·출입처 홈페이지)을 열어 텍스트 구간과 내용 해시(sha256)를 돌려준다. DART 공시 링크는 틀 대신 본문 문서를 읽고 다른 첨부 문서 주소도 준다. 긴 문서는 offset으로 이어 읽는다.',
     inputSchema: obj({ url: str('원문 주소'), offset: int('시작 글자 위치', 0, 5000000), limit: int('읽을 글자 수(최대 16000)', 500, 16000) }, ['url']) },
   { name: 'candidate_check', access: 'public', handler: async (ctx, args) => textResult(formatCheck(await checkVerifiedCandidate(ctx, args.candidate ?? args))),
     description: '후보 하나를 점수 정책으로 점검: 가점·감점, 추천/조사대기/탈락, 채울 것(원문·해시·보도 채널·질문·비교), 제목 숫자 근거, 지면감(톱/박스/단신). 저장하지 않는다.',
