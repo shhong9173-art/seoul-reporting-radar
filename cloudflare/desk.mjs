@@ -21,7 +21,8 @@ const W = { screen: '단독 후보 심사', official: '공장등록·관보', si
 const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제|영국 TRA)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C');
 const GOV = /한국 정부|대한민국 정부|산업통상부|Government of (?:the Republic of )?Korea|Korean [Gg]overnment|MOTIE/;
 // 줄 끝에 붙는 사업보고서 단서('품목 낱말이 나온 출입처 …', listing_producers.py)는 문서에 출입처 이름이 나온 것이 아니다 — 떼고 본다
-const ownText = (x) => String(x.fact ?? '').split(/ · 품목 (?:이름|낱말)이 나온 출입처 /)[0];
+// 사건 페이지 줄('DGTR 사건 페이지: …', dgtr_cases.py)의 이해관계자 명단 이름도 같다 — 목록 줄의 유형을 바꾸지 않는다
+const ownText = (x) => String(x.fact ?? '').split(/ · (?:DGTR 사건 페이지: |품목 (?:이름|낱말)이 나온 출입처 )/)[0];
 const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${ownText(x)}`).size > 0 || GOV.test(ownText(x)) || /조사기관의 판단·쟁점 문서/.test(ownText(x));
 
 // 위에서부터 처음 맞는 유형. strength: strong(기자가 단독을 썼거나 기사로 이어진 유형) · normal · weak(기자가 여러 번 킬·접음)
@@ -138,8 +139,10 @@ export async function scoopDesk(ctx, args) {
     if (type.strength !== lastStrength) { out.push(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
     out.push(`- ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''}`);
     // 줄 끝의 사업보고서 단서(listing_producers.py·ktc_producers.py)는 긴 줄에 묻혀 잘리지 않게 따로 적는다
-    const lead = String(x.fact ?? '').slice(ownText(x).length).replace(/^ · /, '');
-    out.push(`   ${clipAt(lead ? ownText(x) : x.fact, 420)}`);
+    const rest = String(x.fact ?? '').slice(ownText(x).length).replace(/^ · /, '');
+    const [casePart, lead] = rest.startsWith('DGTR 사건 페이지: ') ? rest.split(/ · (?=품목 (?:이름|낱말)이 나온 출입처 )/) : ['', rest];
+    out.push(`   ${clipAt(rest ? ownText(x) : x.fact, 420)}`);
+    if (casePart) out.push(`   〔사건 페이지〕 ${clipAt(casePart.replace(/^DGTR 사건 페이지: /, ''), 620)}`);
     if (lead) out.push(`   〔출입처 단서〕 ${clipAt(lead, 520)}`);
     if (type.why) out.push(`   〔이 유형 실적〕 ${type.why}`);
     if (type.note) out.push(`   〔볼 것〕 ${type.note}`);

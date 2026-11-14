@@ -567,6 +567,7 @@ export async function tradeRemedies(ctx, args) {
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
+      if (doc.dgtrCases?.[e.url]) out.push(`   사건 페이지: ${dgtrCaseNote(doc.dgtrCases[e.url], true).replace(/^DGTR 사건 페이지: /, '')}`);
       if (doc.listingProducers?.[e.id]?.line) out.push(`   출입처 단서: ${doc.listingProducers[e.id].line}`);
       if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
       out.push(`   원문: ${e.url}`);
@@ -783,6 +784,22 @@ export async function krFuel(ctx, args) {
   out.push('\n다음: 연비 신고는 출시 확정이 아니다 — 출시 시점·가격·사양은 회사 확인. 새 모델명은 news_check로 보도 대조.');
   if (!kind) out.push(...freeRepairSection(doc, q, limit, args.show_all === true || args.show_all === 'true', ctx));
   return textResult(out.join('\n'));
+}
+
+// 인도 DGTR 사건 페이지 일정표(dgtr_cases.py, 11-14): 목록의 '새 줄'이 새 조사인지, 진행 중인 조사에 절차 공지가 붙어 다시 뜬 것인지.
+// 11-14 확인: 페놀·아세톤 줄은 2026-03-19 개시 조사에 11-13 'Updation of E-mail ID'가 붙은 것이었다. 등급은 바꾸지 않고 무엇인지 적기만 한다.
+const DGTR_KIND = { new: '새 조사(개시 30일 안)', procedural: '진행 중인 조사의 절차 공지(새 조사 아님)', progress: '진행 중인 조사에 새 문서' };
+export function dgtrCaseNote(c, all = false) {
+  if (!c) return '';
+  if (!c.latest) return `DGTR 사건 페이지: 못 읽음(${c.error ?? '실패'}) — 새 조사인지 미확인`;
+  const p = c.parties;
+  const lines = p?.koreaLines ?? [];
+  const shown = all ? lines : lines.slice(0, 2);
+  const party = !p ? '' : p.status !== 'ok' ? ` · 이해관계자 명단(${p.date ?? '?'}) 못 읽음 — 미확인`
+    : ` · 이해관계자 명단(${p.date ?? '?'}): ${(p.beat ?? []).length ? `출입처 영문 이름 ${p.beat.join('·')}` : '출입처 영문 이름은 못 찾음'}`
+      + (lines.length ? ` · 'Korea'가 든 줄 「${shown.join('」 「')}」${lines.length > shown.length ? ` 외 ${lines.length - shown.length}줄` : ''}` : " · 'Korea'가 든 줄 없음(PDF 글 추출 한계일 수 있음)");
+  return `DGTR 사건 페이지: 개시 고시 ${c.initiated ?? '날짜 못 찾음'} · 가장 최근 문서 ${c.latest.date} 「${c.latest.title}」(문서 ${c.steps ?? '?'}건) — ${DGTR_KIND[c.kind] ?? c.kind}`
+    + `${party}${c.status !== 'ok' ? ' · 이번 실행은 못 읽어 직전 값' : ''}`;
 }
 
 // 자동차리콜센터 '무상점검·수리' 게시판(kr_free_repair.py, 11-14): 연비 신고와 같은 저장소(kr-fuel)의 freeRepair 구역.
