@@ -9,11 +9,15 @@
 하는 일
 - 최근 WINDOW_DAYS일 인도 DGTR 목록 줄 가운데 사건 주소가 있는 것만, 한 실행 PAGE_BUDGET건·GAP초 간격으로 사건 페이지를 읽는다.
   같은 사건이 목록에 다시 뜨면(페이지에 새 문서가 붙었다는 뜻) 다시 읽는다. 못 읽으면 미확인으로 두고 다음 실행에서 다시.
-- 개시 고시 날짜, 가장 최근 문서(제목·날짜), 문서 수, 갈래를 붙인다:
+- 이번 절차의 개시 고시(날짜·제목), 가장 최근 문서(제목·날짜), 문서 수, 갈래를 붙인다:
   new(개시 NEW_DAYS일 안) / procedural(개시가 그보다 오래됐고 가장 최근 문서가 절차 공지) / progress(그 밖 — 잠정·최종 판정 등 진행 문서).
   **등급은 바꾸지 않는다** — 화면에 무엇인지 적기만 한다(절차 공지뿐인 줄을 내릴지는 기자가 정한다).
-- 'Interested parties list' PDF(가장 최근 것)를 한 실행 PDF_BUDGET개까지 읽어 'Korea'가 든 줄을 원문 그대로 남기고, 출입처 영문 이름이 있으면 따로 적는다.
-  줄은 PDF에서 뽑은 글이라 표 칸이 섞일 수 있다. 계열사 이름은 원문 줄에 그대로 보일 뿐 출입처로 바꿔 적지 않는다.
+- 탐침 232: 사건 페이지 하나에 원조사·일몰재심·우회조사가 차례로 쌓인다(TDI: Initiation 2016-10-05 → … → 'Initiation Notification-2nd SSR' 2026-09-30).
+  그래서 '개시'는 **가장 최근 개시 고시**(이번 절차)이고, 첫 조사 개시일은 따로 남긴다. 명단도 이번 절차 개시 뒤에 나온 것만 읽는다.
+- 'Interested parties list' PDF(이번 절차의 가장 최근 것)를 한 실행 PDF_BUDGET개까지 읽는다. 탐침 232: 표 칸이 줄마다 끊겨 나온다
+  ('8. LG Chem Ltd ⏎ Exporter/ ⏎ Producer', '9. ⏎ Korea Chemical ⏎ Industry ⏎ Association Association'). 번호로 줄을 다시 묶어 한 곳을 한 줄로 만들고,
+  'Korea'·한국 기업 이름 낱말·출입처 영문 이름이 든 줄만 원문 그대로 남긴다(이메일 주소는 뺀다). 명단에 나라 칸이 없어 이름 낱말로 고른 것이라
+  빠진 한국 업체가 있을 수 있다. 계열사 이름은 원문 줄에 그대로 보일 뿐 출입처로 바꿔 적지 않는다.
 - 결과는 기자 전용 저장소(trade-remedy)의 dgtrCases에만. 공개 로그엔 건수만.
 """
 from __future__ import annotations
@@ -30,21 +34,33 @@ PAGES = ("in-dgtr", "in-dgtr-cvd")
 CASE_URL = re.compile(r"^https://(?:www\.)?dgtr\.gov\.in/en/[a-z-]+-cases/[^/?#]+$")
 WINDOW_DAYS = 45
 KEEP_DAYS = 200
-PAGE_BUDGET = 6
+PAGE_BUDGET = 8
 PDF_BUDGET = 3
 MAX_PDF_BYTES = 6_000_000
 PDF_PAGES = 12
 GAP = 1.5
 NEW_DAYS = 30
-MAX_LINES = 8
+MAX_LINES = 10
+VERSION = 2            # 일정표 읽는 규칙이 바뀌면 올린다 — 저장된 사건을 다시 읽는다
+PARTIES_VERSION = 2    # 명단 읽는 규칙
 # 절차 공지: 조사 내용이 아니라 일정·연락처·명단·질문서 기한 같은 것
 PROCEDURAL = re.compile(r"e-?\s?mail|extension|corrigendum|\bPUC\b|\bPCN\b|interested\s+part|address|contact|clarification|schedule|questionnaire", re.I)
 # 조사 진행 문서: 절차 낱말이 같이 있어도 이쪽이 이긴다('Corrigendum to Final Findings')
 SUBSTANTIVE = re.compile(r"preliminary|provisional|disclosure|final\s+finding|findings|recommend|terminat|withdraw|essential\s+facts|oral\s+hearing|public\s+hearing|"
                          r"customs\s+notification|sunset|review\s+initiat", re.I)
 INITIATION = re.compile(r"initiation", re.I)
+# 개시 고시를 고친 문서는 개시가 아니다
+NOT_INITIATION = re.compile(r"corrigend|amend|addend|errat|extension|clarif", re.I)
 PARTIES = re.compile(r"interested\s+part", re.I)
 KOREA = re.compile(r"\bKorea\b|\bROK\b", re.I)
+# 한국 기업 이름 낱말(명단에 나라 칸이 없다) — 이름 낱말로 고르는 것일 뿐 한국 업체라는 확인이 아니다
+KR_NAME = re.compile(r"\b(?:LG|SK|GS|LS|DL|OCI|KCC|KPX|KG|HD)\b|\b(?:Kumho|Lotte|Hanwha|Hyundai|Kia|POSCO|Samsung|Kolon|Hyosung|Daelim|Taekwang|Aekyung|Dongkuk|"
+                     r"SeAH|Doosan|Songwon|Kukdo|Huvis|Hankook|Nexen|Taihan|Iljin|S-?Oil)\b")
+EMAIL = re.compile(r"[\w.+-]+@[\w.-]+")
+TABLE_HEAD = re.compile(r"^(?:S\.?\s*N(?:o|\.)|Sl\.?\s*No|Sr\.?\s*No|Name of (?:the )?(?:Interested|Part|Compan|Entit))", re.I)
+ENTRY = re.compile(r"^(\d{1,3})[.)](?:\s|$)")
+FOOTER = re.compile(r"^(?:[•\-–]\s|Note\b|Yours\b|Copy to\b|\(.{0,40}\)$)", re.I)
+SUBJECT = re.compile(r"imports? of|concerning|F\.\s*No|Subject:|originating in|exported from|Case No", re.I)
 
 
 def plain(raw):
@@ -88,36 +104,85 @@ def kind_of(initiated, latest, today):
 
 
 def summarize(rows, today):
-    """일정표 줄 → {initiated, latest{title,date}, steps, kind, partiesUrl?}. 줄이 없으면 None."""
+    """일정표 줄 → {initiated(이번 절차 개시), initTitle, firstInitiated?, latest{title,date}, steps, kind, partiesUrl?}. 줄이 없으면 None."""
     if not rows:
         return None
-    inits = sorted(r["date"] for r in rows if INITIATION.search(r["title"]))
+    inits = sorted((r for r in rows if INITIATION.search(r["title"]) and not NOT_INITIATION.search(r["title"])), key=lambda r: r["date"])
     latest = max(enumerate(rows), key=lambda x: (x[1]["date"], x[0]))[1]
-    parties = [r for r in rows if PARTIES.search(r["title"]) and r.get("url")]
-    initiated = inits[0] if inits else None
-    return {"initiated": initiated, "latest": {"title": latest["title"], "date": latest["date"]}, "steps": len(rows),
+    initiated = inits[-1]["date"] if inits else None
+    # 명단은 이번 절차 개시 뒤에 나온 것만(지난 재심의 명단을 지금 명단처럼 보이지 않게)
+    parties = [r for r in rows if PARTIES.search(r["title"]) and r.get("url") and (not initiated or r["date"] >= initiated)]
+    last_party = max(parties, key=lambda r: r["date"]) if parties else None
+    return {"initiated": initiated, **({"initTitle": inits[-1]["title"]} if inits else {}),
+            **({"firstInitiated": inits[0]["date"]} if inits and inits[0]["date"] != initiated else {}),
+            "latest": {"title": latest["title"], "date": latest["date"]}, "steps": len(rows),
             "kind": kind_of(initiated, latest, today),
-            **({"partiesUrl": max(parties, key=lambda r: r["date"])["url"], "partiesDate": max(parties, key=lambda r: r["date"])["date"]} if parties else {})}
+            **({"partiesUrl": last_party["url"], "partiesDate": last_party["date"]} if last_party else {})}
+
+
+def clean(x):
+    return re.sub(r"\s+", " ", EMAIL.sub(" ", x)).strip(" ,;")
+
+
+def party_entries(text):
+    """명단 PDF 글 → (표의 한 곳을 한 줄로 묶은 목록('8. LG Chem Ltd Exporter/ Producer'), 마지막 번호). 표 머리·번호 줄을 못 찾으면 ([], 0)."""
+    raw = re.sub(r"(" + EMAIL.pattern + r")[ \t]+(?=\d{1,3}[.)]\s)", r"\1\n", str(text or ""))     # '…@x.in 9. 이름'처럼 앞 칸 이메일에 붙은 번호를 떼어 낸다
+    lines = [re.sub(r"\s+", " ", x).strip() for x in raw.splitlines()]
+    lines = [x for x in lines if x]
+    head = next((i for i, x in enumerate(lines) if TABLE_HEAD.match(x)), None)
+    if head is None:
+        return [], 0
+    out, cur, last = [], None, 0
+    for x in lines[head + 1:]:
+        m = ENTRY.match(x)
+        n = int(m.group(1)) if m else 0
+        # 번호가 이어질 때만 새 줄(본문 속 숫자에 끊기지 않게). 묶던 줄을 놓쳤으면 더 큰 번호에서 다시 시작
+        if m and (n == 1 if not last else (last < n <= last + 3 or (cur is None and n > last))):
+            if cur:
+                out.append(cur)
+            cur, last = [x], n
+        elif cur is not None:
+            if FOOTER.match(x):
+                break
+            if len(cur) >= 12:
+                out.append(cur)
+                cur = None
+            else:
+                cur.append(x)
+    if cur:
+        out.append(cur)
+    return [clean(" ".join(e))[:160] for e in out], last
 
 
 def korea_lines(text):
-    """PDF에서 뽑은 글 → 'Korea'가 든 줄(원문 그대로, 최대 MAX_LINES줄·줄마다 180자). 짧게 끊긴 줄은 앞 줄과 잇는다."""
+    """표로 묶지 못한 명단: 'Korea'가 든 줄(원문, 사건 제목 줄은 뺀다). 짧게 끊긴 줄은 앞 줄과 잇는다."""
     lines = [re.sub(r"\s+", " ", x).strip() for x in str(text or "").splitlines()]
     lines = [x for x in lines if x]
     out = []
     for i, x in enumerate(lines):
-        if not KOREA.search(x):
+        prev = lines[i - 1] if i else ""
+        if not KOREA.search(x) or SUBJECT.search(x) or (SUBJECT.search(prev) and not re.match(r"^\d", x) and len(x) > 40):   # 사건 제목 줄과 그 이어진 줄
             continue
-        y = f"{lines[i - 1]} {x}" if len(x) < 40 and i and not KOREA.search(lines[i - 1]) else x      # 칸이 다음 줄로 끊긴 것만 앞 줄과 잇는다
-        y = y[:180]
-        if y not in out:
+        y = f"{prev} {x}" if len(x) < 40 and prev and not KOREA.search(prev) and not SUBJECT.search(prev) and not prev.endswith(".") else x
+        y = clean(y)[:180]
+        if y and y not in out:
             out.append(y)
         if len(out) >= MAX_LINES:
             break
     return out
 
 
+def pick_korea(entries, beat_rx):
+    """묶은 줄 가운데 Korea·한국 기업 이름 낱말·출입처 영문 이름이 든 것(원문 그대로, 출입처 이름이 든 줄 먼저)."""
+    hit = [e for e in entries if KOREA.search(e) or KR_NAME.search(e) or any(re.search(rx, e, re.I) for _, rx in beat_rx)]
+    hit.sort(key=lambda e: 0 if any(re.search(rx, e, re.I) for _, rx in beat_rx) else 1)
+    return hit[:MAX_LINES], len(hit)
+
+
 def read_parties(url, *, get):
+    import io
+
+    import pypdf
     import tra_file_watch as tra
     r = get(url, headers=HEADERS, timeout=60)
     if r.status_code != 200:
@@ -125,8 +190,21 @@ def read_parties(url, *, get):
     data = r.content
     if len(data) > MAX_PDF_BYTES:
         raise RuntimeError("PDF가 큼")
-    pages, text = tra.pdf_text(data, limit=PDF_PAGES)
-    return {"pages": pages, "chars": len(text), "koreaLines": korea_lines(text), "beat": tra.companies_in(text)}
+    pdf = pypdf.PdfReader(io.BytesIO(data))
+    text = "\n".join((p.extract_text() or "") for p in pdf.pages[:PDF_PAGES])      # 쪽 사이도 줄바꿈 — 쪽 첫 줄 번호가 앞 줄에 붙지 않게
+    return parties_from_text(text, len(pdf.pages), tra.beat_names())
+
+
+def parties_from_text(text, pages, beat_rx):
+    entries, last_no = party_entries(text)
+    if entries:
+        lines, total = pick_korea(entries, beat_rx)
+        scope = " ".join(entries)
+        return {"v": PARTIES_VERSION, "pages": pages, "chars": len(text), "shape": "table", "entries": len(entries), "lastNo": last_no, "koreaLines": lines, "koreaTotal": total,
+                "beat": [name for name, rx in beat_rx if re.search(rx, scope, re.I)]}
+    lines = korea_lines(text)                                                         # 표 꼴이 아니면 줄 단위로(덜 정확)
+    return {"v": PARTIES_VERSION, "pages": pages, "chars": len(text), "shape": "lines", "entries": 0, "koreaLines": lines, "koreaTotal": len(lines),
+            "beat": [name for name, rx in beat_rx if re.search(rx, text or "", re.I)]}
 
 
 def attach(doc, previous, now, *, get, sleep=time.sleep):
@@ -143,7 +221,7 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
             newest[u] = max(newest.get(u, ""), str(e.get("detectedAt")))
     # 다시 읽을 것: 처음 보는 사건, 못 읽었던 사건, 읽은 뒤 목록에 다시 뜬 사건(새 문서가 붙었다는 뜻). 새로 뜬 것부터
     todo = [u for u, seen in sorted(newest.items(), key=lambda x: x[1], reverse=True)
-            if u not in store or store[u].get("status") != "ok" or seen > str(store[u].get("checkedAt") or "")]
+            if u not in store or store[u].get("status") != "ok" or store[u].get("v") != VERSION or seen > str(store[u].get("checkedAt") or "")]
     read = failed = pdfs = 0
     for u in todo[:PAGE_BUDGET]:
         sleep(GAP)
@@ -156,7 +234,7 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
             if not summary:
                 raise RuntimeError("일정표 줄 없음(형식 변경 의심)")
             keep_parties = {"parties": prev["parties"]} if prev.get("parties") and prev["parties"].get("url") == summary.get("partiesUrl") else {}
-            store[u] = {"status": "ok", "checkedAt": stamp, **summary, **keep_parties}
+            store[u] = {"status": "ok", "v": VERSION, "checkedAt": stamp, **summary, **keep_parties}
             read += 1
         except Exception as e:  # noqa: BLE001 — 한 사건 실패가 다른 사건을 막지 않는다
             store[u] = {**{k: v for k, v in prev.items() if k not in ("status", "error")}, "status": "failed", "error": str(e)[:60] or type(e).__name__,
@@ -166,7 +244,9 @@ def attach(doc, previous, now, *, get, sleep=time.sleep):
     def wants_pdf(u):
         c = store.get(u) or {}
         p = c.get("parties") or {}
-        return c.get("status") == "ok" and c.get("partiesUrl") and (not p or (p.get("status") == "failed" and (p.get("tries") or 1) < 3))
+        if c.get("status") != "ok" or not c.get("partiesUrl"):
+            return False
+        return not p or (p.get("status") == "ok" and p.get("v") != PARTIES_VERSION) or (p.get("status") == "failed" and (p.get("tries") or 1) < 3)
 
     for u in sorted((u for u in newest if wants_pdf(u)), key=lambda u: newest[u], reverse=True)[:PDF_BUDGET]:
         sleep(GAP)

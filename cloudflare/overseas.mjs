@@ -788,17 +788,26 @@ export async function krFuel(ctx, args) {
 
 // 인도 DGTR 사건 페이지 일정표(dgtr_cases.py, 11-14): 목록의 '새 줄'이 새 조사인지, 진행 중인 조사에 절차 공지가 붙어 다시 뜬 것인지.
 // 11-14 확인: 페놀·아세톤 줄은 2026-03-19 개시 조사에 11-13 'Updation of E-mail ID'가 붙은 것이었다. 등급은 바꾸지 않고 무엇인지 적기만 한다.
-const DGTR_KIND = { new: '새 조사(개시 30일 안)', procedural: '진행 중인 조사의 절차 공지(새 조사 아님)', progress: '진행 중인 조사에 새 문서' };
+// 탐침 232: 사건 페이지 하나에 원조사·일몰재심·우회조사가 쌓인다 — initiated는 가장 최근 개시 고시(이번 절차), firstInitiated는 첫 조사.
+// 명단은 표 칸을 번호로 다시 묶은 줄(shape=table)이고, 나라 칸이 없어 'Korea'·한국 기업 이름 낱말·출입처 영문 이름으로 고른 것이다.
+const DGTR_KIND = { new: '새로 개시된 조사·재심(개시 30일 안)', procedural: '진행 중인 조사·재심의 절차 공지(새 개시 아님)', progress: '진행 중인 조사·재심에 새 문서' };
 export function dgtrCaseNote(c, all = false) {
   if (!c) return '';
   if (!c.latest) return `DGTR 사건 페이지: 못 읽음(${c.error ?? '실패'}) — 새 조사인지 미확인`;
   const p = c.parties;
   const lines = p?.koreaLines ?? [];
-  const shown = all ? lines : lines.slice(0, 2);
+  const shown = all ? lines : lines.slice(0, 3);
+  const total = p?.koreaTotal ?? lines.length;
+  const size = p?.lastNo > p?.entries ? `${p.lastNo}번까지(${p.lastNo - p.entries}줄은 앞 줄에 붙어 못 가름)` : `${p?.entries}곳`;
+  const how = p?.shape === 'table' ? `명단 ${size} 가운데 이름 낱말로 고른 한국 관련 줄` : "'Korea'가 든 줄(표로 못 묶음)";
   const party = !p ? '' : p.status !== 'ok' ? ` · 이해관계자 명단(${p.date ?? '?'}) 못 읽음 — 미확인`
     : ` · 이해관계자 명단(${p.date ?? '?'}): ${(p.beat ?? []).length ? `출입처 영문 이름 ${p.beat.join('·')}` : '출입처 영문 이름은 못 찾음'}`
-      + (lines.length ? ` · 'Korea'가 든 줄 「${shown.join('」 「')}」${lines.length > shown.length ? ` 외 ${lines.length - shown.length}줄` : ''}` : " · 'Korea'가 든 줄 없음(PDF 글 추출 한계일 수 있음)");
-  return `DGTR 사건 페이지: 개시 고시 ${c.initiated ?? '날짜 못 찾음'} · 가장 최근 문서 ${c.latest.date} 「${c.latest.title}」(문서 ${c.steps ?? '?'}건) — ${DGTR_KIND[c.kind] ?? c.kind}`
+      + (lines.length ? ` · ${how} 「${shown.join('」 「')}」${total > shown.length ? ` 외 ${total - shown.length}줄` : ''}${all && p.shape === 'table' ? ' — 나라 칸이 없어 빠진 한국 업체가 있을 수 있음(원문 확인)' : ''}`
+        : ` · 한국 관련 줄 못 찾음(${p.shape === 'table' ? `명단 ${size}` : 'PDF 글 추출 한계일 수 있음'})`);
+  const init = c.initiated
+    ? `${c.firstInitiated ? '이번 절차 개시 고시' : '개시 고시'} ${c.initiated}${c.firstInitiated && c.initTitle ? ` 「${c.initTitle}」` : ''}${c.firstInitiated ? `(첫 조사 개시 ${c.firstInitiated})` : ''}`
+    : '개시 고시 날짜 못 찾음';
+  return `DGTR 사건 페이지: ${init} · 가장 최근 문서 ${c.latest.date} 「${c.latest.title}」(문서 ${c.steps ?? '?'}건) — ${DGTR_KIND[c.kind] ?? c.kind}`
     + `${party}${c.status !== 'ok' ? ' · 이번 실행은 못 읽어 직전 값' : ''}`;
 }
 
