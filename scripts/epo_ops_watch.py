@@ -212,6 +212,28 @@ def accepted(names, c):
     return [n for n in names if acc.search(n) and not (exc and exc.search(n))]
 
 
+def recheck(filings, cfg):
+    """저장된 공개에 지금의 출원인 규칙을 다시 적용한다 — 규칙을 고친 뒤에도 예전 규칙으로 붙은 회사 표시가 남지 않게
+    (11-14: 출원인 'POSCO MOBILITY SOLUTION CORP'인 공개가 포스코로 붙어 있었다 — 계열사는 출입처가 아니다).
+    출원인 이름이 저장된 공개만 본다. 어느 회사 규칙에도 안 맞게 된 공개는 뺀다. 반환: (남긴 목록, 회사 표시를 고친 수, 뺀 수)."""
+    rules = {c["company"]: c for c in cfg.get("companies") or []}
+    out, fixed, dropped = [], 0, 0
+    for f in filings:
+        names, cos = f.get("applicants") or [], f.get("companies") or []
+        if not names or not cos:
+            out.append(f)
+            continue
+        keep = [n for n in cos if n not in rules or accepted(names, rules[n])]
+        if keep == cos:
+            out.append(f)
+        elif keep:
+            out.append({**f, "companies": keep})
+            fixed += 1
+        else:
+            dropped += 1
+    return out, fixed, dropped
+
+
 def query(c, start, end):
     return f'pa="{c["query"]}" and pd within "{start:%Y%m%d} {end:%Y%m%d}" and (pn=EP or pn=WO)'
 
@@ -489,7 +511,9 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
             seen.append(pid)
             seen_set.add(pid)
     cut = (end - dt.timedelta(days=KEEP_DAYS)).isoformat()
-    kept = sorted((f for f in filings.values() if str(f.get("date") or f.get("firstSeen") or "")[:10] >= cut),
+    rechecked, refixed, redropped = recheck(list(filings.values()), cfg)
+    fresh = [pid for pid in fresh if any(f["id"] == pid for f in rechecked)]
+    kept = sorted((f for f in rechecked if str(f.get("date") or f.get("firstSeen") or "")[:10] >= cut),
                   key=lambda f: (str(f.get("date") or ""), f["id"]), reverse=True)[:MAX_FILINGS]
 
     oks = [c for c in checks if c.get("status") == "ok"]
@@ -509,6 +533,8 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
         "checks": checks, "filings": kept, "fresh": fresh, "seen": seen[-SEEN_KEEP:],
         "rules": RULES, "confirmedScoops": 0,
     }
+    if refixed or redropped:
+        doc["rechecked"] = {"at": stamp, "fixed": refixed, "dropped": redropped}
     annotate(doc, prev, kipris or {}, now, fresh=fresh)
     return doc
 
@@ -558,12 +584,16 @@ def main():
     if only is not None and not only:
         # EPO는 부르지 않고 저장된 공개만 국내 공개(KIPRIS 감시, 날마다 바뀜)와 다시 잇는다
         doc = {k: v for k, v in previous.items() if not k.startswith("_")}
+        doc["filings"], refixed, redropped = recheck(doc.get("filings") or [], cfg)      # 출원인 규칙이 바뀌었으면 저장된 공개에도 적용
+        if refixed or redropped:
+            doc["rechecked"] = {"at": now.isoformat(timespec="seconds"), "fixed": refixed, "dropped": redropped}
+            print(f"::notice title=epo-patents-recheck::출원인 규칙 다시 적용 — 회사 표시 고침 {refixed} · 뺀 공개 {redropped}")
         before = json.dumps([(f.get("kr"), f.get("krPriority"), f.get("priorityAbroad")) for f in doc.get("filings") or []], ensure_ascii=False)
         tally = annotate(doc, previous, kipris, now)
         after = json.dumps([(f.get("kr"), f.get("krPriority"), f.get("priorityAbroad")) for f in doc.get("filings") or []], ensure_ascii=False)
         print(f"::notice title=epo-patents::직전 결과(3일 안)가 정상 — EPO를 부르지 않음 · 국내 공개 다시 잇기 {link_note(tally, kipris)}"
               f" · 우선권 꼴 {prio_shapes(doc.get('filings') or [])}")
-        if token and (before != after or "ipcHistory" not in previous):
+        if token and (before != after or "ipcHistory" not in previous or refixed or redropped):
             status = private_store.put(FEED, fit(doc), token)
             print(f"::notice title=epo-patents-push::국내 공개 연결만 바꿔 저장 HTTP {status} · {size_note(doc)}")
             if status != 200:
