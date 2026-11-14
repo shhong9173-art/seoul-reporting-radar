@@ -1,74 +1,51 @@
-"""probe 230: Signa 마드리드 지정 줄 → 기초출원(relationships, 상세 조회)과 크레딧. 공개 로그에는 필드 이름·관청 코드·날짜·건수만
-(상표 이름·출원인·번호는 찍지 않는다). 검색 2번(20크레딧) + 상세 조회 2~3번."""
-import collections
-import datetime as dt
-import os
+"""probe 231: 인도 DGTR robots.txt와 사건 페이지 HTML 꼴(일정표 줄·날짜·PDF 주소·File No.). 공개 페이지만, 저장 안 함."""
 import re
+import time
 
 import requests
 
-KEY = os.environ.get("SIGNA_API_KEY", "").strip()
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 OUT = []
-H = {"Authorization": f"Bearer {KEY}", "Accept": "application/json", "User-Agent": "seoul-reporting-radar/1.0 (+https://github.com/shhong9173-art/seoul-reporting-radar)"}
-SINCE = (dt.date.today() - dt.timedelta(days=500)).isoformat()
-BASE = "https://api.signa.so/v1/trademarks"
+S = requests.Session()
+S.headers.update({"User-Agent": UA, "Accept-Language": "en,ko;q=0.8"})
+CASES = ["https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-phenol-saudi-arabia-singapore",
+         "https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-acetone-republic-singapore"]
 
 
-def credits(r):
-    return {k: v for k, v in r.headers.items() if re.search(r"credit", k, re.I)}
+def txt(h):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h or "")).strip()
 
 
-def shape(v):
-    if v is None:
-        return "null"
-    if isinstance(v, str):
-        return "날짜" if re.match(r"\d{4}-\d{2}-\d{2}", v) else f"글자{len(v)}"
-    return type(v).__name__
-
-
-def rels(x):
-    out = []
-    for e in x.get("relationships") or []:
-        out.append("{" + ", ".join(f"{k}={e[k] if k in ('type', 'direction', 'target_office_code') else (e[k][:10] if isinstance(e[k], str) and re.match(r'\d{4}-\d{2}-\d{2}', e[k]) else shape(e[k]))}" for k in sorted(e)) + "}")
-    return out
-
-
-def detail(label, tid):
-    r = requests.get(f"{BASE}/{tid}", headers=H, timeout=60)
-    OUT.append(f"## 상세 {label}: HTTP {r.status_code} · 크레딧 {credits(r)}")
-    if r.status_code != 200:
-        OUT.append("   본문 앞: " + re.sub(r"\s+", " ", r.text)[:160])
-        return {}
-    b = r.json() or {}
-    x = b.get("data") if isinstance(b.get("data"), dict) else b
-    OUT.append(f"   office_code {x.get('office_code')} · scope_kind {x.get('scope_kind')} · filing_route {x.get('filing_route')} · origin_office_code {x.get('origin_office_code')} · "
-               f"filing_date {x.get('filing_date')} · designation_date {x.get('designation_date')} · registration_date {x.get('registration_date')} · intl_registration_date {x.get('intl_registration_date')} · priority_date {x.get('priority_date')}")
-    OUT.append(f"   relationships {len(x.get('relationships') or [])}건: " + " ; ".join(rels(x))[:900])
-    OUT.append(f"   coverage {len(x.get('coverage') or [])}곳 · 필드 중 basic·origin·priority 든 것: {sorted(k for k in x if re.search(r'basic|origin|priorit|relation', k))}")
-    return x
-
-
-if not KEY:
-    OUT.append("## SIGNA_API_KEY 없음")
-else:
-    r = requests.get(BASE, params={"owner_name": "POSCO", "owner_name_match": "phrase", "offices": "EM,US", "filing_route": "madrid_designation", "filing_date_gte": SINCE,
-                                   "sort": "-filing_date", "limit": 20, "include_total": "true"}, headers=H, timeout=60)
-    OUT.append(f"## 1 POSCO 마드리드 지정(EM·US, 500일): HTTP {r.status_code} · 크레딧 {credits(r)}")
-    rows = (r.json() or {}).get("data") or [] if r.status_code == 200 else []
-    OUT.append(f"   줄 {len(rows)} · 관청 {dict(collections.Counter(x.get('office_code') for x in rows))} · origin_office_code {dict(collections.Counter(x.get('origin_office_code') for x in rows))} · "
-               f"ir_number 있는 줄 {sum(1 for x in rows if x.get('ir_number'))} · relationships 열쇠 있는 줄 {sum(1 for x in rows if 'relationships' in x)} · scope_kind {dict(collections.Counter(x.get('scope_kind') for x in rows))}")
-    for x in rows[:3]:
-        OUT.append(f"   줄: office {x.get('office_code')} · filing_date {x.get('filing_date')} · designation_date {x.get('designation_date')} · registration_date {x.get('registration_date')} · priority_date {x.get('priority_date')} · origin {x.get('origin_office_code')} · ir_number {shape(x.get('ir_number'))} · application_number {shape(x.get('application_number'))}")
-    if rows:
-        d = detail("지정 줄", rows[0]["id"])
-        ir = rows[0].get("ir_number")
-        if ir:
-            g = requests.get(BASE, params={"ir_number": ir, "limit": 10}, headers=H, timeout=60)
-            OUT.append(f"## 2 ir_number 조회(묶음): HTTP {g.status_code} · 크레딧 {credits(g)}")
-            fam = (g.json() or {}).get("data") or [] if g.status_code == 200 else []
-            OUT.append(f"   줄 {len(fam)} · " + " | ".join(f"office {x.get('office_code')} scope {x.get('scope_kind')} route {x.get('filing_route')} coverage {len(x.get('coverage') or [])} origin {x.get('origin_office_code')} filing {x.get('filing_date')} reg {x.get('registration_date')}" for x in fam[:4]))
-            parent = next((x for x in fam if x.get("office_code") == "WO"), fam[0] if fam else None)
-            if parent and parent.get("id") != rows[0]["id"]:
-                detail("국제등록(WO) 줄", parent["id"])
+try:
+    r = S.get("https://www.dgtr.gov.in/robots.txt", timeout=40)
+    body = r.text or ""
+    OUT.append(f"## robots: {r.status_code} {r.headers.get('content-type')} {len(body)}자 {'HTML' if '<html' in body[:400].lower() else '글'}")
+    if r.status_code == 200 and "<html" not in body[:400].lower():
+        lines = [x.strip() for x in body.splitlines() if x.strip() and not x.strip().startswith("#")]
+        OUT.append(f"   규칙 줄 {len(lines)} · Crawl-delay {[x for x in lines if x.lower().startswith('crawl-delay')]} · User-agent {[x for x in lines if x.lower().startswith('user-agent')][:6]}")
+        OUT.append("   anti-dumping·sites/default/files 관련: " + " | ".join(x for x in lines if re.search(r"anti-dumping|/en/|sites/default|\.pdf|^Disallow: /$", x, re.I))[:500])
+        OUT.append("   앞 25줄: " + " | ".join(lines[:25])[:900])
+except Exception as e:  # noqa: BLE001
+    OUT.append(f"## robots: 실패 {type(e).__name__}")
+for n, url in enumerate(CASES):
+    time.sleep(2)
+    try:
+        r = S.get(url, timeout=60)
+        h = r.text or ""
+        OUT.append(f"## 사건 {n + 1}: {r.status_code} {len(h)}자 · table {len(re.findall(r'<table', h, re.I))} · tr {len(re.findall(r'<tr', h, re.I))} · pdf 링크 {len(re.findall(r'href=\"[^\"]+\.pdf', h, re.I))}")
+        m = re.search(r"File\s*No\.?[^<]{0,80}", h)
+        OUT.append("   File No 둘레: " + (re.sub(r"\s+", " ", h[max(0, m.start() - 160):m.end() + 60]) if m else "못 찾음")[:420])
+        i = h.find("Initiation")
+        OUT.append("   'Initiation' 둘레 HTML: " + re.sub(r"\s+", " ", h[max(0, i - 700):i + 500])[:1250] if i >= 0 else "   'Initiation' 못 찾음")
+        rows = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", h, re.I)
+        OUT.append(f"   표 줄 {len(rows)} — 앞 3·뒤 3:")
+        for x in rows[:3] + rows[-3:]:
+            cells = [txt(c)[:60] for c in re.findall(r"<t[dh][^>]*>([\s\S]*?)</t[dh]>", x, re.I)]
+            href = re.findall(r'href="([^"]+)"', x)
+            OUT.append("     " + " ¦ ".join(cells) + (f" ¦ href …{href[0][-70:]}" if href else ""))
+        dates = re.findall(r"\b\d{2}/\d{2}/\d{4}\b", txt(h))
+        OUT.append(f"   dd/mm/yyyy 날짜 {len(dates)}개 · 처음 {dates[:2]} · 끝 {dates[-2:]} · 클래스 이름(view·field) {sorted(set(re.findall(r'class=\"((?:view|field|timeline|case)[^\" ]*)', h)))[:14]}")
+    except Exception as e:  # noqa: BLE001
+        OUT.append(f"## 사건 {n + 1}: 실패 {type(e).__name__}")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
