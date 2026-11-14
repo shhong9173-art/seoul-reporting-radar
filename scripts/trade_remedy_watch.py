@@ -862,6 +862,12 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         import cbsa_cases
         cbsa, cbsa_events, ccheck = cbsa_cases.collect(cbsa, now, get=cbsa_get, sleep=sleep)
         checks.append(ccheck)
+    # 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py): 기자 컴퓨터 브라우저 수집의 au-epr 줄(사건 정보·주요 일정·문서 표). 처음 읽은 것은 기준선
+    au_epr, au_events = (previous or {}).get("auEpr"), []
+    if browser is not None:
+        import au_epr_cases
+        au_epr, au_events, acheck = au_epr_cases.collect(browser, au_epr, now)
+        checks.append(acheck)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -871,7 +877,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + cbsa_events + [
+    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + cbsa_events + au_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -889,6 +895,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
             **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}), **({"cbsa": cbsa} if cbsa else {}),
+            **({"auEpr": au_epr} if au_epr else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
@@ -992,6 +999,11 @@ def main():
     cchk = next((x for x in doc["checks"] if x["source"] == "캐나다 CBSA 사건 문서·시행 중 조치"), {})
     emit(f"::notice title=trade-remedy-cbsa::캐나다 CBSA 한국 관련 사건 {cchk.get('cases', 0)}건(진행 중 {cchk.get('open', 0)}) · 문서 줄 {cchk.get('docs', 0)} · 조치 쪽 {cchk.get('measures', 0)} · 한국 수출자 줄 {cchk.get('exporters', 0)} · "
           f"이번 이벤트 {cchk.get('events', 0)}(새 문서 {cchk.get('newDocs', 0)}·상태 바뀜 {cchk.get('stateChanges', 0)}·새 사건 {cchk.get('newCases', 0)}) · 상태 {cchk.get('status', '?')}")
+    achk = next((x for x in doc["checks"] if x["source"] == "호주 ATRC 사건 공개기록(EPR)"), None)
+    if achk:  # 공개 로그에는 건수만
+        emit(f"::notice title=trade-remedy-au-epr::호주 ATRC 한국 관련 진행 사건 {achk.get('cases', 0)}건(진행 목록 {achk.get('listTotal', '?')}건 중) · 문서 줄 {achk.get('returned', 0)} · "
+             f"이번 이벤트 {achk.get('events', 0)}(새 문서 {achk.get('newDocs', 0)}·새 사건 {achk.get('newCases', 0)}·단계·일정 바뀜 {achk.get('changes', 0)}·목록에서 빠짐 {achk.get('gone', 0)}) · "
+             f"{'기준선(처음 읽음) · ' if achk.get('baseline') else ''}상태 {achk.get('status', '?')}{' — ' + str(achk.get('error')) if achk.get('error') else ''}")
     tr = doc.get("tra") or {}
     trev = [e for e in doc["events"] if e.get("pageId") == "trafile" and e["detectedAt"] == doc["generatedAt"]]
     tchk = next((c for c in doc["checks"] if c["source"] == "영국 TRA 공개기록"), {})

@@ -468,6 +468,29 @@ class KoreaLines(unittest.TestCase):
         # 오래된 수집·수집 없음은 미확인(지난 줄은 유지)
         stale = w.run(cfg, now=NOW + dt.timedelta(days=3), previous=doc, get=get, sleep=lambda s: None, browser=b2)
         self.assertEqual(stale["pages"][0]["status"], "failed")
+        # 호주 사건 공개기록(au-epr)이 수집에 없으면 미확인으로 표시하고 구역은 만들지 않는다
+        chk = next(c for c in first["checks"] if c["source"] == "호주 ATRC 사건 공개기록(EPR)")
+        self.assertEqual(chk["status"], "failed")
+        self.assertNotIn("auEpr", first)
+        # 수집에 있으면 구역을 만들고(첫 수집은 기준선), 다음 수집의 새 문서 줄을 이벤트로 낸다
+        epr = "/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr"
+        erows = [{"cells": ["list", "28", "1"]},
+                 {"cells": ["case", "706", "Zinc coated (galvanised) steel", "706", "Investigation", "Korea, Vietnam", "SEF", "02/10/2026", "-"], "links": [f"{epr}/706"]},
+                 {"cells": ["title", "706", "706 - Zinc coated (galvanised) steel from Korea, Vietnam", "22"]},
+                 {"cells": ["doc", "706", "22", "Notice - TRN", "TRN 2026/141 - Extension of Time to Publish SEF and Final Report [pdf 270 KB]", "02/10/2026"]}]
+        b3 = {"pages": [b1["pages"][0], {"id": "au-epr", "fetchedAt": (NOW - dt.timedelta(hours=15)).isoformat(), "rows": erows}]}
+        base = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, browser=b3)
+        self.assertEqual(base["auEpr"]["cases"]["706"]["n"], 22)
+        self.assertFalse([e for e in base["events"] if e["pageId"] == "au-epr"])
+        more = erows + [{"cells": ["doc", "706", "23", "File Note", "Meeting with POSCO [pdf 1 KB]", NOW.strftime("%d/%m/%Y")], "links": ["/sites/default/files/x.pdf"]}]
+        b4 = {"pages": [b2["pages"][0], {"id": "au-epr", "fetchedAt": (NOW + dt.timedelta(hours=9)).isoformat(), "rows": more}]}
+        nxt = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=base, get=get, sleep=lambda s: None, browser=b4)
+        ev = [e for e in nxt["events"] if e["pageId"] == "au-epr"]
+        self.assertEqual([(e["id"], e["tier"], e["companies"]) for e in ev], [("au-epr:706:doc:23", "B", ["포스코"])])
+        self.assertFalse(any("industry.gov.au" in u for u in fetched))
+        # 브라우저 문서를 못 읽은 실행(browser=None)은 직전 구역을 그대로 둔다
+        kept = w.run(cfg, now=NOW + dt.timedelta(days=1, hours=1), previous=nxt, get=get, sleep=lambda s: None)
+        self.assertEqual(kept["auEpr"], nxt["auEpr"])
         self.assertIn("시간 전", stale["pages"][0]["error"])
         self.assertTrue(stale["pages"][0]["lines"])
         none = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, browser=None)

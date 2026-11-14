@@ -49,7 +49,24 @@ class AsideCollect(unittest.TestCase):
         cmit = dict(re.findall(r"'?([가-힣]+위원회)'?: '(\d\d)'", worker_block("LABOR_CMIT")))
         part3 = {n: cd for n, _, cd in re.findall(r"\['([가-힣]+위원회)', '([a-z]*)', '(\d\d)'\]", PARTS[5])}
         self.assertEqual(part3, cmit)
-        self.assertIn(re.search(r"url: '([^']+)'", worker_block("BROWSER_PAGES")).group(1), PARTS[5])
+        urls = re.findall(r"url: '([^']+)'", worker_block("BROWSER_PAGES"))
+        self.assertEqual(len(urls), 2)   # 호주 TRN 목록 + 진행 사건 목록(EPR)
+        for u in urls:
+            self.assertIn(u, PARTS[5])
+
+    def test_epr_rows(self):
+        # 토막 5의 사건 공개기록 줄: 첫 칸이 종류, 둘째 칸이 사건 번호 — au_epr_cases.py가 같은 낱말로 읽는다
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import au_epr_cases
+        for kind in au_epr_cases.KINDS:
+            self.assertIn(f"['{kind}', ", PARTS[5])
+        # 사건 페이지 주소는 목록 주소 + 사건 번호(영문·숫자)로만 만든다 — 목록에 적힌 다른 주소를 열지 않는다
+        self.assertIn("page(EPR + '/' + c.no", PARTS[5])
+        self.assertIn("([A-Za-z0-9-]{1,20})", PARTS[5])
+        # 대화로 옮겨 올리는 SUBMIT 줄에는 사건 공개기록을 넣지 않는다(양이 많음)
+        self.assertEqual(PARTS[6].count("console.log('SUBMIT ' + JSON.stringify(small));"), 2)
+        self.assertIn("const small = { ...payload, pages: pages.slice(0, 1) };", PARTS[6])
+        self.assertNotIn("JSON.stringify(payload));\n    console", PARTS[6].replace("}, JSON.stringify(payload));", ""))
 
     def test_detail_url_matches_watch(self):
         # 토막 2가 여는 상세 주소 = 감시가 저장하는 원문 주소(기자가 누르는 링크)

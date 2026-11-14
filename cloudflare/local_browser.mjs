@@ -43,6 +43,10 @@ const clean = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 // 07:40)은 전날 16:40 수집을 읽어, 처음 올린 날(10-30 금요일 TRN 추가 뒤 첫 수집은 월요일 08:40)엔 하루 넘게 '미확인'으로 남았다.
 export const BROWSER_PAGES = {
   'au-trn': { host: 'www.industry.gov.au', url: 'https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns' },
+  // 호주 진행 사건 목록의 한국 줄과 그 사건 페이지의 사건 정보·주요 일정·공개기록(EPR) 문서 표(11-14 기자 승인). 줄 첫 칸이 종류
+  // (list·case·title·info·date·doc·error), 둘째 칸이 사건 번호 — au_epr_cases.py가 읽는다. 사건 6건 x 문서 60줄까지라 줄 한도를 따로 둔다.
+  'au-epr': { host: 'www.industry.gov.au', url: 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr',
+    maxRows: 600, what: '사건·문서 줄' },
 };
 const PAGES_DISPATCH_GAP_MS = 20 * 3600000;  // 무역구제 감시는 하루 한 번까지(아침 수집 뒤)
 const PAGES_BLOB = 'trade_remedy_browser';
@@ -69,11 +73,11 @@ async function submitPages(ctx, given, nowIso) {
     for (const r of Array.isArray(p?.rows) ? p.rows : []) {
       const cells = (Array.isArray(r?.cells) ? r.cells : []).slice(0, 10).map((x) => clean(x, MAX_CELL)).filter(Boolean);
       const links = (Array.isArray(r?.links) ? r.links : []).slice(0, 4).map((x) => pageLink(def.host, x)).filter(Boolean);
-      if (!cells.length || rows.length >= MAX_PAGE_ROWS) { dropped += 1; continue; }
+      if (!cells.length || rows.length >= (def.maxRows ?? MAX_PAGE_ROWS)) { dropped += 1; continue; }
       rows.push({ cells, links });
     }
     accepted.push({ id, fetchedAt: nowIso, rows, dropped, ...(error ? { error } : {}),
-      ...(!error && !rows.length ? { error: '한국 줄 0줄(사이트 형식 변경 또는 빈 응답) — 0건 아님' } : {}) });
+      ...(!error && !rows.length ? { error: `${def.what ?? '한국 줄'} 0줄(사이트 형식 변경 또는 빈 응답) — 0건 아님` } : {}) });
   }
   if (!accepted.length) return { lines: refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : [] };
   const { row } = await storeOp(ctx, 'blobs.get', { name: PAGES_BLOB });
@@ -94,7 +98,7 @@ async function submitPages(ctx, given, nowIso) {
     }
   }
   await storeOp(ctx, 'blobs.put', { name: PAGES_BLOB, body: JSON.stringify(doc) });
-  return { lines: [...accepted.map((x) => `- 무역구제 ${x.id}: ${x.error ? `미확인(${x.error})` : `한국 줄 ${x.rows.length}`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
+  return { lines: [...accepted.map((x) => `- 무역구제 ${x.id}: ${x.error ? `미확인(${x.error})` : `${BROWSER_PAGES[x.id].what ?? '한국 줄'} ${x.rows.length}`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
     ...(refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : []), dispatch] };
 }
 
@@ -333,7 +337,7 @@ export async function browserHealth(ctx) {
     try { return JSON.parse(row.body); } catch { return { broken: true }; }
   };
   const [doc, labor, pages, key] = await Promise.all([read(BLOB), read(LABOR_BLOB), read(PAGES_BLOB), read(KEY_BLOB)]);
-  const label = '기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN)';
+  const label = '기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN·사건 공개기록)';
   if (!doc) return `${label}: 결과 없음 — 미확인`;
   if (doc.broken) return `${label}: 저장 형식 오류 — 미확인`;
   const missed = (t) => slot != null && !(t >= slot - SLOT_EARLY_MIN * 60000);

@@ -551,11 +551,55 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
   return out;
 }
 
+// 호주 ATRC 진행 사건 공개기록(au_epr_cases.py, 11-14 기자 승인). 레이더는 호주에서 공지(TRN) 목록만 봤다 — 당사자 의견서·검증 보고서·면담 기록·
+// 종결 보고서는 사건 페이지의 공개기록 표에만 있다(11-14: 698에 KG Dongbu Steel 의견서, 706에 POSCO·Dongkuk Coated Metal 문서).
+// 기자 컴퓨터 수집(평일 09:00·16:00)이 올린 줄을 읽는다. 처음 읽은 것은 기준선이라 이 구역은 저장된 사건·일정·문서를 그대로 보여 준다.
+const AU_KIND = { investigation: '조사', continuation: '종료재심', review: '재심', 'accelerated review': '신속 재심', 'anti-circumvention': '우회 조사',
+  exemption: '면제 조사', 'duty assessment': '관세 정산' };
+const AU_DATES = [['Initiation Date', '개시'], ['PAD* earliest date', '예비 판정(PAD) 가능일'], ['SEF* no later than', '필수사실 보고서(SEF) 기한'],
+  ['Final recommendation due no later than', '최종 권고 기한']];
+export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fromIso = '') {
+  if (!epr) return ['\n[호주 ATRC 사건 공개기록(EPR)] 아직 수집 전 — 미확인(기자 컴퓨터 수집이 사건 페이지를 올린 뒤부터)'];
+  const all = Object.entries(epr.cases ?? {}).map(([no, c]) => ({ ...c, no }));
+  const hit = (c) => matches(q, c.no, c.title, c.commodity, c.countries, AU_KIND[String(c.kind ?? '').toLowerCase()] ?? '', (c.companies ?? []).join(' '), (c.docs ?? []).map((d) => d.title).join(' '));
+  const live = all.filter((c) => !c.missing && hit(c)).sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
+  const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중) · 수집 ${String(epr.fetchedAt ?? '').slice(0, 16)}Z · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
+  if (epr.status !== 'ok') out.push(`미확인(0건 아님): ${epr.error ?? epr.status} — 아래는 직전에 읽은 것`);
+  const docLine = (d) => `${d.date || '날짜 없음'} EPR ${d.no}번 ${d.type} 「${d.title}」${(d.companies ?? []).length ? `(${d.companies.join('·')})` : ''}`;
+  for (const c of live.slice(0, limit)) {
+    const docs = c.docs ?? [];
+    const shown = docs.slice(0, showAll ? 12 : 4);
+    const named = docs.filter((d) => (d.companies ?? []).length && !shown.includes(d)).slice(0, showAll ? 12 : 6);
+    out.push(`- 사건 ${c.no} · ${c.title ?? c.commodity ?? ''} · ${AU_KIND[String(c.kind ?? '').toLowerCase()] ?? c.kind ?? '사건'}${(c.companies ?? []).length ? ` · 문서 제목에 나온 출입처 이름 ${c.companies.join('·')}` : ''}`
+      + `${c.error ? ` · ⚠ 이번에 사건 페이지를 못 읽음(${c.error}) — 직전 문서 줄` : ''}`);
+    const dates = AU_DATES.map(([k, ko]) => (c.dates?.[k] && !/^N\/?A$/i.test(c.dates[k]) ? `${ko} ${c.dates[k]}` : null)).filter(Boolean);
+    out.push(`   다음 단계 ${c.milestone || '?'} · 목록 마지막 갱신 ${c.updated || '?'} · 문서 ${c.n ?? docs.length}건${dates.length ? ` · ${dates.join(' · ')}` : ''}`);
+    const who = c.info?.Applicant ?? c.info?.Applicants;
+    if (who || c.info?.['Inquiry Period']) out.push(`   ${who ? `신청인 ${who}` : ''}${who && c.info?.['Inquiry Period'] ? ' · ' : ''}${c.info?.['Inquiry Period'] ? `조사 대상 기간 ${c.info['Inquiry Period']}` : ''}`);
+    if (shown.length) out.push(`   최근 문서: ${shown.map(docLine).join(' · ')}`);
+    if (named.length) out.push(`   그 밖에 출입처 이름이 든 문서: ${named.map(docLine).join(' · ')}`);
+    out.push(`   원문: ${c.url}`);
+  }
+  if (live.length > limit) out.push(`… 남은 ${live.length - limit}건`);
+  if (!live.length) out.push('없음(수집을 못 읽었으면 미확인)');
+  const gone = all.filter((c) => c.gone && hit(c));
+  if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((c) => `${c.no} ${c.commodity ?? ''}(${String(c.gone).slice(0, 10)} 감지)`).join(' · ')} — 종결·보관으로 옮겨졌을 수 있음`);
+  const ev = (events ?? []).filter((e) => e.pageId === 'au-epr' && !e.retracted && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C')
+    && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
+  out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(출입처 이름 없는 의견서·질문서·공지·일정 C는 show_all=true)'}`);
+  for (const e of ev.slice(0, limit)) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  out.push('   검증 상태: 호주 ATRC 누리집 사건 페이지를 기자 컴퓨터 브라우저로 읽은 것(자동). 문서 제목·종류·날짜만 읽었다 — 내용(마진·판단·주장)은 원문 PDF에서 확인. 의견서는 낸 쪽의 주장이고 조사기관 판단이 아니다. 제목에 회사 이름이 있다는 것만으로 그 회사가 낸 문서라고 단정하지 않는다(다른 당사자가 그 회사를 다룬 문서일 수 있다). 회사 입장은 회사 확인');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -609,10 +653,12 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
+  if (!section || section === 'au') out.push(...auEprSection(doc.auEpr, doc.events, q, section === 'au' ? limit : Math.min(limit, 4), showAll, new Date(ctx.now.getTime() - (section === 'au' && !args.days ? 60 : days) * 86400000).toISOString()));
+
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     // EDIS 문서는 위 [미국 ITC 문서] 구역에 본문 발췌와 함께 나온다
-    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && e.pageId !== 'cbsa' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && e.pageId !== 'cbsa' && e.pageId !== 'au-epr' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
     const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
