@@ -681,6 +681,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         check: firms.length ? hint(firms[0], ['캐나다', '반덤핑']) : undefined });
       continue;
     }
+    if (e.pageId === 'citt') {
+      // 캐나다 CITT 진행 사건 일정(11-15, citt_cases.py): 새 한국산 사건·결정 문서 나옴·결정 예정일 바뀜·진행 목록에서 빠짐은 B, 그 밖(질문서·공청회 날짜)은 C.
+      // 표에 회사 이름이 없어 A는 없다. 등급은 수집기.
+      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: '캐나다 CITT 일정', id: e.id, date: e.detectedAt, company: '캐나다',
+        fact: `${e.label}: ${e.text} — 문서 이름·날짜만 읽음(결정 내용은 원문)`, url: e.url });
+      continue;
+    }
     if (e.pageId === 'au-epr') {
       // 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py). 기자 11-15 02:21: 캐나다 CBSA와 같은 규칙 — 직접 출입처 이름이 든 문서는 A
       // (연장·일정 같은 절차 문서는 B), 이름이 없으면 Report(SEF·종결 보고서 등)·새 사건·목록에서 빠짐만 B,
@@ -1635,7 +1642,7 @@ export async function radarToday(ctx, args) {
 // 해외 조사 목록(인도 DGTR 등)은 조사 하나가 한 실행에 세 줄로 잡힌다(11-13 운영: 제목 줄 · 'Ongoing Investigation …' 상태 줄 · 'Country: … Type of Proceeding: …' 나라 줄).
 // 같은 실행·같은 목록에서 ① 원문 주소가 같은 줄은 가장 긴 줄 하나만 남기고 ② 나라 줄('Country:'로 시작, 목록 주소)은 그 실행에 조사가 하나뿐일 때 그 줄에 붙인다.
 // 조사가 여럿이면 어느 조사 것인지 알 수 없어 나라 줄은 그대로 둔다. 국내 무역위·수입규제DB·EDIS·영국 공개기록·EU 쿼터는 손대지 않는다.
-const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric', 'cbsa', 'au-epr']);
+const LISTING_SKIP = new Set(['ktc', 'kita', 'edis', 'trafile', 'taric', 'cbsa', 'citt', 'au-epr']);
 export function mergeListingLines(events) {
   const drop = new Set();
   const merged = new Map();

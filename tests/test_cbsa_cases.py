@@ -77,6 +77,20 @@ SPT_TABLE = ('<main><h2>Investigation information</h2><table><thead><tr><th>Acti
              '<tr><td>ILJIN Electric Co., Ltd.</td><td>806119897RM0002</td><td>2021-11</td><td>2026-08</td></tr></tbody></table></main>')
 
 
+# 탐침 241: 판정 이유서의 결과 요약 표(유정용 강관 5 최종 판정) — 보조금 표는 꼴을 맞춰 붙인 것
+SOR_PAGE = ('<main><h1>Statement of reasons</h1><h2>Summary</h2>'
+            '<table><caption>Table 2: Import volume of OCTG</caption><tr><th>Country</th><th>% of total import volume</th></tr><tr><td>South Korea: HSP</td><td>3.1%</td></tr></table>'
+            '<table><caption>Table 4: Summary of results&mdash;Dumping (March 1, 2024 to April 30, 2025)</caption>'
+            '<tr><th>Country</th><th>Exporter</th><th>% of total imports for POI (by&nbsp;volume)</th><th>Margin&nbsp;of&nbsp;dumping (%&nbsp;of export price)</th></tr>'
+            '<tr><td rowspan="2">Philippines</td><td>HLD Clark Steel Pipe Co. Ltd.</td><td>6.6%</td><td>16.7%</td></tr><tr><td>All other exporters</td><td>0.1%</td><td>57.5%</td></tr>'
+            '<tr><td rowspan="2">South Korea</td><td>Hyundai Steel Pipe Co., Ltd.</td><td>3.1%</td><td>13.6%</td></tr><tr><td>All other exporters</td><td>0.2%</td><td>40.1%</td></tr>'
+            '<tr><td>T&uuml;rkiye</td><td>Borusan Birle&#351;ik Boru</td><td>3.5%</td><td>11.0%</td></tr></table>'
+            '<table><tr><th>Country</th><th>Exporter</th><th>Margin&nbsp;of&nbsp;dumping (%&nbsp;of export price)</th></tr>'
+            '<tr><td>South Korea</td><td>Hyundai Steel Pipe Co., Ltd.</td><td>13.6%</td></tr></table>'
+            '<table><caption>Table 6: Summary of results&mdash;Subsidy</caption><tr><th>Country</th><th>Exporter</th><th>Amount of subsidy (% of export price)</th></tr>'
+            '<tr><td>South Korea</td><td>POSCO</td><td>1.2%</td></tr><tr><td>China</td><td>Baosteel</td><td>30%</td></tr></table></main>')
+
+
 class Resp:
     def __init__(self, text="", status=200):
         self.text, self.status_code = text, status
@@ -247,6 +261,58 @@ class Collect(unittest.TestCase):
                              + doc_row("/sima-lmsi/ar-ra/lp22026/lp2202602-se-eng.html", "Normal value review schedule", "2026-12-01") + "</tbody>")
         _, events, _ = run(prev, site(pages={AR: page([LINE_PIPE, later])}), NOW + dt.timedelta(days=70))
         self.assertEqual({e["id"].rsplit(":", 1)[-1]: (e["tier"], e["companies"]) for e in events}, {"lp2202602-nc": ("A", ["세아제강"]), "lp2202602-se": ("B", ["세아제강"])})
+
+    def test_statement_of_reasons_korean_exporter_margins(self):
+        # 탐침 241(2026-11-15): 유정용 강관 5 최종 판정 이유서의 표 꼴 — 나라 칸이 두 줄에 걸치고(rowspan) 같은 줄이 표 둘에 되풀이된다
+        rows = c.parse_sor(SOR_PAGE)
+        self.assertEqual(rows, [
+            {"exporter": "Hyundai Steel Pipe Co., Ltd.", "vals": {"덤핑 마진": "13.6%"}, "table": "Table 4: Summary of results—Dumping (March 1, 2024 to April 30, 2025)"},
+            {"exporter": "All other exporters", "vals": {"덤핑 마진": "40.1%"}, "table": "Table 4: Summary of results—Dumping (March 1, 2024 to April 30, 2025)"},
+            {"exporter": "POSCO", "vals": {"보조금": "1.2%"}, "table": "Table 6: Summary of results—Subsidy"}])
+        self.assertEqual(c.sor_line(rows), "Hyundai Steel Pipe Co., Ltd. 덤핑 마진 13.6% · All other exporters 덤핑 마진 40.1% · POSCO 보조금 1.2%")
+        # 나라 칸이 없는 표는 표 제목·앞 제목에 Korea가 있을 때만, 수입 비중 표·마진 칸 없는 표는 읽지 않는다
+        self.assertEqual(c.parse_sor("<main><h3>China</h3><table><tr><th>Exporter</th><th>Margin of dumping</th></tr><tr><td>Baosteel</td><td>50%</td></tr></table></main>"), [])
+        self.assertEqual(c.parse_sor("<main><h3>South Korea</h3><table><tr><th>Exporter</th><th>Margin of dumping</th></tr><tr><td>SeAH Steel Corporation</td><td>5.0%</td></tr></table></main>"),
+                         [{"exporter": "SeAH Steel Corporation", "vals": {"덤핑 마진": "5.0%"}, "table": ""}])
+
+    def test_statement_of_reasons_is_read_once_and_attached_to_the_new_document_event(self):
+        fd = "https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-fd-eng.html"
+        pd = "https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-pd-eng.html"
+        base_case = lambda rows: case('Oil Country Tubular Goods&nbsp;5: <span class="noBold">Dumping (Mexico, the Philippines, South Korea, T&uuml;rkiye and United States)&mdash;Concludes on '
+                                      '<time datetime="2026-12-20">December 20, 2026</time></span>', rows)
+        first = [doc_row("/sima-lmsi/i-e/octg52025/octg52025-in-eng.html", "Statement of reasons—Initiation of investigation", "2026-08-26"),
+                 doc_row("/sima-lmsi/i-e/octg52025/octg52025-pd-eng.html", "Statement of reasons—Preliminary determination", "2026-10-06"),
+                 doc_row("/sima-lmsi/i-e/octg52020/old-fd-eng.html", "Statement of reasons—Final determination", "2021-01-22"),
+                 doc_row("/sima-lmsi/i-e/octg52025/octg52025-fd-eng.pdf", "Statement of reasons—PDF copy", "2026-10-06")]
+        s0 = site(pages={IE: page([base_case(first)]), pd: SOR_PAGE})
+        sec, ev, chk = c.collect(None, NOW, get=s0.get, sleep=lambda x: None)
+        # 기준선 실행: 최근 500일 안의 HTML 이유서 둘을 읽는다(옛 것·PDF는 읽지 않는다). 개시 이유서에는 마진 표가 없다
+        self.assertEqual((ev, chk["sorRead"], chk["sorRows"], chk["sorWaiting"], chk["sorFailed"]), ([], 2, 3, 0, 0))
+        self.assertEqual(sorted(u.rsplit("/", 1)[1] for u in sec["sor"]), ["octg52025-in-eng.html", "octg52025-pd-eng.html"])
+        self.assertEqual((len(sec["sor"][pd]["rows"]), sec["sor"][pd]["companies"], sec["sor"][pd]["date"]), (3, ["포스코"], "2026-10-06"))
+        self.assertEqual(sec["sor"][pd.replace("-pd-", "-in-")]["rows"], [])
+        # 다음 실행: 이미 읽은 이유서는 다시 열지 않는다
+        s1 = site(pages={IE: page([base_case(first)]), pd: SOR_PAGE})
+        sec1, ev1, chk1 = c.collect(sec, NOW + dt.timedelta(hours=10), get=s1.get, sleep=lambda x: None)
+        self.assertEqual((ev1, chk1["sorRead"]), ([], 0))
+        self.assertNotIn(pd, s1.calls)
+        self.assertEqual(sec1["sor"][pd]["rows"], sec["sor"][pd]["rows"])
+        # 최종 판정 이유서가 새로 올라옴: 새 문서 알림에 한국 수출자 줄을 붙이고, 직접 출입처 이름이 있으면 A
+        more = first + [doc_row("/sima-lmsi/i-e/octg52025/octg52025-fd-eng.html", "Statement of reasons—Final determination", NOW.date().isoformat())]
+        s2 = site(pages={IE: page([base_case(more)]), fd: SOR_PAGE})
+        sec2, ev2, chk2 = c.collect(sec1, NOW + dt.timedelta(days=1), get=s2.get, sleep=lambda x: None)
+        self.assertEqual(len(ev2), 1)
+        self.assertIn("새 문서 「Statement of reasons—Final determination」", ev2[0]["text"])
+        self.assertIn("판정 이유서의 한국 수출자: Hyundai Steel Pipe Co., Ltd. 덤핑 마진 13.6% · All other exporters 덤핑 마진 40.1% · POSCO 보조금 1.2%", ev2[0]["text"])
+        self.assertEqual((ev2[0]["tier"], ev2[0]["companies"], ev2[0]["url"]), ("A", ["포스코"], fd))   # 현대스틸파이프는 현대제철이 아니다
+        self.assertEqual((chk2["sorRead"], chk2["newDocs"]), (1, 1))
+        # 이유서 쪽을 못 읽으면 세 번까지 다시 하고, 알림은 제목만으로 나간다
+        s3 = site(pages={IE: page([base_case(more)])}, down=[fd])
+        state, tries = sec1, []
+        for n in range(1, 5):
+            state, evn, chkn = c.collect(state, NOW + dt.timedelta(days=n), get=s3.get, sleep=lambda x: None)
+            tries.append((chkn["sorFailed"], state["sor"].get(fd, {}).get("tries")))
+        self.assertEqual(tries, [(1, 1), (1, 2), (1, 3), (0, 3)])
 
     def test_failures_keep_the_previous_state(self):
         prev, _, _ = run(None, site())

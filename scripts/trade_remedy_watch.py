@@ -810,7 +810,7 @@ def mark_renumbered(events, page_ids):
 
 
 def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None,
-        edis_get=None, edis_token="", tra_get=None, cbsa_get=None):
+        edis_get=None, edis_token="", tra_get=None, cbsa_get=None, citt_get=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -862,6 +862,12 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         import cbsa_cases
         cbsa, cbsa_events, ccheck = cbsa_cases.collect(cbsa, now, get=cbsa_get, sleep=sleep)
         checks.append(ccheck)
+    # 캐나다 CITT 진행 사건 일정(11-15, citt_cases.py): 한국산 피해 조사·종료재심의 질문서·공청회·결정 예정일, 문서가 나오면 링크
+    citt, citt_events = (previous or {}).get("citt"), []
+    if citt_get is not None:
+        import citt_cases
+        citt, citt_events, tcheck2 = citt_cases.collect(citt, now, get=citt_get, sleep=sleep)
+        checks.append(tcheck2)
     # 호주 ATRC 진행 사건 공개기록(11-14, au_epr_cases.py): 기자 컴퓨터 브라우저 수집의 au-epr 줄(사건 정보·주요 일정·문서 표). 처음 읽은 것은 기준선
     au_epr, au_events = (previous or {}).get("auEpr"), []
     if browser is not None:
@@ -877,7 +883,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + cbsa_events + au_events + [
+    fresh = page_events + ktc_events + kita_events + edis_events + tra_events + cbsa_events + citt_events + au_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -895,7 +901,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
             **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}), **({"cbsa": cbsa} if cbsa else {}),
-            **({"auEpr": au_epr} if au_epr else {}),
+            **({"citt": citt} if citt else {}), **({"auEpr": au_epr} if au_epr else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
@@ -942,7 +948,7 @@ def main():
     import ktc_watch
     import requests
     doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
-              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get, cbsa_get=requests.get)
+              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get, cbsa_get=requests.get, citt_get=requests.get)
     # 무역위 새 조사 품목 → 출입처 사업보고서 '사업의 내용' 대조(11-11, scripts/ktc_producers.py) — 신청인 확인 질문용 원문 단서
     import ktc_producers
     try:
@@ -998,7 +1004,13 @@ def main():
           f" · 이번 이벤트 {len(kev)}")
     cchk = next((x for x in doc["checks"] if x["source"] == "캐나다 CBSA 사건 문서·시행 중 조치"), {})
     emit(f"::notice title=trade-remedy-cbsa::캐나다 CBSA 한국 관련 사건 {cchk.get('cases', 0)}건(진행 중 {cchk.get('open', 0)}) · 문서 줄 {cchk.get('docs', 0)} · 조치 쪽 {cchk.get('measures', 0)} · 한국 수출자 줄 {cchk.get('exporters', 0)} · "
-          f"이번 이벤트 {cchk.get('events', 0)}(새 문서 {cchk.get('newDocs', 0)}·상태 바뀜 {cchk.get('stateChanges', 0)}·새 사건 {cchk.get('newCases', 0)}) · 상태 {cchk.get('status', '?')}")
+          f"이번 이벤트 {cchk.get('events', 0)}(새 문서 {cchk.get('newDocs', 0)}·상태 바뀜 {cchk.get('stateChanges', 0)}·새 사건 {cchk.get('newCases', 0)}) · 판정 이유서 이번에 읽음 {cchk.get('sorRead', 0)}(한국 수출자 줄 {cchk.get('sorRows', 0)})·실패 {cchk.get('sorFailed', 0)}·다음 실행으로 {cchk.get('sorWaiting', 0)}"
+          f" · 상태 {cchk.get('status', '?')}")
+    tchk = next((x for x in doc["checks"] if x["source"] == "캐나다 CITT 진행 사건 일정"), None)
+    if tchk:
+        emit(f"::notice title=trade-remedy-citt::캐나다 CITT 진행 사건 {tchk.get('total', '?')}건 중 한국산 {tchk.get('returned', 0)}건 · 쪽 갱신일 {tchk.get('updated') or '?'} · "
+             f"이번 이벤트 {tchk.get('events', 0)}(새 사건 {tchk.get('newCases', 0)}·문서 나옴 {tchk.get('issued', 0)}·일정 바뀜 {tchk.get('moved', 0)}·목록에서 빠짐 {tchk.get('gone', 0)}) · "
+             f"{'기준선(처음 읽음) · ' if tchk.get('baseline') else ''}상태 {tchk.get('status', '?')}{' — ' + str(tchk.get('error')) if tchk.get('error') else ''}")
     achk = next((x for x in doc["checks"] if x["source"] == "호주 ATRC 사건 공개기록(EPR)"), None)
     if achk:  # 공개 로그에는 건수만
         emit(f"::notice title=trade-remedy-au-epr::호주 ATRC 한국 관련 진행 사건 {achk.get('cases', 0)}건(진행 목록 {achk.get('listTotal', '?')}건 중) · 문서 줄 {achk.get('returned', 0)} · "

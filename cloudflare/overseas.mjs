@@ -526,6 +526,12 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
     const last = docs.slice(0, showAll ? 8 : 3).map((d) => `${d.date || '날짜 없음'} 「${d.title}」`).join(' · ');
     out.push(`- ${CBSA_KIND[c.list] ?? c.list} · ${c.title}${(c.companies ?? []).length ? ` · 출입처 이름 ${c.companies.join('·')}` : ''}`);
     out.push(`   ${c.state ? `${CBSA_STATE[c.state] ?? c.state} ${c.stateDate || '날짜 미정'}` : '상태 표시 없음'} · 문서 ${c.n ?? '?'}건${last ? ` · 최근: ${last}` : c.latest ? ` · 가장 최근 문서 ${c.latest}` : ''}`);
+    // 판정 이유서(Statement of reasons)에서 읽은 한국 수출자별 덤핑 마진·보조금(11-15, cbsa_cases.parse_sor) — 가장 최근 이유서부터 2건까지
+    for (const d of docs.filter((x) => (cbsa.sor?.[x.url]?.rows ?? []).length).slice(0, 2)) {
+      const rows = cbsa.sor[d.url].rows;
+      const n = showAll ? 12 : 6;
+      out.push(`   판정 이유서의 한국 수출자(${d.date || '날짜 없음'} 「${d.title}」): ${rows.slice(0, n).map((r) => `${r.exporter} ${Object.entries(r.vals ?? {}).map(([k, v]) => `${k} ${v}`).join('·')}`).join(' · ')}${rows.length > n ? ' 외' : ''} — ${d.url}`);
+    }
     const d0 = docs[0];
     if (d0?.url) out.push(`   원문(가장 최근 문서): ${d0.url}`);
   };
@@ -608,6 +614,36 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   return out;
 }
 
+// 캐나다 CITT 진행 사건 일정(citt_cases.py, 11-15 기자 승인). 캐나다는 덤핑·보조금 판정을 CBSA가, 피해 판정과 조치 연장 여부(종료재심)를 CITT가 한다.
+// CITT '진행 중인 덤핑·보조금 사건' 쪽의 사건별 일정 표에서 표 제목에 Korea가 든 사건만. 처음 읽은 것은 기준선.
+const CITT_GROUP = { 'preliminary injury inquiries': '예비 피해 조사', 'final injury inquiries': '최종 피해 조사', 'expiry reviews': '종료재심', 'interim reviews': '중간재심',
+  'public interest inquiries': '공익 조사', 'requests for ruling': '판단 요청' };
+export function cittSection(citt, events, q = '', limit = 8, showAll = false, fromIso = '') {
+  if (!citt) return ['\n[캐나다 CITT 진행 사건 일정] 아직 수집 전 — 미확인'];
+  const group = (g) => CITT_GROUP[String(g ?? '').toLowerCase()] ?? g ?? '사건';
+  const sched = (rows) => (rows ?? []).map((r) => `${r.doc} ${/week/i.test(r.when ?? '') || !r.date ? r.when : r.date}${r.url ? '(나옴)' : ''}`).join(' · ');
+  const cases = Object.entries(citt.cases ?? {}).map(([no, c]) => ({ ...c, no })).filter((c) => matches(q, c.no, c.title, group(c.group)));
+  const out = [`\n[캐나다 CITT 진행 사건 일정 · 한국산 ${cases.length}건(진행 ${citt.total ?? '?'}건 중) · 확인 ${String(citt.checkedAt).slice(0, 16)} · 쪽 갱신일 ${citt.updated || '?'} · 기준선 ${String(citt.baselineAt ?? '').slice(0, 10)}]`];
+  if (citt.status !== 'ok') out.push(`미확인(0건 아님): ${citt.error ?? citt.status} — 아래는 직전에 읽은 것`);
+  for (const c of cases.slice(0, limit)) {
+    out.push(`- ${c.no} · ${group(c.group)} · ${c.title}`);
+    out.push(`   일정: ${sched(c.rows)}`);
+    const issued = (c.rows ?? []).filter((r) => r.url).pop();
+    out.push(`   원문: ${issued?.url ?? citt.url}`);
+  }
+  if (!cases.length) out.push('없음(쪽을 못 읽었으면 미확인)');
+  const gone = (citt.gone ?? []).filter((g) => matches(q, g.no, g.title));
+  if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((g) => `${g.no} ${g.title}(${String(g.goneAt).slice(0, 10)} 감지)`).join(' · ')} — 결정이 나왔을 수 있음(CITT 결정 사이트에서 확인)`);
+  const ev = (events ?? []).filter((e) => e.pageId === 'citt' && !e.retracted && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C') && matches(q, e.label, e.text));
+  out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(질문서·공청회 날짜 바뀜 C는 show_all=true)'}`);
+  for (const e of ev.slice(0, limit)) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  out.push('   검증 상태: CITT 누리집 진행 사건 쪽(자동). 문서 이름과 날짜만 읽었다 — 결정 내용(피해 인정·조치 연장 여부)은 결정문에서 확인. 일정은 CITT가 바꿀 수 있다. 표에 회사 이름이 없다 — 어느 회사가 대상인지는 CBSA 조치 쪽의 한국 수출자 표와 회사 확인');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
@@ -666,12 +702,13 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
+  if (!section || section === 'cbsa') out.push(...cittSection(doc.citt, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 3), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
   if (!section || section === 'au') out.push(...auEprSection(doc.auEpr, doc.events, q, section === 'au' ? limit : Math.min(limit, 4), showAll, new Date(ctx.now.getTime() - (section === 'au' && !args.days ? 60 : days) * 86400000).toISOString()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     // EDIS 문서는 위 [미국 ITC 문서] 구역에 본문 발췌와 함께 나온다
-    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && e.pageId !== 'cbsa' && e.pageId !== 'au-epr' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && e.pageId !== 'trafile' && e.pageId !== 'cbsa' && e.pageId !== 'citt' && e.pageId !== 'au-epr' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
     const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');

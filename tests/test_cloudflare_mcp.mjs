@@ -5122,6 +5122,60 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.equal(deskType({ watch: '무역구제', tier: 'C', kind: '호주 ATRC 사건 공개기록', company: '포스코', fact }).key, 'other');
 });
 
+test('캐나다 판정 이유서의 한국 수출자 마진과 CITT 진행 사건 일정(11-15): section=cbsa에 같이, CITT 결정 문서·새 사건은 B·날짜 바뀜은 C', async () => {
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  const day = (n) => new Date(NOW.getTime() + n * 86400000).toISOString().slice(0, 10);
+  const fd = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-fd-eng.html';
+  const pd = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-pd-eng.html';
+  // 탐침 241: 유정용 강관 5 최종 판정 이유서의 한국 줄
+  const cbsa = { checkedAt: at, baselineAt: at, lists: { 'i-e': { status: 'ok', kind: '조사', cases: { 'i-e/octg52025/octg52025': {
+    title: 'Oil Country Tubular Goods 5: Dumping (Mexico, the Philippines, South Korea, Türkiye and United States)—Concludes on December 20, 2026', state: 'Concludes', stateDate: day(35), n: 3, latest: day(-5),
+    docs: [{ title: 'Statement of reasons—Preliminary determination', date: day(-60), url: pd }, { title: 'Statement of reasons—Final determination', date: day(-5), url: fd }] } } } },
+  measures: {}, sor: {
+    [fd]: { v: 1, readAt: at, date: day(-5), title: 'Statement of reasons—Final determination', case: 'Oil Country Tubular Goods 5',
+      rows: [{ exporter: 'Hyundai Steel Pipe Co., Ltd.', vals: { '덤핑 마진': '13.6%' }, table: 'Table 4: Summary of results—Dumping' }, { exporter: 'All other exporters', vals: { '덤핑 마진': '40.1%', 보조금: '1.2%' }, table: 'Table 4' }] },
+    [pd]: { v: 1, readAt: at, date: day(-60), title: 'Statement of reasons—Preliminary determination', case: 'Oil Country Tubular Goods 5', rows: [] } } };
+  // 탐침 243: CITT 소형 변압기 종료재심 일정
+  const dec = 'https://decisions.citt-tcce.gc.ca/citt-tcce/ra/en/item';
+  const citt = { status: 'ok', checkedAt: at, baselineAt: at, url: 'https://www.citt-tcce.gc.ca/en/anti-dumping-injury-inquiries/active-dumping-and-subsidizing-cases', total: 13, updated: '2026-11-12',
+    cases: { 'RR-2026-007': { title: 'Certain Small Power Transformers: dumping (Chinese Taipei and Korea)', group: 'Expiry reviews', firstSeen: at,
+      rows: [{ doc: 'Notice of expiry review of finding', when: 'October 1, 2026', date: '2026-10-01', url: `${dec}/18710/index.do` }, { doc: 'Questionnaires', when: 'March 1, 2027', date: '2027-03-01', url: '' },
+        { doc: 'Public hearing', when: 'Week of May 25, 2027', date: '2027-05-25', url: '' }, { doc: 'Order and reasons', when: 'August 5, 2027', date: '2027-08-05', url: '' }] } },
+    gone: [{ no: 'NQ-2025-009', title: 'Old pipe: dumping (Korea)', group: 'Final injury inquiries', goneAt: '2026-11-10T07:40:00+09:00', rows: [] }] };
+  const events = [
+    { id: 'citt:RR-2026-007:moved:Order and reasons:2027-08-19', pageId: 'citt', country: '캐나다', label: '캐나다 CITT 종료재심 RR-2026-007', tier: 'B', detectedAt: at, url: citt.url,
+      text: 'Certain Small Power Transformers: dumping (Chinese Taipei and Korea) — 일정 바뀜: 「Order and reasons」 August 5, 2027 → August 19, 2027' },
+    { id: 'citt:RR-2026-007:moved:Questionnaires:2027-03-15', pageId: 'citt', country: '캐나다', label: '캐나다 CITT 종료재심 RR-2026-007', tier: 'C', detectedAt: at, url: citt.url,
+      text: 'Certain Small Power Transformers: dumping (Chinese Taipei and Korea) — 일정 바뀜: 「Questionnaires」 March 1, 2027 → March 15, 2027' }];
+  const o = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events, cbsa, citt }) }), o.env, {})).status, 200);
+  const sec = (await call('trade_remedies', { section: 'cbsa' }, o)).text;
+  // 판정 이유서의 한국 수출자 줄: 줄이 있는 가장 최근 이유서(줄이 없는 예비 판정 이유서는 적지 않는다)
+  assert.match(sec, /\n   판정 이유서의 한국 수출자\(\d{4}-\d\d-\d\d 「Statement of reasons—Final determination」\): Hyundai Steel Pipe Co\., Ltd\. 덤핑 마진 13\.6% · All other exporters 덤핑 마진 40\.1%·보조금 1\.2% — https:\/\/www\.cbsa-asfc\.gc\.ca\/sima-lmsi\/i-e\/octg52025\/octg52025-fd-eng\.html\n/);
+  assert.equal((sec.match(/판정 이유서의 한국 수출자\(/g) ?? []).length, 1);
+  // CITT 일정: 주 단위 날짜는 글자 그대로, 이미 나온 문서는 (나옴)
+  assert.match(sec, /\n\[캐나다 CITT 진행 사건 일정 · 한국산 1건\(진행 13건 중\) · 확인 [^\]]* · 쪽 갱신일 2026-11-12 · 기준선 \d{4}-\d\d-\d\d\]\n- RR-2026-007 · 종료재심 · Certain Small Power Transformers: dumping \(Chinese Taipei and Korea\)\n   일정: Notice of expiry review of finding 2026-10-01\(나옴\) · Questionnaires 2027-03-01 · Public hearing Week of May 25, 2027 · Order and reasons 2027-08-05\n   원문: https:\/\/decisions\.citt-tcce\.gc\.ca\/citt-tcce\/ra\/en\/item\/18710\/index\.do\n/);
+  assert.match(sec, /진행 목록에서 빠진 사건: NQ-2025-009 Old pipe: dumping \(Korea\)\(2026-11-10 감지\)/);
+  assert.match(sec, /기준선 뒤 새로 잡힌 것\(감지일 기준\): 1건\(질문서·공청회 날짜 바뀜 C는 show_all=true\)\n- B · [^\n]*일정 바뀜: 「Order and reasons」 August 5, 2027 → August 19, 2027/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', show_all: true }, o)).text, /질문서·공청회|「Questionnaires」 March 1, 2027 → March 15, 2027/);
+  assert.match((await call('trade_remedies', { section: 'cbsa', company: 'transformers' }, o)).text, /한국산 1건\(진행 13건 중\)/);
+  assert.match((await call('trade_remedies', {}, o)).text, /\[캐나다 CITT 진행 사건 일정 · 한국산 1건/);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'notices' }, o)).text, /Order and reasons/);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'au' }, o)).text, /CITT/);
+  // radar_today: 결정 예정일 바뀜은 B, 질문서 날짜는 C. 회사 이름이 없어 A·실적 유형은 아니다
+  const r = (await call('radar_today', {}, o)).text;
+  assert.match(r, /\n\[A · [^\n]*\] 0건/);
+  assert.match(r, /캐나다 CITT 종료재심 RR-2026-007: Certain Small Power Transformers[^\n]*「Order and reasons」 August 5, 2027 → August 19, 2027 — 문서 이름·날짜만 읽음\(결정 내용은 원문\)/);
+  assert.doesNotMatch(r, /「Questionnaires」/);
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CITT 일정', company: '캐나다', fact: 'x' }).key, 'other');
+  // 수집 전
+  const o2 = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [] }) }), o2.env, {})).status, 200);
+  assert.match((await call('trade_remedies', { section: 'cbsa' }, o2)).text, /\[캐나다 CITT 진행 사건 일정\] 아직 수집 전 — 미확인/);
+});
+
 test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 출입처 이름이 든 것은 A·실적 유형, 그 밖의 문서는 B·절차 문서는 C', async () => {
   const at = new Date(NOW.getTime() - 3600000).toISOString();
   const day = (n) => new Date(NOW.getTime() + n * 86400000).toISOString().slice(0, 10);

@@ -196,6 +196,68 @@ def parse_measure(page, base):
     return actions, exporters
 
 
+# 판정 이유서(Statement of reasons)의 수출자별 덤핑 마진·보조금 표(기자 11-15 02:54). 탐침 241(2026-11-15): 조사 판정 이유서에
+# 'Table 4: Summary of results—Dumping'(Country | Exporter | % of total imports | Margin of dumping (% of export price)) 같은 표가 있고
+# 나라 칸은 여러 줄에 걸친다(rowspan) — 'All other exporters' 줄은 앞 줄의 나라. 종료재심 이유서에는 마진 표가 없다.
+SOR = re.compile(r"statement of reasons", re.I)
+SOR_BUDGET = 3           # 한 실행에 읽는 판정 이유서
+SOR_DAYS = 500
+SOR_KEEP = 40
+SOR_TRIES = 3
+SOR_VERSION = 1
+SOR_VALUE = re.compile(r"margin\s*of\s*dumping|amount\s*of\s*subsid|subsid", re.I)
+
+
+def parse_sor(page):
+    """판정 이유서 쪽 → 한국 수출자 줄 [{exporter, vals: {'덤핑 마진': '13.6%'}, table}] — 머리 줄에 Exporter와 덤핑 마진·보조금 칸이 있는 표만."""
+    main = main_of(page)
+    out, seen = [], set()
+    for m in re.finditer(r"<table[\s\S]*?</table>", main):
+        table = m.group(0)
+        rows = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", table)
+        if len(rows) < 2:
+            continue
+        heads = [plain(x) for x in re.findall(r"<th[^>]*>([\s\S]*?)</th>", rows[0])]
+        low = [h.lower() for h in heads]
+        value_cols = [(i, "보조금" if "subsid" in h else "덤핑 마진") for i, h in enumerate(low) if SOR_VALUE.search(h)]
+        if not any(h.startswith("exporter") for h in low) or not value_cols:
+            continue
+        e_col = next(i for i, h in enumerate(low) if h.startswith("exporter"))
+        c_col = next((i for i, h in enumerate(low) if h.startswith("country")), None)
+        cap = re.search(r"<caption[^>]*>([\s\S]*?)</caption>", table)
+        caption = plain(cap.group(1)) if cap else ""
+        if c_col is None:     # 나라 칸이 없는 표: 표 제목이나 바로 앞 제목에 Korea가 있을 때만 한국 줄로 본다
+            before = re.findall(r"<h[2-5][^>]*>([\s\S]*?)</h[2-5]>", main[:m.start()])
+            if not KOREA.search(caption + " " + (plain(before[-1]) if before else "")):
+                continue
+        last_country = ""
+        for row in rows[1:]:
+            tds = [plain(x) for x in re.findall(r"<t[dh][^>]*>([\s\S]*?)</t[dh]>", row)]
+            if c_col is not None and len(tds) == len(heads) - 1:
+                tds.insert(c_col, last_country)
+            if len(tds) < len(heads) or not tds[e_col]:
+                continue
+            if c_col is not None:
+                last_country = tds[c_col]
+                if not KOREA.search(last_country):
+                    continue
+            vals = {}
+            for i, name in value_cols:
+                if tds[i] and name not in vals:
+                    vals[name] = tds[i][:40]
+            key = (tds[e_col].lower(), tuple(sorted(vals.items())))
+            if not vals or key in seen:
+                continue
+            seen.add(key)
+            out.append({"exporter": tds[e_col][:100], "vals": vals, "table": caption[:90]})
+    return out
+
+
+def sor_line(rows, limit=6):
+    """'Hyundai Steel Pipe Co., Ltd. 덤핑 마진 13.6% · All other exporters 덤핑 마진 57.5%'"""
+    return " · ".join(f"{r['exporter']} " + "·".join(f"{k} {v}" for k, v in r["vals"].items()) for r in rows[:limit]) + (" 외" if len(rows) > limit else "")
+
+
 # 출입처의 자회사 이름은 출입처로 적지 않는다(11-14 운영: 조치 쪽 수출자 'Hyundai Steel Pipe Co., Ltd.'(현대스틸파이프)가 '현대제철'로 붙었다)
 AFFILIATE = re.compile(r"Hyundai Steel Pipe", re.I)
 
@@ -255,7 +317,8 @@ def collect(previous, now, *, get, sleep=time.sleep):
     full_from = (now - dt.timedelta(days=FULL_DAYS)).date().isoformat()
     fresh_from = (now - dt.timedelta(days=FRESH_DAYS)).date().isoformat()
     out = {"checkedAt": stamp, "baselineAt": prev.get("baselineAt") or stamp, "lists": {}, "measures": {}}
-    events, errors, counts = [], [], {"cases": 0, "docs": 0, "open": 0, "newDocs": 0, "newCases": 0, "stateChanges": 0, "measures": 0, "exporters": 0}
+    events, errors, counts = [], [], {"cases": 0, "docs": 0, "open": 0, "newDocs": 0, "newCases": 0, "stateChanges": 0, "measures": 0, "exporters": 0,
+                                      "sorRead": 0, "sorRows": 0, "sorWaiting": 0, "sorFailed": 0}
 
     def fetch(url):
         sleep(GAP)
@@ -324,6 +387,40 @@ def collect(previous, now, *, get, sleep=time.sleep):
             counts["open"] += 1 if ongoing else 0
         out["lists"][list_id] = {"status": "ok", "kind": kind, "url": url, "total": total, "cases": kept, "checkedAt": stamp}
 
+    # 판정 이유서의 한국 수출자 마진·보조금 표: 최근 SOR_DAYS일 안의 이유서를 최근 것부터 한 실행에 SOR_BUDGET건(새 문서 알림에는 그 실행에서 붙인다)
+    sor = {u: v for u, v in (prev.get("sor") or {}).items() if isinstance(v, dict)}
+    sor_from = (now - dt.timedelta(days=SOR_DAYS)).date().isoformat()
+    want = []
+    for lst in out["lists"].values():
+        for c in (lst.get("cases") or {}).values():
+            for d in c.get("docs") or []:
+                u = d.get("url") or ""
+                o = sor.get(u) or {}
+                if SOR.search(d.get("title") or "") and u.lower().endswith((".html", ".htm")) and (d.get("date") or "") >= sor_from \
+                        and not (o.get("v") == SOR_VERSION and ("rows" in o or int(o.get("tries") or 0) >= SOR_TRIES)):
+                    want.append((d["date"], u, d["title"], c["title"]))
+    want.sort(reverse=True)
+    for date, u, title, case in want[:SOR_BUDGET]:
+        try:
+            rows = parse_sor(fetch(u))
+        except Exception as e:  # noqa: BLE001 — 다음 실행에 다시(SOR_TRIES번까지)
+            sor[u] = {"v": SOR_VERSION, "date": date, "title": title, "case": case, "tries": int((sor.get(u) or {}).get("tries") or 0) + 1,
+                      "error": str(e)[:60] or type(e).__name__}
+            counts["sorFailed"] += 1
+            continue
+        firms = sorted({f for r in rows for f in beat_in(r["exporter"])})
+        sor[u] = {"v": SOR_VERSION, "readAt": stamp, "date": date, "title": title, "case": case, "rows": rows[:12], **({"companies": firms} if firms else {})}
+        counts["sorRead"] += 1
+        counts["sorRows"] += len(rows)
+        for e in events:      # 이번 실행에서 이 이유서를 새 문서로 알렸으면 한국 수출자 줄을 붙인다
+            if e.get("url") == u and rows:
+                e["text"] += f" · 판정 이유서의 한국 수출자: {sor_line(rows)}"
+                both = sorted(set((e.get("companies") or []) + firms))
+                if both:
+                    e["companies"] = both
+                    e["tier"] = tier_of(title, both)
+    counts["sorWaiting"] = max(0, len(want) - SOR_BUDGET)
+    out["sor"] = dict(sorted(sor.items(), key=lambda kv: str(kv[1].get("date") or ""), reverse=True)[:SOR_KEEP])
     # 시행 중 조치: 한국 줄의 조치 쪽
     old_m = prev.get("measures") or {}
     try:
