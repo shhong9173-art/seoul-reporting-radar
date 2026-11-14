@@ -874,6 +874,21 @@ export function dgtrCaseNote(c, all = false) {
 // 11-06 흄드실리카 판정문: 목록 줄은 'China PR & Korea RP'인데 이번 일몰재심은 중국만 대상이고 한국은 재심을 개시하지 않았다(7항) — 열어 봐야 알 수 있던 것.
 // 개시 고시는 스캔본이라 글자 인식으로 읽는다(숫자·날짜가 틀리게 읽힐 수 있어 그렇게 적는다). 한국 수출자 이름은 개시 고시에 없다.
 const cut = (v, n) => { const s = String(v ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? `${s.slice(0, n).trimEnd()}…` : s; };
+// 짧은 화면(radar_today·단독 데스크)에서 한국 문장을 줄일 때, 결정 낱말이 잘리는 자리 뒤에 있으면 그 둘레를 남긴다.
+// 11-14 운영: 흄드실리카 7항을 앞에서 260자로 자르니 정작 'the present review was not initiated in respect of imports from Korea RP'가 잘렸다.
+const KEY_PHRASE = /not initiated|terminat|de ?minimis|negligible|exclu|revok|withdraw|not (?:recommend|impos|required)|no (?:dumping|injury)/gi;
+export function focusCut(v, n) {
+  const s = String(v ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length <= n) return s;
+  const hits = [...s.matchAll(KEY_PHRASE)];
+  const last = hits.length ? hits[hits.length - 1].index : -1;
+  if (last < 0 || last + 40 <= n) return `${s.slice(0, n).trimEnd()}…`;   // 결정 낱말이 없거나 앞쪽에 있으면 앞에서 자른다
+  const end = Math.min(s.length, last + Math.floor(n / 3));
+  const start = Math.max(0, end - n);
+  const head = (s.match(/^\(\d+항\) /) ?? [''])[0];                        // 문단 번호는 남긴다
+  if (start <= head.length) return `${s.slice(0, end).trim()}${end < s.length ? '…' : ''}`;
+  return `${head}…${s.slice(start, end).trim()}${end < s.length ? '…' : ''}`;
+}
 export function dgtrDocNote(c, all = false) {
   if (!c) return '';
   const out = [];
@@ -881,7 +896,7 @@ export function dgtrDocNote(c, all = false) {
   if (f && f.status !== 'ok') out.push(`판정문(${f.date ?? '?'} 「${f.title ?? ''}」) 못 읽음(${f.error ?? '실패'}) — 미확인`);
   else if (f) {
     const k = f.korea ?? [];
-    const shown = all ? k : k.slice(0, 1).map((x) => cut(x, 260));
+    const shown = all ? k : k.slice(0, 1).map((x) => focusCut(x, 280));
     const total = f.koreaTotal ?? k.length;
     const d = f.duty ?? {};
     const rows = d.korea ?? [];
