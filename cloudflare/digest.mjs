@@ -612,7 +612,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const tr = docs['trade-remedy'];
   const listing = mergeListingLines(tr?.events ?? []);
   for (const e0 of tr?.events ?? []) {
-    if (!recent(e0.detectedAt) || e0.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
+    if (!recent(e0.detectedAt) || e0.renumbered || e0.retracted) continue;  // 목록 일련번호만 밀린 재감지 · 수집기가 잘못 낸 것으로 표시한 이벤트(11-14 CBSA 옛 사건 9건)
     if (listing.drop.has(e0.id)) continue;                  // 같은 조사의 겹친 줄(제목 줄·상태 줄·나라 줄) — 남긴 한 줄에 합쳐 적는다
     const e = listing.merged.get(e0.id) ?? e0;
     if (e.pageId === 'ktc') {

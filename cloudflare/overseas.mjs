@@ -539,8 +539,10 @@ export function cbsaSection(cbsa, events, q = '', limit = 12, showAll = false, f
     out.push(`   원문: ${m.url}`);
   }
   if (!named.length) out.push('없음');
-  const ev = (events ?? []).filter((e) => e.pageId === 'cbsa' && String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C') && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
-  out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(절차 문서 C는 show_all=true)'}`);
+  const live = (events ?? []).filter((e) => e.pageId === 'cbsa' && !e.retracted);
+  const pulled = (events ?? []).filter((e) => e.pageId === 'cbsa' && e.retracted).length;
+  const ev = live.filter((e) => String(e.detectedAt) >= String(fromIso) && (showAll || e.tier !== 'C') && matches(q, e.label, e.text, (e.companies ?? []).join(' ')));
+  out.push(`기준선 뒤 새로 잡힌 것(감지일 기준): ${ev.length}건${showAll ? '' : '(절차 문서 C는 show_all=true)'}${pulled ? ` · 수집기가 잘못 낸 것으로 표시해 뺀 ${pulled}건(오래전 끝난 사건)` : ''}`);
   for (const e of ev.slice(0, limit)) {
     out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.label} · ${e.text}${(e.companies ?? []).length ? ` · 출입처 ${e.companies.join('·')}` : ''}`);
     out.push(`   원문: ${e.url}`);

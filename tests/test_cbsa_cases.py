@@ -198,6 +198,24 @@ class Collect(unittest.TestCase):
         self.assertEqual(sorted(sec["lists"]["ar-ra"]["cases"]), ["ar-ra/ad1358/ad1358-ri14-nc", "ar-ra/ad1358/ad1358-ri15-nc", "ar-ra/lp22026/lp2202601"])
         self.assertTrue(sec["lists"]["ar-ra"]["cases"]["ar-ra/ad1358/ad1358-ri15-nc"]["seen"])                                      # 문서 열쇠도 이어받는다
 
+    def test_old_cases_and_old_documents_are_never_news(self):
+        # 11-14 운영: 열쇠가 겹쳐 저장되지 않았던 2008~2016년 재조사 9건이 '새 사건'으로 나갔다 — 오래전 끝난 사건은 알리지 않는다
+        prev, _, _ = run(None, site())
+        old = case("Copper pipe fittings: Dumping (China, Korea, and United-States) - Concluded on 2015-11-25",
+                   [doc_row("/sima-lmsi/ri-re/ad1358/ad1358-ri15-nc-eng.html", "(Archived) - Notice of Conclusion of Re-investigation", "2015-11-25", True)])
+        relinked = LINE_PIPE.replace("</tbody>", doc_row("/sima-lmsi/ar-ra/lp22026/lp2202601-zz-eng.html", "(Archived) - Old notice", "2019-01-01", True) + "</tbody>")
+        sec, events, check = run(prev, site(pages={AR: page([relinked, COPPER, OTHER, old])}), NOW + dt.timedelta(days=1))
+        self.assertEqual((events, check["newCases"], check["newDocs"]), ([], 0, 0))
+        self.assertIn("ar-ra/ad1358/ad1358-ri15-nc", sec["lists"]["ar-ra"]["cases"])                                             # 저장은 한다
+        # 이미 나간 잘못된 '새 사건'은 표시만 하고 지우지 않는다. 진행 중 사건의 새 사건 이벤트는 그대로
+        stored = [{"id": "cbsa:ar-ra/ad1358/ad1358-ri15-nc", "pageId": "cbsa", "text": "새 사건 — Copper pipe fittings … Concluded on 2015-11-25", "detectedAt": "2026-11-14T16:06:00+09:00"},
+                  {"id": "cbsa:ar-ra/lp22026/lp2202601", "pageId": "cbsa", "text": "새 사건 — Carbon and alloy steel line pipe 2", "detectedAt": "2026-11-14T16:06:00+09:00"},
+                  {"id": "cbsa:ar-ra/ad1358/ad1358-ri15-nc:x", "pageId": "cbsa", "text": "… — 새 문서 「x」", "detectedAt": "2026-11-14T16:06:00+09:00"},
+                  {"id": "in-dgtr:x", "pageId": "in-dgtr", "text": "새 사건 아님", "detectedAt": "2026-11-14T16:06:00+09:00"}]
+        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=1)), 1)
+        self.assertEqual([bool(e.get("retracted")) for e in stored], [True, False, False, False])
+        self.assertEqual(c.retract_stale(stored, sec, NOW + dt.timedelta(days=2)), 0)                                              # 다시 세지 않는다
+
     def test_affiliate_names_are_not_beat_companies(self):
         self.assertEqual(c.beat_in("Hyundai Steel Pipe Co., Ltd."), [])                                                            # 현대스틸파이프는 현대제철이 아니다
         self.assertEqual(c.beat_in("Hyundai Steel Company"), ["현대제철"])
