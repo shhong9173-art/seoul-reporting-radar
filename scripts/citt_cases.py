@@ -4,7 +4,7 @@
 CITT '진행 중인 덤핑·보조금 사건' 쪽(탐침 242·243, 2026-11-15)은 사건마다 표 하나다:
   <h2>Expiry reviews</h2>
   <table><caption>RR-2026-007—Certain Small Power Transformers: dumping (Chinese Taipei and Korea)</caption>
-    Document | Date issued or updated
+    Document | Date issued or updated        (줄마다 <th scope="row">문서</th><td>날짜</td> — 탐침 244)
     Notice of expiry review of finding | October 1, 2026   (이미 나온 문서는 decisions.citt-tcce.gc.ca 링크)
     Questionnaires | March 1, 2027
     Public hearing | Week of May 25, 2027
@@ -69,8 +69,12 @@ def parse(page):
             continue
         rows = []
         for row in re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", table, re.I):
-            tds = re.findall(r"<td[^>]*>([\s\S]*?)</td>", row, re.I)
-            if len(tds) < 2 or not plain(tds[0]):
+            # 실제 쪽(탐침 244)은 문서 칸이 <th scope="row">, 날짜 칸이 <td>다. 머리줄은 <td>가 하나도 없다
+            cells = re.findall(r"<(t[hd])\b[^>]*>([\s\S]*?)</\1>", row, re.I)
+            if len(cells) < 2 or not any(tag.lower() == "td" for tag, _ in cells):
+                continue
+            tds = [body for _, body in cells]
+            if not plain(tds[0]):
                 continue
             href = re.search(r'href="([^"]+)"', tds[0])
             link = urljoin(URL, htmllib.unescape(href.group(1))) if href else ""
@@ -131,6 +135,8 @@ def collect(previous, now, *, get, sleep=time.sleep):
             counts["newCases"] += 1
             push(no, c, "new", f"새 한국산 사건 — {c['title']} · 일정: {schedule(c['rows'])}", "B", next((x["url"] for x in c["rows"] if x["url"]), None))
             continue
+        if not (old.get("rows") or []):
+            continue  # 저장된 일정이 비어 있으면(11-15 첫 기준선은 줄을 못 읽었다) 이번에 읽은 줄이 기준선이다 — '새로 생김'으로 알리지 않는다
         before = {x.get("doc"): x for x in old.get("rows") or []}
         for x in c["rows"]:
             o = before.get(x["doc"])

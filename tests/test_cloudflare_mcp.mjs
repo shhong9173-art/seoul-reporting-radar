@@ -5216,6 +5216,7 @@ test('캐나다 판정 이유서의 한국 수출자 마진과 CITT 진행 사�
   const day = (n) => new Date(NOW.getTime() + n * 86400000).toISOString().slice(0, 10);
   const fd = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-fd-eng.html';
   const pd = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/octg52025/octg52025-pd-eng.html';
+  const old = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/wr22025/wr22025-fd-eng.html';
   // 탐침 241: 유정용 강관 5 최종 판정 이유서의 한국 줄
   const cbsa = { checkedAt: at, baselineAt: at, lists: { 'i-e': { status: 'ok', kind: '조사', cases: { 'i-e/octg52025/octg52025': {
     title: 'Oil Country Tubular Goods 5: Dumping (Mexico, the Philippines, South Korea, Türkiye and United States)—Concludes on December 20, 2026', state: 'Concludes', stateDate: day(35), n: 3, latest: day(-5),
@@ -5223,7 +5224,12 @@ test('캐나다 판정 이유서의 한국 수출자 마진과 CITT 진행 사�
   measures: {}, sor: {
     [fd]: { v: 1, readAt: at, date: day(-5), title: 'Statement of reasons—Final determination', case: 'Oil Country Tubular Goods 5',
       rows: [{ exporter: 'Hyundai Steel Pipe Co., Ltd.', vals: { '덤핑 마진': '13.6%' }, table: 'Table 4: Summary of results—Dumping' }, { exporter: 'All other exporters', vals: { '덤핑 마진': '40.1%', 보조금: '1.2%' }, table: 'Table 4' }] },
-    [pd]: { v: 1, readAt: at, date: day(-60), title: 'Statement of reasons—Preliminary determination', case: 'Oil Country Tubular Goods 5', rows: [] } } };
+    [pd]: { v: 1, readAt: at, date: day(-60), title: 'Statement of reasons—Preliminary determination', case: 'Oil Country Tubular Goods 5', rows: [] },
+    // 끝난 지 180일이 넘은 사건의 이유서: 사건 줄에는 안 나오지만 읽어 둔 마진은 따로 보여 준다
+    [old]: { v: 1, readAt: at, date: day(-220), title: 'Statement of reasons—Final determination', case: 'Certain Wire Rod 2: Dumping (South Korea)—Concluded', companies: ['포스코'],
+      rows: [{ exporter: 'POSCO', vals: { '덤핑 마진': '8.4%' }, table: 'Table 3' }] } } };
+  cbsa.lists['i-e'].cases['i-e/wr22025/wr22025'] = { title: 'Certain Wire Rod 2: Dumping (South Korea)—Concluded', state: 'Concluded', stateDate: day(-220), n: 2, latest: day(-220),
+    docs: [{ title: 'Statement of reasons—Final determination', date: day(-220), url: old }] };
   // 탐침 243: CITT 소형 변압기 종료재심 일정
   const dec = 'https://decisions.citt-tcce.gc.ca/citt-tcce/ra/en/item';
   const citt = { status: 'ok', checkedAt: at, baselineAt: at, url: 'https://www.citt-tcce.gc.ca/en/anti-dumping-injury-inquiries/active-dumping-and-subsidizing-cases', total: 13, updated: '2026-11-12',
@@ -5243,6 +5249,8 @@ test('캐나다 판정 이유서의 한국 수출자 마진과 CITT 진행 사�
   // 판정 이유서의 한국 수출자 줄: 줄이 있는 가장 최근 이유서(줄이 없는 예비 판정 이유서는 적지 않는다)
   assert.match(sec, /\n   판정 이유서의 한국 수출자\(\d{4}-\d\d-\d\d 「Statement of reasons—Final determination」\): Hyundai Steel Pipe Co\., Ltd\. 덤핑 마진 13\.6% · All other exporters 덤핑 마진 40\.1%·보조금 1\.2% — https:\/\/www\.cbsa-asfc\.gc\.ca\/sima-lmsi\/i-e\/octg52025\/octg52025-fd-eng\.html\n/);
   assert.equal((sec.match(/판정 이유서의 한국 수출자\(/g) ?? []).length, 1);
+  assert.match(sec, /\n그 밖에 읽어 둔 판정 이유서 1건\(위 사건 줄에 없는 것 · 판정일 최근 순\):\n- \d{4}-\d\d-\d\d Certain Wire Rod 2: Dumping \(South Korea\) 「Statement of reasons—Final determination」 · 출입처 이름 포스코\n   한국 수출자: POSCO 덤핑 마진 8\.4% — https:\/\/www\.cbsa-asfc\.gc\.ca\/sima-lmsi\/i-e\/wr22025\/wr22025-fd-eng\.html\n/);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'cbsa', company: 'tubular' }, o)).text, /그 밖에 읽어 둔 판정 이유서/);
   // CITT 일정: 주 단위 날짜는 글자 그대로, 이미 나온 문서는 (나옴)
   assert.match(sec, /\n\[캐나다 CITT 진행 사건 일정 · 한국산 1건\(진행 13건 중\) · 확인 [^\]]* · 쪽 갱신일 2026-11-12 · 기준선 \d{4}-\d\d-\d\d\]\n- RR-2026-007 · 종료재심 · Certain Small Power Transformers: dumping \(Chinese Taipei and Korea\)\n   일정: Notice of expiry review of finding 2026-10-01\(나옴\) · Questionnaires 2027-03-01 · Public hearing Week of May 25, 2027 · Order and reasons 2027-08-05\n   원문: https:\/\/decisions\.citt-tcce\.gc\.ca\/citt-tcce\/ra\/en\/item\/18710\/index\.do\n/);
   assert.match(sec, /진행 목록에서 빠진 사건: NQ-2025-009 Old pipe: dumping \(Korea\)\(2026-11-10 감지\)/);
