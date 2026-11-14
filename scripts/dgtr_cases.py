@@ -42,7 +42,7 @@ GAP = 1.5
 NEW_DAYS = 30
 MAX_LINES = 10
 VERSION = 2            # 일정표 읽는 규칙이 바뀌면 올린다 — 저장된 사건을 다시 읽는다
-PARTIES_VERSION = 2    # 명단 읽는 규칙
+PARTIES_VERSION = 3    # 명단 읽는 규칙(3: 꼬리말로 보고 멈추지 않는다)
 # 절차 공지: 조사 내용이 아니라 일정·연락처·명단·질문서 기한 같은 것
 PROCEDURAL = re.compile(r"e-?\s?mail|extension|corrigendum|\bPUC\b|\bPCN\b|interested\s+part|address|contact|clarification|schedule|questionnaire", re.I)
 # 조사 진행 문서: 절차 낱말이 같이 있어도 이쪽이 이긴다('Corrigendum to Final Findings')
@@ -59,7 +59,9 @@ KR_NAME = re.compile(r"\b(?:LG|SK|GS|LS|DL|OCI|KCC|KPX|KG|HD)\b|\b(?:Kumho|Lotte
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+")
 TABLE_HEAD = re.compile(r"^(?:S\.?\s*N(?:o|\.)|Sl\.?\s*No|Sr\.?\s*No|Name of (?:the )?(?:Interested|Part|Compan|Entit))", re.I)
 ENTRY = re.compile(r"^(\d{1,3})[.)](?:\s|$)")
-FOOTER = re.compile(r"^(?:[•\-–]\s|Note\b|Yours\b|Copy to\b|\(.{0,40}\)$)", re.I)
+# 표 뒤 꼬리말(글머리표·Note:). 탐침 233: 괄호 줄·줄표 줄은 표 칸 안에도 나온다 — 꼬리말로 보고 읽기를 멈췄더니 페놀 명단 34곳 중 27곳에서 끊겼다
+FOOTER = re.compile(r"^(?:[•]\s?|Note\s*:)", re.I)
+ENTRY_LINES = 20       # 한 곳이 차지하는 줄(탐침 233: 가장 긴 곳 17줄 — 이메일이 줄마다 끊긴다)
 SUBJECT = re.compile(r"imports? of|concerning|F\.\s*No|Subject:|originating in|exported from|Case No", re.I)
 
 
@@ -142,9 +144,7 @@ def party_entries(text):
                 out.append(cur)
             cur, last = [x], n
         elif cur is not None:
-            if FOOTER.match(x):
-                break
-            if len(cur) >= 12:
+            if FOOTER.match(x) or len(cur) >= ENTRY_LINES:      # 꼬리말이거나 너무 길면 이 곳은 여기까지 — 읽기는 멈추지 않고 다음 번호에서 다시 묶는다
                 out.append(cur)
                 cur = None
             else:
