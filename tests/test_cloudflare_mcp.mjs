@@ -3333,7 +3333,7 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
       listingProducers: { 'dgtr:2': { v: 1, line: lead }, 'dgtr:1': { v: 1, line: lead } },
       // 탐침 232의 꼴: 사건 페이지에 원조사(2016)·재심이 쌓여 있고 이번 절차는 2차 일몰재심(2026-09-30 개시). 명단은 표를 번호로 묶은 줄
       dgtrCases: { [caseUrl]: { status: 'ok', v: 2, checkedAt: at, initiated: '2026-09-30', initTitle: 'Initiation Notification-2nd SSR', firstInitiated: '2016-10-05',
-        latest: { title: 'Letter regarding clarification on PUC/PCNs', date: '2026-11-12' }, steps: 20, kind: 'procedural',
+        latest: { title: 'Letter regarding clarification on PUC/PCNs', date: '2026-11-12' }, steps: 20, kind: 'progress',   // 절차 공지(procedural)면 C로 내려간다 — 아래 opts4
         parties: { v: 2, status: 'ok', date: '2026-11-05', shape: 'table', entries: 27, koreaTotal: 5, beat: ['한화솔루션'],
           koreaLines: ['12. Hanwha Solutions Corporation Exporter/ Producer', '13. Kumho Mitsui Chemicals Inc Exporter/ Producer', '14. Korea Chemical Industry Association Association', '27. Embassy of the Republic of Korea Embassy Self'] },
         // dgtr_docs.py(11-14): 판정문·개시 고시 PDF에서 뽑은 원문 대목(탐침 235의 흄드실리카 판정문·IPA 개시 고시 꼴)
@@ -3345,9 +3345,9 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
         initiation: { v: 1, status: 'ok', date: '2026-09-30', title: 'Initiation Notification-2nd SSR', pages: 8, ocr: true, subject: 'Initiation of sunset review', applicant: '… M/s Example Chemicals Limited (hereinafter referred to as the ‘applicant’) has filed an application',
           poi: '14. The Authority has considered the period of investigation as Ist April 2025 to 31st March 2026.', industry: '11. The application has been filed by M/s Example Chemicals Limited.', timeLimit: '26. … within thirty days.', beat: [], beatLines: [] } } } }) }), opts3.env, {})).status, 200);
   const r3 = (await call('radar_today', {}, opts3)).text;
-  assert.match(r3, /Sunset Review Investigation · DGTR 사건 페이지: 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」\(첫 조사 개시 2016-10-05\) · 가장 최근 문서 2026-11-12 「Letter regarding clarification on PUC\/PCNs」\(문서 20건\) — 진행 중인 조사·재심의 절차 공지\(새 개시 아님\) · 이해관계자 명단\(2026-11-05\): 출입처 영문 이름 한화솔루션 · 명단 27곳 가운데 이름 낱말로 고른 한국 관련 줄 「12\. Hanwha Solutions Corporation Exporter\/ Producer」 「13\. Kumho Mitsui Chemicals Inc Exporter\/ Producer」 「14\. Korea Chemical Industry Association Association」 외 2줄 · DGTR 문서: 판정문/);
+  assert.match(r3, /Sunset Review Investigation · DGTR 사건 페이지: 이번 절차 개시 고시 2026-09-30 「Initiation Notification-2nd SSR」\(첫 조사 개시 2016-10-05\) · 가장 최근 문서 2026-11-12 「Letter regarding clarification on PUC\/PCNs」\(문서 20건\) — 진행 중인 조사·재심에 새 문서 · 이해관계자 명단\(2026-11-05\): 출입처 영문 이름 한화솔루션 · 명단 27곳 가운데 이름 낱말로 고른 한국 관련 줄 「12\. Hanwha Solutions Corporation Exporter\/ Producer」 「13\. Kumho Mitsui Chemicals Inc Exporter\/ Producer」 「14\. Korea Chemical Industry Association Association」 외 2줄 · DGTR 문서: 판정문/);
   assert.doesNotMatch(r3, /목록에 새로 보인 줄/);
-  assert.match(r3, /\n\[B · 확인할 공식 변화\] 1건/);                                              // 등급은 그대로 B
+  assert.match(r3, /\n\[B · 확인할 공식 변화\] 1건/);                                              // 판정 문서가 붙은 줄은 B 그대로
   // 판정문·개시 고시 대목: 줄 끝(사건 페이지 뒤, 출입처 단서 앞) — 짧은 화면은 한국 문장 하나·권고 앞부분
   assert.match(r3, / 외 2줄 · DGTR 문서: 판정문\(2026-11-06 「Final Findings」 52쪽, AD \(SSR\) – 05\/2026\): 「Sunset review investigation concerning[^」]*from China PR」 · 한국 문장 「\(7항\)[^」]*not initiated in respect of imports from Korea RP\.」 외 2곳 · 권고 「[^」]*five years\.」 · 세율 표 6줄에 Korea 든 줄 없음 · 출입처 영문 이름 한화솔루션 「M\/s Hanwha Solutions Corporation has not filed any questionnaire response\.」 · 개시 고시\(2026-09-30, 글자 인식 — 스캔본이 많아 숫자·날짜는 원문 확인\): 신청인 「[^」]*applicant’\) has filed an application」 · 조사 대상 기간 「[^」]*Ist April 2025 to 31st March 2026\.」 · 품목 낱말이 나온 출입처/);
   const desk3 = (await call('scoop_desk', {}, opts3)).text;
@@ -3359,6 +3359,33 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
   // 구역 도구: 한국 문장 전부·세율 표 앞 줄·국내 산업·기한까지
   assert.match((await call('trade_remedies', { section: 'notices' }, opts3)).text,
     /\n   판정문·개시 고시\(PDF에서 뽑은 원문 대목\): 판정문\(2026-11-06[^\n]*「\(100항\) Imports from Korea RP are negligible\.」 외 1곳[^\n]*세율 표 6줄에 Korea 든 줄 없음\(앞 줄 「1 2929101 0 TDI China PR Any country Producer A 1,296 MT USD」 「2 do do[^」]*NIL MT USD」\)[^\n]*개시 고시\(2026-09-30 「Initiation Notification-2nd SSR」, 글자 인식 — 스캔본이 많아[^\n]*국내 산업 「11\. The application has been filed by M\/s Example Chemicals Limited\.」 · 기한 「26\. … within thirty days\.」\n   출입처 단서:/);
+  // 기자 11-14 22:36: 절차 공지뿐인 줄(procedural)은 C — radar_today 기본 화면과 단독 데스크에서 빠지고 참고 칸에만. 같이 잡힌 나라 줄도 따라 내려간다
+  const dgEvents = three.map((e) => ({ ...e, pageId: 'in-dgtr' }));
+  const ingest4 = async (o, cases, events = dgEvents) => assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events, dgtrCases: cases }) }), o.env, {})).status, 200);
+  const procedural = { status: 'ok', v: 3, checkedAt: at, initiated: '2026-09-30', latest: { title: 'Updation of E-mail ID', date: '2026-11-13' }, steps: 7, kind: 'procedural' };
+  const opts4 = PRIVATE();
+  await ingest4(opts4, { [caseUrl]: procedural });
+  const r4 = (await call('radar_today', {}, opts4)).text;
+  assert.match(r4, /\n\[B · 확인할 공식 변화\] 0건/);
+  assert.doesNotMatch(r4, /Toluene DiIsocyanate/);
+  const r4c = (await call('radar_today', { include_minor: true }, opts4)).text;
+  assert.match(r4c.split('[C · 참고')[1], /Toluene DiIsocyanate[^\n]*Sunset Review Investigation · DGTR 사건 페이지: 개시 고시 2026-09-30 · 가장 최근 문서 2026-11-13 「Updation of E-mail ID」\(문서 7건\) — 진행 중인 조사·재심의 절차 공지\(새 개시 아님\)/);
+  assert.doesNotMatch((await call('scoop_desk', {}, opts4)).text.split('[4. 걷어낸 것]')[0], /Toluene DiIsocyanate/);
+  // 사건 페이지를 못 읽었으면(직전 값만 남음) 절차 공지라 단정하지 않는다 — B 그대로
+  const opts5 = PRIVATE();
+  await ingest4(opts5, { [caseUrl]: { ...procedural, status: 'failed', error: 'HTTP 503' } });
+  assert.match((await call('radar_today', {}, opts5)).text, /\n\[B · 확인할 공식 변화\] 1건/);
+  // 같은 실행에 조사 둘(절차 공지 하나 + 새 개시 하나): 절차 공지 줄만 C, 어느 사건 것인지 모르는 나라 줄은 B 그대로
+  const other = 'https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-new-product';
+  const twoCases = [...dgEvents, { id: 'dgtr:9', pageId: 'in-dgtr', label: '인도 DGTR 반덤핑 조사', text: 'Anti-dumping investigation concerning imports of New Product from Korea RP', url: other, country: '인도', detectedAt: dgEvents[0].detectedAt }];
+  const opts6 = PRIVATE();
+  await ingest4(opts6, { [caseUrl]: procedural, [other]: { status: 'ok', v: 3, checkedAt: at, initiated: '2026-11-10', latest: { title: 'Initiation Notification', date: '2026-11-10' }, steps: 1, kind: 'new' } }, twoCases);
+  const r6 = (await call('radar_today', { include_minor: true }, opts6)).text;
+  assert.match(r6.split('[C · 참고')[0], /New Product from Korea RP[^\n]*새로 개시된 조사·재심\(개시 30일 안\)/);
+  assert.match(r6.split('[C · 참고')[0], /Country: China PR, Japan and Korea RP/);
+  assert.match(r6.split('[C · 참고')[1], /Toluene DiIsocyanate/);
+  assert.doesNotMatch(r6.split('[C · 참고')[0], /Toluene DiIsocyanate/);
   assert.equal(dgtrDocNote({ status: 'ok', latest: {} }), '');                                      // 읽은 문서가 없으면 아무것도 붙이지 않는다
   // 짧은 화면의 한국 문장: 결정 낱말이 뒤쪽에 있으면 그 둘레를 남긴다(11-14 운영의 흄드실리카 7항 그대로)
   const para7 = '(7항) Anti-dumping duties are in force on the imports of the product under consideration from China PR and Korea RP. Accordingly, since there was no duly substantiated application with regard to likelihood of continuation or recurrence of dumping and injury to the domestic industry in the event of cessation of anti-dumping duty from Korea RP, the present review was not initiated in respect of imports from Korea RP.';
@@ -4993,7 +5020,7 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match((await rpc('initialize', { protocolVersion: '2025-03-26' }, opts)).body.result.instructions, /단독 후보를 달라는 요청에는 scoop_desk부터/);
 });
 
-test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 새 문서는 B·절차 문서는 C — 실적 유형으로 올리지 않는다', async () => {
+test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건은 결론 예정일 순, 수출자 표의 출입처 이름, 출입처 이름이 든 것은 A·실적 유형, 그 밖의 문서는 B·절차 문서는 C', async () => {
   const at = new Date(NOW.getTime() - 3600000).toISOString();
   const day = (n) => new Date(NOW.getTime() + n * 86400000).toISOString().slice(0, 10);
   // 탐침 237·239에서 본 꼴: 소형 변압기 종료재심, 라인파이프 행정재심, 대형 변압기 조치 쪽의 수출자 표
@@ -5018,7 +5045,7 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
       text: 'Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concluded on December 14, 2026 — 새 문서 「Notice of conclusion of administrative review」(2026-12-14)' },
     { id: 'cbsa:ar-ra/lp22026/lp2202601:lp2202601-su', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'C', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/x',
       text: 'Carbon and alloy steel line pipe 2: Dumping (South Korea) — 새 문서 「Updated schedule」(2026-12-01)' },
-    { id: 'cbsa:mif:TR:rev:HD Hyundai Electric Co., Ltd.:2026-12', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 시행 중 조치 TR(Large power transformers)', tier: 'B', companies: ['HD현대일렉트릭'], detectedAt: at,
+    { id: 'cbsa:mif:TR:rev:HD Hyundai Electric Co., Ltd.:2026-12', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 시행 중 조치 TR(Large power transformers)', tier: 'A', companies: ['HD현대일렉트릭'], detectedAt: at,
       url: 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/tr-eng.html', text: '한국 수출자 「HD Hyundai Electric Co., Ltd.」의 정상가격 마지막 개정 2025-07 → 2026-12' },
     // 11-14 운영: 수집기 열쇠 변경으로 잘못 나간 옛 사건 '새 사건' — retracted 표시가 붙으면 어느 화면에도 내지 않는다
     { id: 'cbsa:ar-ra/ad1358/ad1358-ri15-nc', pageId: 'cbsa', country: '캐나다', label: '캐나다 CBSA 행정재심', tier: 'B', detectedAt: at, url: 'https://www.cbsa-asfc.gc.ca/y', retracted: '오래전 끝난 사건',
@@ -5047,16 +5074,20 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   assert.doesNotMatch((await call('trade_remedies', { section: 'notices' }, o)).text, /lp2202601|Administrative Review/);
   // radar_today: 판정·종결 문서와 출입처 이름이 든 것은 B(A 아님), 절차 문서는 C
   const r = (await call('radar_today', {}, o)).text;
-  assert.match(r, /\n\[B · 확인할 공식 변화\] 2건/);
+  assert.match(r, /\n\[A · [^\n]*\] 1건/);                                                       // 기자 11-14 22:36: 출입처 이름이 든 수출자 표 변화는 A
+  assert.match(r, /\n\[B · 확인할 공식 변화\] 1건/);
   assert.match(r, /HD현대일렉트릭[^\n]*\n   캐나다 CBSA 시행 중 조치 TR\(Large power transformers\): 한국 수출자 「HD Hyundai Electric Co\., Ltd\.」의 정상가격 마지막 개정 2025-07 → 2026-12 — 문서 제목·날짜만 읽음\(판정 내용·세율은 원문\)/);
-  assert.match(r, /\n\[A · [^\n]*\n없음\n\n\[B · 확인할 공식 변화\]/);                                    // A 칸에 없다
+  assert.match(r.split('[B · 확인할 공식 변화]')[0], /HD현대일렉트릭[^\n]*\n   캐나다 CBSA 시행 중 조치 TR/);          // A 칸에 있다
+  assert.doesNotMatch(r.split('[B · 확인할 공식 변화]')[0], /line pipe 2/);                           // 출입처 이름 없는 종결 문서는 B
   assert.doesNotMatch(r, /Updated schedule/);
   assert.doesNotMatch((await call('radar_today', { include_minor: true }, o)).text, /Concluded on 2016-02-05/);   // 표시된 이벤트는 참고 칸에도 없다
   assert.match((await call('radar_today', { include_minor: true }, o)).text, /Updated schedule/);
   // 단독 데스크: '실적 있는 유형'으로 올리지 않는다(새 원천 — 표를 고치는 건 기자가 정한다)
   const desk = (await call('scoop_desk', {}, o)).text;
-  assert.match(desk, /〈실적 있는 유형〉 없음/);
-  assert.match(desk, /〈그 밖[^\n]*\n- B · [^\n]*\n   캐나다 CBSA /);
-  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: 'HD현대일렉트릭', fact: '캐나다 CBSA 시행 중 조치 TR: 한국 수출자 「HD Hyundai Electric Co., Ltd.」' }).key, 'other');
+  assert.match(desk, /〈실적 있는 유형〉\n- A · [^\n]*해외 무역구제·규제 문서\(출입처·한국 정부 이름\)[^\n]*\n   캐나다 CBSA 시행 중 조치 TR/);   // 출입처 이름이 든 것만 실적 유형
+  assert.match(desk, /〈그 밖[^\n]*\n- B · [^\n]*\n   캐나다 CBSA 행정재심: Carbon and alloy steel line pipe 2/);
+  assert.equal(deskType({ watch: '무역구제', tier: 'A', kind: '캐나다 CBSA 사건 문서', company: 'HD현대일렉트릭', fact: '캐나다 CBSA 시행 중 조치 TR: 한국 수출자 「HD Hyundai Electric Co., Ltd.」' }).key, 'foreigndoc');
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: '일진전기(관련)', fact: '캐나다 CBSA 시행 중 조치 TR: 새 이름 「Iljin Electric Co., Ltd.」' }).key, 'other');   // 직접 출입처가 아니면 그 밖
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: '캐나다', fact: '캐나다 CBSA 행정재심: Carbon and alloy steel line pipe 2 — 새 문서' }).key, 'other');             // 목록 새 줄 유형으로 보내지 않는다
   assert.ok((await rpc('tools/list', {}, o)).body.result.tools.find((x) => x.name === 'trade_remedies').inputSchema.properties.section.enum.includes('cbsa'));
 });

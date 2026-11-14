@@ -22,7 +22,8 @@
   '조사' 목록의 새 사건은 기존 목록 줄 감시(ca-cbsa)가 이미 내므로 여기서는 내지 않는다. 'Exhibit list'·'Listing of counsel'은 세지만 이벤트로 내지 않는다.
 - 조치 쪽: 새 Action 줄, 새 수출자, 'Last revised'가 바뀐 수출자를 이벤트로 낸다(한국 수출자만).
 - 처음 읽는 목록·쪽은 기준선이다(이벤트 없음). 못 읽으면 직전 상태를 그대로 두고 미확인.
-- 등급: 판정·개시·종결 문서와 출입처 이름이 든 것은 B, 일정·연장 같은 절차 문서는 C. **A는 붙이지 않는다**(새 원천 — 올릴지는 기자가 정한다).
+- 등급(기자 11-14 22:36): **직접 출입처 이름이 든 문서·수출자 표 변화는 A**(일정·연장 같은 절차 문서는 이름이 있어도 B). 출입처 이름이 없는 판정·개시·종결 문서와
+  '(관련)' 회사만 든 것은 B, 이름 없는 절차 문서와 출입처가 아닌 수출자의 개정은 C.
 - 공개 로그엔 건수만.
 """
 from __future__ import annotations
@@ -204,8 +205,20 @@ def beat_in(text):
     return tra.companies_in(AFFILIATE.sub("(affiliate)", text or ""))
 
 
+def direct(companies):
+    """직접 출입처만('효성중공업(관련)'·'일진전기(관련)'처럼 출입처가 아닌 관련 회사 이름은 뺀다)."""
+    return [x for x in companies or [] if not x.endswith("(관련)")]
+
+
 def tier_of(doc_title, companies):
-    return "C" if PROCEDURAL.search(doc_title) and not companies else "B"
+    """기자 11-14 22:36: 출입처 이름이 든 문서·수출자 표 변화는 A. 일정·연장 같은 절차 문서는 출입처 이름이 있어도 B, 없으면 C."""
+    if PROCEDURAL.search(doc_title):
+        return "B" if companies else "C"
+    return "A" if direct(companies) else "B"
+
+
+def named_tier(companies, fallback="B"):
+    return "A" if direct(companies) else fallback
 
 
 NEW_DOC_DATE = re.compile(r"새 문서 「.*」\((\d{4}-\d{2}-\d{2})\)\s*$")
@@ -285,7 +298,7 @@ def collect(previous, now, *, get, sleep=time.sleep):
             if o is None and not baseline and list_id != "i-e" and fresh:
                 first = next((d for d in c["docs"] if not SILENT.match(d["title"])), None)
                 event(c["key"], f"캐나다 CBSA {kind}", f"새 사건 — {c['title']} · 문서 {len(c['docs'])}건" + (f"(「{first['title']}」 {first['date']})" if first else ""),
-                      (first or {}).get("url") or url, "B", firms)
+                      (first or {}).get("url") or url, named_tier(firms), firms)
                 counts["newCases"] += 1
             elif o is not None:
                 for d in c["docs"]:
@@ -297,7 +310,7 @@ def collect(previous, now, *, get, sleep=time.sleep):
                 # 상태 바뀜도 진행 중이거나 바뀐 날짜가 최근일 때만(옛 사건의 머리가 달라 보이는 것은 소식이 아니다)
                 if (o.get("state"), o.get("stateDate")) != (c["state"], c["stateDate"]) and c["state"] and (c["state"] == "Concludes" or (c["stateDate"] or "9999") >= fresh_from):
                     event(f"{c['key']}:state:{c['state']}:{c['stateDate']}", f"캐나다 CBSA {kind}",
-                          f"{c['title']} — 사건 머리 바뀜: {o.get('state') or '표시 없음'} {o.get('stateDate') or ''} → {c['state']} {c['stateDate'] or '날짜 미정'}".replace("  ", " "), url, "B", firms)
+                          f"{c['title']} — 사건 머리 바뀜: {o.get('state') or '표시 없음'} {o.get('stateDate') or ''} → {c['state']} {c['stateDate'] or '날짜 미정'}".replace("  ", " "), url, named_tier(firms), firms)
                     counts["stateChanges"] += 1
             dates = [d["date"] for d in c["docs"] if d["date"]]
             ongoing = c["state"] == "Concludes"
@@ -337,18 +350,18 @@ def collect(previous, now, *, get, sleep=time.sleep):
             for a in actions:
                 if f"{a['title']}|{a['date']}" not in seen_a:
                     firms = beat_in(a["title"])
-                    event(f"mif:{m['code']}:{a['date']}:{doc_key(a['url'], a['title'])}", label, f"조치 쪽에 새 절차 줄 「{a['title']}」({a['date'] or '날짜 없음'})", a["url"] or m["url"], "B", firms)
+                    event(f"mif:{m['code']}:{a['date']}:{doc_key(a['url'], a['title'])}", label, f"조치 쪽에 새 절차 줄 「{a['title']}」({a['date'] or '날짜 없음'})", a["url"] or m["url"], named_tier(firms), firms)
             old_e = {x.get("name"): x for x in o.get("exporters") or []}
             for x in exporters:
                 firms = beat_in(x["name"])
                 if x["name"] not in old_e:
-                    event(f"mif:{m['code']}:exp:{x['name'][:40]}", label, f"정상가격을 받은 한국 수출자에 새 이름 「{x['name']}」(협조 시작 {x['since'] or '?'} · 마지막 개정 {x['revised'] or '?'})", m["url"], "B", firms)
+                    event(f"mif:{m['code']}:exp:{x['name'][:40]}", label, f"정상가격을 받은 한국 수출자에 새 이름 「{x['name']}」(협조 시작 {x['since'] or '?'} · 마지막 개정 {x['revised'] or '?'})", m["url"], named_tier(firms), firms)
                 elif old_e[x["name"]].get("revised") != x["revised"]:
                     event(f"mif:{m['code']}:rev:{x['name'][:40]}:{x['revised']}", label,
-                          f"한국 수출자 「{x['name']}」의 정상가격 마지막 개정 {old_e[x['name']].get('revised') or '?'} → {x['revised'] or '?'}", m["url"], "B" if firms else "C", firms)
+                          f"한국 수출자 「{x['name']}」의 정상가격 마지막 개정 {old_e[x['name']].get('revised') or '?'} → {x['revised'] or '?'}", m["url"], named_tier(firms, "B" if firms else "C"), firms)
             for name in old_e:
                 if name not in {x["name"] for x in exporters}:
-                    event(f"mif:{m['code']}:gone:{name[:40]}", label, f"정상가격을 받은 한국 수출자 표에서 「{name}」이 빠짐", m["url"], "B", beat_in(name))
+                    event(f"mif:{m['code']}:gone:{name[:40]}", label, f"정상가격을 받은 한국 수출자 표에서 「{name}」이 빠짐", m["url"], named_tier(beat_in(name)), beat_in(name))
         out["measures"][m["url"]] = {"code": m["code"], "product": m["product"], "type": m["type"], "actions": actions[-6:], "exporters": exporters,
                                      "seenActions": sorted({f"{a['title']}|{a['date']}" for a in actions}),
                                      "companies": sorted({f for x in exporters for f in beat_in(x["name"])}), "checkedAt": stamp}
