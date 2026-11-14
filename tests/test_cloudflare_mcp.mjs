@@ -2098,12 +2098,15 @@ test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unles
   const off = { ...doc, edis: { ...doc.edis, tokenExpires: '2026-11-14T13:00:00+00:00',
     tokenNote: "EDIS 토큰 만료(2026-11-14) — 첨부 본문·337 제소장 표지 읽기 꺼짐(토큰은 필요할 때만 갱신) — 본문이 필요하면 EDIS 로그인 → 이름 아래 'API Token Generator'에서 새로 받아 비밀값 EDIS_API_TOKEN 교체, 급하면 EDIS 누리집에서 문서 번호로 직접 열기",
     pendingComplaints: [{ id: '901500', documentType: 'Complaint', documentTitle: 'Complaint', investigationNumber: '337-3950', investigationTitle: 'Certain Electric Vehicle Battery Packs',
-      firmOrganization: 'Fish & Richardson', filedBy: 'A. Lawyer', officialReceivedDate: '2026/11/16 14:00:00', late: true }] } };
+      firmOrganization: 'Fish & Richardson', filedBy: 'A. Lawyer', officialReceivedDate: '2026/11/16 14:00:00', late: true, products: ['자동차·부품(vehicle)', '배터리·소재(battery)'] },
+      { id: '901600', documentType: 'Complaint', documentTitle: 'Complaint', investigationNumber: '337-3951', investigationTitle: 'Certain Wearable Devices',
+        firmOrganization: 'X LLP', filedBy: 'B. Lawyer', officialReceivedDate: '2026/11/17 09:00:00', late: true }] } };
   const o2 = PRIVATE();
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(off) }), o2.env, {})).status, 200);
   const t2 = (await call('trade_remedies', { section: 'edis' }, o2)).text;
   assert.match(t2, /\n첨부 본문 읽기 꺼짐: EDIS 토큰 만료\(2026-11-14\) — 첨부 본문·337 제소장 표지 읽기 꺼짐\(토큰은 필요할 때만 갱신\)/);
-  assert.match(t2, /\n표지를 못 읽은 새 337 제소장 1건\(피제소인에 출입처가 있는지 미확인[^\n]*\n- 접수 2026\/11\/16 14:00 · 337-3950 · Certain Electric Vehicle Battery Packs · 제출 Fish & Richardson · EDIS 문서 번호 901500\n/);
+  // 품목이 출입 업종 낱말과 겹치는 것을 먼저(접수는 더 이르다), 표시를 붙여
+  assert.match(t2, /\n표지를 못 읽은 새 337 제소장 2건\(피제소인에 출입처가 있는지 미확인[^\n]*\n- ★ 품목이 출입 업종 낱말과 겹침\(자동차·부품\(vehicle\), 배터리·소재\(battery\)\) · 접수 2026\/11\/16 14:00 · 337-3950 · Certain Electric Vehicle Battery Packs · 제출 Fish & Richardson · EDIS 문서 번호 901500\n- 접수 2026\/11\/17 09:00 · 337-3951 · Certain Wearable Devices · 제출 X LLP · EDIS 문서 번호 901600\n/);
   assert.doesNotMatch(t2, /⚠ EDIS/);
   assert.doesNotMatch((await call('trade_remedies', { section: 'edis', company: '한화솔루션' }, o2)).text, /표지를 못 읽은/);
   assert.ok(t.text.indexOf('337-3900 Complaint') < t.text.indexOf('337-1494 Notice'));  // A first
