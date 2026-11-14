@@ -70,7 +70,7 @@ class Fake:
 
 CFG = {"companies": [
     {"company": "현대자동차", "query": "Hyundai Motor", "accept": "HYUNDAI MOTOR|현대자동차"},
-    {"company": "포스코", "query": "POSCO", "accept": "^POSCO(?: HOLDINGS)?(?: INC| CO)?\\b|^(?:주식회사\\s*)?포스코(?:홀딩스)?(?:\\s*주식회사)?$",
+    {"company": "포스코", "query": "POSCO", "accept": "^POSCO(?: HOLDINGS)?(?:[ ,]*(?:INC|CO|CORP|CORPORATION|COMPANY|LTD)\\.?)*\\s*$|^(?:주식회사\\s*)?포스코(?:홀딩스)?(?:\\s*주식회사)?$",
      "exclude": "FUTURE\\s*M|INTERNATIONAL|퓨처엠"},
     {"company": "LG화학", "query": "LG Chem", "accept": "LG CHEM|엘지화학"},
 ]}
@@ -344,6 +344,33 @@ class KrLinkTests(unittest.TestCase):
         self.assertLess(len(__import__("json").dumps(doc, ensure_ascii=False).encode()), 6000)
         self.assertTrue(any(f["id"] == "EP0A1" for f in doc["filings"]))      # 새 공개는 남김
         self.assertGreater(doc["trimmed"], 0)
+
+
+class ApplicantRules(unittest.TestCase):
+    """11-14 운영: 출원인 'POSCO MOBILITY SOLUTION CORP'인 유럽 공개가 포스코로 붙었다 — 계열사는 출입처가 아니다(AGENTS.md)."""
+
+    def test_posco_rule_takes_the_company_itself_only(self):
+        import json
+        cfg = json.loads((Path(__file__).resolve().parents[1] / "data" / "epo_ops_watch.json").read_text(encoding="utf-8"))
+        rule = next(c for c in cfg["companies"] if c["company"] == "포스코")
+        for names in (["POSCO Co., Ltd"], ["POSCO CO LTD"], ["POSCO HOLDINGS INC."], ["POSCO"], ["주식회사 포스코"], ["POSCO Co., Ltd", "Research Institute of Industrial Science & Technology"]):
+            self.assertTrue(w.accepted(names, rule), names)
+        for names in (["POSCO MOBILITY SOLUTION CORP", "Posco Mobility Solution Corporation"], ["POSCO FUTURE M CO., LTD."], ["POSCO SILICON SOLUTION CO LTD"],
+                      ["POSCO INTERNATIONAL CORP"], ["주식회사 포스코모빌리티솔루션"]):
+            self.assertFalse(w.accepted(names, rule), names)
+
+    def test_stored_publications_are_rechecked_against_current_rules(self):
+        cfg = {"companies": [{"company": "포스코", "query": "POSCO", "accept": r"^POSCO(?: HOLDINGS)?(?:[ ,]*(?:INC|CO|CORP|LTD)\.?)*\s*$"},
+                             {"company": "현대자동차", "query": "Hyundai Motor", "accept": "HYUNDAI MOTOR"}]}
+        stored = [{"id": "EP1", "companies": ["포스코"], "applicants": ["POSCO MOBILITY SOLUTION CORP", "Posco Mobility Solution Corporation"]},
+                  {"id": "EP2", "companies": ["포스코", "현대자동차"], "applicants": ["POSCO MOBILITY SOLUTION CORP", "HYUNDAI MOTOR CO LTD"]},
+                  {"id": "EP3", "companies": ["포스코"], "applicants": ["POSCO Co., Ltd"]},
+                  {"id": "EP4", "companies": ["포스코"]},                                        # 출원인 이름이 저장 안 된 예전 줄은 건드리지 않는다
+                  {"id": "EP5", "companies": ["없어진회사"], "applicants": ["X"]}]                # 규칙이 없는 회사 표시도 그대로
+        out, fixed, dropped = w.recheck(stored, cfg)
+        self.assertEqual(([f["id"] for f in out], fixed, dropped), (["EP2", "EP3", "EP4", "EP5"], 1, 1))
+        self.assertEqual(next(f for f in out if f["id"] == "EP2")["companies"], ["현대자동차"])
+        self.assertEqual(stored[1]["companies"], ["포스코", "현대자동차"])                       # 넘겨받은 목록은 고치지 않는다
 
 
 if __name__ == "__main__":

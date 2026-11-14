@@ -10,7 +10,7 @@
     {"company": "넥센타이어", "query": "Nexen Tire", "accept": "NEXEN TIRE|넥센타이어"},
     {"company": "금호타이어", "query": "Kumho Tire", "accept": "KUMHO TIRE|금호타이어"},
     {"company": "현대제철", "query": "Hyundai Steel", "accept": "HYUNDAI STEEL|현대제철"},
-    {"company": "포스코", "query": "POSCO", "accept": "^POSCO(?: HOLDINGS)?(?: INC| CO)?\\b|^(?:주식회사\\s*)?포스코(?:홀딩스)?(?:\\s*주식회사)?$",
+    {"company": "포스코", "query": "POSCO", "accept": "^POSCO(?: HOLDINGS)?(?:[ ,]*(?:INC|CO|CORP|CORPORATION|COMPANY|LTD)\\.?)*\\s*$|^(?:주식회사\\s*)?포스코(?:홀딩스)?(?:\\s*주식회사)?$",
      "exclude": "FUTURE\\s*M|INTERNATIONAL|E\\s*&\\s*C|\\bDX\\b|STEELEON|M-?TECH|\\bECO\\b|퓨처엠|인터내셔널|이앤씨|스틸리온|엠텍"},
     {"company": "고려아연", "query": "Korea Zinc", "accept": "KOREA ZINC|고려아연"},
     {"company": "HD현대일렉트릭", "query": "HD Hyundai Electric", "accept": "HYUNDAI ELECTRIC|현대일렉트릭"},
