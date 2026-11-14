@@ -7,7 +7,7 @@ import { radarItems } from './digest.mjs';
 import { board, boardPart } from './board.mjs';
 import { check, login } from './auth.mjs';
 import { translateRoute } from './translate.mjs';
-import { browserUpload } from './local_browser.mjs';
+import { browserFileUpload, browserFiles, browserUpload } from './local_browser.mjs';
 export { RadarStore } from './store.mjs';
 
 export default {
@@ -21,6 +21,8 @@ export default {
     if (pathname === '/auth/check') return check(request, env);       // 사이트 첫 화면 잠금(gate.js)의 세션 확인
     if (pathname === '/ingest/translate') return translateRoute(request, env);   // 외신 제목 번역(Workers AI)
     if (pathname === '/upload/browser') return browserUpload(request, env);   // 기자 컴퓨터 Aside 직접 올리기(열쇠 지문 확인)
+    if (pathname === '/upload/browser-file') return browserFileUpload(request, env);   // 기자 컴퓨터가 받은 호주 사건 문서 PDF 조각(같은 열쇠)
+    if (pathname === '/ingest/browser-files') return browserFiles(request, env);       // 무역구제 감시가 그 PDF를 받아 가고 칸을 비운다(MCP 토큰)
     if (pathname.startsWith('/ingest/')) return handleIngest(request, env);
     return redirect.fetch(request, env, ctx);
   },

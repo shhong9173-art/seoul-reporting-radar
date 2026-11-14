@@ -24,7 +24,7 @@ def worker_block(name):
 
 class AsideCollect(unittest.TestCase):
     def test_four_parts(self):
-        self.assertEqual(len(PARTS), 7)  # 머리말 + 토막 6개
+        self.assertEqual(len(PARTS), 8)  # 머리말 + 토막 7개
         for p in PARTS[1:]:
             self.assertTrue(p.strip().startswith("{") and p.strip().endswith("}"), "토막마다 블록 { } — REPL 맨 위 이름이 남기 때문")
 
@@ -61,7 +61,7 @@ class AsideCollect(unittest.TestCase):
         for kind in au_epr_cases.KINDS:
             self.assertIn(f"['{kind}', ", PARTS[5])
         # 사건 페이지 주소는 목록 주소 + 사건 번호(영문·숫자)로만 만든다 — 목록에 적힌 다른 주소를 열지 않는다
-        self.assertIn("page(EPR + '/' + c.no", PARTS[5])
+        self.assertIn("page((c.base || EPR) + '/' + c.no", PARTS[5])
         self.assertIn("([A-Za-z0-9-]{1,20})", PARTS[5])
         # 대화로 옮겨 올리는 SUBMIT 줄에는 사건 공개기록을 넣지 않는다(양이 많음)
         self.assertEqual(PARTS[6].count("console.log('SUBMIT ' + JSON.stringify(small));"), 2)
@@ -82,11 +82,36 @@ class AsideCollect(unittest.TestCase):
     def test_upload_never_prints_key(self):
         # 열쇠는 사이트 저장소에서 읽어 보내기만 한다 — console.log에 열쇠 변수가 들어가면 안 됨
         reg = (ROOT / "scripts" / "aside" / "register_upload_key.js").read_text(encoding="utf-8")
-        for code in (PARTS[6], reg):
+        for code in (PARTS[6], PARTS[7], reg):
             for line in re.findall(r"console\.log\((.*)\);", code):
                 self.assertNotRegex(line, r"\bk\b|localStorage|radarUploadKey")
         self.assertIn("radarUploadKey", PARTS[6])
         self.assertIn("'/upload/browser'", PARTS[6])  # 같은 사이트(창)에서만 보낸다
+        self.assertIn("'/upload/browser-file'", PARTS[7])
+
+    def test_archive_cases_and_pdf_upload_match_worker_and_watch(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import au_epr_cases
+        worker = (ROOT / "cloudflare" / "local_browser.mjs").read_text(encoding="utf-8")
+        # 보관 사건 주소는 진행 사건 목록 주소에서 만든다(감시의 ARCHIVE와 같아야 한다)
+        self.assertIn("EPR.replace('/current-cases-', '/archive-cases-')", PARTS[5])
+        self.assertEqual(au_epr_cases.INDEX.replace("/current-cases-", "/archive-cases-"), au_epr_cases.ARCHIVE)
+        self.assertIn("page((c.base || EPR) + '/' + c.no", PARTS[5])
+        self.assertIn("arc.length >= 4", PARTS[5])
+        # 토막 7: 받아 달라고 한 것만(R.want), 주소·이름 꼴은 Worker·감시와 같은 규칙, 조각은 Worker 한도 안, 파일 2MB까지
+        self.assertIn("R.want = Array.isArray(j.want) ? j.want.slice(0, 4) : [];", PARTS[6])
+        key_rx = re.search(r"const FILE_KEY = /(.+?)/;", worker).group(1)
+        url_rx = re.search(r"const FILE_URL = /(.+?)/i;", worker).group(1)
+        self.assertIn(f"/{key_rx}/.test(w.key)", PARTS[7])
+        self.assertIn(f"/{url_rx}/i.test(w.url)", PARTS[7])
+        self.assertEqual(url_rx.replace("\\/", "/"), au_epr_cases.PDF_PATH.pattern)
+        part = int(re.search(r"const PART = (\d+);", PARTS[7]).group(1))
+        self.assertLessEqual(part, int(re.search(r"const FILE_PART_MAX = ([\d_]+);", worker).group(1).replace("_", "")))
+        self.assertEqual(part % 4, 0)       # base64 조각 경계
+        self.assertLessEqual(-(-(2000000 * 4 // 3 + 4) // part), int(re.search(r"const FILE_PARTS = (\d+);", worker).group(1)))
+        self.assertIn("buf.length > 2000000", PARTS[7])
+        self.assertIn("fetch(HOST + w.url)", PARTS[7])
+        self.assertIn(".slice(0, 12000)", PARTS[6])
 
     def test_attachment_rules_match_watch(self):
         # 토막 4가 고르는 첨부·내려받기 주소·글자 한도 = 감시 read_attachments

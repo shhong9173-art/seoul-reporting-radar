@@ -15,6 +15,14 @@ industry.gov.au는 GitHub·Cloudflare에서 막혀(응답 없음·HTTP 520) 기�
   info·date | 번호 | 이름 | 값
   doc   | 번호 | EPR 번호 | 문서 종류 | 제목 | 날짜(dd/mm/yyyy)                                        (+ 첫 PDF 링크)
   error | 번호 | 이유
+  acase | 번호 | 품목 | 가장 최근 공지 제목 | 나라 | 가장 최근 공지일(dd/mm/yyyy)   — 보관(종결) 사건(+ 보관 사건 페이지 링크). 뒤에 title·info·date·doc 줄
+
+보관 사건(기자 11-15 02:54): 수집 코드가 TRN 목록의 한국 줄 가운데 보관 사건 링크가 달리고 공지일이 150일 안인 사건(4건까지)의 사건 페이지도 읽는다.
+진행 목록에 있던 사건이 보관 사건으로 올라오면 바로 '보관 목록으로 옮겨짐'을 알리고(두 번 기다리지 않는다), 보관 사건에 새로 붙는 문서(최종 보고서·
+장관 결정 공지 등)도 같은 규칙으로 알린다. 처음 보는 보관 사건은 기준선. 보관 사건이 수집에서 빠지면(공지일이 150일을 넘김) 조용히 내려놓는다.
+
+본문 읽기(기자 11-15 02:54): industry.gov.au는 PDF도 서버에서 막힌다(탐침 241). 직접 출입처 이름이 든 문서 가운데 아직 본문을 못 읽은 것을
+`want`에 적어 두면(4건까지, 의견서·보고서 먼저·최근 순) 기자 컴퓨터 수집이 그 PDF를 받아 레이더로 올리고, au_epr_docs.py가 글자를 풀어 `pdf`에 한국·출입처 대목을 남긴다.
 
 이벤트 — 처음 읽은 사건은 기준선이다(캐나다 CBSA에서 옛 문서를 새 문서로 알린 11-14 실수를 되풀이하지 않게):
 - 이미 아는 사건에 새 EPR 번호 줄: 문서 날짜가 FRESH_DAYS 안일 때만. 날짜를 못 읽은 줄은 알리지 않는다. 한 사건에서 한 번에 BURST건
@@ -36,7 +44,15 @@ PAGE_ID = "au-epr"
 SOURCE = "호주 ATRC 사건 공개기록(EPR)"
 HOST = "https://www.industry.gov.au"
 INDEX = HOST + "/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr"
-KINDS = ("list", "case", "title", "info", "date", "doc", "error")
+ARCHIVE = HOST + "/australian-trade-remedies-commission/archive-cases-and-electronic-public-record-epr"
+WANT_MAX = 4             # 한 번에 기자 컴퓨터에 받아 달라고 하는 PDF
+WANT_DAYS = 400          # 이보다 오래된 문서의 본문은 받지 않는다
+PDF_VERSION = 1
+PDF_TRIES = 3
+PDF_KEEP = 80
+PDF_PATH = re.compile(r"^/sites/default/files/[A-Za-z0-9_./%-]+\.pdf$", re.I)
+WANT_FIRST = re.compile(r"submission|report|notice", re.I)
+KINDS = ("list", "case", "title", "info", "date", "doc", "error", "acase")
 FRESH_HOURS = 30          # 수집이 이보다 오래되면 미확인(무역구제 목록의 브라우저 수집과 같은 기준)
 FRESH_MONDAY = 78         # 토·일과 월요일 오전에는 금요일 수집까지
 FRESH_DAYS = 45           # 새 문서·새 사건으로 알리는 것은 문서일·개시일이 이 안일 때만
@@ -126,8 +142,16 @@ def parse_rows(rows):
         if kind == "case":
             c = slot(no)
             v = [clean(x, 200) for x in cells[2:9]] + [""] * 7
+            c.pop("archived", None)
+            c.pop("subject", None)
             c.update(listed=True, commodity=v[0], kind=v[2], countries=v[3], milestone=v[4], updated=iso_date(v[5]), state=v[6],
                      url=link_of(r) or f"{INDEX}/{no}")
+        elif kind == "acase":
+            if cases.get(no, {}).get("listed"):
+                continue   # 진행 목록에도 있는 번호면 진행 사건으로 둔다
+            c = slot(no)
+            v = [clean(x, 200) for x in cells[2:6]] + [""] * 4
+            c.update(listed=True, archived=True, commodity=v[0], subject=v[1], countries=v[2], updated=iso_date(v[3]), url=link_of(r) or f"{ARCHIVE}/{no}")
         elif no not in cases:
             continue  # 목록에 없는 사건 번호의 줄은 받지 않는다
         elif kind == "title" and len(cells) >= 3:
@@ -170,7 +194,37 @@ def entry_of(browser, now):
 
 
 def label_of(no, c):
-    return f"호주 ATRC 사건 {no} {c.get('commodity') or c.get('title') or ''}({kind_ko(c.get('kind')) or '사건'})".replace("  ", " ")
+    return f"호주 ATRC 사건 {no} {c.get('commodity') or c.get('title') or ''}({'종결·보관' if c.get('archived') else kind_ko(c.get('kind')) or '사건'})".replace("  ", " ")
+
+
+def doc_key(no, d):
+    return f"{no}-{d.get('no')}"
+
+
+def pdf_path(url):
+    """같은 사이트의 공개기록 PDF 주소만 → '/sites/default/files/….pdf' (아니면 '')."""
+    path = str(url or "")
+    path = path[len(HOST):] if path.startswith(HOST + "/") else path
+    return path if PDF_PATH.match(path) and ".." not in path else ""
+
+
+def want_list(cases, pdf, now):
+    """본문을 아직 못 읽은, 직접 출입처 이름이 든 문서 → [{key, url}] (의견서·보고서·공지 먼저, 최근 순, WANT_MAX건)."""
+    cutoff = (now.date() - dt.timedelta(days=WANT_DAYS)).isoformat()
+    out = []
+    for no, c in cases.items():
+        if c.get("missing") or c.get("gone"):
+            continue
+        for d in c.get("docs") or []:
+            path, done = pdf_path(d.get("url")), (pdf or {}).get(doc_key(no, d)) or {}
+            if not direct(d.get("companies")) or not path or (d.get("date") or "") < cutoff:
+                continue
+            if done.get("v") == PDF_VERSION and ("excerpts" in done or int(done.get("tries") or 0) >= PDF_TRIES):
+                continue
+            out.append((0 if WANT_FIRST.search(d.get("type") or "") else 1, d.get("date") or "", doc_key(no, d), path))
+    out.sort(key=lambda x: x[1], reverse=True)
+    out.sort(key=lambda x: x[0])
+    return [{"key": k, "url": u} for _, _, k, u in out[:WANT_MAX]]
 
 
 def doc_num(d):
@@ -182,6 +236,8 @@ def collect(browser, previous, now):
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
     prev_cases = prev.get("cases") if isinstance(prev.get("cases"), dict) else {}
+
+    pdf = prev.get("pdf") if isinstance(prev.get("pdf"), dict) else {}
 
     def failed(why):
         section = {**prev, "status": "failed", "error": why, "checkedAt": stamp} if prev else None
@@ -209,22 +265,32 @@ def collect(browser, previous, now):
         if c.get("error"):   # 목록에는 있는데 사건 페이지를 못 읽음: 직전 문서 줄을 그대로 두고 알리지 않는다
             counts["unread"] += 1
             keep = {k: old[k] for k in ("title", "n", "info", "dates", "docs", "companies", "firstSeen") if old and k in old}
-            cases[no] = {**keep, **{k: c[k] for k in ("commodity", "kind", "countries", "milestone", "updated", "state", "url") if c.get(k)},
+            cases[no] = {**keep, **{k: c[k] for k in ("commodity", "kind", "countries", "milestone", "updated", "state", "url", "subject", "archived") if c.get(k)},
                          "firstSeen": (old or {}).get("firstSeen") or stamp, "error": c["error"]}
             continue
         docs = sorted(c["docs"], key=doc_num, reverse=True)
         firms = sorted({f for d in docs for f in d.get("companies") or []})
-        rec = {k: c[k] for k in ("commodity", "kind", "countries", "milestone", "updated", "state", "url", "title", "n") if c.get(k) not in (None, "")}
+        rec = {k: c[k] for k in ("commodity", "kind", "countries", "milestone", "updated", "state", "url", "title", "n", "subject", "archived") if c.get(k) not in (None, "")}
         rec.update(info=c["info"], dates=c["dates"], docs=docs, firstSeen=(old or {}).get("firstSeen") or stamp, **({"companies": firms} if firms else {}))
         cases[no] = rec
         if not had or same_upload:
             continue
-        if old is None or old.get("gone"):
+        if c.get("archived") and old is None:
+            continue   # 처음 보는 보관 사건: 기준선
+        if c.get("archived") and old is not None and not old.get("archived"):
+            # 진행 목록에 있던 사건이 보관 사건으로 올라옴: 바로 알린다(문서 줄은 아래에서 같은 규칙으로)
+            counts["gone"] += 1
+            push(no, rec, "archived", f"보관(종결) 목록으로 옮겨짐: 「{rec.get('title') or no}」"
+                 f"{' · 가장 최근 공지 「' + rec['subject'] + '」(' + (rec.get('updated') or '?') + ')' if rec.get('subject') else ''} — 최종 판정·조치 내용은 공지·최종 보고서에서 확인",
+                 named_tier(firms or old.get("companies")), firms=firms or old.get("companies"))
+        if (old is None or old.get("gone")) and not c.get("archived"):
             started = iso_date(c["dates"].get("Initiation Date"))
             if started and started >= cutoff:
                 counts["newCases"] += 1
                 push(no, rec, "new", f"진행 사건 목록에 새로 들어옴: 「{rec.get('title') or no}」 · {kind_ko(rec.get('kind'))} · 개시 {started} · 나라 {rec.get('countries') or '?'}"
                      f"{' · 문서에 나온 출입처 이름 ' + '·'.join(firms) if firms else ''}", named_tier(firms), firms=firms)
+            continue
+        if old is None:
             continue
         if not old.get("docs") and old.get("error"):
             continue   # 직전에 사건 페이지를 한 번도 못 읽었다: 이번이 기준선
@@ -255,6 +321,8 @@ def collect(browser, previous, now):
     for no, old in prev_cases.items():
         if no in cases or not isinstance(old, dict):
             continue
+        if old.get("archived"):
+            continue   # 보관 사건이 수집에서 빠짐(공지일이 150일을 넘김): 조용히 내려놓는다
         miss = old.get("missing", 0) if same_upload else old.get("missing", 0) + 1
         rec = {**old, "missing": miss}
         if miss >= 2 and not old.get("gone"):
@@ -266,8 +334,12 @@ def collect(browser, previous, now):
     for no in got:
         cases[no].pop("missing", None)
         cases[no].pop("gone", None)
-    live = [c for c in cases.values() if not c.get("missing")]
-    section = {"status": "ok", "checkedAt": stamp, "fetchedAt": fetched, "baselineAt": prev.get("baselineAt") or stamp, "listTotal": total, "cases": cases}
+    live = [c for c in cases.values() if not c.get("missing") and not c.get("archived")]
+    keys = {doc_key(no, d) for no, c in cases.items() for d in c.get("docs") or []}
+    pdf = dict(sorted(((k, v) for k, v in pdf.items() if k in keys and isinstance(v, dict)), key=lambda kv: str(kv[1].get("date") or ""), reverse=True)[:PDF_KEEP])
+    section = {"status": "ok", "checkedAt": stamp, "fetchedAt": fetched, "baselineAt": prev.get("baselineAt") or stamp, "listTotal": total, "cases": cases,
+               "pdf": pdf, "want": want_list(cases, pdf, now)}
+    counts["archived"] = sum(1 for c in cases.values() if c.get("archived"))
     check = {"source": SOURCE, "status": "partial" if counts["unread"] else "ok", "returned": sum(len(c.get("docs") or []) for c in live), "cases": len(live),
              "listTotal": total, "events": len(events), "baseline": not had, **counts,
              **({"error": f"사건 페이지 {counts['unread']}건 못 읽음"} if counts["unread"] else {})}

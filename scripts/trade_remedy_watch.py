@@ -949,6 +949,15 @@ def main():
     import requests
     doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
               browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip(), tra_get=requests.get, cbsa_get=requests.get, citt_get=requests.get)
+    # 호주 사건 공개기록 본문(11-15, scripts/au_epr_docs.py): 기자 컴퓨터가 올린 PDF를 레이더에서 받아 한국·출입처 대목을 남기고 칸을 비운다. 공개 로그에는 건수만
+    if token and isinstance(doc.get("auEpr"), dict):
+        try:
+            import au_epr_docs
+            fc = au_epr_docs.read_files(doc["auEpr"], token, now, events=doc["events"])
+            emit(f"::notice title=trade-remedy-au-epr-files::호주 사건 문서 PDF — 이번에 읽음 {fc['read']}(스캔본 {fc['scan']}) · 실패 {fc['failed']} · 덜 올라옴 {fc['waiting']} · "
+                 f"칸 비움 {fc['cleared']} · 본문 알림 {fc['events']} · 저장된 본문 {len(doc['auEpr'].get('pdf') or {})}건 · 다음 수집에 받아 달라고 한 문서 {len(doc['auEpr'].get('want') or [])}건")
+        except Exception as e:  # noqa: BLE001 — 본문을 못 읽어도 문서 줄 감시는 그대로
+            emit(f"::warning title=trade-remedy-au-epr-files::호주 사건 문서 PDF 읽기 실패({str(e)[:80] or type(e).__name__}) — 다음 실행에 다시")
     # 무역위 새 조사 품목 → 출입처 사업보고서 '사업의 내용' 대조(11-11, scripts/ktc_producers.py) — 신청인 확인 질문용 원문 단서
     import ktc_producers
     try:

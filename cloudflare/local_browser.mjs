@@ -295,7 +295,100 @@ export async function browserUpload(request, env, deps = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return Response.json({ error: 'bad json' }, { status: 400 });
   const result = await localNoticeSubmit(ctx, { cities: args.cities, pages: args.pages, labor: args.labor, via: args.via });
   await storeOp(ctx, 'blobs.put', { name: KEY_BLOB, body: JSON.stringify({ ...key, lastUploadAt: ctx.now.toISOString() }) });
-  return Response.json({ ok: !result.isError, text: result.content?.[0]?.text ?? '' }, { headers: { 'Cache-Control': 'no-store' } });
+  const want = await wantedFiles(ctx).catch(() => []);
+  return Response.json({ ok: !result.isError, text: result.content?.[0]?.text ?? '', ...(want.length ? { want } : {}) }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+// ---- 호주 사건 공개기록 문서 PDF(11-15 기자 승인) ------------------------------------------------------------------------------
+// industry.gov.au는 PDF도 서버에서 막힌다(탐침 241). 무역구제 감시(au_epr_cases.py)가 '본문을 읽고 싶은 문서'를 trade_remedy 문서의
+// auEpr.want([{key: '698-13', url: '/sites/default/files/….pdf'}], 4건까지)에 적어 두면, 기자 컴퓨터 수집이 올리기 응답에서 그 목록을 받아
+// PDF를 내려받고 /upload/browser-file로 조각내 올린다. 감시(au_epr_docs.py)가 /ingest/browser-files로 받아 가 글자를 풀고 칸을 비운다.
+// 칸 넷, 파일마다 조각 셋(조각 95만 자 = 파일 약 2MB)까지. 이름·주소·크기 꼴을 정해 두어 다른 것을 올릴 수 없다.
+const FILE_SLOTS = ['a', 'b', 'c', 'd'];
+const FILE_PARTS = 3;
+const FILE_PART_MAX = 950_000;
+const FILES_BLOB = 'browser_files';
+const FILE_STALE_MS = 3 * 86400000;      // 사흘 넘게 안 받아 간 칸은 새 파일에 내준다
+const FILE_KEY = /^[A-Za-z0-9-]{1,20}-\d{1,4}$/;
+const FILE_URL = /^\/sites\/default\/files\/[A-Za-z0-9_.\/%-]+\.pdf$/i;
+const partBlob = (slot, part) => `browser_file:${slot}:${part}`;
+
+async function readFiles(ctx) {
+  const { row } = await storeOp(ctx, 'blobs.get', { name: FILES_BLOB });
+  try { const d = JSON.parse(row?.body ?? '{}'); return d && typeof d.slots === 'object' && d.slots ? d : { slots: {} }; } catch { return { slots: {} }; }
+}
+const fileDone = (f) => !!f && Array.isArray(f.got) && f.got.length === f.parts;
+
+async function wantedFiles(ctx) {
+  const { row } = await storeOp(ctx, 'blobs.get', { name: 'trade_remedy' });
+  let want = [];
+  try { want = JSON.parse(row?.body ?? '{}')?.auEpr?.want ?? []; } catch { want = []; }
+  const have = new Set(Object.values((await readFiles(ctx)).slots).filter(fileDone).map((f) => f.key));
+  return (Array.isArray(want) ? want : []).filter((w) => w && FILE_KEY.test(String(w.key ?? '')) && FILE_URL.test(String(w.url ?? '')) && !String(w.url).includes('..') && !have.has(w.key))
+    .slice(0, FILE_SLOTS.length).map((w) => ({ key: String(w.key), url: String(w.url) }));
+}
+
+export async function browserFileUpload(request, env, deps = {}) {
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'POST' } });
+  const notFound = new Response('Not found', { status: 404 });
+  const m = /^Bearer\s+([A-Za-z0-9_-]{32,128})$/.exec(request.headers.get('Authorization') ?? '');
+  if (!m) return notFound;
+  const ctx = { env, private: true, now: deps.now ?? new Date() };
+  const key = await readKey(ctx);
+  if (!key?.sha256 || !(await safeEqual(await sha256Hex(m[1]), key.sha256))) return notFound;
+  const text = await request.text();
+  if (text.length > FILE_PART_MAX + 2000) return Response.json({ error: 'too large' }, { status: 413 });
+  let a;
+  try { a = JSON.parse(text); } catch { return Response.json({ error: 'bad json' }, { status: 400 }); }
+  const part = Number(a?.part), parts = Number(a?.parts), b64 = String(a?.b64 ?? '');
+  if (!a || !FILE_KEY.test(String(a.key ?? '')) || !FILE_URL.test(String(a.url ?? '')) || String(a.url).includes('..')
+    || !Number.isInteger(parts) || parts < 1 || parts > FILE_PARTS || !Number.isInteger(part) || part < 0 || part >= parts
+    || !b64 || b64.length > FILE_PART_MAX || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return Response.json({ error: 'bad file' }, { status: 400 });
+  // 감시가 받아 달라고 한 문서만 받는다
+  if (!(await wantedFiles(ctx)).some((w) => w.key === a.key && w.url === a.url)) return Response.json({ error: 'not wanted' }, { status: 409 });
+  const doc = await readFiles(ctx);
+  const nowMs = ctx.now.getTime();
+  let slot = FILE_SLOTS.find((s) => doc.slots[s]?.key === a.key);
+  if (slot && (doc.slots[slot].parts !== parts || doc.slots[slot].url !== a.url)) { doc.slots[slot] = null; }
+  slot ??= FILE_SLOTS.find((s) => !doc.slots[s]) ?? FILE_SLOTS.find((s) => nowMs - Date.parse(doc.slots[s].at) > FILE_STALE_MS);
+  if (!slot) return Response.json({ error: 'full' }, { status: 409 });
+  const prev = doc.slots[slot]?.key === a.key ? doc.slots[slot] : null;
+  await storeOp(ctx, 'blobs.put', { name: partBlob(slot, part), body: b64 });
+  doc.slots[slot] = { key: String(a.key), url: String(a.url), parts, got: [...new Set([...(prev?.got ?? []), part])].sort((x, y) => x - y),
+    chars: (prev?.got?.includes(part) ? 0 : b64.length) + (prev?.chars ?? 0), at: ctx.now.toISOString() };
+  await storeOp(ctx, 'blobs.put', { name: FILES_BLOB, body: JSON.stringify(doc) });
+  return Response.json({ ok: true, slot, got: doc.slots[slot].got.length, parts }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+// 무역구제 감시가 읽는다(MCP 토큰): GET → 파일 목록, GET ?slot=a&part=0 → 조각, POST {done: ['a']} → 그 칸 비우기
+export async function browserFiles(request, env, deps = {}) {
+  const notFound = new Response('Not found', { status: 404 });
+  const m = /^Bearer\s+([A-Za-z0-9_-]{16,128})$/.exec(request.headers.get('Authorization') ?? '');
+  if (!m || !(await safeEqual(m[1], env?.MCP_ACCESS_TOKEN))) return notFound;
+  const ctx = { env, private: true, now: deps.now ?? new Date() };
+  const doc = await readFiles(ctx);
+  const json = (body, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+  if (request.method === 'GET') {
+    const q = new URL(request.url).searchParams;
+    if (!q.has('slot')) {
+      return json({ files: FILE_SLOTS.filter((s) => doc.slots[s]).map((s) => ({ slot: s, key: doc.slots[s].key, url: doc.slots[s].url, parts: doc.slots[s].parts,
+        got: doc.slots[s].got, chars: doc.slots[s].chars, at: doc.slots[s].at, complete: fileDone(doc.slots[s]) })) });
+    }
+    const slot = q.get('slot'), part = Number(q.get('part'));
+    if (!FILE_SLOTS.includes(slot) || !doc.slots[slot] || !Number.isInteger(part) || !doc.slots[slot].got.includes(part)) return notFound;
+    const { row } = await storeOp(ctx, 'blobs.get', { name: partBlob(slot, part) });
+    return row ? json({ b64: row.body }) : notFound;
+  }
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, POST' } });
+  let a;
+  try { a = JSON.parse(await request.text()); } catch { return json({ error: 'bad json' }, 400); }
+  const done = (Array.isArray(a?.done) ? a.done : []).filter((s) => FILE_SLOTS.includes(s) && doc.slots[s]);
+  for (const s of done) {
+    for (let i = 0; i < FILE_PARTS; i++) await storeOp(ctx, 'blobs.delete', { name: partBlob(s, i) });
+    delete doc.slots[s];
+  }
+  await storeOp(ctx, 'blobs.put', { name: FILES_BLOB, body: JSON.stringify(doc) });
+  return json({ cleared: done.length });
 }
 
 // 기자 컴퓨터 수집 상태(11-08): 예약 작업(평일 08:40·16:40 KST)은 기자 컴퓨터가 꺼져 있거나 Claude 앱·Aside가 안 떠 있으면 돌지 못하고,

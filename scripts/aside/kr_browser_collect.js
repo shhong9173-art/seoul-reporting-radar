@@ -1,4 +1,4 @@
-// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 여섯 토막을
+// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 일곱 토막을
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
 // 하는 일(읽기만): 해외 IP(GitHub)에서 막히거나 들쑥날쑥한 시·군 12곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록과 한국이 든 진행 사건의
 // 공개기록(EPR) 문서 표(11-14 기자 승인 — 사건 6건까지, 사건마다 최근 60줄), 노동위원회 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
@@ -6,6 +6,8 @@
 // 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
 // Worker는 SHA-256 지문만 안다. 열쇠가 없거나 실패하면 sdds local_notice_submit 인자 한 줄 JSON(SUBMIT)을 찍고, 예약 작업이 글자를 고치지 않고 올린다.
 // 지킬 것: 아래 12개 사이트와 레이더 올리기 창 밖은 열지 않는다. 로그인·글쓰기 없음. 첨부는 출입처 줄의 공고문만(디스크에 저장 안 함). 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
+// 11-15 기자 승인: 토막 5가 TRN 목록에서 최근 공지(150일 안)가 있는 한국 관련 보관(종결) 사건 4건까지의 사건 페이지도 읽고, 토막 7이 레이더가 받아 달라고 한
+// 호주 사건 문서 PDF(직접 출입처 이름이 든 문서, 4건·파일 2MB까지)를 받아 레이더(/upload/browser-file)로 조각내 올린다 — industry.gov.au는 PDF도 서버에서 막힌다.
 // REPL 사정(11-06 시험):
 // - DOMParser·euc-kr 해독은 REPL엔 없고 브라우저 탭 안에만 있다 — 받은 바이트를 빈 탭으로 넘겨 읽는다.
 // - 기자 컴퓨터 중계가 한 번 호출을 60초까지만 기다린다(전부 한 번에 돌리면 끊김) — 토막마다 45초 안에 끝나게 자른다.
@@ -291,7 +293,7 @@
   }
 }
 
-// ===== 토막 5: 호주 무역구제 공지(TRN)·진행 사건 공개기록(EPR)과 노동위 달력 14곳(동시에, 40초 안) =====
+// ===== 토막 5: 호주 무역구제 공지(TRN)·진행·보관 사건 공개기록(EPR)과 노동위 달력 14곳(동시에, 40초 안) =====
 {
   const R = globalThis.__R || (globalThis.__R = { cities: [], timing: {} });
   const T0 = Date.now();
@@ -320,8 +322,9 @@
   };
   // 호주 진행 사건 목록에서 한국이 든 줄 → 그 사건 페이지의 사건 정보·주요 일정·공개기록(EPR) 문서 표(번호·종류·제목·날짜·첫 PDF 링크).
   // 11-14 내장 브라우저 확인: 진행 28건 중 한국 3건(698·706·710), 사건 페이지 약 180KB·2.5~3.5초, 문서 13~22줄, 쪽 나눔 없음.
-  // 줄 첫 칸이 종류(list·case·title·info·date·doc·error), 둘째 칸이 사건 번호 — 레이더(au_epr_cases.py)가 읽는다. 빈 칸은 '-'(칸 순서를 지키려고).
-  const epr = async () => {
+  // 줄 첫 칸이 종류(list·case·title·info·date·doc·error·acase), 둘째 칸이 사건 번호 — 레이더(au_epr_cases.py)가 읽는다. 빈 칸은 '-'(칸 순서를 지키려고).
+  // 보관(종결) 사건(11-15): TRN 목록의 한국 줄 가운데 보관 사건 링크가 달리고 공지일이 150일 안인 사건(4건까지)의 사건 페이지 — acase 줄(품목·가장 최근 공지 제목·나라·공지일).
+  const epr = async (trnPage) => {
     try {
       const tab = R.tab || (R.tab = await openTab('about:blank'));   // 토막 6이 닫는다
       const left = () => Math.max(4000, 36000 - (Date.now() - T0));      // TRN 뒤에 남은 시간(토막을 45초 안에 끝내기)
@@ -371,9 +374,20 @@
         return got;
       };
       const cases = list.rows.slice(0, 6);
-      const per = await Promise.all(cases.map(async (c) => {
+      const ARCHIVE = EPR.replace('/current-cases-', '/archive-cases-');
+      const since = Date.now() + 9 * 3600e3 - 150 * 86400e3;
+      const arc = [];
+      for (const x of (trnPage && trnPage.rows) || []) {      // TRN 목록은 최근 순 — 사건마다 처음 만난 줄이 가장 최근 공지
+        const m = (x.links || []).map((h) => /\/archive-cases-and-electronic-public-record-epr\/([A-Za-z0-9-]{1,20})\/?$/.exec(h || '')).find(Boolean);
+        const dm = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(x.cells[x.cells.length - 1] || '');
+        if (!m || !dm || Date.UTC(+dm[3], +dm[2] - 1, +dm[1]) < since || arc.length >= 4) continue;
+        if (!arc.some((y) => y.no === m[1]) && !cases.some((y) => y.no === m[1])) {
+          arc.push({ no: m[1], cells: x.cells.length >= 6 ? [x.cells[2], x.cells[3], x.cells[4], x.cells[5]].map((c) => String(c).slice(0, 200)) : ['-', '-', '-', dm[0]], base: ARCHIVE });
+        }
+      }
+      const per = await Promise.all([...cases, ...arc].map(async (c) => {
         try {
-          const got = await tab.evaluate(parseCase, await page(EPR + '/' + c.no, '사건 ' + c.no));
+          const got = await tab.evaluate(parseCase, await page((c.base || EPR) + '/' + c.no, '사건 ' + c.no));
           if (!got.title && !got.docs.length) throw new Error('사건 페이지 형식 미상');
           return [{ cells: ['title', c.no, got.title || '-', String(got.total)] },
             ...got.info.slice(0, 6).map(([k, v]) => ({ cells: ['info', c.no, k, v] })),
@@ -382,7 +396,8 @@
         } catch (e) { return [{ cells: ['error', c.no, String(e && e.message || e).slice(0, 100)] }]; }
       }));
       return { id: 'au-epr', rows: [{ cells: ['list', String(list.total), String(list.rows.length)] },
-        ...cases.map((c) => ({ cells: ['case', c.no, ...c.cells], links: [EPR.replace('https://www.industry.gov.au', '') + '/' + c.no] })), ...per.flat()] };
+        ...cases.map((c) => ({ cells: ['case', c.no, ...c.cells], links: [EPR.replace('https://www.industry.gov.au', '') + '/' + c.no] })),
+        ...arc.map((c) => ({ cells: ['acase', c.no, ...c.cells], links: [ARCHIVE.replace('https://www.industry.gov.au', '') + '/' + c.no] })), ...per.flat()] };
     } catch (e) { return { id: 'au-epr', error: String(e && e.message || e).slice(0, 100) }; }
   };
   const labor = async () => {
@@ -415,11 +430,11 @@
     } catch (e) { return NAMES.map((commission) => ({ commission, error: String(e && e.message || e).slice(0, 100) })); }
   };
   // TRN 다음에 EPR(같은 사이트라 차례로), 노동위 달력은 그와 동시에
-  [[R.pages, R.epr], R.labor] = await Promise.all([(async () => [await trn(), await epr()])(), labor()]);
+  [[R.pages, R.epr], R.labor] = await Promise.all([(async () => { const t = await trn(); return [t, await epr(t)]; })(), labor()]);
   R.timing.trnLabor = Date.now() - T0;
   const kind = (k) => (R.epr.rows || []).filter((x) => x.cells[0] === k).length;
   console.log(`TRN ${R.pages.error ? '실패(' + R.pages.error + ')' : R.pages.rows.length + '줄'} · `
-    + `EPR ${R.epr.error ? '실패(' + R.epr.error + ')' : `사건 ${kind('case')}건·문서 ${kind('doc')}줄${kind('error') ? '·못 읽은 사건 ' + kind('error') : ''}`} · 노동위 ${R.labor.filter((x) => !x.error).length}/14곳 `
+    + `EPR ${R.epr.error ? '실패(' + R.epr.error + ')' : `사건 ${kind('case')}건·보관 ${kind('acase')}건·문서 ${kind('doc')}줄${kind('error') ? '·못 읽은 사건 ' + kind('error') : ''}`} · 노동위 ${R.labor.filter((x) => !x.error).length}/14곳 `
     + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
 }
 
@@ -457,17 +472,64 @@
           const k = localStorage.getItem('radarUploadKey');
           if (!k) return { skip: '열쇠 없음' };
           const r = await fetch('/upload/browser', { method: 'POST', headers: { Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, body });
-          return { status: r.status, body: (await r.text()).slice(0, 6000) };
+          return { status: r.status, body: (await r.text()).slice(0, 12000) };
         }, JSON.stringify(payload));
       } finally { try { await closeTab(ut); } catch (e) { /* 그대로 둔다 */ } }
     } catch (e) { up = { error: String(e && e.message || e).slice(0, 100) }; }
     let done = false;
     if (up && up.status === 200) {
-      try { const j = JSON.parse(up.body); if (j.ok) { console.log('UPLOADED ' + j.text); done = true; } else { up = { error: '레이더가 거절: ' + String(j.text).slice(0, 200) }; } } catch (e) { up = { error: '응답 형식' }; }
+      try { const j = JSON.parse(up.body); if (j.ok) { R.want = Array.isArray(j.want) ? j.want.slice(0, 4) : []; console.log('UPLOADED ' + j.text); done = true; } else { up = { error: '레이더가 거절: ' + String(j.text).slice(0, 200) }; } } catch (e) { up = { error: '응답 형식' }; }
     }
     if (!done) {
       console.log('UPLOAD 못 함(' + (up ? (up.skip || up.error || 'HTTP ' + up.status) : '?') + ') — 아래 SUBMIT을 local_notice_submit으로 올린다');
       console.log('SUBMIT ' + JSON.stringify(small));
     }
+  }
+}
+
+// ===== 토막 7: 레이더가 받아 달라고 한 호주 사건 문서 PDF 올리기(4건·파일 2MB까지, 40초 안) =====
+{
+  // 토막 6의 올리기 응답에 든 목록(R.want: [{key: '698-13', url: '/sites/default/files/….pdf'}])만 받는다 — 무역구제 감시가 직접 출입처 이름이 든 문서 가운데
+  // 본문을 아직 못 읽은 것을 적어 둔 것(au_epr_cases.want_list). 같은 사이트(industry.gov.au)의 공개기록 PDF 주소 꼴만, 파일은 저장하지 않고
+  // 조각(90만 자)으로 나눠 레이더 올리기 창에서 /upload/browser-file로 보낸다(열쇠는 토막 6과 같이 그 사이트 저장소에서 읽어 보내기만 한다).
+  const R = globalThis.__R;
+  const want = R && Array.isArray(R.want) ? R.want.slice(0, 4) : [];
+  if (!want.length) { console.log('FILES 없음(레이더가 받아 달라고 한 문서 없음)'); } else {
+    const T0 = Date.now();
+    const HOST = 'https://www.industry.gov.au';
+    const UPLOAD = 'https://seoul-reporting-radar.shhong9173.workers.dev/upload/browser';
+    const PART = 900000;
+    const within = (p, ms, what) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`${what} 시간 초과 ${ms / 1000}초`)), ms))]);
+    let ok = 0, bad = 0, ut = null;
+    const notes = [];
+    try {
+      ut = await openTab(UPLOAD);
+      for (const w of want) {
+        if (Date.now() - T0 > 28000) { bad += 1; notes.push(`${w.key} 시간 부족 — 다음 수집`); continue; }   // 45초 안에 끝내기
+        try {
+          if (!/^[A-Za-z0-9-]{1,20}-\d{1,4}$/.test(w.key) || !/^\/sites\/default\/files\/[A-Za-z0-9_.\/%-]+\.pdf$/i.test(w.url) || w.url.includes('..')) throw new Error('주소 꼴이 아님');
+          const r = await within(fetch(HOST + w.url), 15000, 'PDF');
+          if (r.status !== 200) throw new Error('HTTP ' + r.status);
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (buf.subarray(0, 5).toString('latin1') !== '%PDF-') throw new Error('PDF 아님');
+          if (buf.length > 2000000) throw new Error(`파일이 큼(${Math.round(buf.length / 1024)}KB)`);
+          const b64 = buf.toString('base64');
+          const parts = Math.ceil(b64.length / PART);
+          for (let i = 0; i < parts; i++) {
+            const res = await ut.evaluate(async (a) => {
+              const k = localStorage.getItem('radarUploadKey');
+              if (!k) return { skip: '열쇠 없음' };
+              const r2 = await fetch('/upload/browser-file', { method: 'POST', headers: { Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, body: JSON.stringify(a) });
+              return { status: r2.status };
+            }, { key: w.key, url: w.url, part: i, parts, b64: b64.slice(i * PART, (i + 1) * PART) });
+            if (!res || res.status !== 200) throw new Error(res && res.skip ? res.skip : '올리기 HTTP ' + (res ? res.status : '?'));
+          }
+          ok += 1;
+        } catch (e) { bad += 1; notes.push(`${w.key} ${String(e && e.message || e).slice(0, 40)}`); }
+      }
+    } catch (e) { notes.push('올리기 창 ' + String(e && e.message || e).slice(0, 40)); }
+    finally { try { if (ut) await closeTab(ut); } catch (e) { /* 그대로 둔다 */ } }
+    R.want = [];
+    console.log(`FILES 올림 ${ok} · 못 올림 ${bad}${notes.length ? '(' + notes.join(' · ') + ')' : ''} · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
   }
 }

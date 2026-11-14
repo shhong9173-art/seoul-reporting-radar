@@ -114,6 +114,9 @@ export class RadarStore {
         return { saved: true };
       case 'blobs.get':
         return { row: this.all('SELECT name, body, updated_at FROM blobs WHERE name = ?', args.name)[0] ?? null };
+      case 'blobs.delete':   // 기자 컴퓨터가 올린 파일 조각 비우기(local_browser.mjs) — 이름을 정확히 준 한 줄만
+        this.sql.exec('DELETE FROM blobs WHERE name = ?', args.name);
+        return { deleted: true };
       case 'login.count': {
         this.sql.exec('DELETE FROM login_fail WHERE at < ?', args.purgeBefore);
         const ip = this.all('SELECT COUNT(*) AS n FROM login_fail WHERE ip = ? AND at >= ?', args.ip, args.since)[0]?.n ?? 0;
