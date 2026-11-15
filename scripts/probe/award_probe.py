@@ -1,36 +1,35 @@
-"""probe 246: 사전 공개본 가운데 제목에 Korea가 든 문서의 제목 칸·본문 글자 꼴. 공개 자료만, 저장 안 함."""
-import json, re
+"""probe 247: 관보 문서 API가 게재 전(다음 호) 문서를 언제부터 보여 주는지. 공개 자료만, 저장 안 함."""
+import datetime as dt, re
 
 import requests
 
 OUT = []
 H = {"User-Agent": "seoul-reporting-radar probe (contact: github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json"}
-B = "https://www.federalregister.gov/api/v1/public-inspection-documents"
 try:
-    res = requests.get(B + "/current.json", headers=H, timeout=60).json().get("results") or []
-    def ag(x):
-        return [a.get("slug") or a.get("name") for a in x.get("agencies") or [] if isinstance(a, dict)]
-    trade = [x for x in res if any(s in ("international-trade-administration", "international-trade-commission") for s in ag(x))]
-    kor = [x for x in trade if re.search("korea", json.dumps(x), re.I)]
-    OUT.append(f"ITA·ITC {len(trade)}건 · 어느 칸에든 Korea {len(kor)}건")
-    for x in kor[:3]:
-        OUT.append("칸: " + " | ".join(f"{k}={str(x.get(k))[:150]}" for k in ("document_number", "type", "filing_type", "filed_at", "publication_date", "title", "toc_subject", "toc_doc", "subject_1", "subject_2", "subject_3", "docket_numbers", "num_pages", "html_url", "raw_text_url", "pdf_url")))
-        t = requests.get(x["raw_text_url"], headers={"User-Agent": H["User-Agent"]}, timeout=60)
-        body = t.text
-        OUT.append(f"raw_text HTTP {t.status_code} {len(body)}자 · content-type {t.headers.get('content-type')}")
-        lines = [l.rstrip() for l in re.sub(r"<[^>]+>", "", body).split("\n")]
-        keep = [l.strip() for l in lines if l.strip()]
-        OUT.append("앞 줄: " + " ⏎ ".join(l[:110] for l in keep[:16]))
-        idx = [i for i, l in enumerate(keep) if re.search(r"Weighted-Average|Dumping Margin|Subsidy Rate|\(percent\)|percent ad valorem", l)]
-        for i in idx[:3]:
-            OUT.append(f"세율 근처({i}): " + " ⏎ ".join(l[:110] for l in keep[max(0, i - 2):i + 12]))
-        ap = [i for i, l in enumerate(keep) if re.match(r"(?:Appendix|List of Topics|Comment \d+)", l)]
-        OUT.append(f"부록·쟁점 줄 {len(ap)}곳: " + " ⏎ ".join(keep[i][:120] for i in ap[:8]))
-        OUT.append("빈 줄 비율 " + str(round(1 - len(keep) / max(1, len(lines)), 2)) + f" · 줄 수 {len(lines)}")
-    # 한 문서 주소(json)로도 열리는지
-    if kor:
-        j = requests.get(f"{B}/{kor[0]['document_number']}.json", headers=H, timeout=60)
-        OUT.append(f"문서 한 건 주소 HTTP {j.status_code} · 키 {sorted(j.json().keys())[:40] if j.status_code == 200 else j.text[:80]}")
+    now = dt.datetime.now(dt.timezone.utc)
+    OUT.append("지금 " + now.isoformat(timespec="minutes"))
+    pi = requests.get("https://www.federalregister.gov/api/v1/public-inspection-documents/current.json", headers=H, timeout=60).json()
+    res = pi.get("results") or []
+    by = {}
+    for x in res:
+        by.setdefault((x.get("publication_date"), x.get("filing_type")), []).append(x.get("document_number"))
+    OUT.append("사전 공개본: " + " · ".join(f"게재 {k[0]} {k[1]} {len(v)}건" for k, v in sorted(by.items(), key=lambda kv: str(kv[0]))) + f" · regular 갱신 {pi.get('regular_filings_updated_at')} · special 갱신 {pi.get('special_filings_updated_at')}")
+    for day in ("2026-11-13", "2026-11-16", "2026-11-17"):
+        r = requests.get("https://www.federalregister.gov/api/v1/documents.json", params=[("conditions[publication_date][is]", day), ("per_page", "5"), ("fields[]", "document_number"), ("fields[]", "publication_date")], headers=H, timeout=60)
+        j = r.json()
+        OUT.append(f"문서 API 게재일 {day}: HTTP {r.status_code} count {j.get('count')}")
+    # 무역 기관만, 게재일 11-16
+    r = requests.get("https://www.federalregister.gov/api/v1/documents.json", params=[("conditions[publication_date][is]", "2026-11-16"), ("conditions[agencies][]", "international-trade-administration"), ("conditions[agencies][]", "international-trade-commission"), ("per_page", "100"), ("fields[]", "document_number"), ("fields[]", "title")], headers=H, timeout=60)
+    docs = {d.get("document_number") for d in r.json().get("results") or []}
+    pit = {x.get("document_number") for x in res if x.get("publication_date") == "2026-11-16" and any((a.get("slug") in ("international-trade-administration", "international-trade-commission")) for a in x.get("agencies") or [] if isinstance(a, dict))}
+    OUT.append(f"무역 기관 게재일 11-16: 문서 API {len(docs)}건 · 사전 공개본 {len(pit)}건 · 둘 다 {len(docs & pit)}건 · 사전 공개본에만 {sorted(pit - docs)[:6]} · 문서 API에만 {sorted(docs - pit)[:6]}")
+    # 문서 한 건의 메타(언제 만들어졌는지 단서)
+    one = requests.get("https://www.federalregister.gov/api/v1/documents/2026-23258.json", headers=H, timeout=60)
+    if one.status_code == 200:
+        j = one.json()
+        OUT.append("문서 2026-23258: " + " | ".join(f"{k}={str(j.get(k))[:80]}" for k in ("publication_date", "signing_date", "effective_on", "page_views", "start_page", "volume", "citation", "raw_text_url", "body_html_url", "public_inspection_pdf_url")))
+    else:
+        OUT.append(f"문서 2026-23258 HTTP {one.status_code}")
 except Exception as e:
     OUT.append(f"실패 {type(e).__name__}: {str(e)[:200]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
