@@ -1685,6 +1685,10 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml', 'trademark-watch.yml']);  // Tue 07:10 KST(상표는 실패한 회사만 재시도)
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
+  // 11-15: 무역구제 평일 저녁 칸은 23:00(미국 관보 사전 공개 22:45 KST 직후). 21:30 칸은 없앴다. 토요일 밤에는 돌지 않는다
+  assert.ok(dueAt(new Date('2026-10-27T14:00:30Z')).includes('trade-remedy.yml'));       // Tue 23:00 KST
+  assert.ok(!dueAt(new Date('2026-10-27T12:30:00Z')).includes('trade-remedy.yml'));      // Tue 21:30 KST
+  assert.ok(!dueAt(new Date('2026-10-31T14:00:00Z')).includes('trade-remedy.yml'));      // Sat 23:00 KST
   assert.deepEqual(dueAt(new Date('2026-11-02T00:31:00Z')), ['union-notices.yml', 'g2b-tender-official.yml']);  // Mon 09:30 KST(GitHub 예약은 4.5~6시간 늦었다) + 노조 성명(매일)
   assert.deepEqual(dueAt(new Date('2026-11-01T00:30:00Z')), ['union-notices.yml']);       // Sun(노조 성명만 매일)
   assert.deepEqual(dueAt(new Date('2026-11-01T00:20:00Z')), ['kr-stacks.yml']);           // Sun 09:20 KST 굴뚝(주말 포함 3시간 칸)
@@ -1723,7 +1727,8 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
   assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-30 22:30 worker-smoke.yml');  // Fri 22:15 KST → 22:30 운영 점검(11-14, 매일 일곱 번)
-  assert.equal(nextSlot(new Date('2026-10-30T13:35:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:35 KST → Sat 00:20
+  assert.equal(nextSlot(new Date('2026-10-30T13:35:00Z')), '10-30 23:00 trade-remedy.yml');  // Fri 22:35 KST → 23:00 무역구제 저녁 칸(11-15, 미국 관보 사전 공개 직후)
+  assert.equal(nextSlot(new Date('2026-10-30T14:05:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 23:05 KST → Sat 00:20
   // 배포 뒤 운영 점검: GitHub 예약이 돌지 않아(11-13 병합 뒤 8시간 0번) 정시 요청 — 주말에도
   assert.deepEqual(dueAt(new Date('2026-10-28T00:00:00Z')), ['worker-smoke.yml']);   // Wed 09:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-31T16:30:00Z')), ['worker-smoke.yml']);   // Sun 01:30 KST
