@@ -1949,7 +1949,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 35개/);
+  assert.match(r.text, /기자 전용 감시 36개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2276,7 +2276,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 35개/);
+  assert.match(r.text, /기자 전용 감시 36개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2351,7 +2351,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 35개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 36개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2613,7 +2613,11 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-27T23:50:00Z')), ['radar-press-check.yml']);  // Wed 08:50 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T03:50:00Z')), ['radar-press-check.yml']);  // Wed 12:50 KST — 오전에 새로 잡힌 A·B
   // 공식 원자료 직접 수집: 06:40·08:00·15:00·18:00 KST 평일
-  assert.deepEqual(dueAt(new Date('2026-10-28T21:40:00Z')), ['us-osha.yml', 'scoop-radar.yml']);  // Thu 06:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:40:00Z')), ['us-osha.yml', 'scoop-radar.yml', 'kr-report-notes.yml']);  // Thu 06:40 KST(11-15: 정기보고서 숨은 대목)
+  assert.ok(dueAt(new Date('2026-11-16T10:40:00Z')).includes('kr-report-notes.yml'));               // Mon 19:40 KST — 그날 제출분, 19:43 알림 직전
+  assert.ok(dueAt(new Date('2026-11-16T04:10:00Z')).includes('kr-report-notes.yml'));               // Mon 13:10 KST
+  assert.ok(dueAt(new Date('2026-11-21T00:40:00Z')).includes('kr-report-notes.yml'));               // Sat 09:40 KST — 금요일 늦은 제출분
+  assert.ok(!dueAt(new Date('2026-11-21T10:40:00Z')).includes('kr-report-notes.yml'));              // Sat 19:40 KST는 아니다
   assert.deepEqual(dueAt(new Date('2026-10-28T23:00:00Z')), ['scoop-radar.yml']);  // Thu 08:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T06:00:00Z')), ['scoop-radar.yml']);  // Thu 15:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T09:00:00Z')), ['scoop-radar.yml']);  // Thu 18:00 KST
@@ -3326,6 +3330,63 @@ test('임원 명단 변화(kr-exec): radar_today A·B(사람 이름 필수 대�
   assert.match((await call('kr_signals', { section: 'exec', show_all: true }, opts)).text, /C · [\d-]+ [\d:]+ · KG모빌리티 · 명단에서 빠짐/);
   assert.match((await call('kr_signals', { section: 'exec', company: '김보통' }, opts)).text, /김보통 1970년생 상무/);
   assert.match((await call('kr_signals', {}, opts)).text, /\[임원 명단 변화 · 2026년 3분기\(9-30 기준\) ← 2026년 반기\(6-30 기준\) · 확인 [^\]]+ · 최근 14일\] A 1/);
+});
+
+test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알림(제때 읽은 제재·소송 몇 줄만), kr_signals report 구역·생략 대목 미확인', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const ev = (code, company, sec, kind, lines, extra = {}) => ({ id: `rptnote:${code}:202611014:${sec}`, kind, company, tier: 'B', url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026111600${code.slice(-4)}`,
+    detectedAt: now, filed: '20261116', period: '2026년 3분기(9-30 기준)', lines, text: `${company} 새로 적힌 ${kind}`, ...extra });
+  const doc = { schema: 'kr_report_notes/v1', generatedAt: now, status: 'partial', period: { year: 2026, report: '11014', label: '2026년 3분기(9-30 기준)' },
+    checks: [{ source: '현대제철', status: 'ok', returned: 1 }, { source: '기아', status: 'ok', returned: 0, note: '이 기간 보고서 미제출(또는 제출 대상 아님)' },
+      { source: 'LG화학', status: 'waiting', error: '원문 대기' }],
+    companies: { 현대제철: { period: '202611014', status: 'ok', omitted: [], nobase: ['suit'], missing: ['consol'], new: {} }, 금호타이어: { period: '202611014', status: 'ok', omitted: ['sanction'], missing: [], new: {} } },
+    summary: { companies: 39, read: 2, waiting: 1, failed: 0, docsRead: 4, newLines: { sanction: 1, suit: 9, consol: 1 } },
+    events: [ev('00164779', '현대제철', 'sanction', '제재', ['2026.09.03 | 고용노동부 포항지청 | 당사 | 과태료 1,500만원 | 퇴직연금 최소적립금 미달']),
+      ev('00155319', '포스코홀딩스', 'suit', '소송', ['줄1 손해배상', '줄2', '줄3', '줄4', '줄5', '줄6', '줄7', '줄8', '… 그 밖 27줄']),
+      ev('00106641', '한화솔루션', 'suit', '소송', ['〔처음 보는 건〕 소제기일: 2026.08.11 ▸ 소송 당사자: 원고: Acme Solar LLC / 피고: Hanwha Q CELLS America ▸ 소송의 내용: 특허 침해 손해배상'], { late: true }),
+      ev('00159616', '두산에너빌리티', 'consol', '연결 범위', ['연결 제외: 두산메카텍㈜ | 지분 매각']),
+      ev('00126380', '롯데케미칼', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고 : 에코프로에이치엔/ 피고 : 롯데케미칼㈜ — 진행상황: … 2026. 7. 24. 제3회 변론기일 2026. 10. 16. 제4회 변론기일 진행 예정']),
+      ev('00145880', 'LG화학', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고: 갑 / 피고: LG화학 — 진행상황: … 2026. 9. 18. 1심 판결 선고(원고 일부 승소), 당사 항소'])] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  const b = r.text.split('[B · ')[1];
+  assert.match(b, /정기보고서 숨은 대목\(제재·소송·연결 범위\) · 현대제철\n   현대제철 2026년 3분기\(9-30 기준\) 보고서\(접수 11-16\)에 앞 보고서에 없던 제재 1줄: 「2026\.09\.03 \| 고용노동부 포항지청 \| 당사 \| 과태료 1,500만원 \| 퇴직연금 최소적립금 미달」 \(자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다\. 시점·금액·사유는 원문·회사 확인\)/);
+  const block = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
+  assert.match(block('현대제철'), /〔즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 제재 1줄에 현대제철\(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨\)〕/);
+  assert.match(block('포스코홀딩스'), /앞 보고서에 없던 소송 8줄\(그 밖 27줄 더\)/);
+  assert.doesNotMatch(block('포스코홀딩스'), /즉시 알림 대상/);      // 수십 줄이 한꺼번에 — 서식 변경일 수 있어 화면에만
+  assert.match(block('한화솔루션'), /접수 뒤 늦게 읽음\)/);
+  assert.doesNotMatch(block('한화솔루션'), /즉시 알림 대상/);        // 늦게 읽은 것은 알림을 걸지 않는다
+  assert.doesNotMatch(block('두산에너빌리티'), /즉시 알림 대상/);    // 연결 범위는 화면에만
+  assert.doesNotMatch(block('롯데케미칼'), /즉시 알림 대상/);        // 기일만 더해진 진행 상황
+  assert.match(block('LG화학'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 소송 1줄에 LG화학/);   // 판결 선고가 적힘
+  const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = radar.items.find((x) => x.id === 'rptnote:00164779:202611014:sanction');
+  assert.deepEqual([hit.check.who, hit.check.terms], ['현대제철', ['과태료', '퇴직연금', '고용노동부']]);   // 대조 낱말은 새 줄에 적힌 것
+  const note = { tier: 'B', watch: '정기보고서 숨은 대목(제재·소송·연결 범위)', company: '현대제철', note: '제재', noteLines: 2, late: false };
+  assert.match(docAlert(note, '미보도 후보'), /^문서 알림 — 정기보고서에 새로 적힌 제재 2줄에 현대제철/);
+  assert.equal(docAlert(note, '관련 보도 있음'), null);
+  assert.equal(docAlert({ ...note, late: true }, undefined), null);
+  assert.equal(docAlert({ ...note, noteLines: 6 }, undefined), null);
+  assert.equal(docAlert({ ...note, note: '소송', noteRoutine: true }, undefined), null);
+  assert.equal(docAlert({ ...note, note: '연결 범위' }, undefined), null);
+  assert.equal(docAlert({ ...note, company: '포스코퓨처엠' }, undefined), null);                            // 계열사는 출입처가 아니다
+  const k = await call('kr_signals', { section: 'report' }, opts);
+  assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 6건/);
+  assert.match(k.text, /원천: OpenDART 정기보고서 원문 · 읽음 2\/39곳 · 미제출 1곳\(기아\) — 0건이 아니라 아직 안 냄 · 원문 대기 1곳\(LG화학\) — 다음 실행/);
+  assert.match(k.text, /범위: 이번 보고서가 대목을 생략한 곳\('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다\) 1곳: 금호타이어\(제재\)/);
+  assert.match(k.text, /범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 현대제철\(소송\)/);
+  assert.match(k.text, /범위: 대목을 못 찾은 곳\(미확인\): 현대제철\(연결 범위\)/);
+  assert.match(k.text, /- \[신규\] B · [\d-]+ [\d:]+ · 한화솔루션 · 소송 · 접수 2026-11-16 · 늦게 읽음\(알림 안 검\)\n   새 줄: 〔처음 보는 건〕 소제기일: 2026\.08\.11 ▸ 소송 당사자: 원고: Acme Solar LLC/);
+  assert.match(k.text, /   … 그 밖 27줄|… 나머지는 company=포스코홀딩스로/);
+  const one = await call('kr_signals', { section: 'report', company: '포스코홀딩스' }, opts);
+  assert.match(one.text, /새 줄이 있는 대목 1건/);
+  assert.match(one.text, /새 줄: 줄8\n   … 그 밖 27줄/);
+  assert.match((await call('kr_signals', {}, opts)).text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 14일\]/);
+  const none = PRIVATE();
+  assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(제재·소송·연결 범위\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·19:40, 토 09:40\)/);
 });
 
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {

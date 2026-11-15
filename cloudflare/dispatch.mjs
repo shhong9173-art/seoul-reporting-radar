@@ -89,6 +89,10 @@ export const SLOTS = [
   { at: '07:50', workflow: 'us-litigation.yml' },
   // 11-05: 출입처 정기보고서 임원 명단 비교 — 아침 발제(08:57) 전과 저녁(그날 제출분, OpenDART 정리 뒤). 새 보고서가 없으면 API만 묻고 끝남.
   { at: '07:50', workflow: 'kr-exec.yml' }, { at: '21:50', workflow: 'kr-exec.yml' },
+  // 11-15: 정기보고서 숨은 대목(제재·소송·연결 범위) — 아침 알림(08:43)·발제(08:57) 전, 낮, 그날 제출분이 모인 저녁(19:43 알림 직전), 금요일 늦은 제출분은 토요일 아침.
+  // 새 보고서가 없으면 목록만 묻고 끝난다(원문은 회사마다 한 번).
+  { at: '06:40', workflow: 'kr-report-notes.yml' }, { at: '13:10', workflow: 'kr-report-notes.yml' }, { at: '19:40', workflow: 'kr-report-notes.yml' },
+  { at: '09:40', workflow: 'kr-report-notes.yml', days: [6] },
   // 11-05: 수시 임원 공시(독립이사 신고·대표이사 변경·소집공고) + 상장사 등기임원 명단 순환 — 매일 세 번(주말에도 정정·수시 공시가 있다)
   { at: '06:20', workflow: 'kr-exec-market.yml', daily: true }, { at: '12:20', workflow: 'kr-exec-market.yml', daily: true },
   { at: '18:20', workflow: 'kr-exec-market.yml', daily: true },

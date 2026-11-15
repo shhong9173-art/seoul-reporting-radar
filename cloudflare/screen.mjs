@@ -53,6 +53,8 @@ export const FEEDS = {
   'kr-labor-browser': { blob: 'kr_labor_browser', schema: 'kr_labor_browser/v1', list: 'commissions' },
   // 출입처 정기보고서 '임원 현황' 비교(kr_exec_watch.py, 11-05) — 새로 보인·빠진 임원과 경력·관계 칸 표시
   'kr-exec': { blob: 'kr_exec', schema: 'kr_exec/v1', list: 'events' },
+  // 정기보고서 숨은 대목(kr_report_notes.py, 11-15): 분기·반기·사업보고서의 제재·소송·연결 범위에서 앞 보고서에 없던 줄
+  'kr-report-notes': { blob: 'kr_report_notes', schema: 'kr_report_notes/v1', list: 'events' },
   // 수시 임원 공시(독립이사 신고·대표이사 변경·출입처 소집공고)와 상장사 등기임원 명단 속 출입처 출신(kr_exec_market.py, 11-05)
   'kr-exec-market': { blob: 'kr_exec_market', schema: 'kr_exec_market/v1', list: 'events' },
   // 문제 임원 점검(kr_exec_check.py, 11-05): 출입처 임원 한 사람씩 법정 결격·한도와 과거 논란 기사
