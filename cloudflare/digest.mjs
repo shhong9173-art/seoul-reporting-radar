@@ -1294,7 +1294,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const names = (x.companies ?? []).filter(Boolean);
     const sectors = (x.sectors ?? []).join('·');
     push('B', W['ustr-comments'], { kind: 'USTR 의견서', id: x.id, date: x.postedDate, company: names.join('·'), named: names.length > 0, url: x.url,
-      fact: `${x.submitter} → USTR${x.docketTitle ? ` 「${String(x.docketTitle).slice(0, 90)}」` : ` ${x.docketId ?? ''}`} 의견서(게시 ${x.postedDate})에 한국${sectors ? ` + ${sectors}` : ''} 대목 ${x.passages ?? (x.excerpts ?? []).length}곳`
+      fact: `${x.submitter} → USTR${x.docketTitle ? ` 「${String(x.docketTitle).replace(/\s+/g, ' ').slice(0, 90)}」` : ` ${x.docketId ?? ''}`} 의견서(게시 ${x.postedDate})에 한국${sectors ? ` + ${sectors}` : ''} 대목 ${x.passages ?? (x.excerpts ?? []).length}곳`
         + `${names.length ? ` · 본문에 ${names.join('·')}` : ''}: 「${String((x.excerpts ?? [])[0] ?? '').slice(0, 300)}」 (낸 쪽의 주장 — USTR 판단이 아니다. 발췌는 영어 원문)`,
       check: names.length ? hint(names[0], ['USTR', '의견서', '무역장벽']) : undefined });
   }

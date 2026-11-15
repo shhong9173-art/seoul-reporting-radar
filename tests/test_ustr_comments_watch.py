@@ -14,7 +14,8 @@ REBAR = ("II. Korean Trade Barriers The Korean government provides substantial s
          "More significant steps, including slashing Korean shipment volumes through the further use of Section 232 or Section 301, are necessary.")
 FORD = ("III. East Asia South Korea U.S. automakers exporting into South Korea face a myriad of changing barriers that make it almost impossible to export to South Korea. "
         "The 2025 U.S.–Korea trade deal includes commitments for Korea to remove the 50,000-vehicle annual cap on U.S.-origin vehicles. "
-        "However, implementation has been impossible due to the remaining barriers listed below, and the market is inaccessible to Ford exports. " + "p" * 300)
+        "However, implementation has been impossible due to the remaining barriers listed below, and the market is inaccessible to Ford exports. " + "p" * 1100
+        + " South Korea exports 1.4 million vehicles to the U.S. annually, while the U.S. exports 44,000 to South Korea.")
 WINE = "Korea maintains a 15 percent tariff on imported wine and a liquor tax that burdens U.S. distillers. " + "z" * 600
 NK = "Sanctions on North Korea remain in place. " + "q" * 900
 
@@ -32,7 +33,7 @@ class Ustr(unittest.TestCase):
         r = w.analyze(REBAR)
         self.assertEqual((r["hits"][0]["sectors"], r["hits"][0]["companies"]), (["철강·비철"], ["현대제철"]))
         self.assertIn("560,100 metric tons", r["hits"][0]["excerpt"])
-        self.assertEqual([h["sectors"] for h in w.analyze(FORD)["hits"]], [["자동차"]])
+        self.assertEqual([h["sectors"] for h in w.analyze(FORD)["hits"]], [["자동차"], ["자동차"]])   # 떨어진 두 대목
         self.assertEqual((w.analyze(WINE)["korea"], w.analyze(WINE)["hits"]), (1, []))      # 한국은 나오지만 출입 업종이 아니다
         self.assertEqual(w.analyze(NK)["korea"], 0)                                          # North Korea는 세지 않는다
         self.assertEqual(w.companies_in("Korean steel producer POSCO received loans. POSCO International and LG Energy Solution are separate."), ["포스코"])   # 계열사는 출입처가 아니다
@@ -91,6 +92,15 @@ class Ustr(unittest.TestCase):
         nxt, calls = self.collect(texts, previous=again, now=NOW + dt.timedelta(days=1))
         self.assertEqual(len([c for c in calls if "/comments/" in c]), 1)
         self.assertEqual([(x["commentId"], x["baseline"]) for x in nxt["items"]][0], ("USTR-2026-0595-0003", False))
+
+    def test_a_passing_mention_of_korea_is_not_an_item(self):
+        passing = ("Many other countries, including Argentina, Brazil, Canada, China, Japan, Korea, Mexico, Turkey, the United Kingdom, and Vietnam have either implemented or are "
+                   "considering a carbon tax or border policy that affects steel. " + "k" * 900)
+        texts = {"USTR-2026-0661-0051": ("2026-11-14", "Steel Manufacturers Association", passing), "USTR-2026-0661-0102": ("2026-11-14", "Ford Motor Company", FORD + " " + "g" * 1200 + " Korean vehicle-emissions requirements add cost for U.S. cars."),
+                 "USTR-2026-0661-0147": ("2026-11-14", "Rebar Trade Action Coalition", "Hyundai Steel is a Korean rebar producer. " + "h" * 600)}
+        doc, _ = self.collect(texts)
+        self.assertEqual(sorted(x["commentId"] for x in doc["items"]), ["USTR-2026-0661-0102", "USTR-2026-0661-0147"])   # 두 곳 이상이거나 출입처 이름이 있을 때만
+        self.assertEqual((doc["summary"]["korea"], doc["seen"]["USTR-2026-0661-0051"]["hits"]), (3, 1))                   # 읽은 기록에는 남는다
 
     def test_a_refused_download_is_a_failure_not_a_scan_and_is_retried(self):
         texts = {"USTR-2026-0498-0147": ("2026-11-14", "Rebar Trade Action Coalition", REBAR), "USTR-2026-0498-0102": ("2026-11-14", "Ford Motor Company", FORD)}
