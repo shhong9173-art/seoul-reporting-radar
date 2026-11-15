@@ -68,6 +68,8 @@ IDENT = re.compile(r"당사자|원고|피고|신청인|사건\s*명|사건\s*번
 PERIOD_WORDS = re.compile(r"당\s*(?:분기|반기|기)\s*말?|(?:분기|반기|보고기간|사업연도|회계연도)\s*말|기준일")
 # 줄이 아닌 것: 표 머리('일자 | 제재기관 | 대상자 …'), 단위·기준일 줄, 소제목
 HEAD_ROW = re.compile(r"제재\s*기관|처벌\s*또는\s*조치|조치\s*내용")
+LABEL_CELL = re.compile(r"에\s*대한\s*(?:기술|공시|설명)\s*$")
+SENTENCE = re.compile(r"[가-힣]다(?:[.\s(,·]|$)")   # '…매각하였습니다(매각대금 58,962백만원).'처럼 괄호가 붙는 문장도
 NOISE = re.compile(r"^[\[(（]?\s*(?:기준일|단위|원화\s*단위)|^\[[^\]]{1,70}\]$")
 HEADING = re.compile(r"제재\s*현황|소송\s*사건|다음과\s*같습니다|기재하였습니다|지배\s*회사|종속\s*회사")
 TITLE = re.compile(r"<TITLE\b[^>]*>(.*?)</TITLE>", re.S | re.I)
@@ -95,12 +97,19 @@ def units(block):
                 if cells:
                     rows.append((bool(re.search(r"<TH\b", tr, re.I)), cells))
             pairs = [c for _, c in rows if len(c) == 2 and len(c[0]) <= 30 and not re.fullmatch(r"구\s*분|항\s*목", c[0])]
-            if len(pairs) >= 3 and len(pairs) >= 0.7 * len(rows) and any(KV_LABEL.search(c[0]) for c in pairs):
-                line = SEP.join(f"{k}: {v}" for k, v in pairs if not EMPTY.search(v))
+            # 두 칸 표로 보는 조건: 세 칸 넘는 줄이 하나도 없어야 한다(probe 252: 한화솔루션 '보고기간후사건' 표는 사건이 열로 나뉜 표였는데
+            # 두 칸 줄이 많다는 이유로 두 칸 표로 읽혀, 사건을 글로 적은 세 칸짜리 줄 — 한화시마론 매각 문장 — 이 통째로 빠졌다)
+            if len(pairs) >= 3 and all(len(c) <= 2 for _, c in rows) and any(KV_LABEL.search(c[0]) for c in pairs):
+                line = SEP.join([c[0] for _, c in rows if len(c) == 1 and len(c[0]) >= 20] + [f"{k}: {v}" for k, v in pairs if not EMPTY.search(v)])
                 if len(key_of(line)) >= 12:
                     out.append(line)
                 continue
             for head, cells in rows:
+                # 주석 표의 칸 이름('…의 성격에 대한 기술', '…에 대한 공시')은 줄 글자에서 뺀다
+                if len(cells) > 1 and LABEL_CELL.search(cells[0]):
+                    cells = cells[1:]
+                elif len(cells) == 1 and LABEL_CELL.search(cells[0]) and len(cells[0]) < 60:
+                    continue
                 line = " | ".join(cells)
                 # 머리 줄: <TH>거나, 숫자 없이 짧은 칸뿐이거나, 연도 없이 '제재기관·처벌 또는 조치' 같은 칸 이름만 있는 줄
                 if head or (not re.search(r"\d", line) and all(len(c) <= 16 for c in cells)) or (HEAD_ROW.search(line) and not re.search(r"(?:19|20)\d\d", line)):
@@ -110,7 +119,7 @@ def units(block):
         else:
             for p in re.split(r"</P>|<BR\s*/?>", part, flags=re.I):
                 line = clean(p)
-                if NOISE.search(line) or (len(line) < 70 and HEADING.search(line)):
+                if NOISE.search(line) or (len(line) < 70 and (HEADING.search(line) or LABEL_CELL.search(line))):
                     continue
                 if len(key_of(line)) >= 12 and not EMPTY.search(line) and not (BOILER.search(line) and len(line) < 160):
                     out.append(line)
@@ -171,6 +180,20 @@ def fresh_lines(lines, have):
     return out
 
 
+def prose(lines, *, keep_rows):
+    """주석 표의 줄에서 글로 적은 문장 칸을 한 칸씩 줄로 가른다(사건이 열로 나뉜 표는 한 줄에 사건 두 개가 들어 있다).
+    keep_rows=True면 문장이 없는 줄(사채 발행 표 같은 표 줄)도 그대로 둔다."""
+    out = []
+    for x in lines:
+        cells = [c for c in x.split(" | ")] if SEP not in x else [x]
+        said = [c for c in cells if len(c) >= 30 and SENTENCE.search(c)]
+        if said:
+            out += said
+        elif keep_rows:
+            out.append(x)
+    return out
+
+
 def merged(old, new):
     out, seen = [], set()
     for x in list(old or []) + list(new or []):
@@ -192,10 +215,10 @@ def sections(text):
             got = units(text[end:nxt])
             body["sanction"] = None if not got and BOILER.search(clean(text[end:nxt])[:600]) else got
         elif AFTER_TITLE.search(title):
-            body["after"] = merged(body.get("after"), units(text[end:nxt]))          # 연결·별도 주석을 합친다
+            body["after"] = merged(body.get("after"), prose(units(text[end:nxt]), keep_rows=True))   # 연결·별도 주석을 합친다
         elif HELD_TITLE.search(title):
-            # 매각예정자산 주석은 숫자 표가 대부분 — 글로 적은 줄(결정·사유)만 본다
-            body["held"] = merged(body.get("held"), [x for x in units(text[end:nxt]) if len(key_of(x)) >= 25])
+            # 매각예정자산 주석은 숫자 표가 대부분 — 글로 적은 문장(결정·사유)만 본다
+            body["held"] = merged(body.get("held"), prose(units(text[end:nxt]), keep_rows=False))
         elif re.search(r"우발\s*(?:부채|채무)\s*등", title) and "suit" not in body:
             block = text[end:nxt]
             m = re.search(r"중요한\s*소송|소송\s*사건", block)
@@ -209,7 +232,7 @@ def sections(text):
         for m in re.finditer(r">\s*\(?\d{1,2}\)?\.?\s*보고기간\s*후\s*사건[^<]{0,30}<", text):
             block = text[m.end() - 1:m.end() + 9000]
             stop = re.search(r"<TITLE\b|<P[^>]*>\s*\d{1,2}\.\s*[가-힣]", block[60:])
-            body["after"] = merged(body.get("after"), units(block[:60 + stop.start()] if stop else block))
+            body["after"] = merged(body.get("after"), prose(units(block[:60 + stop.start()] if stop else block), keep_rows=True))
     # 연결 범위: 신규 연결·연결 제외가 함께 든 표(회사의 개요)
     for table in re.findall(r"<TABLE\b.*?</TABLE>", text, re.S | re.I):
         flat = clean(table)

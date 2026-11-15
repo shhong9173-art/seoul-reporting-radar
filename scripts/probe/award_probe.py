@@ -1,4 +1,4 @@
-"""probe 252: 보고기간 후 사건·매각예정 주석 읽기가 실제 3분기보고서에서 되는지. 한화솔루션(이미 보도된 건)은 줄 글자, 나머지는 건수·길이만."""
+"""probe 253: 보고기간 후 사건·매각예정 주석 읽기가 실제 3분기보고서에서 되는지. 한화솔루션(이미 보도된 건)은 줄 글자, 나머지는 건수·길이만."""
 import os
 import sys
 import time
@@ -45,7 +45,7 @@ for name, rcept, show in DOCS:
     parts = [f"{name} {time.time() - t0:.0f}초 · 제목 표시 {len(titles)}개 · 주석 제목 {note_titles[:4]}"]
     for k in ("after", "held", "sanction", "suit", "consol"):
         v = sec.get(k, "없음")
-        parts.append(f"{k}: " + ("없음" if v == "없음" else "생략" if v is None else f"{len(v)}줄(길이 {sorted(len(x) for x in v)[:1]}~{sorted(len(x) for x in v)[-1:]})"))
+        parts.append(f"{k}: " + ("없음" if v == "없음" else "생략" if v is None else f"{len(v)}줄(길이 {sorted(len(x) for x in v)[:1]}~{sorted(len(x) for x in v)[-1:]} · 표 한 건 {sum(1 for x in v if n.SEP in x)} · 문장 줄 {sum(1 for x in v if n.SENTENCE.search(x))})"))
     OUT.append(" | ".join(parts))
     if show:
         for k in ("after", "held"):
