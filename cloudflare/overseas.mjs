@@ -1744,6 +1744,49 @@ async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
 
 const kstAt = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
 
+// 정기보고서 숨은 대목(kr-report-notes feed, 11-15): 출입처 분기·반기·사업보고서의 제재 현황·중요한 소송·연결 범위에서 앞 보고서에 없던 줄.
+// kr_signals 아래(section=report). 회사가 보고서에 직접 적은 것 — 새 줄이라도 사건은 앞서 보도됐을 수 있다.
+const NOTE_SEC = { sanction: '제재', suit: '소송', consol: '연결 범위' };
+async function reportNotesSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-report-notes');
+  const when = '평일 06:40·13:10·19:40, 토 09:40';
+  if (!doc) return [`\n[정기보고서 숨은 대목(제재·소송·연결 범위)] 아직 수집 전 — 미확인(${when})`];
+  if (doc.broken) return ['\n[정기보고서 숨은 대목(제재·소송·연결 범위)] 저장 결과 형식 오류 — 미확인'];
+  const s = doc.summary ?? {};
+  const period = `${doc.period?.year ?? ''}${doc.period?.report ?? ''}`;
+  const since = ctx.now.getTime() - days * 86400000;
+  const rows = (doc.events ?? []).filter((e) => !(Date.parse(e.detectedAt) < since) && matches(q, e.company, e.kind, e.text, ...(e.lines ?? [])))
+    .sort((a, b) => String(b.detectedAt).localeCompare(String(a.detectedAt)) || String(a.company).localeCompare(String(b.company)));
+  const checks = doc.checks ?? [];
+  const notFiled = checks.filter((k) => /^이 기간 보고서 미제출/.test(k.note ?? '')).map((k) => k.source);
+  const bad = checks.filter((k) => ['failed', 'partial'].includes(k.status));
+  const waiting = checks.filter((k) => k.status === 'waiting').map((k) => k.source);
+  const comps = Object.entries(doc.companies ?? {}).filter(([, v]) => v?.status === 'ok' && v.period === period);
+  const secNames = (list) => (list ?? []).map((k) => NOTE_SEC[k] ?? k).join('·');
+  const omitted = comps.filter(([, v]) => (v.omitted ?? []).length).map(([n, v]) => `${n}(${secNames(v.omitted)})`);
+  const nobase = comps.filter(([, v]) => (v.nobase ?? []).length).map(([n, v]) => `${n}(${secNames(v.nobase)})`);
+  const missing = comps.filter(([, v]) => (v.missing ?? []).length).map(([n, v]) => `${n}(${secNames(v.missing)})`);
+  const out = [`\n[정기보고서 숨은 대목 · ${doc.period?.label ?? '?'} 보고서 ← 앞 보고서 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일] 새 줄이 있는 대목 ${rows.length}건`,
+    `원천: OpenDART 정기보고서 원문 · 읽음 ${s.read ?? comps.length}/${s.companies ?? '?'}곳${notFiled.length ? ` · 미제출 ${notFiled.length}곳(${notFiled.slice(0, 12).join('·')}${notFiled.length > 12 ? ' …' : ''}) — 0건이 아니라 아직 안 냄` : ''}`
+      + `${waiting.length ? ` · 원문 대기 ${waiting.length}곳(${waiting.slice(0, 8).join('·')}) — 다음 실행` : ''}`
+      + `${bad.length ? ` · 실패 ${bad.length}곳(${bad.slice(0, 4).map((k) => `${k.source} ${k.error ?? ''}`.trim()).join(', ')}) — 미확인` : ''}`,
+    ...(omitted.length ? [`범위: 이번 보고서가 대목을 생략한 곳('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다) ${omitted.length}곳: ${omitted.slice(0, 16).join(', ')}${omitted.length > 16 ? ' …' : ''}`] : []),
+    ...(nobase.length ? [`범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳(이번 줄이 다음 비교의 기준) ${nobase.length}곳: ${nobase.slice(0, 16).join(', ')}${nobase.length > 16 ? ' …' : ''}`] : []),
+    ...(missing.length ? [`범위: 대목을 못 찾은 곳(미확인): ${missing.slice(0, 14).join(', ')}${missing.length > 14 ? ' …' : ''}`] : []),
+    '읽는 법: 표 한 줄·문단 하나가 한 줄. 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄(금액만 바뀐 줄은 안 잡는다). 〔처음 보는 건〕= 두 칸짜리 사건 표가 통째로 새로 생김, 〔앞 보고서에도 있던 건 · 바뀐 줄〕= 같은 당사자 사건의 진행 상황 등이 바뀜.'];
+  for (const e of rows.slice(0, limit)) {
+    const filed = String(e.filed ?? '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+    out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}B · ${kstAt(e.detectedAt)} · ${e.company} · ${e.kind} · 접수 ${filed || '?'}${e.late ? ' · 늦게 읽음(알림 안 검)' : ''}`);
+    for (const l of (e.lines ?? []).slice(0, q ? 9 : 4)) out.push(`   ${String(l).startsWith('…') ? l : `새 줄: ${String(l).slice(0, q ? 600 : 300)}`}`);
+    if (!q && (e.lines ?? []).length > 4) out.push(`   … 나머지는 company=${e.company}로`);
+    out.push(`   원문: ${e.url ?? '링크 없음'}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  if (!rows.length) out.push(`조건에 맞는 새 줄 없음${notFiled.length ? ` — 미제출 ${notFiled.length}곳은 0건이 아니라 미확인` : ''}.`);
+  out.push('   검증 상태: 공개 정기보고서 원문(자동 비교). 회사가 적은 내용이고, 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있다. 새 줄이라도 사건은 앞서 보도됐을 수 있어 news_check로 대조. 시점·금액·사유·대응은 원문과 회사 확인');
+  return out;
+}
+
 // 임원 명단 변화(kr-exec feed): 출입처 정기보고서 '임원 현황'을 바로 앞 보고서와 비교한 것. kr_signals 아래(section=exec).
 async function execSection(ctx, q, days, limit, showAll = false) {
   const doc = await readFeed(ctx, 'kr-exec');
@@ -1913,7 +1956,10 @@ export async function krSignals(ctx, args) {
     ? await execSection(ctx, energyQ, clampInt(args.days, 1, 120, args.section === 'exec' ? 60 : 14), clampInt(args.limit, 1, 80, args.section === 'exec' ? 25 : 8),
       args.show_all === true || args.show_all === 'true') : [];
   if (args.section === 'exec') return textResult(exec.join('\n').trim());
-  const energy = [...counterparty, ...exec, ...(!args.section || args.section === 'energy'
+  const report = !args.section || args.section === 'report'
+    ? await reportNotesSection(ctx, energyQ, clampInt(args.days, 1, 120, args.section === 'report' ? 45 : 14), clampInt(args.limit, 1, 80, args.section === 'report' ? 30 : 6)) : [];
+  if (args.section === 'report') return textResult(report.join('\n').trim());
+  const energy = [...counterparty, ...exec, ...report, ...(!args.section || args.section === 'energy'
     ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [])];
   if (args.section === 'energy') return textResult(energy.join('\n').trim());
   const doc = await readFeed(ctx, 'kr-signals');
