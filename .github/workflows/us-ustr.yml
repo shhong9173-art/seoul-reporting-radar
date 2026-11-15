@@ -1,0 +1,79 @@
+name: USTR Comments Mentioning Korea
+# regulations.gov의 USTR 의견서 첨부 본문에서 한국 + 출입 업종 대목(11-15 기자: 선배가 USTR에서도 단독 나온다).
+# 평일 07:20·23:20, 토 09:20 KST(Cloudflare 요청) + GitHub 예약 00:40 KST(대비용, 6시간 안 정시 요청 성공이면 건너뜀).
+# 코드가 바뀐 push는 저장하지 않고 12건만 읽어 건수만 남긴다. 결과는 기자 전용 저장소(ustr-comments)에만 — 공개 로그에는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ustr_comments_watch.py'
+      - 'tests/test_ustr_comments_watch.py'
+      - '.github/workflows/us-ustr.yml'
+  schedule:
+    - cron: '40 15 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 건수만'
+        required: false
+        default: 'true'
+      read:
+        description: '이번 실행에 본문까지 읽을 의견서 수(기본 130, 첫 실행은 크게)'
+        required: false
+        default: '130'
+permissions:
+  contents: read
+concurrency:
+  group: us-ustr
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: us-ustr.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::6시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  ustr:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<7"
+      - name: Test passage finding
+        run: python -m unittest discover -s tests -p 'test_ustr_comments_watch.py' -v
+      - name: Read USTR comments (counts-only log)
+        env:
+          REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
+          READ: ${{ github.event.inputs.read || '130' }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/ustr_comments_watch.py --read "$READ"
+          else
+            python scripts/ustr_comments_watch.py --dry-run
+          fi

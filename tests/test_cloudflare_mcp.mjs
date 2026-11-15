@@ -1728,7 +1728,10 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
   assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-30 22:30 worker-smoke.yml');  // Fri 22:15 KST → 22:30 운영 점검(11-14, 매일 일곱 번)
   assert.equal(nextSlot(new Date('2026-10-30T13:35:00Z')), '10-30 23:00 trade-remedy.yml');  // Fri 22:35 KST → 23:00 무역구제 저녁 칸(11-15, 미국 관보 사전 공개 직후)
-  assert.equal(nextSlot(new Date('2026-10-30T14:05:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 23:05 KST → Sat 00:20
+  assert.equal(nextSlot(new Date('2026-10-30T14:05:00Z')), '10-30 23:20 us-ustr.yml');  // Fri 23:05 KST → 23:20(11-15: USTR 의견서 밤 실행)
+  assert.ok(dueAt(new Date('2026-11-16T14:20:00Z')).includes('us-ustr.yml'));               // Mon 23:20 KST — 23:43 알림 전
+  assert.ok(dueAt(new Date('2026-11-21T00:20:00Z')).includes('us-ustr.yml'));               // Sat 09:20 KST — 금요일 밤(미국 금요일) 게시분
+  assert.ok(!dueAt(new Date('2026-11-21T14:20:00Z')).includes('us-ustr.yml'));              // Sat 23:20 KST는 아니다
   // 배포 뒤 운영 점검: GitHub 예약이 돌지 않아(11-13 병합 뒤 8시간 0번) 정시 요청 — 주말에도
   assert.deepEqual(dueAt(new Date('2026-10-28T00:00:00Z')), ['worker-smoke.yml']);   // Wed 09:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-31T16:30:00Z')), ['worker-smoke.yml']);   // Sun 01:30 KST
@@ -1949,7 +1952,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 36개/);
+  assert.match(r.text, /기자 전용 감시 37개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2276,7 +2279,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 36개/);
+  assert.match(r.text, /기자 전용 감시 37개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2351,7 +2354,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 36개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 37개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -3331,6 +3334,49 @@ test('임원 명단 변화(kr-exec): radar_today A·B(사람 이름 필수 대�
   assert.match((await call('kr_signals', { section: 'exec', show_all: true }, opts)).text, /C · [\d-]+ [\d:]+ · KG모빌리티 · 명단에서 빠짐/);
   assert.match((await call('kr_signals', { section: 'exec', company: '김보통' }, opts)).text, /김보통 1970년생 상무/);
   assert.match((await call('kr_signals', {}, opts)).text, /\[임원 명단 변화 · 2026년 3분기\(9-30 기준\) ← 2026년 반기\(6-30 기준\) · 확인 [^\]]+ · 최근 14일\] A 1/);
+});
+
+test('USTR 의견서 속 한국(ustr-comments): 새로 게시된 것만 radar_today B, 본문에 출입처 이름이면 문서 알림, us_comments 아래 구역', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const today = new Date(NOW.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+  const item = (cid, submitter, posted, sectors, companies, excerpt, extra = {}) => ({ id: `ustr:${cid}`, commentId: cid, tier: 'B', submitter, docketId: cid.replace(/-\d+$/, ''),
+    docketTitle: 'Request for Comments on Significant Foreign Trade Barriers for the 2027 National Trade Estimate Report', postedDate: posted, url: `https://www.regulations.gov/comment/${cid}`,
+    korea: 42, pages: 7, sectors, companies, excerpts: [excerpt], passages: 3, firstSeen: now, baseline: false, ...extra });
+  const doc = { schema: 'ustr_comments/v1', generatedAt: now, startedAt: now, status: 'partial', lookbackDays: 45,
+    checks: [{ source: 'USTR 의견서 목록 1쪽', status: 'ok', returned: 250 }, { source: '본문 읽기 한도', status: 'waiting', error: '56건 다음 실행에서 읽음' }],
+    summary: { listed: 320, readNow: 130, waiting: 56, known: 264, scan: 7, nopdf: 16, failed: 0, korea: 67, items: 3, fresh: 2 },
+    rules: ['의견서는 낸 쪽의 주장이다 — USTR 판단이 아니고, 한국 정부·회사 입장은 따로 확인한다.'],
+    notices: [{ date: '2026-10-05', number: '2026-20341', title: 'Request for Public Comments and Notice of Public Hearing Relating to the Operation of the USMCA', docket: 'Docket Nos. USTR-2026-0595 and USTR-2026-0596',
+      closes: '2026-11-20', url: 'https://www.federalregister.gov/d/2026-20341', korea: false, sectors: ['자동차'] }],
+    items: [item('USTR-2026-0595-0003', 'Rebar Trade Action Coalition', today, ['철강·비철'], ['현대제철'], 'In the first eight months of 2026, Korean rebar exports reached approximately 560,100 metric tons. Major rebar producers, including Hyundai Steel'),
+      item('USTR-2026-0595-0004', 'Ford Motor Company', today, ['자동차'], [], 'U.S. automakers exporting into South Korea face a myriad of changing barriers that make it almost impossible to export to South Korea.'),
+      item('USTR-2026-0498-0146', 'American Iron and Steel Institute', '2026-10-30', ['철강·비철'], ['포스코', '현대제철'], 'POSCO, Hyundai Steel Close Plants Amid Chinese Imports', { baseline: true })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/ustr-comments', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  const b = r.text.split('[B · ')[1];
+  const items = b.split('\n- ');
+  const rebar = items.find((x) => x.includes('Rebar Trade Action Coalition'));
+  assert.match(rebar, /USTR 의견서 속 한국 · 현대제철\n   Rebar Trade Action Coalition → USTR 「Request for Comments on Significant Foreign Trade Barriers for the 2027 National Trade Est」 의견서\(게시 [\d-]+\)에 한국 \+ 철강·비철 대목 3곳 · 본문에 현대제철: 「In the first eight months of 2026, Korean rebar exports reached approximately 560,100 metric tons/);
+  assert.match(rebar, /낸 쪽의 주장 — USTR 판단이 아니다/);
+  assert.match(rebar, /〔즉시 알림 대상: 문서 알림 — USTR 의견서 — 다른 단체·기업 문서 본문에 현대제철\(B여도 보냄 · 11-15 기자 결정\)〕/);
+  const ford = items.find((x) => x.includes('Ford Motor Company'));
+  assert.match(ford, /한국 \+ 자동차 대목 3곳: 「U\.S\. automakers exporting into South Korea/);
+  assert.doesNotMatch(ford, /즉시 알림 대상/);                                        // 출입처 이름이 없으면 화면에만
+  assert.ok(!b.includes('American Iron and Steel Institute'));                        // 감시 시작 전 게시분은 새 항목이 아니다
+  assert.equal(docAlert({ tier: 'B', watch: 'USTR 의견서 속 한국', company: '현대제철', named: true }, '관련 보도 있음'), null);
+  assert.equal(docAlert({ tier: 'B', watch: 'USTR 의견서 속 한국', company: '포스코인터내셔널', named: true }, undefined), null);   // 계열사는 출입처가 아니다
+  const u = await call('us_comments', {}, opts);
+  assert.match(u.text, /\[USTR 의견서 속 한국·출입 업종 · 최근 45일 게시분 · 확인 [^\]]+\] 3건\(감시 시작 뒤 새로 게시 2건\)/);
+  assert.match(u.text, /원천: regulations\.gov의 USTR 의견서 264건 첨부 본문 · 한국 언급 67건 · 그중 출입 업종 대목 3건 · 미확인\(0건 아님\): 본문 대기 56건\(다음 실행\), 스캔본이라 글자를 못 뽑은 것 7건/);
+  assert.match(u.text, /- \[신규\] B · 게시 [\d-]+ · Rebar Trade Action Coalition · 철강·비철 · 본문에 현대제철\n   도켓: 「Request for Comments on Significant Foreign Trade Barriers[^\n]+\(USTR-2026-0595\) · 한국 42곳 · 출입 업종 대목 3곳 · 7쪽\n   대목: «In the first eight months of 2026/);
+  assert.match(u.text, /- B · 게시 2026-10-30 · American Iron and Steel Institute · 철강·비철 · 본문에 포스코·현대제철 · 감시 시작 전 게시/);
+  assert.ok(u.text.indexOf('Ford Motor Company') < u.text.indexOf('American Iron and Steel Institute'));   // 새로 게시된 것이 먼저
+  assert.match(u.text, /\[USTR 관보 고시 · 최근 45일\] 1건 — 의견 마감이 지나면 의견서가 한꺼번에 공개된다\n- 2026-10-05 · Request for Public Comments and Notice of Public Hearing Relating to the Operation of the USMCA · Docket Nos\. USTR-2026-0595 and USTR-2026-0596 · 의견 마감 2026-11-20 · 자동차/);
+  const steel = await call('us_comments', { company: 'steel', only_new: true }, opts);
+  assert.match(steel.text, /\] 1건\(감시 시작 뒤 새로 게시 1건\)/);
+  assert.match((await call('us_comments', {}, PRIVATE())).text, /아직 수집 전|미 연방 의견서/);   // 저장본이 없으면 미확인
 });
 
 test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알림(제때 읽은 제재·소송 몇 줄만), kr_signals report 구역·생략 대목 미확인', async () => {
@@ -4313,7 +4359,7 @@ test('kr insolvency: a beat-industry manufacturer entering court proceedings is 
   // 파산 선고는 '파산'으로, M&A 매각 공고는 '매각'으로 찾는다(10-31 운영: 케이아이씨 파산 선고를 "케이아이씨 회생"으로 대조)
   assert.deepEqual([insolvencyWord('파산 선고'), insolvencyWord('파산 폐지'), insolvencyWord('M&A 매각 공고'), insolvencyWord('포괄적 금지명령'), insolvencyWord('회생 개시')],
     ['파산', '파산', '매각', '회생', '회생']);
-  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml', 'reverse-check.yml']);  // Thu 07:20 KST(+ 경쟁지 단독 역추적, 11-03)
+  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml', 'reverse-check.yml', 'us-ustr.yml']);  // Thu 07:20 KST(+ 경쟁지 단독 역추적 11-03, USTR 의견서 11-15)
   assert.deepEqual(dueAt(new Date('2026-10-29T08:20:00Z')), ['kr-insolvency.yml']);  // Thu 17:20 KST
 });
 

@@ -11,6 +11,8 @@ const VERDICTS = ['미보도 후보', '관련 보도 있음', '미확인', '같�
 export const FEEDS = {
   'scoop-screen': { blob: 'scoop_screen', schema: 'scoop_screen/v1', list: 'candidates' },
   'us-comments': { blob: 'us_comments', schema: 'us_comments/v1', list: 'items' },
+  // USTR 의견서 속 한국·출입 업종(ustr_comments_watch.py, 11-15): 다른 단체·기업이 USTR에 낸 의견서 첨부 본문의 한국 대목
+  'ustr-comments': { blob: 'ustr_comments', schema: 'ustr_comments/v1', list: 'items' },
   'page-watch': { blob: 'page_watch', schema: 'page_watch/v1', list: 'pages' },
   'partner-filings': { blob: 'partner_filings', schema: 'partner_filings/v1', list: 'items' },
   'trade-remedy': { blob: 'trade_remedy', schema: 'trade_remedy/v1', list: 'quotas' },
