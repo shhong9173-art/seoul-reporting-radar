@@ -14,7 +14,10 @@ export function packageLinks(name, body) {
   const text = String(body ?? '');
   if (/^alert-\d{8}$/.test(String(name ?? ''))) {
     const line = text.split('\n').reverse().find((l) => /^보낸 id\s*:/.test(l.trim()));
-    return { ids: [], urls: [], sent: (line ?? '').replace(/^.*?:/, '').split(',').map((x) => x.trim()).filter(Boolean) };
+    // '제외 id:'(11-15): 알림이 원문·보도 대조까지 하고 "이미 기사 있음"으로 뺀 항목 — 다음 알림이 같은 것을 다시 검토하지 않게 한다
+    const skip = text.split('\n').reverse().find((l) => /^제외 id\s*:/.test(l.trim()));
+    const list = (l) => (l ?? '').replace(/^.*?:/, '').split(',').map((x) => x.trim()).filter(Boolean);
+    return { ids: [], urls: [], sent: list(line), excluded: list(skip) };
   }
   const ids = new Set();
   const line = text.split('\n').reverse().find((l) => l.startsWith(LINK_LINE));

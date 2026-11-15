@@ -162,7 +162,7 @@ export async function scoopDesk(ctx, args) {
   //   ② 등급과 상관없이 〔즉시 알림 대상〕 표시가 붙은 것(문서 알림 — docAlert, 굴뚝 겹친 신호·장기 가동중지 — stackAlert)
   // 이미 알림으로 보낸 것·앞서 추천한 것·기자가 쓴 것은 뺀다(처리·판정한 것은 radarTodayData가 이미 걷어냈다).
   if (alertsOnly) {
-    const pick = rows.filter((r) => !wroteOf(r.x) && !r.x.alerted && !r.x.prior
+    const pick = rows.filter((r) => !wroteOf(r.x) && !r.x.alerted && !r.x.alertSkip && !r.x.prior
       && (r.x.alert || (r.x.tier === 'A' && r.type.strength !== 'weak' && !isCovered(r))))
       .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0)
         || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));

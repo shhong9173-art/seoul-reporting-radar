@@ -131,12 +131,14 @@ export function ledgerEntries(packages = [], feedback = []) {
   const byName = new Map();
   const fbOf = new Map(feedback.map((r) => [String(r.item_id), r]));
   const alerted = new Map();   // 레이더 id → 알림 보낸 날(MM-DD)
+  const skipped = new Map();   // 레이더 id → 알림이 '이미 기사 있음'으로 뺀 날(MM-DD)
   for (const p of packages) {
     // 저장소가 본문에서 뽑아 준 연결(ids·urls·sent)을 쓴다. 본문째 온 것(테스트·옛 응답)은 여기서 뽑는다.
     const links = Array.isArray(p.ids) ? p : packageLinks(p.name, p.body);
     const m = /^alert-(\d{4})(\d{2})(\d{2})$/.exec(p.name);
     if (m) {
       for (const id of links.sent ?? []) alerted.set(id, `${m[2]}-${m[3]}`);
+      for (const id of links.excluded ?? []) if (!alerted.has(id)) skipped.set(id, `${m[2]}-${m[3]}`);
       continue;
     }
     if (LOG_NAME.test(p.name)) continue;
@@ -149,7 +151,7 @@ export function ledgerEntries(packages = [], feedback = []) {
       at: Date.parse(p.updated_at) || 0, companies, codes: codesOf(`${subject} ${p.name.replace(/-/g, ' ')}`), words: wordsOf(subject, companies),
       ids: new Set(links.ids ?? []), urls: new Set(links.urls ?? []) }));
   }
-  return { entries: [...byName.values()], alerted };
+  return { entries: [...byName.values()], alerted, skipped };
 }
 
 const itemTime = (x) => { const t = Date.parse(String(x.date ?? '').length === 10 ? `${x.date}T00:00:00+09:00` : x.date ?? ''); return Number.isFinite(t) ? t : 0; };
