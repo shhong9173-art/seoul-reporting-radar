@@ -20,6 +20,7 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-kor poppler-utils >/dev/null
       - env:
           ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
           COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
