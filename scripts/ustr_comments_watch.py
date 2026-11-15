@@ -225,7 +225,9 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
         status, text, pages, nfiles, err = read_comment(cid, key, get=get, sleep=sleep, budget=budget)
         found = analyze(text) if status == "ok" else {"korea": 0, "hits": []}
         seen[cid] = {"status": status, "posted": posted, "korea": found["korea"], "hits": len(found["hits"]), **({"tries": (old or {}).get("tries", 0) + 1, "error": err} if status == "failed" else {})}
-        if not found["hits"]:
+        # 지나가며 한 번 적은 한국(나라 이름 나열 속 'Korea' + 업종 낱말 한 곳)은 항목으로 올리지 않는다 — 11-15 첫 운영: CBAM 도켓 의견서 5건 중 3건이 그런 것.
+        # 출입처 이름이 있거나 한국·업종 대목이 두 곳 이상일 때만.
+        if not found["hits"] or not (len(found["hits"]) >= 2 or any(h["companies"] for h in found["hits"])):
             continue
         did = cid.rsplit("-", 1)[0] if "-" in cid else None
         sectors = [k for k in SECTORS if any(k in h["sectors"] for h in found["hits"])]
@@ -244,7 +246,7 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
         if did and did not in dockets:
             status, body = uc.call(f"/dockets/{did}", {}, key, get=get, budget=budget, sleep=sleep)
             if status == "ok":
-                dockets[did] = (((body.get("data") or {}).get("attributes") or {}).get("title") or "")[:200]
+                dockets[did] = re.sub(r"\s+", " ", ((body.get("data") or {}).get("attributes") or {}).get("title") or "")[:200]
         if did in dockets:
             x["docketTitle"] = dockets[did]
     keep = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")

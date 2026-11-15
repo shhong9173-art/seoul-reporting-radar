@@ -59,7 +59,7 @@ async function ustrSection(ctx, q, onlyNew, limit) {
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.baseline ? '' : '[신규] '}B · 게시 ${x.postedDate} · ${x.submitter} · ${(x.sectors ?? []).join('·') || '업종 낱말 없음'}${(x.companies ?? []).length ? ` · 본문에 ${x.companies.join('·')}` : ''}${x.baseline ? ' · 감시 시작 전 게시' : ''}`);
-    out.push(`   도켓: ${x.docketTitle ? `「${String(x.docketTitle).slice(0, 120)}」` : '제목 미조회'}(${x.docketId ?? '?'}) · 한국 ${x.korea ?? '?'}곳 · 출입 업종 대목 ${x.passages ?? '?'}곳 · ${x.pages ?? '?'}쪽`);
+    out.push(`   도켓: ${x.docketTitle ? `「${String(x.docketTitle).replace(/\s+/g, ' ').slice(0, 120)}」` : '제목 미조회'}(${x.docketId ?? '?'}) · 한국 ${x.korea ?? '?'}곳 · 출입 업종 대목 ${x.passages ?? '?'}곳 · ${x.pages ?? '?'}쪽`);
     for (const e of (x.excerpts ?? []).slice(0, q ? 3 : 1)) out.push(`   대목: «${String(e).slice(0, q ? 620 : 360)}»`);
     out.push(`   원문: ${x.url} · id ${x.id}`);
   }
