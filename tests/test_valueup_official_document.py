@@ -10,8 +10,8 @@ import valueup_official_document as m
 import dart_beat_monitor as beat
 
 def official():
-    d=json.loads((ROOT/"digests/dart_beat_monitor_latest.json").read_text(encoding="utf-8"))
-    return next(x for x in d["records"] if x["receiptNo"]=="20261016800823")
+    # 운영 파일에서 읽으면 감시 창(30일)이 접수일(10-16)을 지난 날부터 깨진다(2026-11-15 실제) — 고정본을 쓴다.
+    return json.loads((ROOT/"tests/fixtures/dart_beat_kgsteel_valueup_20261016800823.json").read_text(encoding="utf-8"))["record"]
 
 class OfficialValueUpDocuments(unittest.TestCase):
     def test_current_kgsteel_doc_original_issuer_scope_verified(self):

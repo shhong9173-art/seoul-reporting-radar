@@ -14,9 +14,9 @@ from valueup_first_party_crosscheck import match_official_prior
 
 def load():
     prior=json.loads((ROOT/"data/valueup_first_party_prior_evidence.json").read_text(encoding="utf-8"))
-    beat=json.loads((ROOT/"digests/dart_beat_monitor_latest.json").read_text(encoding="utf-8"))
-    record=next(x for x in beat["records"] if
-        x.get("receiptNo")=="20261016800823" and x.get("company")=="KG스틸")
+    # 운영 파일(digests/dart_beat_monitor_latest.json)에서 읽으면 감시 창 30일이 접수일(10-16)을 지나는 날부터 이 검증이 통째로 깨진다.
+    # 2026-11-15 실제로 그랬다: 17:40·20:40 DART 출입처 감시가 이 단계에서 멈춰 공시 수집이 10:45 것에 머물렀다. 그래서 고정본을 쓴다.
+    record=json.loads((ROOT/"tests/fixtures/dart_beat_kgsteel_valueup_20261016800823.json").read_text(encoding="utf-8"))["record"]
     return record,prior
 
 class ValueUpCrosscheck(unittest.TestCase):
