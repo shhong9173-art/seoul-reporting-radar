@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-13T08:11:48+09:00",
+  "generatedAt": "2026-11-16T08:11:57+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-10-14",
+  "windowStart": "2026-10-17",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -33,9 +33,9 @@
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "checked",
-      "returned": 3,
+      "returned": 2,
       "matched": 0,
-      "unverified": 3
+      "unverified": 2
     },
     {
       "provider": "EU TED",
@@ -258,25 +258,10 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-20897",
-      "published": "2026-10-14",
-      "companiesMentioned": [],
-      "companySearchTerm": "Korea Zinc",
-      "nameVerified": false,
-      "title": "Certain Corrosion-Resistant Steel Products From Taiwan: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025",
-      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that certain corrosion-resistant steel products (CORE) from Taiwan are being sold in the United States at below normal value during the period of review (POR), July 1, 2024, through June 30, 2025. We invite interested parties to comment on these preliminary results.",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/14/2026-20897/certain-corrosion-resistant-steel-products-from-taiwan-preliminary-results-and-rescission-in-part-of",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
   "matchedCount": 2,
-  "unverifiedSearchMatches": 7,
+  "unverifiedSearchMatches": 6,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
