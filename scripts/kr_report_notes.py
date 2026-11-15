@@ -2,16 +2,21 @@
 """정기보고서 숨은 대목(11-15): 출입처가 낸 분기·반기·사업보고서에서 제재 현황, 중요한 소송, 연결 범위 변동을 앞 보고서와 비교해
 새로 적힌 줄만 뽑는다.
 
-왜: 11-15 기자 "다른 언론사가 받아쓸 만한 큰 단독". 회사가 공시에 직접 적었는데 아무도 안 읽는 대목이 여기다 — 11-10 조선비즈
-「두산에너빌리티, 퇴직연금 적립률 미달에 과태료」, 11-13 이데일리 「한화솔루션, 한화시마론 한화디펜스에 넘겼다」가 3분기보고서 철에 나왔다.
-레이더는 임원 명단(kr_exec_watch)·사업의 내용 표·업종 비교만 읽고 있었다.
+왜: 11-15 기자 "다른 언론사가 받아쓸 만한 큰 단독". 회사가 보고서에 직접 적었는데 제출 당일 아무도 안 읽는 대목이 여기다 — 과징금·과태료·벌금,
+새 피소, 판결·합의, 자회사 편입·제외. 레이더는 임원 명단(kr_exec_watch)·사업의 내용 표·업종 비교만 읽고 있었다.
 
 읽는 곳(DART 서식 제목):
+  · 재무제표 주석 '보고기간후사건'(연결·별도) — 기준일 뒤 제출일까지의 일(자회사 매각·인수·청산·사채 발행 등). 적힌 줄 전부가 새 줄이다
+  · 재무제표 주석 '매각예정자산 및 중단영업' — 글로 적은 줄만(사업부·공장 매각·운영 중단 결정)
   · '제재 등과 관련된 사항'(XI-3) — 수사·사법기관, 행정기관(공정위·과세당국·고용부·환경 등)의 제재와 이행 현황
   · '우발부채 등에 관한 사항'(XI-2)의 '중요한 소송사건' 대목 — 견질어음·채무보증 표는 분기마다 숫자가 바뀌어 읽지 않는다
   · '연결대상회사의 변동내용' 표(회사의 개요) — 신규 연결·연결 제외와 사유
 비교: 줄(표 한 줄·문단 하나)에서 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄이다(금액만 바뀐 줄은 안 잡는다 — 진행 상황 글이 바뀌면 잡힌다).
 앞 보고서는 처음 한 번만 받고, 그 뒤에는 저장해 둔 줄 열쇠를 쓴다.
+
+실제 원문(11-15 probe 249·250, 3분기보고서 10곳): 분기보고서는 제재 대목을 생략할 수 있다 — 6곳이 "작성기준에 따라 분기보고서에는 기재를 생략".
+생략은 0줄(해당사항 없음)과 다르다: 비교하지 않고, 앞 보고서 열쇠를 이어 둔다. 연결 범위 표도 3분기보고서 대부분에 없다.
+'항목 | 내용' 두 칸짜리 사건 표는 표 하나가 한 건이다 — 당사자가 처음이면 '처음 보는 건', 같은 당사자면 바뀐 줄만.
 
 한계(화면에도 적는다): 자동 비교다 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있다. 새 줄이라도 사건 자체는 앞서 보도됐을 수 있다.
 보고서에 적힌 것은 회사의 기재이고 시점·금액·사유는 원문과 회사 확인이 필요하다.
@@ -46,12 +51,25 @@ KEEP_KEYS = 2500     # 회사·대목마다 저장해 두는 줄 열쇠 수(열�
 SEP = " ▸ "          # '항목 | 내용' 두 칸짜리 표(사건 하나가 표 하나)를 한 줄로 이을 때
 REPORT_NAME = {"11013": "분기보고서", "11012": "반기보고서", "11014": "분기보고서", "11011": "사업보고서"}
 MONTH = {"11013": "03", "11012": "06", "11014": "09", "11011": "12"}
-SECTIONS = {"sanction": "제재", "suit": "소송", "consol": "연결 범위"}
+# after·held(11-15 probe 251): 11-13 이데일리 단독 「한화솔루션, 한화시마론 한화디펜스에 넘겼다」는 11-12 분기보고서 연결 주석 '31. 보고기간후사건'의 한 문장
+# (10-30 Hanwha Cimarron LLC 지분 전부 매각, 58,962백만원)이었다. 같은 보고서 '15. 매각예정자산 및 중단영업'에는 오펠라이카 공장 운영 중단 결정이 적혀 있었다.
+# 이 두 주석은 분기보고서에서도 생략되지 않는다.
+SECTIONS = {"after": "보고기간 후 사건", "held": "매각예정·중단영업", "sanction": "제재", "suit": "소송", "consol": "연결 범위"}
+MUST = ("sanction", "suit")   # 모든 정기보고서에 제목이 있는 대목 — 못 찾으면 미확인. 나머지(보고기간 후 사건·매각예정·연결 범위 표)는 없는 보고서가 흔하다
+VERSION = 2          # 읽는 대목이 늘면 올린다 — 앞서 읽은 접수번호도 한 번 다시 읽는다
+AFTER_TITLE = re.compile(r"보고기간\s*후\s*사건|보고기간\s*종료\s*일?\s*(?:이후|후)|재무상태표일\s*(?:이후|후)")
+HELD_TITLE = re.compile(r"매각예정|중단\s*영업")
 EMPTY = re.compile(r"해당\s*사항\s*(?:이\s*)?없|해당\s*없음|^[-–—\s]*$")
 # 분기보고서는 일부 대목을 줄여 적을 수 있다(11-15 probe 249: 16곳 중 여러 곳의 제재 대목이 한 줄) — 그 안내 줄은 새 줄이 아니다
 BOILER = re.compile(r"기재를?\s*생략|기재하지\s*(?:않|아니)|변동\s*(?:된\s*)?(?:사항|내용)\s*(?:이|은)?\s*없|참[조고]하(?:시기|여|십시오)")
 KV_LABEL = re.compile(r"소송|당사자|원고|피고|사건|진행|제기|청구|내용|일자|처벌|조치|사유|근거|대상자|기관|영향|대응|일정|가액|금액")
-IDENT = re.compile(r"당사자|원고|피고|사건\s*명|사건\s*번호")
+IDENT = re.compile(r"당사자|원고|피고|신청인|사건\s*명|사건\s*번호")
+# 분기마다 글자만 바뀌는 말('당반기말'→'당분기말') — 줄 열쇠에서 뺀다(probe 250: 포스코홀딩스 '당반기말 현재 … 소송사건 451건' 문단이 매번 새 줄로 보였다)
+PERIOD_WORDS = re.compile(r"당\s*(?:분기|반기|기)\s*말?|(?:분기|반기|보고기간|사업연도|회계연도)\s*말|기준일")
+# 줄이 아닌 것: 표 머리('일자 | 제재기관 | 대상자 …'), 단위·기준일 줄, 소제목
+HEAD_ROW = re.compile(r"제재\s*기관|처벌\s*또는\s*조치|조치\s*내용")
+NOISE = re.compile(r"^[\[(（]?\s*(?:기준일|단위|원화\s*단위)|^\[[^\]]{1,70}\]$")
+HEADING = re.compile(r"제재\s*현황|소송\s*사건|다음과\s*같습니다|기재하였습니다|지배\s*회사|종속\s*회사")
 TITLE = re.compile(r"<TITLE\b[^>]*>(.*?)</TITLE>", re.S | re.I)
 TAG = re.compile(r"<[^>]+>")
 
@@ -62,7 +80,7 @@ def clean(s):
 
 def key_of(line):
     """숫자·기호·빈칸을 뺀 글자 — 금액·날짜 표기만 다른 줄은 같은 줄로 본다."""
-    return re.sub(r"[\d\s.,·()\[\]\-–—~%:/|※*'\"“”‘’㈜]", "", line)
+    return re.sub(r"[\d\s.,·()\[\]\-–—~%:/|※*'\"“”‘’㈜]", "", PERIOD_WORDS.sub("", line))
 
 
 def units(block):
@@ -83,14 +101,17 @@ def units(block):
                     out.append(line)
                 continue
             for head, cells in rows:
-                if head:
-                    continue
                 line = " | ".join(cells)
-                if len(key_of(line)) >= 8 and not EMPTY.search(line) and not (BOILER.search(line) and len(line) < 160):
+                # 머리 줄: <TH>거나, 숫자 없이 짧은 칸뿐이거나, 연도 없이 '제재기관·처벌 또는 조치' 같은 칸 이름만 있는 줄
+                if head or (not re.search(r"\d", line) and all(len(c) <= 16 for c in cells)) or (HEAD_ROW.search(line) and not re.search(r"(?:19|20)\d\d", line)):
+                    continue
+                if len(key_of(line)) >= 8 and not EMPTY.search(line) and not NOISE.search(line) and not (BOILER.search(line) and len(line) < 160):
                     out.append(line)
         else:
             for p in re.split(r"</P>|<BR\s*/?>", part, flags=re.I):
                 line = clean(p)
+                if NOISE.search(line) or (len(line) < 70 and HEADING.search(line)):
+                    continue
                 if len(key_of(line)) >= 12 and not EMPTY.search(line) and not (BOILER.search(line) and len(line) < 160):
                     out.append(line)
     seen, uniq = set(), []
@@ -124,6 +145,12 @@ def keys_of(lines):
     return list(dict.fromkeys(out))[:KEEP_KEYS]
 
 
+def tail(row, keep=240):
+    """진행 상황 칸은 처음부터 지금까지를 다 적는다 — 긴 줄은 끝(가장 최근)만 보여 준다."""
+    label, sep, value = row.partition(": ")
+    return row if len(row) <= keep + 60 or not sep else f"{label}: … {value[-keep:]}"
+
+
 def fresh_lines(lines, have):
     """앞 보고서 열쇠(have)에 없는 줄. 두 칸 표는 같은 사건이면 바뀐 줄만, 처음 보는 사건이면 표 전체."""
     out = []
@@ -136,7 +163,7 @@ def fresh_lines(lines, have):
                 changed = [r for r in rows if digest("R" + key_of(r)) not in have]
                 if changed:
                     named = [r for r in rows if IDENT.search(r.split(":", 1)[0])] or rows[:1]
-                    out.append(f"〔앞 보고서에도 있던 건 · 바뀐 줄〕 {' / '.join(named)[:160]} — {SEP.join(changed)}")
+                    out.append(f"〔앞 보고서에도 있던 건 · 바뀐 줄〕 {' / '.join(named)[:160]} — {SEP.join(tail(r) for r in changed)}")
                 continue
             out.append("〔처음 보는 건〕 " + x)
         else:
@@ -144,21 +171,45 @@ def fresh_lines(lines, have):
     return out
 
 
+def merged(old, new):
+    out, seen = [], set()
+    for x in list(old or []) + list(new or []):
+        k = key_of(x)
+        if k not in seen:
+            seen.add(k)
+            out.append(x)
+    return out
+
+
 def sections(text):
-    """보고서 본문 → {'sanction': [줄], 'suit': [줄], 'consol': [줄]}. 못 찾은 대목은 키가 없다(0줄과 다르다)."""
+    """보고서 본문 → {'after': [줄], 'held': [줄], 'sanction': [줄], 'suit': [줄], 'consol': [줄]}. 못 찾은 대목은 키가 없다(0줄과 다르다).
+    대목은 있는데 '분기보고서에는 기재를 생략' 안내만 있으면 값이 None이다(0줄 — 해당사항 없음 — 과 다르다. probe 249·250: 3분기보고서 10곳 중 6곳이 제재 대목 생략)."""
     marks = [(m.start(), m.end(), clean(m.group(1))) for m in TITLE.finditer(text)]
     body = {}
     for i, (_, end, title) in enumerate(marks):
         nxt = marks[i + 1][0] if i + 1 < len(marks) else len(text)
         if re.search(r"제재\s*(?:등과|등에|현황)", title) and "sanction" not in body:
-            body["sanction"] = units(text[end:nxt])
+            got = units(text[end:nxt])
+            body["sanction"] = None if not got and BOILER.search(clean(text[end:nxt])[:600]) else got
+        elif AFTER_TITLE.search(title):
+            body["after"] = merged(body.get("after"), units(text[end:nxt]))          # 연결·별도 주석을 합친다
+        elif HELD_TITLE.search(title):
+            # 매각예정자산 주석은 숫자 표가 대부분 — 글로 적은 줄(결정·사유)만 본다
+            body["held"] = merged(body.get("held"), [x for x in units(text[end:nxt]) if len(key_of(x)) >= 25])
         elif re.search(r"우발\s*(?:부채|채무)\s*등", title) and "suit" not in body:
             block = text[end:nxt]
             m = re.search(r"중요한\s*소송|소송\s*사건", block)
             if m:
                 rest = block[m.start():]
                 stop = re.search(r"견질\s*또는\s*담보|담보용\s*어음|채무\s*보증\s*현황|채무\s*인수\s*약정", rest[20:])
-                body["suit"] = units(rest[:20 + stop.start()] if stop else rest)
+                got = units(rest[:20 + stop.start()] if stop else rest)
+                body["suit"] = None if not got and BOILER.search(clean(rest)[:400]) else got
+    # 주석마다 제목 표시가 없는 보고서: 본문에서 '31. 보고기간후사건' 같은 소제목을 찾아 다음 제목 전까지
+    if "after" not in body:
+        for m in re.finditer(r">\s*\(?\d{1,2}\)?\.?\s*보고기간\s*후\s*사건[^<]{0,30}<", text):
+            block = text[m.end() - 1:m.end() + 9000]
+            stop = re.search(r"<TITLE\b|<P[^>]*>\s*\d{1,2}\.\s*[가-힣]", block[60:])
+            body["after"] = merged(body.get("after"), units(block[:60 + stop.start()] if stop else block))
     # 연결 범위: 신규 연결·연결 제외가 함께 든 표(회사의 개요)
     for table in re.findall(r"<TABLE\b.*?</TABLE>", text, re.S | re.I):
         flat = clean(table)
@@ -249,7 +300,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
             checks.append({"source": short, "status": "ok", "returned": 0, "note": "이 기간 보고서 미제출(또는 제출 대상 아님)"})
             continue
         kept = notes.get(short) or {}
-        if kept.get("rcept") == rcept and kept.get("status") == "ok":
+        if kept.get("rcept") == rcept and kept.get("status") == "ok" and kept.get("v") == VERSION:
             checks.append({"source": short, "status": "ok", "returned": sum(len(v) for v in (kept.get("new") or {}).values()), "note": "앞서 읽음"})
             continue
         # 앞 보고서 줄 열쇠: 저장본(직전 기간에 읽어 둔 것)이 있으면 그것, 없으면 앞 보고서를 받는다
@@ -264,29 +315,37 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
             if bst != "ok":
                 checks.append({"source": short, "status": "waiting" if bst == "waiting" else "failed", "error": f"앞 보고서 {berr}"})
                 continue
-            base_keys = {k: keys_of(v) for k, v in bsec.items()}
+            base_keys = {k: (None if v is None else keys_of(v)) for k, v in bsec.items()}   # None = 앞 보고서가 그 대목을 생략
         cst, csec, cerr = read_report(key, rcept, get=get, sleep=sleep, budget=budget)
         if cst != "ok":
             # 앞 보고서 열쇠는 버리지 않는다 — 다음 실행에 이번 보고서만 다시 받는다
             notes[short] = {"period": f"{base_year}{base_report}", "keys": base_keys, "status": "pending", "rcept": None}
             checks.append({"source": short, "status": "waiting" if cst == "waiting" else "failed", "error": cerr})
             continue
-        new, thin = {}, []
+        new, omitted, nobase = {}, [], []
         for sec, lines in csec.items():
-            if sec not in base_keys:
-                continue   # 앞 보고서에서 못 찾은 대목은 비교하지 않는다(전부 새 줄로 보이는 것을 막는다)
-            have = set(base_keys[sec])
-            if not lines and len(have) >= 3:
-                thin.append(sec)   # 앞 보고서에는 줄이 있었는데 이번에는 비어 있다 — 분기보고서의 기재 생략일 수 있다(0건이 아니라 비교 못 함)
-            fresh = fresh_lines(lines, have)
+            if lines is None:
+                omitted.append(sec)   # 이번 보고서가 이 대목을 생략(분기보고서) — 0건이 아니라 비교 못 함
+                continue
+            if base_keys.get(sec) is None and sec != "after":
+                nobase.append(sec)    # 앞 보고서에서 못 찾았거나 앞 보고서가 생략 — 비교하지 않는다(전부 새 줄로 보이는 것을 막는다). 이번 줄은 다음 비교의 기준이 된다
+                continue
+            # 보고기간 후 사건은 그 보고서 기준일 뒤의 일이라 앞 보고서에 없어도 전부 새 줄이다
+            fresh = fresh_lines(lines, set(base_keys.get(sec) or []))
             if fresh:
                 new[sec] = [x[:LINE_MAX] for x in fresh[:KEEP_LINES]] + ([f"… 그 밖 {len(fresh) - KEEP_LINES}줄"] if len(fresh) > KEEP_LINES else [])
-        # 다음 보고서와 견줄 열쇠: 이번 줄 + 앞 보고서 줄(이번에 줄여 적었거나 못 찾은 대목이 다음에 통째로 새 줄로 보이지 않게)
-        keys = {sec: list(dict.fromkeys(keys_of(csec.get(sec) or []) + list(base_keys.get(sec) or [])))[:KEEP_KEYS] for sec in set(csec) | set(base_keys)}
+        # 다음 보고서와 견줄 열쇠: 이번 줄 + 앞 보고서 줄(이번에 생략했거나 못 찾은 대목이 다음에 통째로 새 줄로 보이지 않게).
+        # 이번도 앞도 줄을 못 본 대목은 열쇠를 두지 않는다 — 처음 줄이 보이는 보고서가 기준이 된다.
+        keys = {}
+        for sec in set(csec) | set(base_keys):
+            cur, old = csec.get(sec), base_keys.get(sec)
+            if cur is None and old is None:
+                continue
+            keys[sec] = list(dict.fromkeys(keys_of(cur or []) + list(old or [])))[:KEEP_KEYS]
         url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}"
-        notes[short] = {"period": period, "rcept": rcept, "filed": filed, "baseRcept": base_rcept or kept.get("rcept"), "status": "ok", "readAt": stamp, "url": url,
-                        "found": sorted(csec), "missing": sorted(set(SECTIONS) - set(csec)), "thin": thin, "lines": {k: len(v) for k, v in csec.items()},
-                        "new": new, "keys": keys}
+        notes[short] = {"v": VERSION, "period": period, "rcept": rcept, "filed": filed, "baseRcept": base_rcept or kept.get("rcept"), "status": "ok", "readAt": stamp, "url": url,
+                        "found": sorted(k for k, v in csec.items() if v is not None), "missing": sorted(set(MUST) - set(csec)), "omitted": sorted(omitted),
+                        "nobase": sorted(nobase), "lines": {k: len(v) for k, v in csec.items() if v is not None}, "new": new, "keys": keys}
         # 늦게 읽은 것(late): 감시를 처음 돌릴 때와 접수 이틀 뒤에야 읽은 보고서 — 화면에는 보이지만 즉시 알림은 걸지 않는다
         try:
             age = (now.date() - dt.datetime.strptime(str(filed), "%Y%m%d").date()).days
@@ -303,7 +362,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
                 if prior.get("late"):
                     ev["late"] = True
             events.append(ev)
-        checks.append({"source": short, "status": "ok", "returned": sum(len(v) for v in new.values()), "missing": sorted(set(SECTIONS) - set(csec)), "thin": thin})
+        checks.append({"source": short, "status": "ok", "returned": sum(len(v) for v in new.values()), "missing": sorted(set(MUST) - set(csec)), "omitted": sorted(omitted)})
     ids = {e["id"] for e in events}
     cutoff = (now - dt.timedelta(days=120)).isoformat()
     events += [e for e in old_events if e["id"] not in ids and str(e.get("detectedAt") or "") >= cutoff]
@@ -347,7 +406,7 @@ def main():
     s = doc["summary"]
     # 공개 로그에는 건수만(회사 이름·줄 글자는 찍지 않는다)
     notice("kr-report-notes", f"{doc['period']['label']} · 회사 {s['companies']}곳 중 읽음 {s['read']} · 대기 {s['waiting']} · 실패 {s['failed']} · 이번 원문 {s['docsRead']}개 · "
-                              f"새 줄 제재 {s['newLines']['sanction']}·소송 {s['newLines']['suit']}·연결 범위 {s['newLines']['consol']} · 대목 못 찾은 회사 "
+                              f"새 줄 {'·'.join(f'{SECTIONS[k]} {v}' for k, v in s['newLines'].items())} · 대목 못 찾은 회사 "
                               f"{sum(1 for v in doc['companies'].values() if v.get('missing'))}곳 · 보고서 미제출 {sum(1 for c in doc['checks'] if c.get('note', '').startswith('이 기간'))}곳")
     if a.dry_run or not token:
         return 0
