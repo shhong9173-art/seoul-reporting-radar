@@ -1,5 +1,5 @@
-"""probe 245: 미국 관보 사전 공개본(public inspection) API 꼴과 PDF 글자. 공개 자료만, 저장 안 함."""
-import io, json, re, subprocess, sys, tempfile
+"""probe 246: 사전 공개본 가운데 제목에 Korea가 든 문서의 제목 칸·본문 글자 꼴. 공개 자료만, 저장 안 함."""
+import json, re
 
 import requests
 
@@ -7,51 +7,30 @@ OUT = []
 H = {"User-Agent": "seoul-reporting-radar probe (contact: github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json"}
 B = "https://www.federalregister.gov/api/v1/public-inspection-documents"
 try:
-    r = requests.get(B + "/current.json", headers=H, timeout=60)
-    OUT.append(f"current.json HTTP {r.status_code} {len(r.content)}B")
-    d = r.json()
-    res = d.get("results") or []
-    OUT.append(f"최상위 키 {sorted(d.keys())} · count {d.get('count')} · results {len(res)}")
-    if res:
-        OUT.append("첫 문서 키: " + ", ".join(sorted(res[0].keys())))
+    res = requests.get(B + "/current.json", headers=H, timeout=60).json().get("results") or []
     def ag(x):
         return [a.get("slug") or a.get("name") for a in x.get("agencies") or [] if isinstance(a, dict)]
     trade = [x for x in res if any(s in ("international-trade-administration", "international-trade-commission") for s in ag(x))]
-    OUT.append(f"ITA·ITC 문서 {len(trade)}건 · 그중 제목에 Korea {sum(1 for x in trade if re.search('korea', x.get('title') or '', re.I))}건")
-    for x in trade[:14]:
-        OUT.append(" · ".join(str(v) for v in [x.get("document_number"), x.get("filing_type"), "filed " + str(x.get("filed_at")), "pub " + str(x.get("publication_date")),
-            (x.get("title") or "")[:110], "raw_text " + str(bool(x.get("raw_text_url"))), "pdf " + str(bool(x.get("pdf_url"))), "dockets " + str(x.get("docket_numbers"))]))
-    # 세율 표가 있을 만한 문서 하나의 PDF 글자
-    pick = next((x for x in trade if re.search(r"Results of (?:Antidumping|Countervailing)|Final Determination|Preliminary Determination", x.get("title") or "") and x.get("pdf_url")), None)
-    if pick:
-        p = requests.get(pick["pdf_url"], headers={"User-Agent": H["User-Agent"]}, timeout=90)
-        OUT.append(f"PDF {pick['document_number']} HTTP {p.status_code} {len(p.content)//1024}KB magic {p.content[:5]!r} · {pick['title'][:90]}")
-        text = ""
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pdf") as f:
-                f.write(p.content); f.flush()
-                text = subprocess.run(["pdftotext", "-layout", f.name, "-"], capture_output=True, timeout=60).stdout.decode("utf-8", "ignore")
-            OUT.append(f"pdftotext 글자 {len(text)}")
-        except Exception as e:
-            OUT.append(f"pdftotext 실패 {type(e).__name__}")
-            try:
-                import pypdf
-                text = "\n".join((pg.extract_text() or "") for pg in pypdf.PdfReader(io.BytesIO(p.content)).pages)
-                OUT.append(f"pypdf 글자 {len(text)}")
-            except Exception as e2:
-                OUT.append(f"pypdf 실패 {type(e2).__name__}")
-        lines = [l.rstrip() for l in text.split("\n")]
-        hits = [i for i, l in enumerate(lines) if re.search(r"percent\)|Weighted-Average|Subsidy Rate|Dumping Margin", l)]
-        for i in hits[:3]:
-            OUT.append("표 근처: " + " ⏎ ".join(l.strip()[:120] for l in lines[max(0, i - 1):i + 9] if l.strip()))
-        OUT.append("첫 줄들: " + " ⏎ ".join(l.strip()[:100] for l in lines[:14] if l.strip()))
-    # 검색 주소(기관으로 거르기)
-    s = requests.get(B + ".json", params=[("conditions[agencies][]", "international-trade-administration"), ("conditions[agencies][]", "international-trade-commission"), ("per_page", "100")], headers=H, timeout=60)
-    try:
-        sj = s.json()
-        OUT.append(f"검색 주소 HTTP {s.status_code} · count {sj.get('count')} · results {len(sj.get('results') or [])} · 키 {sorted(sj.keys())}")
-    except Exception as e:
-        OUT.append(f"검색 주소 HTTP {s.status_code} · JSON 아님 {type(e).__name__} · {s.text[:120]!r}")
+    kor = [x for x in trade if re.search("korea", json.dumps(x), re.I)]
+    OUT.append(f"ITA·ITC {len(trade)}건 · 어느 칸에든 Korea {len(kor)}건")
+    for x in kor[:3]:
+        OUT.append("칸: " + " | ".join(f"{k}={str(x.get(k))[:150]}" for k in ("document_number", "type", "filing_type", "filed_at", "publication_date", "title", "toc_subject", "toc_doc", "subject_1", "subject_2", "subject_3", "docket_numbers", "num_pages", "html_url", "raw_text_url", "pdf_url")))
+        t = requests.get(x["raw_text_url"], headers={"User-Agent": H["User-Agent"]}, timeout=60)
+        body = t.text
+        OUT.append(f"raw_text HTTP {t.status_code} {len(body)}자 · content-type {t.headers.get('content-type')}")
+        lines = [l.rstrip() for l in re.sub(r"<[^>]+>", "", body).split("\n")]
+        keep = [l.strip() for l in lines if l.strip()]
+        OUT.append("앞 줄: " + " ⏎ ".join(l[:110] for l in keep[:16]))
+        idx = [i for i, l in enumerate(keep) if re.search(r"Weighted-Average|Dumping Margin|Subsidy Rate|\(percent\)|percent ad valorem", l)]
+        for i in idx[:3]:
+            OUT.append(f"세율 근처({i}): " + " ⏎ ".join(l[:110] for l in keep[max(0, i - 2):i + 12]))
+        ap = [i for i, l in enumerate(keep) if re.match(r"(?:Appendix|List of Topics|Comment \d+)", l)]
+        OUT.append(f"부록·쟁점 줄 {len(ap)}곳: " + " ⏎ ".join(keep[i][:120] for i in ap[:8]))
+        OUT.append("빈 줄 비율 " + str(round(1 - len(keep) / max(1, len(lines)), 2)) + f" · 줄 수 {len(lines)}")
+    # 한 문서 주소(json)로도 열리는지
+    if kor:
+        j = requests.get(f"{B}/{kor[0]['document_number']}.json", headers=H, timeout=60)
+        OUT.append(f"문서 한 건 주소 HTTP {j.status_code} · 키 {sorted(j.json().keys())[:40] if j.status_code == 200 else j.text[:80]}")
 except Exception as e:
     OUT.append(f"실패 {type(e).__name__}: {str(e)[:200]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
