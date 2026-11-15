@@ -1744,19 +1744,20 @@ async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
 
 const kstAt = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
 
-// 정기보고서 숨은 대목(kr-report-notes feed, 11-15): 출입처 분기·반기·사업보고서의 제재 현황·중요한 소송·연결 범위에서 앞 보고서에 없던 줄.
+// 정기보고서 숨은 대목(kr-report-notes feed, 11-15): 출입처 분기·반기·사업보고서의 보고기간 후 사건·매각예정·중단영업 주석, 제재 현황·중요한 소송·연결 범위에서 앞 보고서에 없던 줄.
 // kr_signals 아래(section=report). 회사가 보고서에 직접 적은 것 — 새 줄이라도 사건은 앞서 보도됐을 수 있다.
-const NOTE_SEC = { sanction: '제재', suit: '소송', consol: '연결 범위' };
+const NOTE_SEC = { after: '보고기간 후 사건', held: '매각예정·중단영업', sanction: '제재', suit: '소송', consol: '연결 범위' };
+const NOTE_RANK = { '보고기간 후 사건': 0, '매각예정·중단영업': 1, 제재: 2, 소송: 3, '연결 범위': 4 };
 async function reportNotesSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-report-notes');
   const when = '평일 06:40·13:10·19:40, 토 09:40';
-  if (!doc) return [`\n[정기보고서 숨은 대목(제재·소송·연결 범위)] 아직 수집 전 — 미확인(${when})`];
-  if (doc.broken) return ['\n[정기보고서 숨은 대목(제재·소송·연결 범위)] 저장 결과 형식 오류 — 미확인'];
+  if (!doc) return [`\n[정기보고서 숨은 대목(보고기간 후 사건·제재·소송)] 아직 수집 전 — 미확인(${when})`];
+  if (doc.broken) return ['\n[정기보고서 숨은 대목(보고기간 후 사건·제재·소송)] 저장 결과 형식 오류 — 미확인'];
   const s = doc.summary ?? {};
   const period = `${doc.period?.year ?? ''}${doc.period?.report ?? ''}`;
   const since = ctx.now.getTime() - days * 86400000;
   const rows = (doc.events ?? []).filter((e) => !(Date.parse(e.detectedAt) < since) && matches(q, e.company, e.kind, e.text, ...(e.lines ?? [])))
-    .sort((a, b) => String(b.detectedAt).localeCompare(String(a.detectedAt)) || String(a.company).localeCompare(String(b.company)));
+    .sort((a, b) => String(b.detectedAt).localeCompare(String(a.detectedAt)) || (NOTE_RANK[a.kind] ?? 9) - (NOTE_RANK[b.kind] ?? 9) || String(a.company).localeCompare(String(b.company)));
   const checks = doc.checks ?? [];
   const notFiled = checks.filter((k) => /^이 기간 보고서 미제출/.test(k.note ?? '')).map((k) => k.source);
   const bad = checks.filter((k) => ['failed', 'partial'].includes(k.status));
@@ -1773,7 +1774,7 @@ async function reportNotesSection(ctx, q, days, limit) {
     ...(omitted.length ? [`범위: 이번 보고서가 대목을 생략한 곳('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다) ${omitted.length}곳: ${omitted.slice(0, 16).join(', ')}${omitted.length > 16 ? ' …' : ''}`] : []),
     ...(nobase.length ? [`범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳(이번 줄이 다음 비교의 기준) ${nobase.length}곳: ${nobase.slice(0, 16).join(', ')}${nobase.length > 16 ? ' …' : ''}`] : []),
     ...(missing.length ? [`범위: 대목을 못 찾은 곳(미확인): ${missing.slice(0, 14).join(', ')}${missing.length > 14 ? ' …' : ''}`] : []),
-    '읽는 법: 표 한 줄·문단 하나가 한 줄. 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄(금액만 바뀐 줄은 안 잡는다). 〔처음 보는 건〕= 두 칸짜리 사건 표가 통째로 새로 생김, 〔앞 보고서에도 있던 건 · 바뀐 줄〕= 같은 당사자 사건의 진행 상황 등이 바뀜.'];
+    '읽는 법: 보고기간 후 사건(재무제표 주석)은 그 보고서 기준일 뒤의 일이라 적힌 줄 전부가 새 줄이다. 그 밖 대목은 표 한 줄·문단 하나가 한 줄이고, 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄(금액만 바뀐 줄은 안 잡는다). 〔처음 보는 건〕= 두 칸짜리 사건 표가 통째로 새로 생김, 〔앞 보고서에도 있던 건 · 바뀐 줄〕= 같은 당사자 사건의 진행 상황 등이 바뀜.'];
   for (const e of rows.slice(0, limit)) {
     const filed = String(e.filed ?? '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
     out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}B · ${kstAt(e.detectedAt)} · ${e.company} · ${e.kind} · 접수 ${filed || '?'}${e.late ? ' · 늦게 읽음(알림 안 검)' : ''}`);

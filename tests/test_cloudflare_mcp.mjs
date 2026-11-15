@@ -3348,33 +3348,40 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
       ev('00106641', '한화솔루션', 'suit', '소송', ['〔처음 보는 건〕 소제기일: 2026.08.11 ▸ 소송 당사자: 원고: Acme Solar LLC / 피고: Hanwha Q CELLS America ▸ 소송의 내용: 특허 침해 손해배상'], { late: true }),
       ev('00159616', '두산에너빌리티', 'consol', '연결 범위', ['연결 제외: 두산메카텍㈜ | 지분 매각']),
       ev('00126380', '롯데케미칼', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고 : 에코프로에이치엔/ 피고 : 롯데케미칼㈜ — 진행상황: … 2026. 7. 24. 제3회 변론기일 2026. 10. 16. 제4회 변론기일 진행 예정']),
+      ev('00106641', '한화솔루션', 'after', '보고기간 후 사건', ['연결실체는 보고기간 종료일 이후인 2026년 10월 30일자로 종속기업인 Hanwha Cimarron LLC (지분율 100%)의 지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원).']),
+      ev('00106641', '한화솔루션', 'held', '매각예정·중단영업', ['연결실체는 미국 오펠라이카 공장의 운영 중단 결정에 따라 매각예정자산 처리하였습니다.']),
       ev('00145880', 'LG화학', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고: 갑 / 피고: LG화학 — 진행상황: … 2026. 9. 18. 1심 판결 선고(원고 일부 승소), 당사 항소'])] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
   const b = r.text.split('[B · ')[1];
-  assert.match(b, /정기보고서 숨은 대목\(제재·소송·연결 범위\) · 현대제철\n   현대제철 2026년 3분기\(9-30 기준\) 보고서\(접수 11-16\)에 앞 보고서에 없던 제재 1줄: 「2026\.09\.03 \| 고용노동부 포항지청 \| 당사 \| 과태료 1,500만원 \| 퇴직연금 최소적립금 미달」 \(자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다\. 시점·금액·사유는 원문·회사 확인\)/);
+  assert.match(b, /정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\) · 현대제철\n   현대제철 2026년 3분기\(9-30 기준\) 보고서\(접수 11-16\)에 앞 보고서에 없던 제재 1줄: 「2026\.09\.03 \| 고용노동부 포항지청 \| 당사 \| 과태료 1,500만원 \| 퇴직연금 최소적립금 미달」 \(자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다\. 시점·금액·사유는 원문·회사 확인\)/);
   const block = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
+  const hs = b.split('\n- ').filter((x) => x.includes('한화솔루션 2026년 3분기'));
   assert.match(block('현대제철'), /〔즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 제재 1줄에 현대제철\(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨\)〕/);
   assert.match(block('포스코홀딩스'), /앞 보고서에 없던 소송 8줄\(그 밖 27줄 더\)/);
   assert.doesNotMatch(block('포스코홀딩스'), /즉시 알림 대상/);      // 수십 줄이 한꺼번에 — 서식 변경일 수 있어 화면에만
-  assert.match(block('한화솔루션'), /접수 뒤 늦게 읽음\)/);
-  assert.doesNotMatch(block('한화솔루션'), /즉시 알림 대상/);        // 늦게 읽은 것은 알림을 걸지 않는다
+  assert.match(hs.find((x) => /소송 1줄/.test(x)), /접수 뒤 늦게 읽음\)/);
+  assert.doesNotMatch(hs.find((x) => /소송 1줄/.test(x)), /즉시 알림 대상/);   // 늦게 읽은 것은 알림을 걸지 않는다
   assert.doesNotMatch(block('두산에너빌리티'), /즉시 알림 대상/);    // 연결 범위는 화면에만
   assert.doesNotMatch(block('롯데케미칼'), /즉시 알림 대상/);        // 기일만 더해진 진행 상황
+  assert.match(hs.find((x) => /보고기간 후 사건 1줄/.test(x)), /Hanwha Cimarron LLC \(지분율 100%\)의 지분 전부를 HANWHA DEFENSE USA,INC\.에 매각하였습니다\(매각대금 58,962백만원\)[^\n]+\n[^\n]+즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 보고기간 후 사건 1줄에 한화솔루션/);
+  assert.doesNotMatch(hs.find((x) => /매각예정·중단영업 1줄/.test(x)), /즉시 알림 대상/);   // 매각예정·중단영업은 화면에만
   assert.match(block('LG화학'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 소송 1줄에 LG화학/);   // 판결 선고가 적힘
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'rptnote:00164779:202611014:sanction');
   assert.deepEqual([hit.check.who, hit.check.terms], ['현대제철', ['과태료', '퇴직연금', '고용노동부']]);   // 대조 낱말은 새 줄에 적힌 것
-  const note = { tier: 'B', watch: '정기보고서 숨은 대목(제재·소송·연결 범위)', company: '현대제철', note: '제재', noteLines: 2, late: false };
+  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '현대제철', note: '제재', noteLines: 2, late: false };
   assert.match(docAlert(note, '미보도 후보'), /^문서 알림 — 정기보고서에 새로 적힌 제재 2줄에 현대제철/);
   assert.equal(docAlert(note, '관련 보도 있음'), null);
   assert.equal(docAlert({ ...note, late: true }, undefined), null);
   assert.equal(docAlert({ ...note, noteLines: 6 }, undefined), null);
   assert.equal(docAlert({ ...note, note: '소송', noteRoutine: true }, undefined), null);
   assert.equal(docAlert({ ...note, note: '연결 범위' }, undefined), null);
+  assert.equal(docAlert({ ...note, note: '매각예정·중단영업' }, undefined), null);
+  assert.match(docAlert({ ...note, note: '보고기간 후 사건', noteLines: 1 }, undefined), /정기보고서에 새로 적힌 보고기간 후 사건 1줄에 현대제철/);
   assert.equal(docAlert({ ...note, company: '포스코퓨처엠' }, undefined), null);                            // 계열사는 출입처가 아니다
   const k = await call('kr_signals', { section: 'report' }, opts);
-  assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 6건/);
+  assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 8건/);
   assert.match(k.text, /원천: OpenDART 정기보고서 원문 · 읽음 2\/39곳 · 미제출 1곳\(기아\) — 0건이 아니라 아직 안 냄 · 원문 대기 1곳\(LG화학\) — 다음 실행/);
   assert.match(k.text, /범위: 이번 보고서가 대목을 생략한 곳\('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다\) 1곳: 금호타이어\(제재\)/);
   assert.match(k.text, /범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 현대제철\(소송\)/);
@@ -3386,7 +3393,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match(one.text, /새 줄: 줄8\n   … 그 밖 27줄/);
   assert.match((await call('kr_signals', {}, opts)).text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 14일\]/);
   const none = PRIVATE();
-  assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(제재·소송·연결 범위\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·19:40, 토 09:40\)/);
+  assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·19:40, 토 09:40\)/);
 });
 
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {
