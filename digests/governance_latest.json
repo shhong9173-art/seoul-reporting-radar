@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-13T07:41:02+09:00",
- "windowStart": "2026-10-14",
+ "generatedAt": "2026-11-16T07:44:42+09:00",
+ "windowStart": "2026-10-17",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -220,14 +220,14 @@
    "company": "현대제철",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 13,
+   "rowsReturned": 12,
    "rowsInWindow": 0
   },
   {
    "company": "현대제철",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 17,
+   "rowsReturned": 16,
    "rowsInWindow": 0
   },
   {
@@ -242,21 +242,21 @@
    "endpoint": "majorstock.json",
    "status": "checked",
    "rowsReturned": 10,
-   "rowsInWindow": 3
+   "rowsInWindow": 2
   },
   {
    "company": "KG스틸",
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 35,
-   "rowsInWindow": 16
+   "rowsInWindow": 15
   },
   {
    "company": "KG스틸",
    "endpoint": "tsstkDpDecsn.json",
    "status": "checked",
    "rowsReturned": 1,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "세아홀딩스",
@@ -522,7 +522,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 16,
-   "rowsInWindow": 2
+   "rowsInWindow": 1
   },
   {
    "company": "S-Oil",
@@ -542,7 +542,7 @@
    "company": "SK이노베이션",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 15,
+   "rowsReturned": 14,
    "rowsInWindow": 0
   },
   {
@@ -605,7 +605,7 @@
    "company": "OCI홀딩스",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 12,
+   "rowsReturned": 11,
    "rowsInWindow": 0
   },
   {
@@ -648,7 +648,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 28,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "동성케미칼",
@@ -668,7 +668,7 @@
    "company": "LG화학",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 18,
+   "rowsReturned": 17,
    "rowsInWindow": 0
   },
   {
@@ -726,7 +726,7 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 42,
+ "count": 37,
  "items": [
   {
    "company": "넥센타이어",
@@ -949,86 +949,6 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000135"
-  },
-  {
-   "company": "KG스틸",
-   "team": "철강·비철",
-   "kind": "자사주 처분 결정",
-   "date": "2026-10-15",
-   "receiptNo": "20261015000414",
-   "reporter": "KG스틸",
-   "role": "",
-   "sharesChange": -2461991.0,
-   "shares": 2461991.0,
-   "held": 2461991.0,
-   "amount": 13688669960.0,
-   "purpose": "임직원 지급을 위한 자기주식 처분",
-   "method": "기타",
-   "decidedOn": "2026년 10월 15일",
-   "period": "2026년 10월 16일~2027년 01월 15일",
-   "reason": "처분목적 \"임직원 지급을 위한 자기주식 처분\" · 2,461,991주·136.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타",
-   "tags": [
-    "[처분목적: 임직원 보상]",
-    "[보유 자사주의 100%]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000414"
-  },
-  {
-   "company": "KG스틸",
-   "team": "철강·비철",
-   "kind": "대량보유(5%)",
-   "date": "2026-10-14",
-   "receiptNo": "20261014000103",
-   "reporter": "KG에코솔루션",
-   "reportType": "일반",
-   "shares": 45267514.0,
-   "sharesChange": 100000.0,
-   "ratio": 45.26,
-   "ratioChange": 0.1,
-   "reason": "보고자의 보유주식에 관한 계약 체결 (교환사채권 인수계약),특별관계자의 장내매수",
-   "tags": [
-    "[사유: 계약·교환사채·특별관계자]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000103"
-  },
-  {
-   "company": "KG스틸",
-   "team": "철강·비철",
-   "kind": "임원·주요주주",
-   "date": "2026-10-14",
-   "receiptNo": "20261014000125",
-   "reporter": "곽재선",
-   "role": "비등기임원 회장",
-   "shares": 200450.0,
-   "sharesChange": 100000.0,
-   "ratio": 0.2,
-   "ratioChange": 0.1,
-   "tags": [
-    "[지분율 +0.10%p]",
-    "[최고경영진]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000125"
-  },
-  {
-   "company": "동성케미칼",
-   "team": "화학·소재",
-   "kind": "임원·주요주주",
-   "date": "2026-10-14",
-   "receiptNo": "20261014000316",
-   "reporter": "백진우",
-   "role": "등기임원 대표이사 사실상지배주주",
-   "shares": 905524.0,
-   "sharesChange": 2699.0,
-   "ratio": 1.76,
-   "ratioChange": 0.01,
-   "tags": [
-    "[최고경영진]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000316"
   },
   {
    "company": "한화솔루션",
@@ -1468,22 +1388,6 @@
    "tags": [],
    "routine": true,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000339"
-  },
-  {
-   "company": "S-Oil",
-   "team": "전력·에너지",
-   "kind": "임원·주요주주",
-   "date": "2026-10-15",
-   "receiptNo": "20261015000064",
-   "reporter": "홍승표",
-   "role": "비등기임원 CSO",
-   "shares": 0.0,
-   "sharesChange": -1000.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000064"
   }
  ],
  "rules": [
