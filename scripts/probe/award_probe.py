@@ -1,57 +1,43 @@
-"""probe 256: USTR 2027 NTE 의견서 중 철강·자동차·화학 제출자 6곳의 한국 대목 전문(공개 정부 자료). 저장 안 함."""
-import io
+"""probe 257: USTR 수집기의 첨부 PDF 읽기가 운영 실행에서 왜 실패하는지(302건 중 239건 '스캔본') — 내려받기 상태·형식·pypdf 오류를 본다."""
 import os
-import re
+import subprocess
+import sys
 import time
-
-import requests
+import traceback
+from pathlib import Path
 
 OUT = []
-UA = {"User-Agent": "Mozilla/5.0 (seoul-reporting-radar probe)", "Accept": "application/json"}
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pypdf>=4,<7"], check=False)
+import pypdf  # noqa: E402
+import requests  # noqa: E402
+import ustr_comments_watch as w  # noqa: E402
+
+OUT.append(f"pypdf {pypdf.__version__} · requests {requests.__version__}")
 KEY = os.environ.get("REGULATIONS_GOV_API_KEY", "").strip() or "DEMO_KEY"
-API = "https://api.regulations.gov/v4"
-KOREA = re.compile(r"(?<![Nn]orth )\bKorea(?:n|ns|'s|’s)?\b|\bKORUS\b|\bROK\b")
-WANT = [("USTR-2026-0498-0102", "Ford", 4200), ("USTR-2026-0498-0147", "Rebar Trade Action Coalition", 7500), ("USTR-2026-0498-0086", "Steel Manufacturers Association", 6500),
-        ("USTR-2026-0498-0146", "AISI", 3800), ("USTR-2026-0498-0141", "Olin", 4200), ("USTR-2026-0498-0168", "Line Pipe", 2600)]
-
-
-def pdf_text(data):
-    import pypdf
-    pdf = pypdf.PdfReader(io.BytesIO(data))
-    return re.sub(r"[ \t]+", " ", "\n".join((p.extract_text() or "") for p in pdf.pages)), len(pdf.pages)
-
-
-for cid, name, budget in WANT:
+for cid in ["USTR-2026-0498-0147", "USTR-2026-0498-0102", "USTR-2026-0498-0086", "USTR-2026-0498-0146", "USTR-2026-0498-0168", "USTR-2026-0661-0010"]:
     try:
-        r = requests.get(f"{API}/comments/{cid}", params={"include": "attachments", "api_key": KEY}, headers=UA, timeout=40)
+        r = requests.get(f"{w.uc.API}/comments/{cid}", params={"include": "attachments", "api_key": KEY}, headers={"User-Agent": w.UA, "Accept": "application/json"}, timeout=40)
         time.sleep(1.2)
         body = r.json()
-        a = (body.get("data") or {}).get("attributes") or {}
         urls = [f["fileUrl"] for inc in body.get("included") or [] for f in (inc.get("attributes") or {}).get("fileFormats") or [] if str(f.get("format")).lower() == "pdf" and f.get("fileUrl")]
-        text, pages = "", 0
+        fmts = [str(f.get("format")) for inc in body.get("included") or [] for f in (inc.get("attributes") or {}).get("fileFormats") or []]
+        OUT.append(f"{cid}: 상세 HTTP {r.status_code} · 첨부 형식 {fmts} · pdf 주소 {len(urls)}")
         for u in urls[:2]:
-            d = requests.get(u, headers={"User-Agent": UA["User-Agent"]}, timeout=60)
-            t, n = pdf_text(d.content)
-            text += "\n" + t
-            pages += n
-        text = re.sub(r"\s+", " ", text)
-        segs = []
-        for m in KOREA.finditer(text):
-            s, e = max(0, m.start() - 500), min(len(text), m.end() + 700)
-            if segs and s <= segs[-1][1]:
-                segs[-1][1] = e
-            else:
-                segs.append([s, e])
-        OUT.append(f"■■ {name} | {cid} | {a.get('title')} | 게시 {str(a.get('postedDate'))[:10]} | {pages}쪽 {len(text)}자 | 한국 대목 {len(segs)}토막 | 첨부 {urls[:1]}")
-        left = budget
-        for s, e in segs:
-            if left <= 200:
-                OUT.append(f"   …(남은 토막 생략)")
-                break
-            piece = text[s:e][:left]
-            OUT.append(f"   [{s}~{e}] {piece}")
-            left -= len(piece)
-    except Exception as ex:  # noqa: BLE001
-        OUT.append(f"■■ {name} | {cid} | 실패 {type(ex).__name__}: {str(ex)[:120]}")
+            for ua in (w.UA, "Mozilla/5.0 (seoul-reporting-radar probe)"):
+                d = requests.get(u, headers={"User-Agent": ua}, timeout=60)
+                line = f"   {u[-34:]} · UA '{ua[-12:]}' · HTTP {d.status_code} · {len(d.content)}바이트 · {d.headers.get('content-type')} · 머리 {d.content[:8]!r}"
+                try:
+                    t, n = w.pdf_text(d.content)
+                    line += f" · 글자 {len(t)} · {n}쪽"
+                except Exception as e:  # noqa: BLE001
+                    line += f" · pdf_text 예외 {type(e).__name__}: {str(e)[:160]} @ {traceback.extract_tb(e.__traceback__)[-1].name}"
+                OUT.append(line)
+                time.sleep(0.5)
+        st = w.read_comment(cid, KEY, get=requests.get, sleep=time.sleep, budget=w.uc.Budget(5))
+        OUT.append(f"   read_comment → 상태 {st[0]} · 글자 {len(st[1])} · {st[2]}쪽 · 첨부 {st[3]} · 오류 {st[4]}")
+    except Exception as e:  # noqa: BLE001
+        OUT.append(f"{cid}: 예외 {type(e).__name__}: {str(e)[:200]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
