@@ -1740,6 +1740,7 @@ export async function radarTodayData(ctx, args) {
       if (!showJudged) { ledgerHidden.push(x); return false; }
     }
     if (ledger?.alerted?.has(String(x.id))) x.alerted = ledger.alerted.get(String(x.id));
+    if (ledger?.skipped?.has(String(x.id))) x.alertSkip = ledger.skipped.get(String(x.id));
     return true;
   });
   // Automatic press check (radar_press_check.py): unreported first, then unchecked/미확인, then already covered.
@@ -1777,7 +1778,7 @@ export async function radarTodayData(ctx, args) {
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
   for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged, maint); if (why) x.alert = why; }
   // 문서 알림(11-15): 무역구제·공시 문서 갈래는 B여도 출입처 이름이 있고 미보도면 알림 대상
-  for (const x of byTierRows.B) { const why = !x.alert && docAlert(x, pressOf(x)); if (why) x.alert = why; }
+  for (const x of byTierRows.B) { const why = !x.alert && !x.alertSkip && docAlert(x, pressOf(x)); if (why) x.alert = why; }   // 알림이 이미 검토해 뺀 것은 다시 표시하지 않는다
   // 실적 업종 비교(11-04, earnings_compare 공개 결과): 최근 72시간 안에 처음 본 데이터 기사 후보만 radar_today에 올린다.
   let peerV = null;
   try { peerV = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch { peerV = null; }
@@ -1802,7 +1803,7 @@ export async function radarTodayData(ctx, args) {
 // 처리 장부 표시(줄 끝): 숨기지 않고 보여 줄 때의 처리 상태, 처리한 뒤 새로 잡힌 비슷한 항목, 앞서 추천한 패키지, 즉시 알림으로 이미 보낸 것
 export const ledgerMark = (x) => `${x.handled ? ` 〔이미 처리: ${entryLabel(x.handled.entry)} — 단독 추천에서 뺀다〕` : ''}`
   + `${x.similar ? ` 〔비슷한 건 처리 이력: ${entryLabel(x.similar)} — 새 사실인지 확인〕` : ''}`
-  + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}`;
+  + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}${x.alertSkip ? ` 〔알림 검토 ${x.alertSkip}: 이미 기사 있어 안 보냄〕` : ''}`;
 
 export async function radarTodayText(ctx, args) {
   const d = await radarTodayData(ctx, args);

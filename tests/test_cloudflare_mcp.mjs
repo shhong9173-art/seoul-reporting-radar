@@ -2748,8 +2748,13 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   assert.match(al2, /최근 72시간 · 1건\(실적 있는 갈래·문서 알림 1 · 그 밖 A 0\)\n/);
   assert.doesNotMatch(al2, /fr:2026-20698|fr:2026-22343/);
   assert.match(al2, /id fr:x 〔즉시 알림 대상/);
-  // 보통 단독 데스크 화면에도 표시가 보인다
-  assert.match((await call('scoop_desk', { days: 3 }, opts)).text, /id fr:x 〔즉시 알림 대상: 문서 알림/);
+  // 알림이 보도 대조에서 '이미 기사 있음'으로 뺀 것('제외 id:')도 다시 고르지 않는다 — 화면에는 그렇게 적힌다
+  await call('package_save', { name: 'alert-20261025', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 10-25 · 누적 2건', body: '[단독 후보 알림 12:43] 0건\n(제외: …)\n제외 id: fr:x\n보낸 id: fr:2026-20698, fr:2026-22343' }, opts);
+  const al3 = (await call('scoop_desk', { alerts: true, hours: 72 }, opts)).text;
+  assert.match(al3, /최근 72시간 · 0건\(실적 있는 갈래·문서 알림 0 · 그 밖 A 0\)/);
+  assert.match((await call('radar_today', { hours: 72 }, opts)).text, /id fr:x 〔알림 검토 10-25: 이미 기사 있어 안 보냄〕(?:\n|$)/);   // '즉시 알림 대상' 표시는 뗀다
+  // 보통 단독 데스크 화면에도 검토 흔적이 보인다
+  assert.match((await call('scoop_desk', { days: 3 }, opts)).text, /id fr:x 〔알림 검토 10-25: 이미 기사 있어 안 보냄〕/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'fr:2026-20698');
   assert.deepEqual([hit.tier, hit.check.who, hit.check.terms], ['A', 'KG스틸', ['관세', '반덤핑']]);
@@ -5031,7 +5036,8 @@ test('처리 장부 CPU(11-13 운영 오류 1102): 회사 찾기는 정규식 �
   // ② 저장소가 본문에서 연결만 뽑는다 — Worker는 패키지 본문을 받지 않는다
   assert.deepEqual(packageLinks('kia-georgia-osha', `문의 중\nid osha:insp:349146811 확인\n원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811.\n${LINK_LINE} sales:hmgma:202609, https://example.com/a/b/c/d/e/f`),
     { ids: ['sales:hmgma:202609', 'https://example.com/a/b/c/d/e/f', 'osha:insp:349146811'], urls: ['https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811', 'https://example.com/a/b/c/d/e/f'], sent: [] });
-  assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'] });
+  assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'], excluded: [] });
+  assert.deepEqual(packageLinks('alert-20261115', '[단독 후보 알림 15:45] 0건\n제외 id: fr:2026-23258').excluded, ['fr:2026-23258']);
   const opts = PRIVATE();
   await call('package_save', { name: 'kia-georgia-osha', title: '[답변 대기] 기아 조지아 OSHA 점검', state: '보류', body: '본문 '.repeat(500), item_ids: ['osha:insp:349146811'] }, opts);
   const stub = opts.env.STORE.get('reporter');
