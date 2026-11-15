@@ -42,6 +42,10 @@ PAGES = 90
 FILES = 3
 BASELINE_DAYS = 3     # 감시를 시작한 날보다 이만큼 넘게 먼저 게시된 것은 기준선(새 항목으로 올리지 않는다 — 화면에는 보인다)
 UA = "Mozilla/5.0 (seoul-reporting-radar)"
+# 첨부 내려받기(downloads.regulations.gov)는 위 UA에 HTTP 403을 준다(11-15 첫 운영 실행: 302건 중 239건을 못 받고 '스캔본'으로 잘못 셌다 — probe 257).
+# 같은 이름을 밝힌 다른 꼴의 UA는 받는다. 403이면 다음 꼴로 한 번 더 받는다. 브라우저인 척하지 않는다.
+DOWNLOAD_UAS = ("Mozilla/5.0 (compatible; seoul-reporting-radar/1.0; newsroom research)", "Mozilla/5.0 (seoul-reporting-radar probe)")
+VERSION = 2           # 읽기 방식이 바뀌면 올린다 — 앞서 읽은 목록을 버리고 한 번 다시 읽는다
 FR_API = "https://www.federalregister.gov/api/v1/documents.json"
 
 KOREA = re.compile(r"(?<![Nn]orth )\bKorea(?:n|ns|'s|’s)?\b|\bKORUS\b|\bROK\b")
@@ -101,8 +105,28 @@ def pdf_text(data):
     return re.sub(r"[ \t]+", " ", "\n".join(out)), len(pdf.pages)
 
 
+def download(url, get, sleep):
+    """첨부 한 개 → (바이트 또는 None, 오류). 403이면 다른 꼴의 UA로 한 번 더."""
+    err = None
+    for ua in DOWNLOAD_UAS:
+        try:
+            r = get(url, headers={"User-Agent": ua}, timeout=60)
+        except Exception as e:  # noqa: BLE001
+            err = type(e).__name__
+            continue
+        finally:
+            sleep(0.4)
+        if r.status_code == 200 and r.content[:5] == b"%PDF-":
+            return (r.content if len(r.content) <= FILE_MAX else None), (None if len(r.content) <= FILE_MAX else "첨부가 너무 큼")
+        err = f"첨부 HTTP {r.status_code}" if r.status_code != 200 else "첨부가 PDF가 아님"
+        if r.status_code != 403:
+            break
+    return None, err
+
+
 def read_comment(cid, key, *, get, sleep, budget):
-    """의견서 하나의 글자(입력 칸 + 첨부 PDF) → (상태, 글자, 쪽수, 첨부 수, 오류). 상태: ok / nopdf(첨부 없음) / scan(글자 못 뽑음) / failed"""
+    """의견서 하나의 글자(입력 칸 + 첨부 PDF) → (상태, 글자, 쪽수, 첨부 수, 오류).
+    상태: ok / nopdf(첨부 없음) / scan(받았는데 글자를 못 뽑음) / failed(상세 조회나 첨부 내려받기 실패 — 다음 실행에서 다시)"""
     status, body = uc.call(f"/comments/{cid}", {"include": "attachments"}, key, get=get, budget=budget, sleep=sleep)
     if status != "ok":
         return "failed", "", 0, 0, str(body or status)
@@ -112,23 +136,28 @@ def read_comment(cid, key, *, get, sleep, budget):
         for f in (inc.get("attributes") or {}).get("fileFormats") or []:
             if str(f.get("format")).lower() == "pdf" and f.get("fileUrl"):
                 urls.append(f["fileUrl"])
-    pages, got = 0, 0
+    pages, got, fetched, err = 0, 0, 0, None
     for url in urls[:FILES]:
-        try:
-            r = get(url, headers={"User-Agent": UA}, timeout=60)
-            if r.status_code != 200 or len(r.content) > FILE_MAX:
-                continue
-            t, n = pdf_text(r.content)
-            text += "\n" + t
-            pages += n
-            got += 1 if len(t) > 300 else 0
-        except Exception:  # noqa: BLE001
+        data, e = download(url, get, sleep)
+        if data is None:
+            err = e or err
             continue
-        finally:
-            sleep(0.3)
-    if urls and not got:
-        return ("scan" if len(text) < 400 else "ok"), text, pages, len(urls), None
-    return ("ok" if urls or len(text) > 200 else "nopdf"), text, pages, len(urls), None
+        fetched += 1
+        try:
+            t, n = pdf_text(data)
+        except Exception as ex:  # noqa: BLE001
+            err = f"PDF 읽기 {type(ex).__name__}"
+            continue
+        text += "\n" + t
+        pages += n
+        got += 1 if len(t) > 300 else 0
+    if not urls:
+        return ("ok" if len(text) > 200 else "nopdf"), text, 0, 0, None
+    if not fetched:
+        return "failed", text, 0, len(urls), err or "첨부 내려받기 실패"
+    if not got:
+        return "scan", text, pages, len(urls), err
+    return "ok", text, pages, len(urls), None
 
 
 def notices(now, get):
@@ -159,7 +188,8 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
     budget = budget or uc.Budget(int(os.environ.get("REGS_CALL_BUDGET", "40" if key == "DEMO_KEY" else "320")))
     prev = previous if isinstance(previous, dict) else {}
     started = str(prev.get("startedAt") or now.isoformat(timespec="seconds"))
-    seen = dict(prev.get("seen") or {})
+    same = prev.get("v") == VERSION
+    seen = dict(prev.get("seen") or {}) if same else {}   # 읽기 방식이 바뀌었으면 처음부터 다시 읽는다(감시 시작일은 지킨다)
     dockets = dict(prev.get("docketTitles") or {})
     since = (now - dt.timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     stamp = now.isoformat(timespec="seconds")
@@ -175,7 +205,7 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
         if not (body.get("meta") or {}).get("hasNextPage"):
             break
         page += 1
-    items = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id")}
+    items = {x["id"]: x for x in (prev.get("items") or []) if isinstance(x, dict) and x.get("id")} if same else {}
     # 기준선: 감시 시작일보다 사흘 넘게 먼저 게시된 의견서(첫 읽기가 여러 실행에 걸쳐도 같은 기준)
     cutoff = (dt.datetime.fromisoformat(started) - dt.timedelta(days=BASELINE_DAYS)).strftime("%Y-%m-%d")
     read = waiting = 0
@@ -227,7 +257,7 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
     by = lambda s: sum(1 for v in seen.values() if v.get("status") == s)
     list_ok = any(c["source"].startswith("USTR 의견서 목록") and c["status"] == "ok" for c in checks)
     return {
-        "schema": SCHEMA, "generatedAt": stamp, "startedAt": started, "status": "ok" if list_ok and not waiting and not by("failed") and fr is not None else "partial" if list_ok else "failed",
+        "schema": SCHEMA, "v": VERSION, "generatedAt": stamp, "startedAt": started, "status": "ok" if list_ok and not waiting and not by("failed") and fr is not None else "partial" if list_ok else "failed",
         "source": "regulations.gov API v4(USTR 의견서·첨부 PDF) · federalregister.gov API(USTR 고시)", "keyType": "DEMO_KEY" if key == "DEMO_KEY" else "개인 키",
         "lookbackDays": LOOKBACK_DAYS, "checks": checks, "items": rows, "seen": seen, "docketTitles": dockets, "notices": fr if fr is not None else (prev.get("notices") or []),
         "summary": {"listed": len(listed), "readNow": read, "waiting": waiting, "known": len(seen), "scan": by("scan"), "nopdf": by("nopdf"), "failed": by("failed"),

@@ -38,11 +38,11 @@ class Ustr(unittest.TestCase):
         self.assertEqual(w.companies_in("Korean steel producer POSCO received loans. POSCO International and LG Energy Solution are separate."), ["포스코"])   # 계열사는 출입처가 아니다
         self.assertEqual(w.companies_in("Hanwha Qcells and Hyundai Motor Group filed comments"), ["현대차", "한화솔루션"])
 
-    def collect(self, texts, previous=None, now=NOW, read_budget=50, fail=()):
+    def collect(self, texts, previous=None, now=NOW, read_budget=50, fail=(), blocked=(), picky=()):
         """texts: {commentId: (게시일, 제출자, 본문)}"""
         calls = []
         orig = w.pdf_text
-        w.pdf_text = lambda data: (data.decode("utf-8"), 3)
+        w.pdf_text = lambda data: (data.decode("utf-8")[5:], 3)
 
         def get(url, params=None, headers=None, timeout=None):
             calls.append(url)
@@ -54,7 +54,10 @@ class Ustr(unittest.TestCase):
                     return R(status=500)
                 return R({"data": {"attributes": {"comment": "See attached file(s)"}}, "included": [{"attributes": {"fileFormats": [{"format": "pdf", "fileUrl": f"https://downloads.regulations.gov/{cid}/attachment_1.pdf"}]}}]})
             if "downloads.regulations.gov" in url:
-                return R(content=texts[url.split("/")[3]][2].encode("utf-8"))
+                cid = url.split("/")[3]
+                if cid in blocked or (cid in picky and headers["User-Agent"] == w.DOWNLOAD_UAS[0]):
+                    return R(status=403, content=b"<!DOCTYPE html>")
+                return R(content=b"%PDF-" + texts[cid][2].encode("utf-8"))
             if "/dockets/" in url:
                 return R({"data": {"attributes": {"title": "Request for Comments on Significant Foreign Trade Barriers for the 2027 National Trade Estimate Report"}}})
             if "federalregister.gov" in url:
@@ -88,6 +91,23 @@ class Ustr(unittest.TestCase):
         nxt, calls = self.collect(texts, previous=again, now=NOW + dt.timedelta(days=1))
         self.assertEqual(len([c for c in calls if "/comments/" in c]), 1)
         self.assertEqual([(x["commentId"], x["baseline"]) for x in nxt["items"]][0], ("USTR-2026-0595-0003", False))
+
+    def test_a_refused_download_is_a_failure_not_a_scan_and_is_retried(self):
+        texts = {"USTR-2026-0498-0147": ("2026-11-14", "Rebar Trade Action Coalition", REBAR), "USTR-2026-0498-0102": ("2026-11-14", "Ford Motor Company", FORD)}
+        # 첫 번째 UA를 막는 서버(11-15 실제): 다른 꼴의 UA로 한 번 더 받아 읽는다
+        doc, calls = self.collect(texts, picky={"USTR-2026-0498-0147"})
+        self.assertEqual((doc["summary"]["items"], doc["summary"]["scan"], doc["summary"]["failed"]), (2, 0, 0))
+        self.assertEqual(len([c for c in calls if "downloads" in c and "0147" in c]), 2)
+        # 둘 다 막히면 스캔본이 아니라 실패 — 다음 실행에서 다시 받는다
+        doc, _ = self.collect(texts, blocked={"USTR-2026-0498-0147"})
+        self.assertEqual((doc["summary"]["items"], doc["summary"]["scan"], doc["summary"]["failed"], doc["status"]), (1, 0, 1, "partial"))
+        self.assertEqual(doc["seen"]["USTR-2026-0498-0147"]["error"], "첨부 HTTP 403")
+        again, calls = self.collect(texts, previous=doc, now=NOW + dt.timedelta(hours=8))
+        self.assertEqual((again["summary"]["items"], again["summary"]["failed"]), (2, 0))
+        # 읽기 방식이 바뀌기 전 저장본(v 없음)은 버리고 다시 읽되 감시 시작일은 지킨다
+        old = {k: v for k, v in doc.items() if k != "v"}
+        redo, calls = self.collect(texts, previous=old, now=NOW + dt.timedelta(days=2))
+        self.assertEqual((len([c for c in calls if "/comments/" in c]), redo["startedAt"], redo["v"]), (2, doc["startedAt"], w.VERSION))
 
     def test_budget_and_failures_are_waiting_not_zero(self):
         texts = {f"USTR-2026-0498-{i:04d}": ("2026-10-30", f"Group {i}", REBAR) for i in range(5)}
