@@ -31,7 +31,7 @@ export const WATCHES = [
   { feed: 'kr-official', label: '공장등록·관보', tool: 'kr_official', schedule: '평일 08:10' },
   { feed: 'kr-signals', label: '공정위·한전·원자재', tool: 'kr_signals', schedule: '평일 08:30·15:20' },
   { feed: 'kr-stats', label: '월간 통계(물가·생산·수입차·완성차 판매)', tool: 'kr_stats', schedule: '평일 07:30' },
-  { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40' },
+  { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40·23:05, 토 09:30' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
@@ -737,6 +737,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     return {};
   };
   const frBase = baselineOf(tr?.federalRegister ?? []);
+  // 게재 전 문서(11-15): 관보는 다음 호 문서를 게재 전에 공개한다(사전 공개본 — 게재 전 영업일 08:45 미 동부). 게재일이 오늘 뒤면 그렇게 적는다
+  const todayK = new Date(now + 9 * 3600000).toISOString().slice(0, 10);
+  const aheadOf = (x) => (String(x.date ?? '') > todayK ? `(게재 예정 ${String(x.date).slice(5)}${x.pi ? ' · 사전 공개본' : ' · 게재 전 공개'})` : '');
   // ITC 고시에는 회사 이름이 거의 없다 — 같은 품목의 상무부 고시에 나온 출입처를 빌려 쓴다(유정용 강관 → 세아제강·현대제철)
   const byProduct = new Map();
   for (const y of tr?.federalRegister ?? []) {
@@ -752,7 +755,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       const who = linked.length ? linked : byProduct.get(productOf(x.title)) ?? [];
       const tierI = itc.korea === '부정' || (itc.korea === '긍정' && itc.phase === '최종') ? 'A' : 'B';
       push(tierI, W['trade-remedy'], { kind: '미국 ITC 피해 판정', ruling: true, id: x.id, date: x.date, company: who.join('·') || '한국산',
-        fact: `미국 ITC ${itc.phase} 판정: ${x.title} — ${itcText(itc)}${who.length && !linked.length ? ` · 같은 품목 상무부 고시의 출입처: ${who.join('·')}` : ''} · 원문 "${String(itc.quote ?? '').slice(0, 200)}"`,
+        fact: `미국 ITC${aheadOf(x)} ${itc.phase} 판정: ${x.title} — ${itcText(itc)}${who.length && !linked.length ? ` · 같은 품목 상무부 고시의 출입처: ${who.join('·')}` : ''} · 원문 "${String(itc.quote ?? '').slice(0, 200)}"`,
         url: x.url, check: hint(who[0], ['ITC', itc.korea === '부정' ? (itc.phase === '일몰 재심' ? '철폐' : '종결') : itc.phase === '일몰 재심' ? '유지' : '판정']) });
       continue;
     }
@@ -770,7 +773,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const frTier = odd.length || changed.length ? 'A' : names.length ? 'B' : 'C';
     push(frTier, W['trade-remedy'], { kind, ruling: Boolean(x.rateTable), id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
       // 정정 고시(11-15)는 본문에 회사 이름이 없다 — 이름은 정정 대상 판정의 세율 표에서 온 것이라고 밝히고 정정 문장을 그대로 붙인다
-      fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — ${x.namedVia ?? '본문'}에 ${names.join('·')}` : ''}${rates}${memo}${x.correction?.quote ? ` · 정정 문장(원문): "${String(x.correction.quote).slice(0, 260)}"` : ''}`, url: x.url,
+      fact: `미국 관보${aheadOf(x)} ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — ${x.namedVia ?? '본문'}에 ${names.join('·')}` : ''}${rates}${memo}${x.correction?.quote ? ` · 정정 문장(원문): "${String(x.correction.quote).slice(0, 260)}"` : ''}`, url: x.url,
       ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? { ...tradeReady(x), point: tradePoint(x) || undefined } : {}),
       // 보도 대조는 품목 낱말까지(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다) — 품목이 없는 기사는 약한 근거로만 남는다
       check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정'], [], productKo(x.title)?.words ?? []) });

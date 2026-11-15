@@ -11,6 +11,10 @@ import trade_remedy_watch as w  # noqa: E402
 KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime(2026, 10, 27, 7, 0, tzinfo=KST)
 
+# 사전 공개본(11-15): 기존 테스트의 가짜 get은 이 주소를 모른다 — 빈 목록으로 두고, 사전 공개본 테스트만 진짜 함수를 쓴다
+REAL_PI = w.pi_documents
+w.pi_documents = lambda get, have: ([], None)
+
 
 def detail_html(order, start, end, origins, initial, balance, exhausted="", awaiting="0", codes=("7210 70 80 00", "7212 40 80 00"), critical="Yes"):
     # Same field order and labels as quota_tariff_details.jsp on 2026-10-26.
@@ -815,6 +819,60 @@ class DutyRates(unittest.TestCase):
         n = len(calls)
         again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
         self.assertEqual((read2, len(calls) - n, again[0]["rateTable"]["rates"]["현대제철"]["rate"]), (0, 1, 19.49))   # 다시 읽지 않는다
+
+    def test_public_inspection_documents_come_early_and_are_reread_when_published(self):
+        # 탐침 245·246(11-15): current.json의 toc_doc은 줄인 제목이다 — 진짜 제목·사건 번호는 본문 머리에서 읽는다
+        pi_text = ("BILLING CODE: 3510-DS-P\nDEPARTMENT OF COMMERCE\nInternational Trade Administration\n[A-580-867]\n"
+                   "Large Power Transformers From the Republic of Korea: Final Results of\nAntidumping Duty Administrative Review; 2024-2025\n"
+                   "AGENCY: Enforcement and Compliance, International Trade Administration, Department of\nCommerce.\nSUMMARY: Commerce determines that HD Hyundai Electric Co., Ltd. made sales\n"
+                   "------------------------------------------------------------------------\nHD Hyundai Electric Co., Ltd................................        0.00\n"
+                   "LS Electric Co., Ltd........................................        4.32\n------------------------------------------------------------------------\nDisclosure\nCommerce intends\n"
+                   "[FR Doc. 2026-23999 Filed: 11/16/2026 8:45 am; Publication Date: 11/17/2026]\n")
+        self.assertEqual(w.pi_head(w.text_lines(pi_text)), ("Large Power Transformers From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2024-2025", ["A-580-867"]))
+        self.assertEqual(w.pi_head(["no header here", "AGENCY: x"]), (None, []))
+        pi_doc = {"document_number": "2026-23999", "toc_doc": "Large Power Transformers from the Republic of Korea", "title": "Antidumping or Countervailing Duty Investigations, Orders, or Reviews: Large Power Transformers from the Republic of Korea",
+                  "publication_date": "2026-11-17", "filed_at": "2026-11-16T08:45:00.000-05:00", "html_url": "https://www.federalregister.gov/public-inspection/2026-23999/x",
+                  "raw_text_url": "https://www.federalregister.gov/public-inspection/raw_text/202/623/999.txt", "docket_numbers": [],
+                  "agencies": [{"name": "International Trade Administration", "slug": "international-trade-administration"}]}
+        other = {**pi_doc, "document_number": "2026-24000", "toc_doc": "Paper File Folders from India"}
+        state = {"published": False, "calls": []}
+
+        def get(url, params=None, headers=None, timeout=None):
+            state["calls"].append(url)
+            if url == w.PI_API:
+                return R(body={"results": [] if state["published"] else [pi_doc, other]})
+            if url == w.FR_API:
+                p = dict(params or [])
+                if "conditions[docket_id]" in p:
+                    return R(body={"results": []})
+                return R(body={"results": [{"title": "Large Power Transformers From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2024-2025",
+                                            "publication_date": "2026-11-17", "html_url": "https://www.federalregister.gov/d/2026-23999", "document_number": "2026-23999",
+                                            "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-23999.txt",
+                                            "docket_ids": ["A-580-867"]}] if state["published"] else []})
+            return R(text="<pre>" + pi_text + "</pre>")
+
+        w.pi_documents = REAL_PI
+        try:
+            rows, err, read = w.federal_register(NOW, None, get=get, sleep=lambda s: None)
+            row = rows[0]
+            self.assertEqual((err, len(rows), read), (None, 1, 1))   # 인도 건은 한국이 아니라 빠지고, 본문은 한 번만 받는다
+            self.assertEqual((row["id"], row["pi"], row["filedAt"], row["date"], row["stage"], row["dockets"]),
+                             ("fr:2026-23999", True, "2026-11-16T08:45:00.000-05:00", "2026-11-17", "최종 판정", ["A-580-867"]))
+            self.assertEqual(row["title"], "Large Power Transformers From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2024-2025")
+            self.assertEqual({c: v["rate"] for c, v in row["rateTable"]["rates"].items()}, {"HD현대일렉트릭": 0.0, "LS일렉트릭": 4.32})
+            self.assertEqual(sum(1 for u in state["calls"] if "raw_text" in u), 1)
+            n = len(state["calls"])
+            again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
+            self.assertEqual((read2, [u for u in state["calls"][n:] if "raw_text" in u], again[0]["title"]), (0, [], row["title"]))   # 저장본을 쓴다
+            state["published"] = True   # 게재됨: 같은 번호가 문서 API에 뜬다 — 게재본 글자로 다시 읽고 사전 공개본 표시는 뗀다
+            third, _, read3 = w.federal_register(NOW, {"federalRegister": again}, get=get, sleep=lambda s: None)
+            self.assertEqual((len(third), read3, "pi" in third[0], third[0]["url"]), (1, 1, False, "https://www.federalregister.gov/d/2026-23999"))
+            # 사전 공개본 목록만 못 읽으면 목록 오류가 아니라 따로 적힌다(run()이 '일부'로 적는다)
+            w.pi_documents = lambda g, have: ([], "사전 공개본 HTTP 503")
+            _, err4, _ = w.federal_register(NOW, {"federalRegister": third}, get=get, sleep=lambda s: None)
+            self.assertEqual((err4, w.federal_register.pi_error), (None, "사전 공개본 HTTP 503"))
+        finally:
+            w.pi_documents = lambda get, have: ([], None)
 
     def test_rate_limited_reads_keep_stored_rates_and_stop_for_the_run(self):
         # 11-01 14:00 운영: 규칙을 올린 직후 실행에서 관보 본문이 HTTP 429 — 13:55에 읽은 세율이 모두 빠졌다

@@ -2711,6 +2711,13 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
     const fx = (await call('radar_today', { hours: 72 }, o2)).text.split('[B · ')[1].split('[C · ')[0];
     assert.match(fx, /무역구제 · 현대제철\n   미국 관보 최종 판정: Certain Oil Country Tubular Goods[^\n]*; Correction — 정정 대상 판정\(2026-09-24\)의 세율 표에 현대제철 · 반덤핑 세율[^\n]*현대제철 19\.49%\(비선정 업체 세율\)\(직전 최종 19\.87%\)[^\n]* · 정정 문장\(원문\): "correct the weighted-average dumping margin \(percent\) value for: \(1\) NEXTEEL Co\., Ltd\. to 29\.18 percent; and \(2\) the non-examined companies to 19\.49 percent\."/);
     assert.match(fx, /id fr:2026-23258 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 현대제철/);
+    // 게재 전 문서: 게재일이 오늘 뒤면 '게재 예정'을, 사전 공개본으로만 본 것은 그렇게 적는다
+    const day2 = new Date(NOW.getTime() + 9 * 3600000 + 2 * 86400000).toISOString().slice(0, 10);
+    await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+      schema: 'trade_remedy/v1', generatedAt: '2026-10-25T07:40:00+09:00', checks: [], quotas: [], events: [], federalRegister: [{ ...fixRow, date: day2, pi: true, filedAt: '2026-10-26T08:45:00.000-05:00' }, { ...fixRow, id: 'fr:2026-23259', date: day2 }] }) }), o2.env, {});
+    const fx2 = (await call('radar_today', { hours: 72 }, o2)).text;
+    assert.match(fx2, new RegExp(`미국 관보\\(게재 예정 ${day2.slice(5)} · 사전 공개본\\) 최종 판정: Certain Oil Country[\\s\\S]*?id fr:2026-23258 `));
+    assert.match(fx2, new RegExp(`미국 관보\\(게재 예정 ${day2.slice(5)} · 게재 전 공개\\) 최종 판정: Certain Oil Country[\\s\\S]*?id fr:2026-23259 `));
   }
   assert.match(a, /무역구제 · KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant[^\n]* — 세율 크게 바뀜: KG스틸 0\.00%→23\.40%, 동국씨엠 0\.00%→19\.43%, 포스코 0\.00%→20\.58% — 본문에 KG스틸·동국씨엠 · 반덤핑 세율\(관보 표\): KG스틸 23\.40%\(직전 최종 0\.00%\) · 동국씨엠 19\.43%\(직전 최종 0\.00%\) · 포스코 20\.58%\(비선정 업체 세율\)\(직전 최종 0\.00%\) \[직전 최종 2026-05-14\]/);
   // 11-04 기사 준비: 다음 절차(미국 법정 기한, 게재일 기준)와 회사에 물을 것
