@@ -71,7 +71,7 @@ export const WATCHES = [
   { feed: 'kr-exec', label: '임원 명단 변화(정기보고서)', tool: 'kr_signals', schedule: '평일 07:50·21:50', staleHours: 60 },
   // 정기보고서 숨은 대목(kr_report_notes.py, 11-15 기자 "다른 언론사가 받아쓸 만한 큰 단독"): 출입처 분기·반기·사업보고서의 제재 현황·중요한 소송·
   // 연결 범위 변동을 앞 보고서와 비교해 새로 적힌 줄만. 전부 B(새 감시는 낮게 시작) — 제재·소송 줄이 적고 제때 읽은 것만 문서 알림 대상
-  { feed: 'kr-report-notes', label: '정기보고서 숨은 대목(제재·소송·연결 범위)', tool: 'kr_signals', schedule: '평일 06:40·13:10·19:40, 토 09:40', staleHours: 80 },
+  { feed: 'kr-report-notes', label: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', tool: 'kr_signals', schedule: '평일 06:40·13:10·19:40, 토 09:40', staleHours: 80 },
   // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 회사 출신만 — 고위 출신 A)과
   // 출입처 소집공고 이사 후보(부실기업 경영진 여부 등), 상장사 등기임원 명단 순환 조회
   { feed: 'kr-exec-market', label: '수시 임원 공시·타사 임원 명단', tool: 'kr_signals', schedule: '매일 06:20·12:20·18:20', staleHours: 30 },
@@ -1177,7 +1177,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${e.company} ${e.period ?? ''} 보고서${filed ? `(접수 ${filed})` : ''}에 앞 보고서에 없던 ${e.kind} ${lines.length}줄${more ? `(${more.replace(/^…\s*/, '')} 더)` : ''}: `
         + `${lines.slice(0, 2).map((l) => `「${l.slice(0, 220)}」`).join(' / ')}${lines.length > 2 ? ' …' : ''}`
         + ` (자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다. 시점·금액·사유는 원문·회사 확인${e.late ? ' · 접수 뒤 늦게 읽음' : ''})`,
-      check: hint(e.company, words.length ? words : ({ 제재: ['제재'], 소송: ['소송'] }[e.kind] ?? ['자회사'])) });
+      check: hint(e.company, words.length ? words : ({ 제재: ['제재'], 소송: ['소송'], '보고기간 후 사건': ['매각'], '매각예정·중단영업': ['매각'] }[e.kind] ?? ['자회사'])) });
   }
 
   // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건
@@ -1527,7 +1527,8 @@ export function background(docs, nowMs) {
 // 굴뚝처럼 시끄러워지면 기자가 다시 좁힌다 — 등급(A·B·C)은 바꾸지 않는다.
 // 정기보고서 새 줄의 보도 대조 낱말(새 줄에 적힌 것만 고른다)과, 문서 알림을 거는 새 줄 수 상한
 const NOTE_WORDS = ['과징금', '과태료', '벌금', '추징', '시정명령', '영업정지', '조업정지', '입찰참가자격', '기소', '담합', '하도급', '중대재해', '산업안전', '퇴직연금', '통상임금',
-  '손해배상', '가처분', '특허', '세무조사', '화학물질', '공정위', '국세청', '관세청', '고용노동부', '금감원', '금융위', '환경부', '검찰'];
+  '손해배상', '가처분', '특허', '세무조사', '화학물질', '공정위', '국세청', '관세청', '고용노동부', '금감원', '금융위', '환경부', '검찰',
+  '매각', '인수', '합병', '분할', '청산', '폐쇄', '중단', '양도', '유상증자', '출자', '사채', '차입', '설립'];
 export const NOTE_ALERT_MAX = 5;
 const NOTE_OUTCOME = /판결|선고|승소|패소|기각|인용|화해|조정\s*성립|합의|취하|확정|종결|결정/;
 export function docAlert(x, verdict) {
@@ -1546,9 +1547,10 @@ export function docAlert(x, verdict) {
     if (x.flag === '정정') what = '공시 정정 중 큰 변경(붙은 보도는 원 공시 기사일 수 있음)';
     else if (!covered && /소송|가처분|판결|정정/.test(`${x.kind ?? ''} ${x.fact ?? ''}`)) what = '소송·정정 공시(보도 대조 미확인)';
   } else if (x.watch === notes) {
-    // 정기보고서에 새로 적힌 제재·소송(11-15 감시와 함께 넣음 — 기자가 뺄 수 있다): 제때 읽었고 새 줄이 몇 줄뿐일 때만.
-    // 수십 줄이 한꺼번에 새로 보이면 서식 변경일 가능성이 커 화면에만 둔다. 기일만 더해진 소송 진행 상황, 연결 범위도 화면에만.
-    if (!covered && !x.late && !x.noteRoutine && ['제재', '소송'].includes(x.note) && x.noteLines <= NOTE_ALERT_MAX) {
+    // 정기보고서에 새로 적힌 보고기간 후 사건·제재·소송(11-15 감시와 함께 넣음 — 기자가 뺄 수 있다): 제때 읽었고 새 줄이 몇 줄뿐일 때만.
+    // 보고기간 후 사건: 11-13 이데일리 단독(한화시마론 매각)이 11-12 분기보고서 연결 주석의 이 대목 한 문장이었다(probe 251).
+    // 수십 줄이 한꺼번에 새로 보이면 서식 변경일 가능성이 커 화면에만 둔다. 기일만 더해진 소송 진행 상황, 매각예정·중단영업, 연결 범위도 화면에만.
+    if (!covered && !x.late && !x.noteRoutine && ['보고기간 후 사건', '제재', '소송'].includes(x.note) && x.noteLines <= NOTE_ALERT_MAX) {
       return `문서 알림 — 정기보고서에 새로 적힌 ${x.note} ${x.noteLines}줄에 ${names.join('·')}(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨)`;
     }
   }

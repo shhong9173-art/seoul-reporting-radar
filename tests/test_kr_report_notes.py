@@ -98,7 +98,7 @@ class Notes(unittest.TestCase):
         self.assertEqual(sorted(ev), ["소송", "연결 범위", "제재"])
         self.assertEqual((ev["제재"]["id"], ev["제재"]["tier"], ev["제재"]["late"], ev["제재"]["url"]),
                          ("rptnote:00159616:202611014:sanction", "B", True, "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000111"))
-        self.assertEqual(doc["summary"]["newLines"], {"sanction": 1, "suit": 1, "consol": 1})
+        self.assertEqual(doc["summary"]["newLines"], {"after": 0, "held": 0, "sanction": 1, "suit": 1, "consol": 1})
         self.assertEqual([c for c in calls if c[0] == "document.xml"], [("document.xml", "20260814000222"), ("document.xml", "20261113000111")])
         calls.clear()
         again = self.run_once(previous=doc, calls=calls)                           # 같은 접수번호면 다시 받지 않는다
@@ -180,6 +180,43 @@ class Notes(unittest.TestCase):
         self.assertTrue(n.tail(long).startswith("진행상황: … "))
         self.assertTrue(n.tail(long).endswith("2026. 9. 18. 1심 판결 선고(원고 일부 승소)"))
         self.assertEqual(n.tail("진행상황: 1심 진행 중"), "진행상황: 1심 진행 중")
+
+    def test_events_after_the_period_need_no_baseline_and_held_for_sale_keeps_prose_only(self):
+        notes = ('<TITLE ATOC="N">15. 매각예정자산 및 중단영업 (연결)</TITLE><TABLE><TR><TD>유형자산</TD><TD>12,323</TD><TD>7,357</TD></TR>'
+                 '<TR><TE>연결실체는 상기 자산에 대하여 고압탱크 사업부 라인 가동 중단 및 사업장 매각 결정, 미국 오펠라이카 공장의 운영 중단 결정에 따라 매각예정자산 처리하였습니다.</TE></TR></TABLE>'
+                 '<TITLE ATOC="N">31. 보고기간후사건 (연결)</TITLE><TABLE><TR><TE>연결실체는 보고기간 종료일 이후인 2026년 10월 30일자로 종속기업인 Hanwha Cimarron LLC (지분율 100%)의 '
+                 '지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원).</TE></TR></TABLE>'
+                 '<TITLE ATOC="N">30. 보고기간후사건</TITLE><P>당사는 2026년 10월 20일 제45회 무보증사채 2,000억원을 발행하였습니다.</P>')
+        s = n.sections(Q3 + notes)
+        self.assertEqual(len(s["after"]), 2)                                   # 연결·별도 주석을 합친다
+        self.assertIn("Hanwha Cimarron LLC (지분율 100%)의 지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원).", s["after"][0])
+        self.assertEqual(len(s["held"]), 1)                                    # 숫자 표 줄은 빼고 글로 적은 줄만
+        doc = self.run_once(docs={"20261113000111": Q3 + notes, "20260814000222": H1})   # 앞 보고서(H1)에는 두 주석이 없다
+        c = doc["companies"]["두산에너빌리티"]
+        self.assertEqual((len(c["new"]["after"]), c["new"].get("held"), c["nobase"], c["v"]), (2, None, ["held"], n.VERSION))
+        ev = {e["kind"]: e for e in doc["events"]}
+        self.assertEqual(ev["보고기간 후 사건"]["id"], "rptnote:00159616:202611014:after")
+        # 앞서 읽은 접수번호라도 읽는 대목이 늘기 전(v 없음)에 읽은 것은 한 번 다시 읽는다
+        old = {**doc, "companies": {"두산에너빌리티": {k: v for k, v in c.items() if k != "v"}}}
+        calls = []
+        again = self.run_once(previous=old, docs={"20261113000111": Q3 + notes, "20260814000222": H1}, calls=calls)
+        self.assertEqual(len([x for x in calls if x[0] == "document.xml"]), 2)
+        self.assertEqual({e["detectedAt"] for e in again["events"]}, {doc["events"][0]["detectedAt"]})
+        # 실제 꼴(probe 252): 사건이 열로 나뉜 표 — 칸 이름 줄, 사건을 글로 적은 세 칸 줄, 숫자뿐인 두 칸 줄
+        real = ('<TITLE ATOC="N">31. 보고기간후사건 (연결)</TITLE><P>수정을 요하지 않는 보고기간후사건에 대한 공시</P><TABLE>'
+                '<TR><TD></TD><TD>타인을 위하여 제공한 담보</TD><TD>주요 종속기업의 처분</TD></TR>'
+                '<TR><TD>수정을 요하지 않는 보고기간후사건의 성격에 대한 기술</TD><TE>회사는 잠실마이스㈜의 PF대출 대주단으로부터의 차입에 대하여 회사가 보유하는 주식을 담보로 제공하기로 2026년 10월 13일 이사회에서 결의하였습니다.</TE>'
+                '<TE>연결실체는 보고기간 종료일 이후인 2026년 10월 30일자로 종속기업인 Hanwha Cimarron LLC (지분율 100%)의 지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원).</TE></TR>'
+                '<TR><TD>담보설정금액</TD><TD>68,271</TD></TR><TR><TD>처분일자</TD><TD>2026-10-30</TD></TR><TR><TD>매각대가</TD><TD>58,962</TD></TR></TABLE>'
+                '<TITLE ATOC="N">15. 매각예정자산 및 중단영업 (연결)</TITLE><TABLE><TR><TD>자산의 분류</TD><TD>매각예정으로 분류된 비유동 자산이나 처분자산집단</TD><TD>재고자산</TD><TD>0</TD></TR>'
+                '<TR><TD>자산의 분류 합계</TD><TD>79,500</TD><TE>연결실체는 상기 자산에 대하여 미국 시마론 오펠라이카 공장의 운영 중단 결정에 따라 매각예정자산 처리하였습니다.</TE></TR></TABLE>')
+        r = n.sections(Q3 + real)
+        self.assertEqual(r["after"], ["회사는 잠실마이스㈜의 PF대출 대주단으로부터의 차입에 대하여 회사가 보유하는 주식을 담보로 제공하기로 2026년 10월 13일 이사회에서 결의하였습니다.",
+                                      "연결실체는 보고기간 종료일 이후인 2026년 10월 30일자로 종속기업인 Hanwha Cimarron LLC (지분율 100%)의 지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원)."])
+        self.assertEqual(r["held"], ["연결실체는 상기 자산에 대하여 미국 시마론 오펠라이카 공장의 운영 중단 결정에 따라 매각예정자산 처리하였습니다."])
+        # 주석마다 제목 표시가 없는 보고서: 소제목으로 찾는다
+        plain = Q3 + '<P>31. 보고기간후사건</P><P>당사는 2026년 11월 3일 이사회에서 인도네시아 법인 청산을 결의하였습니다.</P><TITLE ATOC="Y">4. 재무제표</TITLE><P>다른 대목</P>'
+        self.assertEqual(n.sections(plain)["after"], ["당사는 2026년 11월 3일 이사회에서 인도네시아 법인 청산을 결의하였습니다."])
 
     def test_late_reads_are_marked_and_a_reread_keeps_the_first_seen_time(self):
         first = self.run_once()                                               # 감시 첫 실행 — 늦게 읽은 것으로 표시(알림 없음)
