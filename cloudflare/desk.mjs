@@ -32,6 +32,9 @@ export const DESK_TYPES = [
     test: (x) => x.watch === W.remedy && /^무역위 (?:새 반덤핑 조사|새 조사|회의 예고)/.test(x.kind ?? '') },
   { key: 'uscourt', strength: 'strong', label: '미국 법원·ITC(출입처가 당사자)', why: '11-09 [단독] 포스코 美 열연 상계관세 CIT 제소',
     test: (x) => x.watch === W.court && x.tier === 'A' },
+  // 미국 관보 판정(11-15 기자 결정: 출입처 이름이 든 관보 판정은 B여도 바로 알림). 개시 공고처럼 이름만 나온 고시(C)는 아니다.
+  { key: 'usfr', strength: 'strong', label: '미국 관보 판정·ITC 피해 판정(출입처 이름)', why: '11-15 기자 결정 — 10-28~11-05 경쟁지 단독 4건(열연 상계관세·도금강판·변압기·강관)이 이 문서들에서 나왔다(자동 대조)',
+    test: (x) => x.watch === W.remedy && x.tier !== 'C' && /^미국 (?:관보|ITC 피해 판정)/.test(x.kind ?? '') && companiesIn(x.company ?? '').size > 0 },
   // 英 S-PVC 단독은 '출입처·한국 정부 이름이 적힌 문서'였다 — 이름 없이 목록에 한국산 줄이 생긴 것(인도 DGTR 목록 등)은 실적 있는 유형으로 올리지 않는다.
   // 11-13 운영: 그날 맨 위 8건이 모두 인도 DGTR 목록 줄(같은 조사가 세 줄씩)이었다.
   { key: 'foreigndoc', strength: 'strong', label: '해외 무역구제·규제 문서(출입처·한국 정부 이름)', why: "11-10 [단독] 英 S-PVC 반덤핑 '한국 특별시장상황' 의견서",
@@ -43,7 +46,8 @@ export const DESK_TYPES = [
     note: "목록에 줄이 새로 보였다는 것뿐 — 새 조사가 아닐 수 있다(진행 중인 조사에 절차 공지만 붙어도 목록에 다시 뜬다). 원문 사건 페이지에서 개시 고시 날짜와 가장 최근 문서부터 확인. 그다음 그 품목을 만드는 출입처(〔출입처 단서〕가 있으면 그 회사에 먼저). 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
     test: (x) => foreignDoc(x) },
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
-    test: (x) => x.watch === W.screen && x.tier === 'A' },
+    // 공시(DART)에서 나온 단서만 — 조달청 입찰공고 같은 다른 공개 단서는 '그 밖'(11-15 운영: LS일렉트릭 워크스테이션 구매 입찰공고가 이 유형 맨 위에 떴다)
+    test: (x) => x.watch === W.screen && x.tier === 'A' && /dart\.fss\.or\.kr/.test(x.url ?? '') },
   { key: 'building', strength: 'strong', label: '공장 부지 건축허가(신축 1,000㎡ 이상)', why: '10-30 기사(LS전선 구미 희토류 영구자석 공장) 18시간 앞 — 자동 대조',
     test: (x) => x.watch === W.building && x.tier === 'A' },
   // --- 약한 유형: 기자가 여러 번 킬·접음 ---
@@ -162,11 +166,19 @@ export async function scoopDesk(ctx, args) {
       && (r.x.alert || (r.x.tier === 'A' && r.type.strength !== 'weak' && !isCovered(r))))
       .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0)
         || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
-    const o = [`즉시 알림 대상 · ${kstStamp(d.now.toISOString())} KST · 최근 ${hours}시간 · ${pick.length}건`];
+    // 두 묶음: ① 실적 있는 갈래(기자가 단독을 쓴 유형)와 표시 붙은 것 — 원문·보도 대조를 거쳐 보낸다 ② 그 밖 A — 한 줄씩만(실적이 없다:
+    // 11-03~11-12 알림 32건 중 씀 0건). 묶음 ②가 알림을 덮지 않게 3건까지만 보여 준다.
+    const first = pick.filter((r) => r.x.alert || r.type.strength === 'strong');
+    const rest = pick.filter((r) => !first.includes(r));
+    const o = [`즉시 알림 대상 · ${kstStamp(d.now.toISOString())} KST · 최근 ${hours}시간 · ${pick.length}건(실적 있는 갈래·문서 알림 ${first.length} · 그 밖 A ${rest.length})`];
     o.push("고른 기준: A(기자가 여러 번 킬한 약한 유형과 '관련 보도 있음' 제외) + 〔즉시 알림 대상〕 표시(문서 알림·굴뚝 겹친 신호). 이미 알림으로 보낸 것·처리한 것·기자가 쓴 것은 빠져 있다. 0건이면 보낼 것이 없다 — 채우지 않는다.");
     if (d.health.length) o.push(`[수집 상태 — 실패·오래됨은 0건이 아니라 미확인]\n${d.health.slice(0, 4).join('\n')}${d.health.length > 4 ? `\n… 그 밖 ${d.health.length - 4}줄(radar_today)` : ''}`);
-    for (const r of pick.slice(0, limit)) o.push(...candLines(r));
-    if (pick.length > limit) o.push(`… 남은 ${pick.length - limit}건(다음 알림에서)`);
+    o.push(`\n〈1. 실적 있는 갈래·문서 알림 — 원문·보도 대조 뒤 보낼 것〉 ${first.length}건`);
+    for (const r of first.slice(0, limit)) o.push(...candLines(r));
+    if (first.length > limit) o.push(`… 남은 ${first.length - limit}건(다음 알림에서)`);
+    o.push(`\n〈2. 그 밖 A — 한 줄씩만〉 ${rest.length}건`);
+    for (const r of rest.slice(0, 3)) o.push(`- ${r.x.watch}${r.x.company ? ` · ${r.x.company}` : ''} · ${clipAt(r.x.fact, 170)}${r.before ? ' ⚠ 항목 날짜 전 기사 있음(옛 일일 수 있음)' : ''} · 자세히: ${r.x.tool} · id ${r.x.id}`);
+    if (rest.length > 3) o.push(`… 남은 ${rest.length - 3}건(radar_today·scoop_desk에서)`);
     if (!d.ledger) o.push('⚠ 처리 장부를 읽지 못했다 — 이미 처리한 건·이미 보낸 알림이 섞였을 수 있다(scoop_packages로 직접 확인).');
     o.push("규칙: 여기 뜬 것도 단독 확정이 아니다 — '미보도 후보'는 검색 범위 결과일 뿐이고 수집 실패는 미보도의 증거가 아니다. 관계자 발언을 만들지 않는다.");
     return textResult(o.join('\n'));

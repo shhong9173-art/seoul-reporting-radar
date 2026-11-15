@@ -2710,13 +2710,15 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   assert.doesNotMatch(a, /문서 알림/);   // A는 원래 알림 대상이라 표시하지 않는다
   // 즉시 알림 화면(scoop_desk alerts=true): A(약한 유형·기보도 제외)와 표시 붙은 B만, 보낸 뒤에는 빠진다
   const al = (await call('scoop_desk', { alerts: true, hours: 72 }, opts)).text;
-  assert.match(al, /^즉시 알림 대상 · [^\n]* · 최근 72시간 · 3건\n고른 기준: A\(기자가 여러 번 킬한 약한 유형과 '관련 보도 있음' 제외\) \+ 〔즉시 알림 대상〕 표시/);
+  assert.match(al, /^즉시 알림 대상 · [^\n]* · 최근 72시간 · 3건\(실적 있는 갈래·문서 알림 3 · 그 밖 A 0\)\n고른 기준: A\(기자가 여러 번 킬한 약한 유형과 '관련 보도 있음' 제외\) \+ 〔즉시 알림 대상〕 표시/);
+  assert.match(al, /\n〈1\. 실적 있는 갈래·문서 알림 — 원문·보도 대조 뒤 보낼 것〉 3건\n- A · /);
+  assert.match(al, /\n〈2\. 그 밖 A — 한 줄씩만〉 0건\n/);
   assert.match(al, /- A · [^\n]*KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant/);
   assert.match(al, /- B · [^\n]*LS일렉트릭·HD현대일렉트릭\n   미국 관보 예비 판정: Large Power Transformers[\s\S]*?id fr:2026-22343 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 LS일렉트릭·HD현대일렉트릭/);
   assert.doesNotMatch(al, /\[1\. 새 후보|\[4\. 걷어낸 것\]/);
   await call('package_save', { name: 'alert-20261025', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 10-25 · 누적 2건', body: '[단독 후보 알림 08:43] 2건\n…\n보낸 id: fr:2026-20698, fr:2026-22343' }, opts);
   const al2 = (await call('scoop_desk', { alerts: true, hours: 72 }, opts)).text;
-  assert.match(al2, /최근 72시간 · 1건\n/);
+  assert.match(al2, /최근 72시간 · 1건\(실적 있는 갈래·문서 알림 1 · 그 밖 A 0\)\n/);
   assert.doesNotMatch(al2, /fr:2026-20698|fr:2026-22343/);
   assert.match(al2, /id fr:x 〔즉시 알림 대상/);
   // 보통 단독 데스크 화면에도 표시가 보인다
