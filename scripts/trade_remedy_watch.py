@@ -591,6 +591,52 @@ def itc_outcome(text, title=""):
     return {"phase": phase, "korea": korea, "quote": body.strip()[:400], "dissent": dissent[:2]}
 
 
+# 관보 사전 공개본(public inspection, 11-15): 게재 전 영업일 08:45(미 동부 — 한국 22:45, 여름 21:45)에 공개된다. 문서 API도 다음 호 문서를
+# 게재 전에 주지만(탐침 247) 평일에 얼마나 일찍인지는 모른다 — 사전 공개본 목록은 공개 시각이 정해져 있다. 같은 문서 번호라 게재되면 같은 줄로 이어진다.
+# 탐침 245·246: current.json 한 번에 그날 전부(약 100건), 칸은 toc_doc(줄인 제목 — '…; Correction'처럼 판정 단계가 빠진다)·raw_text_url·filed_at.
+# 진짜 제목과 사건 번호는 본문 머리('[A-580-870]' 다음 줄부터 'AGENCY:' 전까지)에 있다.
+PI_API = "https://www.federalregister.gov/api/v1/public-inspection-documents/current.json"
+PI_AGENCIES = {"international-trade-administration", "international-trade-commission"}
+CASE_NO = re.compile(r"\b[AC]-\d{3}-\d{3}\b")
+
+
+def pi_head(lines):
+    """사전 공개본 본문 머리 → (제목, [사건 번호]). 꼴이 다르면 (None, [])."""
+    rows = [str(l).strip() for l in (lines.split("\n") if isinstance(lines, str) else lines) if str(l).strip()][:40]
+    for i, line in enumerate(rows):
+        if re.fullmatch(r"\[[^\]]{3,200}\]", line):
+            title = []
+            for nxt in rows[i + 1:i + 9]:
+                if re.match(r"(?:AGENCY|ACTION|SUMMARY)\s*:", nxt):
+                    break
+                title.append(nxt)
+            text = re.sub(r"\s+", " ", " ".join(title)).strip()
+            return (text[:400] if len(text) >= 12 else None), CASE_NO.findall(line)
+    return None, []
+
+
+def pi_documents(get, have):
+    """사전 공개본 가운데 무역 기관 문서이고 줄인 제목에 Korea가 든 것(문서 API에 아직 없는 번호만) → (문서 API와 같은 꼴의 줄, 오류)."""
+    try:
+        r = get(PI_API, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=40)
+        if r.status_code != 200:
+            return [], f"사전 공개본 HTTP {r.status_code}"
+        res = r.json().get("results") or []
+    except Exception as e:  # noqa: BLE001
+        return [], f"사전 공개본 {type(e).__name__}"
+    out = []
+    for x in res:
+        no = x.get("document_number")
+        slugs = {a.get("slug") for a in x.get("agencies") or [] if isinstance(a, dict)}
+        toc = x.get("toc_doc") or x.get("title") or ""
+        if not no or no in have or not (slugs & PI_AGENCIES) or not re.search(r"korea", toc, re.I) or not x.get("raw_text_url"):
+            continue
+        out.append({"title": toc, "publication_date": x.get("publication_date"), "html_url": x.get("html_url"), "document_number": no,
+                    "agencies": x.get("agencies") or [], "raw_text_url": x["raw_text_url"], "docket_ids": x.get("docket_numbers") or [],
+                    "pi": True, "filed_at": x.get("filed_at")})
+    return out, None
+
+
 def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     """ITA·ITC notices from the last FR_DAYS that name Korea in the title, plus omnibus notices (review initiations,
     337 complaints) — bodies are scanned once for beat company names and the result is cached by document number."""
@@ -613,8 +659,28 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         return [], type(e).__name__, 0
     prev = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict) and x.get("id")}
     rows, budget, prior_budget, throttled = [], BODY_BUDGET, PRIOR_BUDGET, False
-    for x in data.get("results") or []:
+    listed = list(data.get("results") or [])
+    early, pi_err = pi_documents(get, {x.get("document_number") for x in listed})
+    for x in listed + early:
         title = x.get("title") or ""
+        pre = None   # 사전 공개본: 제목을 알려고 먼저 읽은 본문(아래에서 다시 받지 않는다)
+        if x.get("pi"):
+            kept = prev.get(f"fr:{x.get('document_number')}") or {}
+            if kept.get("pi") and kept.get("title"):
+                title, x = kept["title"], {**x, "docket_ids": kept.get("dockets") or x.get("docket_ids")}
+            elif budget > 0 and not throttled:
+                budget -= 1
+                pre, perr = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
+                sleep(0.5)
+                throttled = throttled or perr == "HTTP 429"
+                if pre is None:
+                    continue   # 이번에는 못 읽었다 — 다음 실행에 다시(줄을 만들지 않는다)
+                head, cases = pi_head(text_lines(pre))
+                title = head or title
+                if cases and not x.get("docket_ids"):
+                    x = {**x, "docket_ids": cases}
+            else:
+                continue
         in_title = bool(re.search(r"korea", title, re.I))
         if not in_title and not OMNIBUS.search(title):
             continue  # Korea only in the body of another country's case
@@ -624,10 +690,14 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                "stage": stage_of(title), "koreaInTitle": in_title, "omnibus": not in_title,
                "section337": is_337(title),
                "beatProduct": bool(BEAT_PRODUCTS.search(title))}
+        if x.get("pi"):
+            row["pi"], row["filedAt"] = True, x.get("filed_at")
         dockets = [d.strip() for v in x.get("docket_ids") or [] for d in str(v).split(",") if d.strip()]
         if dockets:
             row["dockets"] = dockets
         old = prev.get(did) or {}
+        if old.get("pi") and not x.get("pi"):
+            old = {}   # 사전 공개본으로 읽어 둔 줄이 게재됐다 — 게재본 글자로 다시 읽는다(표 꼴이 다르다). 처음 본 때는 run()이 이어 준다
         for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome", "correction", "namedVia"):
             if k in old:
                 row[k] = old[k]
@@ -642,10 +712,13 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         wants_rates = results and ("rateTable" not in row or stale_rates)   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
         # 정정 고시 규칙(11-15) 전에 읽어 둔 정정 고시도 한 번 다시 읽는다
         wants_fix = results and bool(CORRECTION.search(title)) and "correction" not in row and not (row.get("rateTable") or {}).get("rates")
-        if ("named" not in row or wants_memo or wants_rates or wants_fix) and x.get("raw_text_url") and budget > 0 and not throttled:
-            budget -= 1
-            body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
-            sleep(0.5)
+        if ("named" not in row or wants_memo or wants_rates or wants_fix) and x.get("raw_text_url") and (pre is not None or (budget > 0 and not throttled)):
+            if pre is not None:
+                body, err = pre, None
+            else:
+                budget -= 1
+                body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
+                sleep(0.5)
             if err == "HTTP 429":
                 throttled = True   # 관보가 호출을 막으면 이번 실행은 본문·직전 판정 읽기를 멈춘다(다음 실행에 이어 읽음)
             if body is not None:
@@ -705,6 +778,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         if row["omnibus"] and "named" in row and not row["named"]:
             continue  # omnibus notice that names no beat company
         rows.append(row)
+    federal_register.pi_error = pi_err   # 사전 공개본만 못 읽은 것은 목록 실패가 아니다 — run()이 '일부'로 적는다
     return rows, ("본문 HTTP 429(관보 호출 제한) — 이번 실행은 본문 읽기 멈춤, 다음 실행에 이어 읽음" if throttled else None), BODY_BUDGET - budget
 
 
@@ -883,8 +957,9 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
                    **({"error": "; ".join(terr[:3]) or "상세 조회 실패"} if terr or not ok_q else {})})
     fr, ferr, bodies = federal_register(now, previous, get=get, sleep=sleep)
     throttled = bool(ferr) and "429" in ferr and bool(fr)
-    checks.append({"source": "미국 관보", "status": "partial" if throttled else "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
-                   **({"error": ferr} if ferr else {})})
+    pi_err = getattr(federal_register, "pi_error", None)
+    checks.append({"source": "미국 관보", "status": "partial" if throttled or (pi_err and not ferr) else "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
+                   **({"error": ferr} if ferr else {"error": f"{pi_err} — 게재 전 문서는 문서 API로만 봄"} if pi_err else {})})
     if throttled:
         ferr = None   # 목록은 읽었다 — 본문만 일부 못 읽음
     pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token, browser=browser)
@@ -1062,8 +1137,9 @@ def main():
     us_today = (now.astimezone(dt.timezone(dt.timedelta(hours=-5)))).strftime("%Y-%m-%d")
     ahead = sum(1 for x in doc["federalRegister"] if str(x.get("date") or "") > us_today)
     fixed = sum(1 for x in doc["federalRegister"] if (x.get("rateTable") or {}).get("correction"))
+    early = sum(1 for x in doc["federalRegister"] if x.get("pi"))
     emit(f"::notice title=trade-remedy::{doc['quarter']} 분기 쿼터 {len(q)}/{len(doc['quotas'])} 조회 · 소진 {exhausted} · 표시 {hot} · "
-          f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named} · 게재 전 다음 호 문서 {ahead} · 정정 고시 읽음 {fixed}) · 이번 신규 이벤트 {new_events}")
+          f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named} · 게재 전 다음 호 문서 {ahead}(그중 사전 공개본으로만 본 것 {early}) · 정정 고시 읽음 {fixed}) · 이번 신규 이벤트 {new_events}")
     emit(f"::notice title=trade-remedy-checks::{checks}")
     frs = doc.get("federalRegister") or []
     emit(f"::notice title=trade-remedy-rates::관보 판정 세율 표 {sum(1 for x in frs if (x.get('rateTable') or {}).get('rows'))}건(출입처 줄 "
