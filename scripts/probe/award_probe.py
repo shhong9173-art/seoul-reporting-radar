@@ -1,36 +1,43 @@
-"""probe 247: 관보 문서 API가 게재 전(다음 호) 문서를 언제부터 보여 주는지. 공개 자료만, 저장 안 함."""
-import datetime as dt, re
+"""probe 248: 단독 원천 후보가 열리는지(상태·제목·관련 줄 몇 개만). 공개 페이지만, 저장 안 함."""
+import re
 
 import requests
 
 OUT = []
-H = {"User-Agent": "seoul-reporting-radar probe (contact: github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json"}
-try:
-    now = dt.datetime.now(dt.timezone.utc)
-    OUT.append("지금 " + now.isoformat(timespec="minutes"))
-    pi = requests.get("https://www.federalregister.gov/api/v1/public-inspection-documents/current.json", headers=H, timeout=60).json()
-    res = pi.get("results") or []
-    by = {}
-    for x in res:
-        by.setdefault((x.get("publication_date"), x.get("filing_type")), []).append(x.get("document_number"))
-    OUT.append("사전 공개본: " + " · ".join(f"게재 {k[0]} {k[1]} {len(v)}건" for k, v in sorted(by.items(), key=lambda kv: str(kv[0]))) + f" · regular 갱신 {pi.get('regular_filings_updated_at')} · special 갱신 {pi.get('special_filings_updated_at')}")
-    for day in ("2026-11-13", "2026-11-16", "2026-11-17"):
-        r = requests.get("https://www.federalregister.gov/api/v1/documents.json", params=[("conditions[publication_date][is]", day), ("per_page", "5"), ("fields[]", "document_number"), ("fields[]", "publication_date")], headers=H, timeout=60)
-        j = r.json()
-        OUT.append(f"문서 API 게재일 {day}: HTTP {r.status_code} count {j.get('count')}")
-    # 무역 기관만, 게재일 11-16
-    r = requests.get("https://www.federalregister.gov/api/v1/documents.json", params=[("conditions[publication_date][is]", "2026-11-16"), ("conditions[agencies][]", "international-trade-administration"), ("conditions[agencies][]", "international-trade-commission"), ("per_page", "100"), ("fields[]", "document_number"), ("fields[]", "title")], headers=H, timeout=60)
-    docs = {d.get("document_number") for d in r.json().get("results") or []}
-    pit = {x.get("document_number") for x in res if x.get("publication_date") == "2026-11-16" and any((a.get("slug") in ("international-trade-administration", "international-trade-commission")) for a in x.get("agencies") or [] if isinstance(a, dict))}
-    OUT.append(f"무역 기관 게재일 11-16: 문서 API {len(docs)}건 · 사전 공개본 {len(pit)}건 · 둘 다 {len(docs & pit)}건 · 사전 공개본에만 {sorted(pit - docs)[:6]} · 문서 API에만 {sorted(docs - pit)[:6]}")
-    # 문서 한 건의 메타(언제 만들어졌는지 단서)
-    one = requests.get("https://www.federalregister.gov/api/v1/documents/2026-23258.json", headers=H, timeout=60)
-    if one.status_code == 200:
-        j = one.json()
-        OUT.append("문서 2026-23258: " + " | ".join(f"{k}={str(j.get(k))[:80]}" for k in ("publication_date", "signing_date", "effective_on", "page_views", "start_page", "volume", "citation", "raw_text_url", "body_html_url", "public_inspection_pdf_url")))
-    else:
-        OUT.append(f"문서 2026-23258 HTTP {one.status_code}")
-except Exception as e:
-    OUT.append(f"실패 {type(e).__name__}: {str(e)[:200]}")
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36", "Accept-Language": "en,ko;q=0.8"}
+
+
+def look(name, url, pats, **kw):
+    try:
+        r = requests.get(url, headers=UA, timeout=40, **kw)
+        body = r.text
+        title = re.sub(r"\s+", " ", (re.search(r"<title[^>]*>(.*?)</title>", body, re.S | re.I) or [None, ""])[1])[:80]
+        text = re.sub(r"\s+", " ", re.sub(r"<(script|style)\b.*?</\1>", " ", body, flags=re.S | re.I))
+        plain = re.sub(r"<[^>]+>", " ", text)
+        hits = []
+        for p in pats:
+            for m in list(re.finditer(p, plain, re.I))[:3]:
+                hits.append(re.sub(r"\s+", " ", plain[max(0, m.start() - 90):m.end() + 130]).strip())
+        links = [h for h in re.findall(r'href="([^"]+)"', body) if re.search(r"combin|merger|notif|frnotice|ajgs|jyzjz|처분|disposal|xls|json|api", h, re.I)][:8]
+        OUT.append(f"[{name}] HTTP {r.status_code} · {len(body)}자 · 제목 {title!r} · 최종 주소 {r.url[:90]}")
+        for h in hits[:5]:
+            OUT.append("   · " + h[:300])
+        if links:
+            OUT.append("   링크: " + " | ".join(l[:90] for l in links))
+    except Exception as e:  # noqa: BLE001
+        OUT.append(f"[{name}] 실패 {type(e).__name__}: {str(e)[:120]}")
+
+
+look("미 상무부 ACCESS 관보 고시 목록", "https://access.trade.gov/public/FRNoticesListLayout.aspx", [r"Oil Country[^|]{0,80}Korea", r"Korea[^|]{0,60}(?:Final|Preliminary) (?:Results|Determination)", r"\d{1,2}/\d{1,2}/2026"])
+look("미 상무부 ACCESS frnotices", "https://access.trade.gov/frnotices", [r"Korea", r"Signed|Signature|Date"])
+look("EU 기업결합 사건 검색", "https://competition-cases.ec.europa.eu/search?caseInstrument=M&sortField=caseLastDecisionDate&sortOrder=DESC", [r"POSCO|Hyundai|Hanwha|LG Chem"])
+look("EU 기업결합 최근 신고(옛 목록)", "https://ec.europa.eu/competition/mergers/cases/index/by_notif_date.html", [r"POSCO|HYUNDAI|HANWHA|LG CHEM|SK ", r"20\d\d"])
+look("EU 사건 API 추정", "https://competition-cases.ec.europa.eu/api/v1/cases?caseInstrument=M&pageSize=5", [r"caseNumber|caseTitle"])
+look("인도 CCI 기업결합", "https://www.cci.gov.in/combination/summary-of-combinations-under-review", [r"POSCO|Hyundai|Kia|LG|Hanwha|JSW", r"C-20\d\d/\d\d/\d+"])
+look("인도 CCI 첫 화면", "https://www.cci.gov.in/", [r"combination"])
+look("중국 SAMR 간이사건 공시", "https://www.samr.gov.cn/fldes/ajgs/jyaj/", [r"现代|起亚|浦项|韩华|LG|SK", r"经营者集中"])
+look("중국 SAMR 반독점국", "https://www.samr.gov.cn/fldes/", [r"简易案件|公示"])
+look("통합환경허가시스템", "https://ieps.nier.go.kr/", [r"행정처분|처분\s*현황|정보공개"])
+look("환경부 통합허가 행정처분 공개", "https://ieps.nier.go.kr/web/board/5/?menu=41", [r"행정처분|조업정지|과징금|포스코|현대제철"])
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
