@@ -441,6 +441,48 @@ def rate_table(text, title):
     return {"kind": duty_kind(title), "rates": rates, "othersRate": others, "rows": len(rows), "v": RATE_RULES}
 
 
+# 정정 고시(11-15): 본문에 세율 표도 회사 목록도 없이 "correct … for: (1) NEXTEEL Co., Ltd. to 29.18 percent; and (2) the non-examined
+# companies to 19.49 percent" 한 문장뿐이다. 고쳐진 세율이 어느 출입처에 닿는지는 정정 대상 판정(같은 사건 직전 최종)의 세율 표로만 안다.
+# 운영: 유정용 강관 2023-2024 최종(9-24) 정정(게재 11-16) — 비선정 업체 19.87%→19.49%, 그 목록에 현대제철. 이름이 없어 C(접힘)로 떨어져 있었다.
+CORRECTION = re.compile(r"\bCorrection\b", re.I)
+FIX_ITEM = re.compile(r"\(\d+\)\s*(?:the\s+)?(.+?)\s+to\s+(\d+(?:\.\d+)?)\s+percent", re.I)
+FIX_ONE = re.compile(r"\bfor:?\s+(?:the\s+)?(.+?)\s+to\s+(\d+(?:\.\d+)?)\s+percent", re.I)
+
+
+def correction_rates(lines):
+    """정정 고시의 '… to N percent' 대목 → ([(이름, 세율)], 원문 대목). 없으면 ([], '')."""
+    text = re.sub(r"\s+", " ", " ".join(lines) if isinstance(lines, (list, tuple)) else str(lines))
+    m = re.search(r"\bcorrect (?:the|a|an)\b.{0,700}?(?=Notification to|Dated:|$)", text, re.I)
+    if not m:
+        return [], ""
+    span = m.group(0).strip()
+    fixes = [(n.strip(" ,;"), float(v)) for n, v in FIX_ITEM.findall(span)] or [(n.strip(" ,;"), float(v)) for n, v in FIX_ONE.findall(span)]
+    return [(n[:120], v) for n, v in fixes if 2 <= len(n) <= 160], span[:400]
+
+
+def corrected_table(base, fixes, title):
+    """정정 대상 판정(base: prior_rates의 final)의 세율에 정정을 입힌 표 → (rateTable, named, 이름 출처). 바뀐 출입처만 named에 든다."""
+    old = base.get("rates") or {}
+    rates = {c: {"rate": v, "name": "정정 대상 판정 그대로", "via": "직전"} for c, v in old.items()}
+    others, changed = base.get("othersRate"), []
+    for name, val in fixes:
+        if OTHERS.search(name):
+            for c, v in old.items():
+                if base.get("othersRate") is not None and v == base["othersRate"]:
+                    rates[c] = {"rate": val, "name": "비선정 업체", "via": "비선정"}
+                    changed.append(c)
+            others = val
+            continue
+        for company, rx in BEAT_NAMES:
+            if re.search(rx, name, re.I):
+                rates[company] = {"rate": val, "name": name[:120], "via": "정정"}
+                changed.append(company)
+    table = {"kind": duty_kind(title), "rates": rates, "othersRate": others, "rows": len(fixes), "v": RATE_RULES, "correction": True}
+    where = f"정정 대상 판정({base.get('date')})의 세율 표"
+    named = [{"company": c, "mentions": 0, "lines": [where]} for c in dict.fromkeys(changed)]
+    return table, named, where
+
+
 PRIOR_BUDGET = 6   # 직전 판정 원문 읽기(실행당)
 RATE_RULES = 3     # 세율 읽는 규칙을 바꾸면 올린다 — 저장된 세율·직전 판정을 다시 읽는다(v2: 비선정 부록 제목·본문 줄임말, v3: 점선 없는 줄)
 
@@ -586,7 +628,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         if dockets:
             row["dockets"] = dockets
         old = prev.get(did) or {}
-        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome"):
+        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome", "correction", "namedVia"):
             if k in old:
                 row[k] = old[k]
         if row.get("memoTopics"):
@@ -598,7 +640,9 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         itc_vote = in_title and bool(ITC_TITLE.search(title)) and "International Trade Commission" in agency
         wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
         wants_rates = results and ("rateTable" not in row or stale_rates)   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
-        if ("named" not in row or wants_memo or wants_rates) and x.get("raw_text_url") and budget > 0 and not throttled:
+        # 정정 고시 규칙(11-15) 전에 읽어 둔 정정 고시도 한 번 다시 읽는다
+        wants_fix = results and bool(CORRECTION.search(title)) and "correction" not in row and not (row.get("rateTable") or {}).get("rates")
+        if ("named" not in row or wants_memo or wants_rates or wants_fix) and x.get("raw_text_url") and budget > 0 and not throttled:
             budget -= 1
             body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
             sleep(0.5)
@@ -619,8 +663,26 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                     row["rateTable"] = rate_table(lines, title) or {"kind": duty_kind(title), "rates": {}, "othersRate": None, "rows": 0, "v": RATE_RULES}
                 if itc_vote:
                     row["itcOutcome"] = itc_outcome(lines, title) or {"phase": None, "korea": None, "quote": "", "dissent": []}
+                if results and CORRECTION.search(title) and not row["rateTable"].get("rates"):
+                    fixes, quote = correction_rates(lines)
+                    row["correction"] = {"fixes": [[n, v] for n, v in fixes], "quote": quote} if fixes else {}
             else:
                 row["bodyError"] = err
+        # 정정 고시: 정정 대상 판정(같은 사건 직전 최종)의 세율 표에 정정을 입혀 어느 출입처 세율이 바뀌었는지 본다
+        fix = row.get("correction") or {}
+        if fix.get("fixes") and not (row.get("rateTable") or {}).get("correction") and dockets and prior_budget > 0 and not throttled:
+            prior, used, perr = prior_rates(row, dockets, get=get, sleep=sleep, budget=prior_budget)
+            prior_budget -= max(used, 1)
+            throttled = throttled or "429" in str(perr)
+            base = (prior or {}).get("final")
+            if base:
+                row["prior"] = prior
+                row["rateTable"], named, row["namedVia"] = corrected_table(base, [(n, v) for n, v in fix["fixes"]], title)
+                if named:
+                    row["named"] = named
+                row.pop("priorError", None)
+            else:
+                row["priorError"] = perr or "정정 대상 판정을 찾지 못함"   # 다음 실행에 다시 본다
         table = row.get("rateTable") or {}
         if (table.get("rates") or table.get("othersRate") is not None) and "prior" not in row and dockets and prior_budget > 0 and not throttled:
             prior, used, perr = prior_rates(row, dockets, get=get, sleep=sleep, budget=prior_budget)
@@ -995,8 +1057,13 @@ def main():
     new_events = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     checks = " ;; ".join(f"{c['source']}={c['status']}({c.get('returned', 0)}{', ' + c['error'] if c.get('error') else ''})" for c in doc["checks"])
     named = sum(1 for x in doc["federalRegister"] if x.get("named"))
+    # 관보 문서 API는 다음 호 문서를 게재 전에 준다(11-15 탐침 247: 월요일 호 104건이 일요일에 이미 있었다 — 사전 공개본과 무역 기관 26건 일치).
+    # 평일에 몇 시간 전부터 주는지는 이 숫자를 실행 시각별로 며칠 보면 안다(07:40·21:30 실행).
+    us_today = (now.astimezone(dt.timezone(dt.timedelta(hours=-5)))).strftime("%Y-%m-%d")
+    ahead = sum(1 for x in doc["federalRegister"] if str(x.get("date") or "") > us_today)
+    fixed = sum(1 for x in doc["federalRegister"] if (x.get("rateTable") or {}).get("correction"))
     emit(f"::notice title=trade-remedy::{doc['quarter']} 분기 쿼터 {len(q)}/{len(doc['quotas'])} 조회 · 소진 {exhausted} · 표시 {hot} · "
-          f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named}) · 이번 신규 이벤트 {new_events}")
+          f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named} · 게재 전 다음 호 문서 {ahead} · 정정 고시 읽음 {fixed}) · 이번 신규 이벤트 {new_events}")
     emit(f"::notice title=trade-remedy-checks::{checks}")
     frs = doc.get("federalRegister") or []
     emit(f"::notice title=trade-remedy-rates::관보 판정 세율 표 {sum(1 for x in frs if (x.get('rateTable') or {}).get('rows'))}건(출입처 줄 "

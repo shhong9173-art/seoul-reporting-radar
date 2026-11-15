@@ -765,6 +765,57 @@ class DutyRates(unittest.TestCase):
         third, _, read3 = w.federal_register(NOW, {"federalRegister": again}, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
         self.assertEqual((read3, third[0]["rateTable"]["v"], third[0]["prior"]["final"]["id"]), (1, w.RATE_RULES, "fr:2026-09691"))
 
+    def test_correction_notice_takes_names_and_rates_from_the_corrected_final(self):
+        # 실제 문서(11-15 확인): 유정용 강관 2023-2024 최종(91 FR 60583, 9-24) → 정정(91 FR 73528, 게재 11-16, 사전 공개 11-13 08:45)
+        title = "Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024"
+        final = ("<pre>Final Results of Review\nFor these final results, Commerce determines that the following\nweighted-average dumping margins exist\n"
+                 "------------------------------------------------------------------------\n                                                               Weighted-\n"
+                 "                                                                average\n                      Exporter/producer                         dumping\n"
+                 "                                                                 margin\n                                                               (percent)\n"
+                 "------------------------------------------------------------------------\nNEXTEEL Co., Ltd............................................        29.94\n"
+                 "SeAH Steel Corporation......................................         9.80\nReview-Specific Rate for Non-Examined Companies \\8\\.........        19.87\n"
+                 "------------------------------------------------------------------------\nDisclosure\nCommerce intends to disclose\n"
+                 "Appendix II\nNon-Examined Companies Receiving a Review-Specific Rate\n1. AJU Besteel Co., Ltd.\n4. Husteel Co., Ltd.\n5. Hyundai Steel Company\n"
+                 "6. Hyundai Steel Pipe Co., Ltd.\n14. POSCO International Corporation\n[FR Doc. 2026-19529 Filed 9-23-26; 8:45 am]\n</pre>")
+        fix = ("<pre>[A-580-870]\nCertain Oil Country Tubular Goods From the Republic of Korea:\nFinal Results of Antidumping Duty Administrative Review; 2023-2024;\nCorrection\n"
+               "ACTION: Notice; correction.\nCorrection\n    In the Federal Register of September 24, 2026, in FR Doc 2026-\n19529, on page 60584, in the first column, correct the weighted-average\n"
+               "dumping margin (percent) value for: (1) NEXTEEL Co., Ltd. to 29.18\npercent; and (2) the non-examined companies to 19.49 percent.\nNotification to Interested Parties\n"
+               "    This notice is issued and published in accordance with sections\n751(a)(1)\nDated: November 9, 2026.\n[FR Doc. 2026-23258 Filed 11-13-26; 8:45 am]\n</pre>")
+        self.assertEqual(w.correction_rates(w.text_lines(fix))[0], [("NEXTEEL Co., Ltd.", 29.18), ("non-examined companies", 19.49)])
+        self.assertEqual(w.correction_rates(["Commerce is correcting a typo in the case number."]), ([], ""))
+        docs = {"A-580-870": [
+            {"title": title + "; Correction", "publication_date": "2026-11-16", "document_number": "2026-23258", "raw_text_url": "https://x/full_text/2026-23258.txt"},
+            {"title": title, "publication_date": "2026-09-24", "document_number": "2026-19529", "html_url": "https://www.federalregister.gov/d/2026-19529", "raw_text_url": "https://x/full_text/2026-19529.txt"}]}
+        bodies = {"2026-23258": fix, "2026-19529": final}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            if url == w.FR_API:
+                p = dict(params or [])
+                if "conditions[docket_id]" in p:
+                    return R(body={"results": docs.get(p["conditions[docket_id]"], [])})
+                return R(body={"results": [{"title": title + "; Correction", "publication_date": "2026-11-16", "html_url": "https://www.federalregister.gov/d/2026-23258",
+                                            "document_number": "2026-23258", "agencies": [{"name": "International Trade Administration"}],
+                                            "raw_text_url": "https://www.federalregister.gov/full_text/2026-23258.txt", "docket_ids": ["A-580-870"]}]})
+            return R(text=bodies.get(url.rsplit("/", 1)[1].replace(".txt", ""), "<pre>nothing</pre>"))
+
+        # 정정 규칙 전에 읽어 저장해 둔 줄(이름 0, 세율 표 못 읽음)도 한 번 다시 읽는다
+        stored = {"id": "fr:2026-23258", "named": [], "memoTopics": [], "rateTable": {"kind": "반덤핑", "rates": {}, "othersRate": None, "rows": 0, "v": w.RATE_RULES}}
+        rows, err, read = w.federal_register(NOW, {"federalRegister": [stored]}, get=get, sleep=lambda s: None)
+        row = rows[0]
+        self.assertEqual((err, read), (None, 1))
+        self.assertEqual(row["prior"]["final"]["id"], "fr:2026-19529")
+        self.assertEqual({c: (v["rate"], v["via"]) for c, v in row["rateTable"]["rates"].items()}, {"세아제강": (9.8, "직전"), "현대제철": (19.49, "비선정")})
+        self.assertEqual((row["rateTable"]["othersRate"], row["rateTable"]["correction"]), (19.49, True))
+        self.assertEqual([n["company"] for n in row["named"]], ["현대제철"])   # 바뀐 출입처만 — 세아제강(9.80% 그대로)은 아니다
+        self.assertEqual(row["namedVia"], "정정 대상 판정(2026-09-24)의 세율 표")
+        self.assertIn("NEXTEEL Co., Ltd. to 29.18 percent", row["correction"]["quote"])
+        self.assertNotIn("rateChange", row)   # 0.38%p — '크게 바뀜'은 아니다
+        n = len(calls)
+        again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
+        self.assertEqual((read2, len(calls) - n, again[0]["rateTable"]["rates"]["현대제철"]["rate"]), (0, 1, 19.49))   # 다시 읽지 않는다
+
     def test_rate_limited_reads_keep_stored_rates_and_stop_for_the_run(self):
         # 11-01 14:00 운영: 규칙을 올린 직후 실행에서 관보 본문이 HTTP 429 — 13:55에 읽은 세율이 모두 빠졌다
         stored = {"id": "fr:2026-20698", "rateTable": {"kind": "반덤핑", "rates": {"KG스틸": {"rate": 23.4, "via": "표"}}, "othersRate": 20.58, "rows": 3},

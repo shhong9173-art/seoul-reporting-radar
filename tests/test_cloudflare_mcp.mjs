@@ -2697,6 +2697,21 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
     schema: 'trade_remedy/v1', generatedAt: '2026-10-25T07:40:00+09:00', checks: [], quotas: [], events: [], federalRegister: [core, lpt, unread] }) }), env, {});
   const r = await call('radar_today', { hours: 72 }, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  // 정정 고시(11-15): 본문에 회사 이름이 없다 — 이름은 정정 대상 판정의 세율 표에서 왔다고 밝히고 정정 문장을 붙인다
+  {
+    const o2 = PRIVATE();
+    const fixRow = { id: 'fr:2026-23258', date: '2026-10-24', stage: '최종 판정', url: 'https://www.federalregister.gov/d/2026-23258',
+      title: 'Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024; Correction',
+      named: [{ company: '현대제철', mentions: 0, lines: ['정정 대상 판정(2026-09-24)의 세율 표'] }], namedVia: '정정 대상 판정(2026-09-24)의 세율 표',
+      correction: { fixes: [['NEXTEEL Co., Ltd.', 29.18], ['non-examined companies', 19.49]], quote: 'correct the weighted-average dumping margin (percent) value for: (1) NEXTEEL Co., Ltd. to 29.18 percent; and (2) the non-examined companies to 19.49 percent.' },
+      rateTable: { kind: '반덤핑', othersRate: 19.49, rows: 2, correction: true, rates: { 세아제강: { rate: 9.8, name: '정정 대상 판정 그대로', via: '직전' }, 현대제철: { rate: 19.49, name: '비선정 업체', via: '비선정' } } },
+      prior: { docket: 'A-580-870', final: { id: 'fr:2026-19529', date: '2026-09-24', rates: { 세아제강: 9.8, 현대제철: 19.87 }, othersRate: 19.87 } }, firstSeen: '2026-10-25T07:40:00+09:00' };
+    await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+      schema: 'trade_remedy/v1', generatedAt: '2026-10-25T07:40:00+09:00', checks: [], quotas: [], events: [], federalRegister: [fixRow] }) }), o2.env, {});
+    const fx = (await call('radar_today', { hours: 72 }, o2)).text.split('[B · ')[1].split('[C · ')[0];
+    assert.match(fx, /무역구제 · 현대제철\n   미국 관보 최종 판정: Certain Oil Country Tubular Goods[^\n]*; Correction — 정정 대상 판정\(2026-09-24\)의 세율 표에 현대제철 · 반덤핑 세율[^\n]*현대제철 19\.49%\(비선정 업체 세율\)\(직전 최종 19\.87%\)[^\n]* · 정정 문장\(원문\): "correct the weighted-average dumping margin \(percent\) value for: \(1\) NEXTEEL Co\., Ltd\. to 29\.18 percent; and \(2\) the non-examined companies to 19\.49 percent\."/);
+    assert.match(fx, /id fr:2026-23258 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 현대제철/);
+  }
   assert.match(a, /무역구제 · KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant[^\n]* — 세율 크게 바뀜: KG스틸 0\.00%→23\.40%, 동국씨엠 0\.00%→19\.43%, 포스코 0\.00%→20\.58% — 본문에 KG스틸·동국씨엠 · 반덤핑 세율\(관보 표\): KG스틸 23\.40%\(직전 최종 0\.00%\) · 동국씨엠 19\.43%\(직전 최종 0\.00%\) · 포스코 20\.58%\(비선정 업체 세율\)\(직전 최종 0\.00%\) \[직전 최종 2026-05-14\]/);
   // 11-04 기사 준비: 다음 절차(미국 법정 기한, 게재일 기준)와 회사에 물을 것
   assert.match(a, /\[직전 최종 2026-05-14\]\n   〔기사 포인트〕 미국 도금강판 반덤핑 예비 — KG스틸 23\.40%\(직전 최종 0\.00%, \+23\.40%p\) · 동국씨엠 19\.43%\(직전 최종 0\.00%, \+19\.43%p\) · 포스코 20\.58%\(비선정 업체 세율\)\(직전 최종 0\.00%, \+20\.58%p\)\n   〔기사 준비〕 다음 절차: 연례 재심 최종 판정은 예비 게재\(10-24\)부터 120일 안\(02-21까지, 최대 180일 04-22로 연장 가능\) — 최종에서 세율이 바뀔 수 있음 · 의견서\(사건 요지서\) 마감은 관보 본문 날짜 확인\n   물을 것: 회사: 최종 판정 전 의견서 제출 계획/);
