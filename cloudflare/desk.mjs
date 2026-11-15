@@ -92,9 +92,11 @@ export function ktcAhead(docs, nowMs) {
 
 export async function scoopDesk(ctx, args) {
   const days = clampInt(args.days, 1, 14, 7);
-  const limit = clampInt(args.limit, 1, 40, 12);
+  const alertsOnly = args.alerts === true || args.alerts === 'true';
+  const limit = clampInt(args.limit, 1, 40, alertsOnly ? 8 : 12);
   const showWeak = args.include_weak === true || args.include_weak === 'true';
-  const d = await radarTodayData(ctx, { hours: days * 24, company: args.company, limit: 60, include_minor: true });
+  const hours = alertsOnly ? clampInt(args.hours, 1, 96, 14) : days * 24;
+  const d = await radarTodayData(ctx, { hours, company: args.company, limit: 60, include_minor: true });
   const nowMs = d.now.getTime();
   const rows = [...d.tiers.A, ...d.tiers.B, ...d.tiers.C].map((x) => {
     const rec = d.checked.get(String(x.id));
@@ -128,17 +130,10 @@ export async function scoopDesk(ctx, args) {
     shown.push(r);
   }
 
-  const out = [`단독 데스크 · ${kstStamp(d.now.toISOString())} KST · 최근 ${days}일 · 레이더 항목 ${rows.length + (d.ledgerHidden ?? []).length}건 → 걷어낸 뒤 후보 ${shown.length}건`];
-  out.push('읽는 법: 등급(A·B·C)은 그대로 두고, 이미 처리한 것·이미 보도된 것·기자가 여러 번 킬한 유형을 걷어낸 화면이다. 맨 위 유형은 기자가 실제로 단독을 쓴 유형. 후보가 적은 날은 적은 대로 둔다 — 약한 것으로 채우지 않는다.');
-  if (d.health.length) out.push(`\n[수집 상태 — 실패·오래됨은 0건이 아니라 미확인]\n${d.health.slice(0, 6).join('\n')}${d.health.length > 6 ? `\n… 그 밖 ${d.health.length - 6}줄(radar_today)` : ''}`);
-
-  out.push(`\n[1. 새 후보 — 실적 있는 유형부터] ${shown.length}건${folded ? ` (같은 날 같은 종류·같은 원문 ${folded}건 접음)` : ''}`);
-  // 후보는 있는데 실적 있는 유형이 하나도 없는 날: 그렇다고 먼저 말한다(약한 날을 강한 날처럼 보이게 하지 않는다)
-  if (shown.length && shown[0].type.strength !== 'strong') out.push('〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형(무역위 신청·미국 법원 제소·출입처 이름이 적힌 해외 문서·큰 공시·신축 허가)에서 새로 잡힌 것이 없다.');
-  let lastStrength = null;
-  for (const r of shown.slice(0, limit)) {
+  // 후보 한 건을 적는 줄들(1구역과 즉시 알림 화면이 같이 쓴다)
+  const candLines = (r) => {
     const { x, type } = r;
-    if (type.strength !== lastStrength) { out.push(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
+    const out = [];
     out.push(`- ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''}`);
     // 줄 끝의 사업보고서 단서(listing_producers.py·ktc_producers.py)는 긴 줄에 묻혀 잘리지 않게 따로 적는다
     const rest = String(x.fact ?? '').slice(ownText(x).length).replace(/^ · /, '');
@@ -155,7 +150,40 @@ export async function scoopDesk(ctx, args) {
     const press = pressLines(r.rec, kstStamp(d.press?.generatedAt), d.press?.generatedAt);
     if (press.length) out.push(...press); else out.push('   보도 대조(자동): 아직 대조 전 — news_check로 직접(낱말 바꿔 2~3번)');
     if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
-    out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${ledgerMark(x)}`);
+    out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${ledgerMark(x)}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
+    return out;
+  };
+  // 즉시 알림 화면(alerts=true, 11-15): 예약 작업 '단독 후보 즉시 알림'이 이것만 읽는다 — 보낼 것을 코드가 고른다.
+  //   ① A 가운데 약한 유형(기자가 여러 번 킬한 것)이 아니고 자동 보도 대조가 '관련 보도 있음'이 아닌 것
+  //   ② 등급과 상관없이 〔즉시 알림 대상〕 표시가 붙은 것(문서 알림 — docAlert, 굴뚝 겹친 신호·장기 가동중지 — stackAlert)
+  // 이미 알림으로 보낸 것·앞서 추천한 것·기자가 쓴 것은 뺀다(처리·판정한 것은 radarTodayData가 이미 걷어냈다).
+  if (alertsOnly) {
+    const pick = rows.filter((r) => !wroteOf(r.x) && !r.x.alerted && !r.x.prior
+      && (r.x.alert || (r.x.tier === 'A' && r.type.strength !== 'weak' && !isCovered(r))))
+      .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0)
+        || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
+    const o = [`즉시 알림 대상 · ${kstStamp(d.now.toISOString())} KST · 최근 ${hours}시간 · ${pick.length}건`];
+    o.push("고른 기준: A(기자가 여러 번 킬한 약한 유형과 '관련 보도 있음' 제외) + 〔즉시 알림 대상〕 표시(문서 알림·굴뚝 겹친 신호). 이미 알림으로 보낸 것·처리한 것·기자가 쓴 것은 빠져 있다. 0건이면 보낼 것이 없다 — 채우지 않는다.");
+    if (d.health.length) o.push(`[수집 상태 — 실패·오래됨은 0건이 아니라 미확인]\n${d.health.slice(0, 4).join('\n')}${d.health.length > 4 ? `\n… 그 밖 ${d.health.length - 4}줄(radar_today)` : ''}`);
+    for (const r of pick.slice(0, limit)) o.push(...candLines(r));
+    if (pick.length > limit) o.push(`… 남은 ${pick.length - limit}건(다음 알림에서)`);
+    if (!d.ledger) o.push('⚠ 처리 장부를 읽지 못했다 — 이미 처리한 건·이미 보낸 알림이 섞였을 수 있다(scoop_packages로 직접 확인).');
+    o.push("규칙: 여기 뜬 것도 단독 확정이 아니다 — '미보도 후보'는 검색 범위 결과일 뿐이고 수집 실패는 미보도의 증거가 아니다. 관계자 발언을 만들지 않는다.");
+    return textResult(o.join('\n'));
+  }
+
+  const out = [`단독 데스크 · ${kstStamp(d.now.toISOString())} KST · 최근 ${days}일 · 레이더 항목 ${rows.length + (d.ledgerHidden ?? []).length}건 → 걷어낸 뒤 후보 ${shown.length}건`];
+  out.push('읽는 법: 등급(A·B·C)은 그대로 두고, 이미 처리한 것·이미 보도된 것·기자가 여러 번 킬한 유형을 걷어낸 화면이다. 맨 위 유형은 기자가 실제로 단독을 쓴 유형. 후보가 적은 날은 적은 대로 둔다 — 약한 것으로 채우지 않는다.');
+  if (d.health.length) out.push(`\n[수집 상태 — 실패·오래됨은 0건이 아니라 미확인]\n${d.health.slice(0, 6).join('\n')}${d.health.length > 6 ? `\n… 그 밖 ${d.health.length - 6}줄(radar_today)` : ''}`);
+
+  out.push(`\n[1. 새 후보 — 실적 있는 유형부터] ${shown.length}건${folded ? ` (같은 날 같은 종류·같은 원문 ${folded}건 접음)` : ''}`);
+  // 후보는 있는데 실적 있는 유형이 하나도 없는 날: 그렇다고 먼저 말한다(약한 날을 강한 날처럼 보이게 하지 않는다)
+  if (shown.length && shown[0].type.strength !== 'strong') out.push('〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형(무역위 신청·미국 법원 제소·출입처 이름이 적힌 해외 문서·큰 공시·신축 허가)에서 새로 잡힌 것이 없다.');
+  let lastStrength = null;
+  for (const r of shown.slice(0, limit)) {
+    const { type } = r;
+    if (type.strength !== lastStrength) { out.push(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
+    out.push(...candLines(r));
   }
   if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건(limit 또는 company로 좁히기)`);
   if (!shown.length) out.push('없음 — 오늘은 걷어내고 남는 후보가 없다. 약한 유형에서 억지로 올리지 않는다(include_weak=true로 볼 수는 있다).');

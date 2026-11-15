@@ -9,7 +9,7 @@ import { browserHealth } from './local_browser.mjs';
 import { runsHealth } from './gh_runs.mjs';
 import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
-import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
+import { beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
@@ -667,7 +667,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (e.pageId === 'trafile') {
       // 영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관의 판단·쟁점 문서(A), 절차 문서·출입처 이름이 나온 다른 당사자 문서(B). 등급은 수집기.
       const firms = e.companies ?? [];
-      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '영국 TRA 공개기록 문서', id: e.id, date: e.detectedAt,
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '영국 TRA 공개기록 문서', named: /다른 당사자 문서에 출입처 이름/.test(e.why ?? ''), id: e.id, date: e.detectedAt,
         company: firms.join('·') || '영국', fact: `${e.label}: ${e.text} — ${e.why ?? ''}(당사자 주장 — 조사기관 판단 아님)`, url: e.url,
         check: firms.length ? hint(firms[0], ['영국', '반덤핑']) : undefined });
       continue;
@@ -751,7 +751,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       const linked = (x.named ?? []).map((n) => n.company);
       const who = linked.length ? linked : byProduct.get(productOf(x.title)) ?? [];
       const tierI = itc.korea === '부정' || (itc.korea === '긍정' && itc.phase === '최종') ? 'A' : 'B';
-      push(tierI, W['trade-remedy'], { kind: '미국 ITC 피해 판정', id: x.id, date: x.date, company: who.join('·') || '한국산',
+      push(tierI, W['trade-remedy'], { kind: '미국 ITC 피해 판정', ruling: true, id: x.id, date: x.date, company: who.join('·') || '한국산',
         fact: `미국 ITC ${itc.phase} 판정: ${x.title} — ${itcText(itc)}${who.length && !linked.length ? ` · 같은 품목 상무부 고시의 출입처: ${who.join('·')}` : ''} · 원문 "${String(itc.quote ?? '').slice(0, 200)}"`,
         url: x.url, check: hint(who[0], ['ITC', itc.korea === '부정' ? (itc.phase === '일몰 재심' ? '철폐' : '종결') : itc.phase === '일몰 재심' ? '유지' : '판정']) });
       continue;
@@ -768,7 +768,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const kind = changed.length ? '미국 관보 세율 변화' : odd.length ? '미국 관보 결정문 목차' : '미국 관보';
     const who = changed.length ? changed.map((c) => c.company) : names;
     const frTier = odd.length || changed.length ? 'A' : names.length ? 'B' : 'C';
-    push(frTier, W['trade-remedy'], { kind, id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
+    push(frTier, W['trade-remedy'], { kind, ruling: Boolean(x.rateTable), id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
       fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${rates}${memo}`, url: x.url,
       ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? { ...tradeReady(x), point: tradePoint(x) || undefined } : {}),
       // 보도 대조는 품목 낱말까지(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다) — 품목이 없는 기사는 약한 근거로만 남는다
@@ -1490,6 +1490,32 @@ export function background(docs, nowMs) {
   return out;
 }
 
+// 문서 알림(11-15 기자 승인): 실제로 단독이 나온 갈래의 문서는 B여도 직접 출입처 이름이 있고 자동 보도 대조가 '관련 보도 있음'이 아니면
+// 즉시 알림 대상이다. 60일 동안 즉시 알림 32건 중 이 갈래는 0건이었다(A만 나갔고 21건이 굴뚝) — 기자는 화면을 먼저 열지 않으므로 B에 쌓인 것은 못 본다.
+//   · 미국 관보: 세율 표가 든 판정(예비·최종)과 ITC 피해 판정. 개시 공고·기한 연장처럼 표가 없는 고시는 아니다.
+//   · 국내 무역위: 회사 칸에 직접 출입처가 적힌 줄(출입처 신청 품목의 회의 안건·진행일정).
+//   · 영국 TRA 공개기록: 다른 당사자 문서 본문에 출입처 이름(11-10 S-PVC '한국 특별시장상황' 의견서가 이 꼴이었다). 절차 문서는 아니다.
+//   · 공시: 정정 중 큰 변경(금액·기간·해지) — 붙은 '관련 보도'는 원 계약 기사일 수 있다 — 과 보도 대조가 실패한 소송·가처분·정정 공시.
+// A는 원래 알림 대상이라 표시하지 않는다. 미국 법원(CIT·CAFC)·영국/호주 출입처 의견서는 수집기가 이미 A를 준다.
+// 굴뚝처럼 시끄러워지면 기자가 다시 좁힌다 — 등급(A·B·C)은 바꾸지 않는다.
+export function docAlert(x, verdict) {
+  if (x.tier !== 'B' || verdict === '같은 수치 선행') return null;
+  const names = [...new Set(String(x.company ?? '').split('·').map((n) => beatName(n)).filter(Boolean))];
+  if (!names.length) return null;
+  const trade = WATCHES.find((w) => w.feed === 'trade-remedy')?.label, screen = WATCHES.find((w) => w.feed === 'scoop-screen')?.label;
+  const covered = verdict === '관련 보도 있음';
+  let what = null;
+  if (x.watch === trade && !covered) {
+    if (x.ruling) what = x.kind === '미국 ITC 피해 판정' ? '미국 ITC 피해 판정' : '세율 표가 든 미국 관보 판정';
+    else if (/^무역위 /.test(x.kind ?? '')) what = `국내 ${x.kind}`;
+    else if (x.named) what = '영국 TRA 공개기록 — 다른 당사자 문서 본문';
+  } else if (x.watch === screen) {
+    if (x.flag === '정정') what = '공시 정정 중 큰 변경(붙은 보도는 원 공시 기사일 수 있음)';
+    else if (!covered && /소송|가처분|판결|정정/.test(`${x.kind ?? ''} ${x.fact ?? ''}`)) what = '소송·정정 공시(보도 대조 미확인)';
+  }
+  return what ? `문서 알림 — ${what}에 ${names.join('·')}(B여도 보냄 · 11-15 기자 결정)` : null;
+}
+
 // 굴뚝 측정 항목이 즉시 알림 대상인지(11-04): ① 같은 출입처·같은 시군을 다른 감시의 새 항목(배경 아님, 킬 안 한 것)이 함께 가리킴,
 // ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고)이거나, 11-12부터 신고 없이
 //    측정값 0만 사흘 넘게 이어짐(zeroOnlyLongStop). 아니면 null.
@@ -1746,6 +1772,8 @@ export async function radarTodayData(ctx, args) {
   // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
   for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged, maint); if (why) x.alert = why; }
+  // 문서 알림(11-15): 무역구제·공시 문서 갈래는 B여도 출입처 이름이 있고 미보도면 알림 대상
+  for (const x of byTierRows.B) { const why = !x.alert && docAlert(x, pressOf(x)); if (why) x.alert = why; }
   // 실적 업종 비교(11-04, earnings_compare 공개 결과): 최근 72시간 안에 처음 본 데이터 기사 후보만 radar_today에 올린다.
   let peerV = null;
   try { peerV = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch { peerV = null; }
