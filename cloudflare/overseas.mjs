@@ -1750,7 +1750,7 @@ const NOTE_SEC = { after: '보고기간 후 사건', held: '매각예정·중단
 const NOTE_RANK = { '보고기간 후 사건': 0, '매각예정·중단영업': 1, 제재: 2, 소송: 3, '연결 범위': 4 };
 async function reportNotesSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-report-notes');
-  const when = '평일 06:40·13:10·19:40, 토 09:40';
+  const when = '평일 06:40·13:10·18:10·19:40, 토 09:40';
   if (!doc) return [`\n[정기보고서 숨은 대목(보고기간 후 사건·제재·소송)] 아직 수집 전 — 미확인(${when})`];
   if (doc.broken) return ['\n[정기보고서 숨은 대목(보고기간 후 사건·제재·소송)] 저장 결과 형식 오류 — 미확인'];
   const s = doc.summary ?? {};
