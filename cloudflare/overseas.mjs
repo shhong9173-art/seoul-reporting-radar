@@ -11,11 +11,15 @@ const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLow
 
 export async function usComments(ctx, args) {
   const doc = await readFeed(ctx, 'us-comments');
-  if (!doc) return missing('미 연방 의견서', '평일 08:20');
-  if (doc.broken) return textResult('저장된 의견서 결과 형식 오류 — 미확인.', true);
   const q = String(args.company ?? '').trim();
   const onlyNew = args.only_new === true || args.only_new === 'true';
   const limit = clampInt(args.limit, 1, 60, 20);
+  // 출입처 명의 의견서 저장본이 없거나 깨져도 USTR 구역(따로 저장)은 보여 준다
+  if (!doc || doc.broken) {
+    const head = doc ? '저장된 의견서 결과 형식 오류 — 미확인.' : missing('미 연방 의견서', '평일 08:20').content[0].text;
+    const hasUstr = Boolean(await readFeed(ctx, 'ustr-comments'));
+    return textResult([head, ...await ustrSection(ctx, q, onlyNew, limit)].join('\n'), Boolean(doc?.broken) || !hasUstr);
+  }
   const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
   const rows = (doc.items ?? []).filter((x) => matches(q, x.company, x.submitter, x.docketTitle) && (!onlyNew || x.isNew));
   const out = [`미 연방 규제 의견서(regulations.gov) · 최근 ${doc.lookbackDays}일 · 출입처 명의 ${rows.length}건 · 수집 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
@@ -31,7 +35,46 @@ export async function usComments(ctx, args) {
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n조건에 맞는 의견서 없음(위 미확인 질의는 0건 아님).');
   out.push('\n다음: 첨부 PDF는 source_document(downloads.regulations.gov)로 연다 → 같은 도켓의 규정안·마감일 확인 → news_check로 보도 대조.');
+  out.push(...await ustrSection(ctx, q, onlyNew, limit));
   return textResult(out.join('\n'));
+}
+
+// USTR 의견서 속 한국·출입 업종(ustr-comments feed, 11-15 기자 "선배가 USTR에서도 단독 나온다는데"): 다른 단체·기업이 USTR에 낸 의견서의
+// 첨부 본문에서 한국 + 출입 업종(자동차·철강·화학·전력기기) 대목. 위 목록(출입처가 직접 낸 의견서)이 일부러 빼던 쪽이다.
+async function ustrSection(ctx, q, onlyNew, limit) {
+  const doc = await readFeed(ctx, 'ustr-comments');
+  const name = 'USTR 의견서 속 한국·출입 업종';
+  if (!doc) return [`\n[${name}] 아직 수집 전 — 미확인(평일 07:20·23:20, 토 09:20)`];
+  if (doc.broken) return [`\n[${name}] 저장 결과 형식 오류 — 미확인`];
+  const s = doc.summary ?? {};
+  const rows = (doc.items ?? []).filter((x) => matches(q, x.submitter, x.docketTitle, x.docketId, ...(x.companies ?? []), ...(x.sectors ?? []), ...(x.excerpts ?? [])) && (!onlyNew || !x.baseline))
+    .sort((a, b) => Number(Boolean(a.baseline)) - Number(Boolean(b.baseline)) || String(b.postedDate).localeCompare(String(a.postedDate))
+      || (b.companies ?? []).length - (a.companies ?? []).length || (b.passages ?? 0) - (a.passages ?? 0));
+  const fresh = rows.filter((x) => !x.baseline).length;
+  const bad = (doc.checks ?? []).filter((c) => c.status === 'failed');
+  const gaps = [s.waiting ? `본문 대기 ${s.waiting}건(다음 실행)` : '', s.scan ? `스캔본이라 글자를 못 뽑은 것 ${s.scan}건` : '', s.failed ? `읽기 실패 ${s.failed}건` : '',
+    ...bad.map((c) => `${c.source} 실패(${c.error ?? ''})`)].filter(Boolean);
+  const out = [`\n[${name} · 최근 ${doc.lookbackDays ?? 45}일 게시분 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] ${rows.length}건(감시 시작 뒤 새로 게시 ${fresh}건)`,
+    `원천: regulations.gov의 USTR 의견서 ${s.known ?? '?'}건 첨부 본문 · 한국 언급 ${s.korea ?? '?'}건 · 그중 출입 업종 대목 ${s.items ?? '?'}건${gaps.length ? ` · 미확인(0건 아님): ${gaps.join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.baseline ? '' : '[신규] '}B · 게시 ${x.postedDate} · ${x.submitter} · ${(x.sectors ?? []).join('·') || '업종 낱말 없음'}${(x.companies ?? []).length ? ` · 본문에 ${x.companies.join('·')}` : ''}${x.baseline ? ' · 감시 시작 전 게시' : ''}`);
+    out.push(`   도켓: ${x.docketTitle ? `「${String(x.docketTitle).slice(0, 120)}」` : '제목 미조회'}(${x.docketId ?? '?'}) · 한국 ${x.korea ?? '?'}곳 · 출입 업종 대목 ${x.passages ?? '?'}곳 · ${x.pages ?? '?'}쪽`);
+    for (const e of (x.excerpts ?? []).slice(0, q ? 3 : 1)) out.push(`   대목: «${String(e).slice(0, q ? 620 : 360)}»`);
+    out.push(`   원문: ${x.url} · id ${x.id}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company에 제출자·업종·회사 낱말로 좁히기)`);
+  if (!rows.length) out.push(`조건에 맞는 의견서 없음${gaps.length ? ' — 위 미확인은 0건이 아니다' : ''}.`);
+  const today = kstAt(ctx.now.toISOString()).slice(0, 5);
+  const notices = (doc.notices ?? []).filter((n) => matches(q, n.title, n.docket));
+  if (notices.length) {
+    out.push(`[USTR 관보 고시 · 최근 ${doc.lookbackDays ?? 45}일] ${notices.length}건 — 의견 마감이 지나면 의견서가 한꺼번에 공개된다`);
+    for (const n of notices.slice(0, q ? 20 : 8)) {
+      out.push(`- ${n.date} · ${String(n.title).slice(0, 130)}${n.docket ? ` · ${n.docket}` : ''}${n.closes ? ` · 의견 마감 ${n.closes}` : ''}${n.korea ? ' · 한국 언급' : ''}${(n.sectors ?? []).length ? ` · ${n.sectors.join('·')}` : ''}\n   ${n.url ?? ''}`);
+    }
+  }
+  out.push('   검증 상태: 공개 의견서 첨부 본문(자동 발췌). 낸 쪽의 주장이고 수치는 그쪽 계산이다 — 원문 PDF의 쪽·문단, 한국 통계(customs_trade), 정부·회사 입장을 확인. news_check로 보도 대조');
+  return out;
 }
 
 const CAT_KO = { timing: '출시 시점', limited: '한정 물량', price: '가격', status: '판매 상태', models: '연식·차명' };

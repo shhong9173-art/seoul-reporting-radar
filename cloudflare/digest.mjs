@@ -35,6 +35,9 @@ export const WATCHES = [
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
+  // USTR 의견서 속 한국·출입 업종(ustr_comments_watch.py, 11-15 기자 "선배가 USTR에서도 단독 나온다는데"): 미국 업계 단체·기업이 USTR에 낸
+  // 의견서 첨부 본문에서 한국 + 자동차·철강·화학·전력기기 대목. 위 '미 연방 의견서'는 출입처가 직접 낸 것만 본다. 전부 B
+  { feed: 'ustr-comments', label: 'USTR 의견서 속 한국', tool: 'us_comments', schedule: '평일 07:20·23:20, 토 09:20', staleHours: 80 },
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
   // 11-10: 출입처 유럽(EP)·국제(WO) 특허 공개(EPO OPS) — EP 수요일·WO 목요일 공개 뒤 토요일 아침 주 1회. 약관상 기자 전용 연결에서만.
@@ -1284,6 +1287,18 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       check: hint(x.company, ['의견서', '미국']) });
   }
 
+  // USTR 의견서 속 한국·출입 업종(ustr-comments, 11-15): 감시 시작 전 게시분(baseline)은 올리지 않는다(us_comments 화면에는 보인다).
+  // named(본문에 출입처 이름)는 문서 알림 판단에 쓴다 — 영국 TRA '다른 당사자 문서 본문'과 같은 갈래.
+  for (const x of docs['ustr-comments']?.items ?? []) {
+    if (x.baseline || !recent(x.firstSeen)) continue;
+    const names = (x.companies ?? []).filter(Boolean);
+    const sectors = (x.sectors ?? []).join('·');
+    push('B', W['ustr-comments'], { kind: 'USTR 의견서', id: x.id, date: x.postedDate, company: names.join('·'), named: names.length > 0, url: x.url,
+      fact: `${x.submitter} → USTR${x.docketTitle ? ` 「${String(x.docketTitle).slice(0, 90)}」` : ` ${x.docketId ?? ''}`} 의견서(게시 ${x.postedDate})에 한국${sectors ? ` + ${sectors}` : ''} 대목 ${x.passages ?? (x.excerpts ?? []).length}곳`
+        + `${names.length ? ` · 본문에 ${names.join('·')}` : ''}: 「${String((x.excerpts ?? [])[0] ?? '').slice(0, 300)}」 (낸 쪽의 주장 — USTR 판단이 아니다. 발췌는 영어 원문)`,
+      check: names.length ? hint(names[0], ['USTR', '의견서', '무역장벽']) : undefined });
+  }
+
   // Weekly feed: a new filing stays on the digest for 7 days from first sighting (or until judged).
   for (const f of docs.trademarks?.filings ?? []) {
     if (!f.isNew) continue;
@@ -1540,7 +1555,7 @@ export function docAlert(x, verdict) {
   const names = [...new Set(String(x.company ?? '').split('·').map((n) => beatName(n)).filter(Boolean))];
   if (!names.length) return null;
   const trade = WATCHES.find((w) => w.feed === 'trade-remedy')?.label, screen = WATCHES.find((w) => w.feed === 'scoop-screen')?.label;
-  const notes = WATCHES.find((w) => w.feed === 'kr-report-notes')?.label;
+  const notes = WATCHES.find((w) => w.feed === 'kr-report-notes')?.label, ustr = WATCHES.find((w) => w.feed === 'ustr-comments')?.label;
   const covered = verdict === '관련 보도 있음';
   let what = null;
   if (x.watch === trade && !covered) {
@@ -1550,6 +1565,9 @@ export function docAlert(x, verdict) {
   } else if (x.watch === screen) {
     if (x.flag === '정정') what = '공시 정정 중 큰 변경(붙은 보도는 원 공시 기사일 수 있음)';
     else if (!covered && /소송|가처분|판결|정정/.test(`${x.kind ?? ''} ${x.fact ?? ''}`)) what = '소송·정정 공시(보도 대조 미확인)';
+  } else if (x.watch === ustr) {
+    // USTR 의견서 본문에 출입처 이름(11-15 감시와 함께 넣음 — 영국 TRA '다른 당사자 문서 본문'과 같은 갈래, 기자가 뺄 수 있다)
+    if (!covered && x.named) what = 'USTR 의견서 — 다른 단체·기업 문서 본문';
   } else if (x.watch === notes) {
     // 정기보고서에 새로 적힌 보고기간 후 사건·제재·소송(11-15 감시와 함께 넣음 — 기자가 뺄 수 있다): 제때 읽었고 새 줄이 몇 줄뿐일 때만.
     // 보고기간 후 사건: 11-13 이데일리 단독(한화시마론 매각)이 11-12 분기보고서 연결 주석의 이 대목 한 문장이었다(probe 251).
