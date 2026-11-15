@@ -92,6 +92,8 @@ export const SLOTS = [
   // 11-15: 정기보고서 숨은 대목(보고기간 후 사건·제재·소송·연결 범위) — 아침 알림(08:43)·발제(08:57) 전, 낮, 그날 제출분이 모인 저녁(19:43 알림 직전), 금요일 늦은 제출분은 토요일 아침.
   // 새 보고서가 없으면 목록만 묻고 끝난다(원문은 회사마다 한 번).
   { at: '06:40', workflow: 'kr-report-notes.yml' }, { at: '13:10', workflow: 'kr-report-notes.yml' }, { at: '19:40', workflow: 'kr-report-notes.yml' },
+  // 18:10: 장 마감 뒤 제출분을 18:43 알림에 싣는다(마감일에는 오후 늦게 몰린다 — 19:40 실행분은 21:43 알림까지 기다려야 한다)
+  { at: '18:10', workflow: 'kr-report-notes.yml' },
   { at: '09:40', workflow: 'kr-report-notes.yml', days: [6] },
   // 11-05: 수시 임원 공시(독립이사 신고·대표이사 변경·소집공고) + 상장사 등기임원 명단 순환 — 매일 세 번(주말에도 정정·수시 공시가 있다)
   { at: '06:20', workflow: 'kr-exec-market.yml', daily: true }, { at: '12:20', workflow: 'kr-exec-market.yml', daily: true },
