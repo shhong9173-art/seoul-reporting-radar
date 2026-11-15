@@ -176,6 +176,11 @@ class Notes(unittest.TestCase):
         self.assertEqual(n.sections(head + table)["sanction"], ["2025. 3. 6. | 울산지방법원 | 회사 | 벌금 부과 | 100만원 | 산업안전보건법 제173조"])
         self.assertEqual(n.key_of("당반기말 현재 연결실체가 피소되어 계류중인 소송사건은 451건(소송가액 1조 2,649억원)입니다."),
                          n.key_of("당분기말 현재 연결실체가 피소되어 계류중인 소송사건은 448건(소송가액 1조 2,310억원)입니다."))
+        self.assertEqual(n.key_of("2025. 3. 6. | 울산지방법원 | 벌금 부과 | 각 100만원"), n.key_of("2025. 3. 6. | 울산지방법원 | 벌금 부과 | 각 1,000,000 원"))
+        self.assertEqual(n.key_of("과태료 부과 | 192만원"), n.key_of("과태료 부과 | 1,920,000원"))
+        self.assertNotEqual(n.key_of("과태료 부과 | 192만원"), n.key_of("과징금 부과 | 192만원"))
+        self.assertEqual(n.key_of("지배기업은 2026년 11월 9일 LOTTE Chemical Louisiana LLC의 지분 40%를 기초자산으로 하는 주가수익스왑 계약의 계약조건을 재협의하였으며"),
+                         n.key_of("당사는 2026년 11월 9일 LOTTE Chemical Louisiana LLC의 지분 40%를 기초자산으로 하는 주가수익스왑 계약의 계약조건을 재협의하였으며"))
         long = "진행상황: " + " ".join(f"2024. {m}. 1. 제{m}회 변론기일" for m in range(1, 13)) * 3 + " 2026. 9. 18. 1심 판결 선고(원고 일부 승소)"
         self.assertTrue(n.tail(long).startswith("진행상황: … "))
         self.assertTrue(n.tail(long).endswith("2026. 9. 18. 1심 판결 선고(원고 일부 승소)"))

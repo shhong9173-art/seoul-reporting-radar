@@ -1173,7 +1173,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push('B', W['kr-report-notes'], { kind: `정기보고서 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       note: e.kind, noteLines: lines.length + (more ? NOTE_ALERT_MAX : 0), late: Boolean(e.late),
       // 기일만 더해진 진행 상황(앞 보고서에도 있던 사건의 바뀐 줄인데 끝에 판결·합의 같은 결과 낱말이 없음)뿐이면 알림을 걸지 않는다
-      noteRoutine: lines.every((l) => l.startsWith('〔앞 보고서에도 있던 건') && !NOTE_OUTCOME.test(l.slice(-130))),
+      // 보고기간 후 사건 중 배당·사채·자사주·차입·지급보증만 있는 것(대개 따로 공시된다)도 알림을 걸지 않는다 — 매각·인수·양도·청산·중단·재협의 같은 낱말이 든 줄이 있어야 한다
+      noteRoutine: e.kind === '보고기간 후 사건'
+        ? !lines.some((l) => NOTE_DEAL.test(l) && !/자기\s*주식|자사주/.test(l))
+        : lines.every((l) => l.startsWith('〔앞 보고서에도 있던 건') && !NOTE_OUTCOME.test(l.slice(-130))),
       fact: `${e.company} ${e.period ?? ''} 보고서${filed ? `(접수 ${filed})` : ''}에 앞 보고서에 없던 ${e.kind} ${lines.length}줄${more ? `(${more.replace(/^…\s*/, '')} 더)` : ''}: `
         + `${lines.slice(0, 2).map((l) => `「${l.slice(0, 220)}」`).join(' / ')}${lines.length > 2 ? ' …' : ''}`
         + ` (자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다. 시점·금액·사유는 원문·회사 확인${e.late ? ' · 접수 뒤 늦게 읽음' : ''})`,
@@ -1530,6 +1533,7 @@ const NOTE_WORDS = ['과징금', '과태료', '벌금', '추징', '시정명령'
   '손해배상', '가처분', '특허', '세무조사', '화학물질', '공정위', '국세청', '관세청', '고용노동부', '금감원', '금융위', '환경부', '검찰',
   '매각', '인수', '합병', '분할', '청산', '폐쇄', '중단', '양도', '유상증자', '출자', '사채', '차입', '설립'];
 export const NOTE_ALERT_MAX = 5;
+const NOTE_DEAL = /매각|처분|인수|취득|양도|양수|합병|분할|청산|해산|폐쇄|중단|철수|소송|제재|과징금|벌금|화재|폭발|사고|재협의|해지|파업|매입|출자/;
 const NOTE_OUTCOME = /판결|선고|승소|패소|기각|인용|화해|조정\s*성립|합의|취하|확정|종결|결정/;
 export function docAlert(x, verdict) {
   if (x.tier !== 'B' || verdict === '같은 수치 선행') return null;

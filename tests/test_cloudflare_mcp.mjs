@@ -3349,6 +3349,9 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
       ev('00159616', '두산에너빌리티', 'consol', '연결 범위', ['연결 제외: 두산메카텍㈜ | 지분 매각']),
       ev('00126380', '롯데케미칼', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고 : 에코프로에이치엔/ 피고 : 롯데케미칼㈜ — 진행상황: … 2026. 7. 24. 제3회 변론기일 2026. 10. 16. 제4회 변론기일 진행 예정']),
       ev('00106641', '한화솔루션', 'after', '보고기간 후 사건', ['연결실체는 보고기간 종료일 이후인 2026년 10월 30일자로 종속기업인 Hanwha Cimarron LLC (지분율 100%)의 지분 전부를 HANWHA DEFENSE USA,INC.에 매각하였습니다(매각대금 58,962백만원).']),
+      ev('00155319', '포스코홀딩스', 'after', '보고기간 후 사건', ['당사는 2026년 11월 13일 이사회 결의에 따라 보통주 1주당 2,000원(배당총액 : 1,512억원)의 분기 현금배당을 결정하였습니다.']),
+      ev('00126380', '롯데케미칼', 'after', '보고기간 후 사건', ['지배기업은 2026년 11월 2일 LOTTE Chemical Louisiana LLC에 Standby L/C USD 44백만을 제공하기로 하였습니다.',
+        '지배기업은 2026년 11월 9일 LOTTE Chemical Louisiana LLC의 지분 40%를 기초자산으로 하는 주가수익스왑 계약의 계약조건을 재협의하였으며 동 계약의 만기일은 2029년 11월 8일입니다.']),
       ev('00106641', '한화솔루션', 'held', '매각예정·중단영업', ['연결실체는 미국 오펠라이카 공장의 운영 중단 결정에 따라 매각예정자산 처리하였습니다.']),
       ev('00145880', 'LG화학', 'suit', '소송', ['〔앞 보고서에도 있던 건 · 바뀐 줄〕 소송 당사자: 원고: 갑 / 피고: LG화학 — 진행상황: … 2026. 9. 18. 1심 판결 선고(원고 일부 승소), 당사 항소'])] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
@@ -3366,6 +3369,9 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.doesNotMatch(block('롯데케미칼'), /즉시 알림 대상/);        // 기일만 더해진 진행 상황
   assert.match(hs.find((x) => /보고기간 후 사건 1줄/.test(x)), /Hanwha Cimarron LLC \(지분율 100%\)의 지분 전부를 HANWHA DEFENSE USA,INC\.에 매각하였습니다\(매각대금 58,962백만원\)[^\n]+\n[^\n]+즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 보고기간 후 사건 1줄에 한화솔루션/);
   assert.doesNotMatch(hs.find((x) => /매각예정·중단영업 1줄/.test(x)), /즉시 알림 대상/);   // 매각예정·중단영업은 화면에만
+  const items = b.split('\n- ');
+  assert.doesNotMatch(items.find((x) => /포스코홀딩스 2026년 3분기[^\n]+보고기간 후 사건 1줄/.test(x)), /즉시 알림 대상/);   // 배당 결정뿐 — 따로 공시되는 일
+  assert.match(items.find((x) => /롯데케미칼 2026년 3분기[^\n]+보고기간 후 사건 2줄/.test(x)), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 보고기간 후 사건 2줄에 롯데케미칼/);   // 계약조건 재협의
   assert.match(block('LG화학'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 소송 1줄에 LG화학/);   // 판결 선고가 적힘
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'rptnote:00164779:202611014:sanction');
@@ -3381,7 +3387,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match(docAlert({ ...note, note: '보고기간 후 사건', noteLines: 1 }, undefined), /정기보고서에 새로 적힌 보고기간 후 사건 1줄에 현대제철/);
   assert.equal(docAlert({ ...note, company: '포스코퓨처엠' }, undefined), null);                            // 계열사는 출입처가 아니다
   const k = await call('kr_signals', { section: 'report' }, opts);
-  assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 8건/);
+  assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 10건/);
   assert.match(k.text, /원천: OpenDART 정기보고서 원문 · 읽음 2\/39곳 · 미제출 1곳\(기아\) — 0건이 아니라 아직 안 냄 · 원문 대기 1곳\(LG화학\) — 다음 실행/);
   assert.match(k.text, /범위: 이번 보고서가 대목을 생략한 곳\('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다\) 1곳: 금호타이어\(제재\)/);
   assert.match(k.text, /범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 현대제철\(소송\)/);
@@ -3389,7 +3395,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match(k.text, /- \[신규\] B · [\d-]+ [\d:]+ · 한화솔루션 · 소송 · 접수 2026-11-16 · 늦게 읽음\(알림 안 검\)\n   새 줄: 〔처음 보는 건〕 소제기일: 2026\.08\.11 ▸ 소송 당사자: 원고: Acme Solar LLC/);
   assert.match(k.text, /   … 그 밖 27줄|… 나머지는 company=포스코홀딩스로/);
   const one = await call('kr_signals', { section: 'report', company: '포스코홀딩스' }, opts);
-  assert.match(one.text, /새 줄이 있는 대목 1건/);
+  assert.match(one.text, /새 줄이 있는 대목 2건/);   // 소송, 보고기간 후 사건
   assert.match(one.text, /새 줄: 줄8\n   … 그 밖 27줄/);
   assert.match((await call('kr_signals', {}, opts)).text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 14일\]/);
   const none = PRIVATE();
