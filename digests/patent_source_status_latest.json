@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-13T08:32:11+09:00",
-  "status": "complete",
+  "generatedAt": "2026-11-16T08:32:29+09:00",
+  "status": "incomplete",
   "totalCompanies": 24,
-  "checkedCompanies": 24,
+  "checkedCompanies": 23,
   "lastProviderResponseAt": null,
   "nextProviderProbeAt": null,
-  "actualApiRequestWindow": "20261110~20261113",
-  "retainedPriorVerifiedDocuments": 818,
+  "actualApiRequestWindow": "20261111~20261116",
+  "retainedPriorVerifiedDocuments": 842,
   "priorVerifiedSnapshotUsed": true,
   "companyChecks": [
     {
@@ -15,8 +15,8 @@
       "errorType": null,
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 10,
-      "rawRetrieved": 10
+      "rawTotal": 2,
+      "rawRetrieved": 2
     },
     {
       "company": "기아",
@@ -24,8 +24,8 @@
       "errorType": null,
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 10,
-      "rawRetrieved": 10
+      "rawTotal": 2,
+      "rawRetrieved": 2
     },
     {
       "company": "현대모비스",
@@ -33,8 +33,8 @@
       "errorType": null,
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 2,
-      "rawRetrieved": 2
+      "rawTotal": 0,
+      "rawRetrieved": 0
     },
     {
       "company": "현대위아",
@@ -83,12 +83,12 @@
     },
     {
       "company": "현대제철",
-      "status": "checked",
-      "errorType": null,
+      "status": "source_error",
+      "errorType": "RemoteDisconnected",
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 0,
-      "rawRetrieved": 0
+      "rawTotal": null,
+      "rawRetrieved": null
     },
     {
       "company": "포스코",
@@ -96,8 +96,8 @@
       "errorType": null,
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 4,
-      "rawRetrieved": 4
+      "rawTotal": 3,
+      "rawRetrieved": 3
     },
     {
       "company": "포스코홀딩스",
@@ -195,8 +195,8 @@
       "errorType": null,
       "providerResultCode": null,
       "providerMessageCategory": null,
-      "rawTotal": 1,
-      "rawRetrieved": 1
+      "rawTotal": 0,
+      "rawRetrieved": 0
     },
     {
       "company": "두산에너빌리티",
@@ -226,6 +226,16 @@
       "rawRetrieved": 0
     }
   ],
-  "incompleteCompanies": [],
+  "incompleteCompanies": [
+    {
+      "company": "현대제철",
+      "status": "source_error",
+      "errorType": "RemoteDisconnected",
+      "providerResultCode": null,
+      "providerMessageCategory": null,
+      "rawTotal": null,
+      "rawRetrieved": null
+    }
+  ],
   "warning": "회사 검색 실패는 공개특허 0건을 뜻하지 않음. KIPRIS 인증키·API URL·전체 오류 본문 비공개"
 }
