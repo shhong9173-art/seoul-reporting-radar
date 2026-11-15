@@ -20,7 +20,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -2704,12 +2704,54 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   assert.match(b, /Large Power Transformers[^\n]* — 본문에 LS일렉트릭·HD현대일렉트릭 · 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%\(직전 최종 0\.00%\) · LS일렉트릭 4\.32%\(직전 최종 4\.32%\) \[직전 최종 2026-08-14\]/);
   assert.match(b, /Welded Line Pipe[^\n]*\n   〔기사 준비〕 다음 절차: 미국 국제무역법원\(CIT\) 제소 기한은 게재\(10-24\)부터 30일\(11-23\) · 확정 세율로 수입 정산 지시는 보통 게재 15일 뒤\(11-08 무렵\)\n   물을 것: 회사: CIT 제소 여부/);
   assert.match(b, /Welded Line Pipe[^\n]* · 세율 표 못 읽음\(원문 표 확인\)/);
+  // 문서 알림(11-15 기자 결정): 세율 표가 든 관보 판정은 B여도 출입처 이름이 있고 미보도면 즉시 알림 대상
+  assert.match(b, /Large Power Transformers[\s\S]*?id fr:2026-22343 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 LS일렉트릭·HD현대일렉트릭\(B여도 보냄 · 11-15 기자 결정\)〕/);
+  assert.match(b, /id fr:x 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 세아제강/);
+  assert.doesNotMatch(a, /문서 알림/);   // A는 원래 알림 대상이라 표시하지 않는다
+  // 즉시 알림 화면(scoop_desk alerts=true): A(약한 유형·기보도 제외)와 표시 붙은 B만, 보낸 뒤에는 빠진다
+  const al = (await call('scoop_desk', { alerts: true, hours: 72 }, opts)).text;
+  assert.match(al, /^즉시 알림 대상 · [^\n]* · 최근 72시간 · 3건\n고른 기준: A\(기자가 여러 번 킬한 약한 유형과 '관련 보도 있음' 제외\) \+ 〔즉시 알림 대상〕 표시/);
+  assert.match(al, /- A · [^\n]*KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant/);
+  assert.match(al, /- B · [^\n]*LS일렉트릭·HD현대일렉트릭\n   미국 관보 예비 판정: Large Power Transformers[\s\S]*?id fr:2026-22343 〔즉시 알림 대상: 문서 알림 — 세율 표가 든 미국 관보 판정에 LS일렉트릭·HD현대일렉트릭/);
+  assert.doesNotMatch(al, /\[1\. 새 후보|\[4\. 걷어낸 것\]/);
+  await call('package_save', { name: 'alert-20261025', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 10-25 · 누적 2건', body: '[단독 후보 알림 08:43] 2건\n…\n보낸 id: fr:2026-20698, fr:2026-22343' }, opts);
+  const al2 = (await call('scoop_desk', { alerts: true, hours: 72 }, opts)).text;
+  assert.match(al2, /최근 72시간 · 1건\n/);
+  assert.doesNotMatch(al2, /fr:2026-20698|fr:2026-22343/);
+  assert.match(al2, /id fr:x 〔즉시 알림 대상/);
+  // 보통 단독 데스크 화면에도 표시가 보인다
+  assert.match((await call('scoop_desk', { days: 3 }, opts)).text, /id fr:x 〔즉시 알림 대상: 문서 알림/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'fr:2026-20698');
   assert.deepEqual([hit.tier, hit.check.who, hit.check.terms], ['A', 'KG스틸', ['관세', '반덤핑']]);
   const t = await call('trade_remedies', { section: 'us' }, opts);
   assert.match(t.text, /세율 크게 바뀜: KG스틸 0\.00%→23\.40%/);
   assert.match(t.text, /세율 — 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%/);
+});
+
+test('문서 알림(11-15 기자 결정): 단독이 나온 갈래의 B 문서만 — 판정·무역위·영국 다른 당사자 문서·공시 정정/소송, 출입처 이름이 있고 미보도일 때', () => {
+  const fr = { tier: 'B', watch: '무역구제', kind: '미국 관보', ruling: true, company: 'LS일렉트릭·HD현대일렉트릭' };
+  assert.match(docAlert(fr, undefined), /^문서 알림 — 세율 표가 든 미국 관보 판정에 LS일렉트릭·HD현대일렉트릭/);
+  assert.match(docAlert(fr, '미보도 후보'), /문서 알림/);
+  assert.equal(docAlert(fr, '관련 보도 있음'), null);
+  assert.equal(docAlert(fr, '같은 수치 선행'), null);
+  assert.equal(docAlert({ ...fr, tier: 'A' }, undefined), null);                       // A는 원래 알림 대상
+  assert.equal(docAlert({ ...fr, ruling: false }, undefined), null);                   // 개시 공고·기한 연장(세율 표 없음)
+  assert.equal(docAlert({ ...fr, company: '포스코퓨처엠·현대스틸파이프' }, undefined), null);   // 계열사는 출입처가 아니다
+  assert.equal(docAlert({ ...fr, company: '한국산' }, undefined), null);
+  assert.match(docAlert({ tier: 'B', watch: '무역구제', kind: '미국 ITC 피해 판정', ruling: true, company: '세아제강·현대제철' }, undefined), /미국 ITC 피해 판정에 세아제강·현대제철/);
+  assert.match(docAlert({ tier: 'B', watch: '무역구제', kind: '무역위 회의 안건', company: 'LG화학' }, undefined), /국내 무역위 회의 안건에 LG화학/);
+  assert.equal(docAlert({ tier: 'B', watch: '무역구제', kind: '무역위 회의 안건', company: '아크릴산 2-에틸헥실' }, undefined), null);
+  assert.match(docAlert({ tier: 'B', watch: '무역구제', kind: '영국 TRA 공개기록 문서', named: true, company: 'LG화학·한화솔루션' }, undefined), /영국 TRA 공개기록 — 다른 당사자 문서 본문에 LG화학·한화솔루션/);
+  assert.equal(docAlert({ tier: 'B', watch: '무역구제', kind: '영국 TRA 공개기록 문서', named: false, company: 'LG화학' }, undefined), null);   // 절차 문서
+  assert.equal(docAlert({ tier: 'B', watch: '무역구제', kind: '호주 ATRC 사건 공개기록', company: 'KG스틸' }, undefined), null);            // 절차 문서(출입처 의견서는 A)
+  assert.equal(docAlert({ tier: 'B', watch: '무역구제', kind: '캐나다 CBSA 사건 문서', company: '포스코' }, undefined), null);
+  // 공시: 정정 중 큰 변경은 '관련 보도 있음'이어도(원 계약 기사일 수 있다), 소송·가처분은 보도 대조가 실패했을 때
+  assert.match(docAlert({ tier: 'B', watch: '단독 후보 심사', kind: '계약', flag: '정정', company: '두산에너빌리티', fact: '정정 중 큰 변경(계약기간)' }, '관련 보도 있음'), /공시 정정 중 큰 변경/);
+  assert.match(docAlert({ tier: 'B', watch: '단독 후보 심사', kind: '소송', company: '고려아연', fact: '[기재정정]소송등의제기ㆍ신청(경영권분쟁소송) — 보도 대조 미확인(채널 실패)' }, '미확인'), /소송·정정 공시\(보도 대조 미확인\)에 고려아연/);
+  assert.equal(docAlert({ tier: 'B', watch: '단독 후보 심사', kind: '소송', company: '고려아연', fact: '소송등의제기' }, '관련 보도 있음'), null);
+  assert.equal(docAlert({ tier: 'B', watch: '단독 후보 심사', kind: '리콜', company: '현대차', fact: '리콜 공지만으로는 단독이 아님' }, '미보도 후보'), null);
+  assert.equal(docAlert({ tier: 'B', watch: '미국 소송·판결', kind: '분류 없음', company: '기아' }, undefined), null);   // 소비자 소송 B는 알리지 않는다(CIT·CAFC는 A)
 });
 
 test('trade remedies: ITC votes on Korean beat products show the outcome; revocation or no-injury is A, continuation is B', async () => {
