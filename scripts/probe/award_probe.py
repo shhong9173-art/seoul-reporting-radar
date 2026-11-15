@@ -1,4 +1,4 @@
-"""probe 249: (가) 정기보고서 숨은 대목 읽기가 실제 DART 원문에서 되는지 — 구조·건수만(새 줄 글자는 찍지 않는다, 옛 줄 본보기만).
+"""probe 250: (가) 정기보고서 숨은 대목 읽기가 실제 DART 원문에서 되는지 — 구조·건수만(새 줄 글자는 찍지 않는다, 옛 줄 본보기만).
 (나) 단독 원천 후보의 자료 주소 찾기(스크립트 주소·API 낱말). 공개 페이지만, 저장 안 함."""
 import datetime as dt
 import json
@@ -66,15 +66,17 @@ def part_a():
                 nobase += 1
             todo.append((name, rcept, base, when))
     OUT.append(f"[가] 이번 기간 보고서 낸 곳 {filed}/{len(names)} · 그중 앞 보고서 못 찾음 {nobase} · 접수일 분포 {sorted({t[3] for t in todo})}")
-    want = ["두산에너빌리티", "한화솔루션", "현대제철", "포스코홀딩스", "LG화학", "고려아연", "현대자동차", "금호타이어", "S-Oil", "효성중공업", "HD현대일렉트릭", "롯데케미칼"]
-    picked = [t for t in todo if t[0] in want][:9] or todo[:6]
-    budget = [40]
+    want = ["두산에너빌리티", "한화솔루션", "현대제철", "포스코홀딩스", "LG화학", "고려아연", "현대자동차", "금호타이어", "S-Oil", "롯데케미칼", "기아", "현대모비스"]
+    picked = ([t for t in todo if t[0] in want] + [t for t in todo if t[0] not in want])[:10]
+    budget = [60]
+    plain = lambda t: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
     for name, rcept, base, when in picked:
         t0 = time.time()
-        cst, csec, cerr = n.read_report(key, rcept, get=requests.get, sleep=time.sleep, budget=budget)
+        texts, err = kx.fetch_document(key, rcept, get=requests.get, sleep=time.sleep, want="제재")
+        cst, csec = ("ok", max((n.sections(t) for t in texts[:3]), key=len)) if texts else ("failed", None)
         bst, bsec, berr = n.read_report(key, base, get=requests.get, sleep=time.sleep, budget=budget) if base else ("none", None, "앞 보고서 없음")
-        if cst != "ok" or bst != "ok":
-            OUT.append(f"   {name}: 이번 {cst}({cerr}) · 앞 {bst}({berr})")
+        if cst != "ok" or bst != "ok" or not csec:
+            OUT.append(f"   {name}: 이번 {cst}({err}) · 앞 {bst}({berr})")
             continue
         line = [f"   {name}({when}) {time.time() - t0:.0f}초"]
         for sec in n.SECTIONS:
@@ -82,13 +84,41 @@ def part_a():
             if cur is None or old is None:
                 line.append(f"{sec}: 이번 {'못 찾음' if cur is None else len(cur)} · 앞 {'못 찾음' if old is None else len(old)}")
                 continue
-            have = {n.key_of(x) for x in old}
-            fresh = [x for x in cur if n.key_of(x) not in have]
-            kept = [x for x in cur if n.key_of(x) in have]
-            lens = sorted(len(x) for x in cur)
-            line.append(f"{sec}: 이번 {len(cur)}줄(길이 중앙 {lens[len(lens) // 2] if lens else 0}·최대 {lens[-1] if lens else 0}) · 앞 {len(old)}줄 · 새 줄 {len(fresh)}"
-                        + (f" · 옛 줄 본보기 「{kept[0][:110]}」" if kept else ""))
+            fresh = n.fresh_lines(cur, set(n.keys_of(old)))
+            kinds = f"표 한 건 {sum(1 for x in cur if n.SEP in x)}·줄 {sum(1 for x in cur if n.SEP not in x)}"
+            line.append(f"{sec}: 이번 {len(cur)}({kinds}) · 앞 {len(old)} · 새 줄 {len(fresh)}(처음 보는 건 {sum(1 for x in fresh if x.startswith('〔처음'))}·바뀐 줄 {sum(1 for x in fresh if x.startswith('〔앞'))}·그 밖 {sum(1 for x in fresh if not x.startswith('〔'))})")
         OUT.append(" | ".join(line))
+        # 제재 대목이 비었으면 그 자리에 적힌 안내 글(회사 기재 안내문 — 단서가 아니다)
+        if csec.get("sanction") is not None and len(csec["sanction"]) <= 1:
+            for t in texts[:1]:
+                marks = [(m.start(), m.end(), n.clean(m.group(1))) for m in n.TITLE.finditer(t)]
+                for i, (_, end, title) in enumerate(marks):
+                    if re.search(r"제재\s*(?:등과|등에|현황)", title):
+                        nxt = marks[i + 1][0] if i + 1 < len(marks) else len(t)
+                        OUT.append(f"      제재 대목 글({nxt - end}자): 「{plain(t[end:nxt])[:260]}」")
+                        break
+    # 잡음 확인: 지난 반기(8월 제출) ← 1분기(5월 제출) 비교의 새 줄 글(오래된 공개 보고서)
+    for name in ["포스코홀딩스", "롯데케미칼", "한화솔루션"]:
+        code = codes.get(name)
+        st, body = ec.call("list.json", {"corp_code": code, "bgn_de": since, "end_de": now.strftime("%Y%m%d"), "pblntf_ty": "A", "page_count": "40"},
+                           get=lambda u, params, **kw: requests.get(u, params={"crtfc_key": key, **params}, **kw), sleep=time.sleep)
+        rows = (body or {}).get("list") or []
+        h1, _ = n.report_of(rows, 2026, "11012")
+        q1, _ = n.report_of(rows, 2026, "11013")
+        if not h1 or not q1:
+            OUT.append(f"   [잡음] {name}: 반기 {h1} · 1분기 {q1}")
+            continue
+        s1, a1, e1 = n.read_report(key, h1, get=requests.get, sleep=time.sleep, budget=budget)
+        s0, a0, e0 = n.read_report(key, q1, get=requests.get, sleep=time.sleep, budget=budget)
+        if s1 != "ok" or s0 != "ok":
+            OUT.append(f"   [잡음] {name}: {s1} {e1} · {s0} {e0}")
+            continue
+        for sec in ("sanction", "suit"):
+            if sec in a1 and sec in a0:
+                fresh = n.fresh_lines(a1[sec], set(n.keys_of(a0[sec])))
+                OUT.append(f"   [잡음] {name} 반기←1분기 {sec}: 반기 {len(a1[sec])} · 1분기 {len(a0[sec])} · 새 줄 {len(fresh)}")
+                for x in fresh[:5]:
+                    OUT.append("        · " + x[:240])
 
 
 def dump(name, url, pats=(), **kw):
@@ -112,24 +142,23 @@ def dump(name, url, pats=(), **kw):
 
 
 def part_b():
-    b = dump("ACCESS frnotices", "https://access.trade.gov/frnotices", [r"RAW:(?:fetch|\$\.ajax|\$\.get|\$\.post|XMLHttpRequest|DataTable)\s*\(", r"RAW:_blazor|__doPostBack|htmx|hx-get|hx-post"])
-    for src in re.findall(r'<script[^>]+src="([^"]+)"', b, re.I)[:14]:
-        if re.search(r"frnotice|site|app|main|public", src, re.I) and not re.search(r"jquery|bootstrap|popper|datatables\.min", src, re.I):
-            u = src if src.startswith("http") else "https://access.trade.gov" + (src if src.startswith("/") else "/" + src)
-            dump("ACCESS 스크립트 " + src[-40:], u, [r"RAW:url\s*:\s*['\"][^'\"]+", r"RAW:fetch\(['\"`][^'\"`]+"])
-    b = dump("EU 사건 검색 첫 화면", "https://competition-cases.ec.europa.eu/search", [])
-    for src in re.findall(r'<script[^>]+src="([^"]+)"', b, re.I):
-        if re.search(r"main|app|index|chunk", src, re.I):
-            u = src if src.startswith("http") else "https://competition-cases.ec.europa.eu/" + src.lstrip("/")
-            dump("EU 스크립트 " + src[-40:], u, [r"RAW:https://[a-z0-9.-]*(?:api|search)[a-z0-9./-]*", r"RAW:apiKey[\"'=:\s]+[A-Za-z0-9_-]{4,40}", r"RAW:caseInstrument"])
-            break
-    b = dump("SAMR 간이사건 공시", "https://www.samr.gov.cn/fldes/ajgs/jyaj/", [r"RAW:(?:\.json|getSearch|pageSize|loadData|ajax)[^\n]{0,160}", r"RAW:<iframe[^>]+>"])
-    OUT.append("   SAMR 본문 머리: " + re.sub(r"\s+", " ", b)[900:1700])
-    dump("SAMR 무조건 승인 목록(wtjjz)", "https://www.samr.gov.cn/fldes/ajgs/wtjjz/index.html", [r"RAW:<iframe[^>]+>", r"收购|股权|合营"])
-    dump("인도 CCI 승인 명령(31조)", "https://www.cci.gov.in/combination/orders-section31", [r"POSCO|Hyundai|Kia|LG |Hanwha|JSW|Korea", r"C-20\d\d/\d\d/\d+", r"RAW:ajax[^\n]{0,200}"])
-    dump("인도 CCI 접수 요약(추정)", "https://www.cci.gov.in/combination/combination-filed", [r"C-20\d\d/\d\d/\d+", r"POSCO|Hyundai|Kia|LG |Hanwha|JSW"])
-    b = dump("통합환경허가 게시판 5", "https://ieps.nier.go.kr/web/board/5/?menu=41", [r"행정처분|조업정지|과징금|위반", r"RAW:<title>[^<]+", r"RAW:menu=\d+[^\"']{0,40}[\"'][^>]*>[^<]{2,30}"])
-    m = dump("통합환경허가 첫 화면 메뉴", "https://ieps.nier.go.kr/web/main", [r"RAW:href=\"(/web/[^\"]+)\"[^>]*>\s*[^<]*(?:처분|공개|허가\s*현황|사업장)[^<]*"])
+    try:
+        r = requests.get("https://competition-cases.ec.europa.eu/main-WPNRFSVK.js", headers=UA, timeout=60)
+        urls = sorted({u for u in re.findall(r'https?://[A-Za-z0-9./_-]+', r.text) if re.search(r"api|search|case|europa", u) and not re.search(r"w3\.org|angular|github|eur-lex|ecl", u)})
+        OUT.append(f"[EU main JS] 주소 {len(urls)}개: " + " | ".join(urls[:30]))
+        for m in list(re.finditer(r'apiKey|caseInstrument|searchApi|/rest/search', r.text))[:6]:
+            OUT.append("   · " + r.text[max(0, m.start() - 120):m.end() + 160].replace("\n", " "))
+    except Exception as e:  # noqa: BLE001
+        OUT.append(f"[EU main JS] 실패 {type(e).__name__}")
+    b = dump("인도 CCI 심사 중 신고", "https://www.cci.gov.in/combination/notice-under-review", [r"RAW:ajax\s*:\s*[^\n]{0,200}", r"RAW:url\s*:\s*[\"'][^\"']+", r"C-20\d\d/\d\d/\d+", r"POSCO|Hyundai|Kia|LG |Hanwha|JSW|Korea"])
+    b = dump("SAMR 간이사건 공시", "https://www.samr.gov.cn/fldes/ajgs/jyaj/", [r"RAW:build/unit[^\n]{0,400}", r"RAW:(?:webId|pageId|tplSetId|unitUrl|parseType)[\"'=:\s]+[^,;\n]{0,80}"])
+    i = b.find("build/unit")
+    if i > 0:
+        OUT.append("   SAMR 호출 앞뒤: " + re.sub(r"\s+", " ", b[max(0, i - 700):i + 500]))
+    b = dump("통합환경허가 게시판 5", "https://ieps.nier.go.kr/web/board/5/?menu=41", [r"RAW:<title>[^<]+", r"RAW:class=\"(?:tit|title|subject)[^>]*>\s*(?:<a[^>]*>)?\s*[^<]{4,80}"])
+    plainb = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)\b.*?</\1>", " ", b, flags=re.S | re.I)))
+    i = plainb.find("번호")
+    OUT.append("   게시판 5 목록 머리: " + plainb[i:i + 500])
 
 
 for f in (part_a, part_b):
