@@ -769,7 +769,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const who = changed.length ? changed.map((c) => c.company) : names;
     const frTier = odd.length || changed.length ? 'A' : names.length ? 'B' : 'C';
     push(frTier, W['trade-remedy'], { kind, ruling: Boolean(x.rateTable), id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
-      fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${rates}${memo}`, url: x.url,
+      // 정정 고시(11-15)는 본문에 회사 이름이 없다 — 이름은 정정 대상 판정의 세율 표에서 온 것이라고 밝히고 정정 문장을 그대로 붙인다
+      fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — ${x.namedVia ?? '본문'}에 ${names.join('·')}` : ''}${rates}${memo}${x.correction?.quote ? ` · 정정 문장(원문): "${String(x.correction.quote).slice(0, 260)}"` : ''}`, url: x.url,
       ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? { ...tradeReady(x), point: tradePoint(x) || undefined } : {}),
       // 보도 대조는 품목 낱말까지(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다) — 품목이 없는 기사는 약한 근거로만 남는다
       check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정'], [], productKo(x.title)?.words ?? []) });
