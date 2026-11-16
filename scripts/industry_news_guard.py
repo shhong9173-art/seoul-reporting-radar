@@ -97,3 +97,16 @@ def summarize_queries(checks,expected):
         "domesticUnreportedProved":False,
         "warning":"일반 산업 뉴스 원천 실패 시 기존 결과 보존. 단독 전용 검색 실패만 발생하면 일반 뉴스 수집은 유지하되 단독 미관측을 0건으로 해석하지 않음. RSS는 공식 원문·국내 언론 전체 모집단이 아님",
     }
+
+
+def publish_decision(checks):
+    """Core-feed gate (11-17 기자 결정: '핵심 검색 하나만 실패해도 멈춤' → '실패한 검색만 표시하고 발행').
+    Publish when at most half of the general (core) feeds failed and at least one core feed was checked;
+    otherwise keep the previous dataset. Failed categories are returned so the page can say which
+    searches are missing (a failed search is unverified, never 'no news').
+    11-17 04:30 KST부터 구글 뉴스 429로 '재생에너지' 한 검색이 실패해 산업 뉴스 전체가 발행되지 않았다."""
+    core=[c for c in checks if isinstance(c,dict) and not c.get("dedicatedExclusiveQuery",False)]
+    failed=[c.get("category") for c in core if c.get("status")=="failed"]
+    if not core:
+        return False,failed
+    return (len(failed)*2<=len(core) and len(failed)<len(core)),failed

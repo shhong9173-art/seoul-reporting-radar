@@ -5,7 +5,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.news_headline_identity import normalize_title
-from scripts.industry_news_guard import inspect_rss_date, summarize_queries
+from scripts.industry_news_guard import inspect_rss_date, summarize_queries, publish_decision
 from scripts.historical_exclusive_press_collector import tracked_industry_companies
 
 KST=ZoneInfo('Asia/Seoul')
@@ -130,12 +130,15 @@ all_items=[]
 for category,query in FEEDS:all_items.extend(parse_feed(category,query))
 health=summarize_queries(FEED_CHECKS,len(FEEDS))
 if not health["allCoreFeedsHealthy"]:
-    # General industry RSS failure remains blocking. Dedicated recent scoop
-    # searches are additive; their isolated failure must not stale every
-    # healthy general news category. Preserve scoop gap diagnostics.
-    raise SystemExit("Core industrial RSS source failed; previously published industry data preserved. "+
-                     "Failed categories: "+", ".join(c["category"] for c in FEED_CHECKS
-                           if c["status"]=="failed" and not c.get("dedicatedExclusiveQuery")))
+    # 11-17: 핵심 검색 일부만 실패하면 실패한 범주를 적고 발행한다(과반 실패면 예전처럼 이전 자료 유지).
+    # Dedicated recent scoop searches are additive; their isolated failure never blocks.
+    ok,failed_core=publish_decision(FEED_CHECKS)
+    if not ok:
+        raise SystemExit("Core industrial RSS source failed; previously published industry data preserved. "+
+                         "Failed categories: "+", ".join(failed_core))
+    health["status"]="core_partial_published_failed_categories_unverified"
+    health["publishedWithFailedCategories"]=failed_core
+    print(f"::warning title=industry-collect-partial::산업 뉴스 핵심 검색 {len(failed_core)}개 실패({', '.join(failed_core)}) — 나머지로 발행, 실패 범주는 미확인")
 
 
 seen=set();items=[]

@@ -4,7 +4,7 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from industry_news_guard import verified_rss_date,inspect_rss_date,summarize_queries
+from industry_news_guard import verified_rss_date,inspect_rss_date,summarize_queries,publish_decision
 from news_headline_identity import normalize_title
 
 KST=timezone(timedelta(hours=9))
@@ -113,3 +113,17 @@ class IndustrialFeedEvidence(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
+    def test_partial_core_failure_publishes_with_failed_categories(self):
+        # 11-17: 구글 429로 '재생에너지' 한 검색만 실패 — 나머지로 발행하고 실패 범주를 적는다
+        def row(cat,status,excl=False):
+            return {"category":cat,"status":status,"dedicatedExclusiveQuery":excl}
+        core=[row(c,"checked_recent_rows") for c in ("철강","비철금속","전력기기","전선·전력","에너지","에너지","화학·소재")]
+        ok,failed=publish_decision(core+[row("재생에너지","failed"),row("철강","failed",True)])
+        self.assertEqual((ok,failed),(True,["재생에너지"]))
+        # 과반 실패·전부 실패면 예전처럼 이전 자료 유지
+        half=[row(c,"failed") for c in ("철강","비철금속","전력기기","전선·전력","에너지")]+[row("화학·소재","checked_recent_rows")]
+        self.assertFalse(publish_decision(half)[0])
+        self.assertFalse(publish_decision([row("철강","failed")])[0])
+        self.assertFalse(publish_decision([row("철강","failed",True)])[0])
+
