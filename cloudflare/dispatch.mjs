@@ -94,6 +94,9 @@ export const SLOTS = [
   { at: '06:40', workflow: 'kr-report-notes.yml' }, { at: '13:10', workflow: 'kr-report-notes.yml' }, { at: '19:40', workflow: 'kr-report-notes.yml' },
   // 18:10: 장 마감 뒤 제출분을 18:43 알림에 싣는다(마감일에는 오후 늦게 몰린다 — 19:40 실행분은 21:43 알림까지 기다려야 한다)
   { at: '18:10', workflow: 'kr-report-notes.yml' },
+  // 11-16 마감일: 큰 회사는 저녁에 내고, 접수 뒤 몇 시간은 원문 파일이 없다(OpenDART 014) — 19:40에 못 읽은 10곳 중 8곳이 20:27에 읽혔다.
+  // 21:43 알림 전에 한 번 더(새 보고서가 없는 날은 목록만 보고 끝난다).
+  { at: '21:10', workflow: 'kr-report-notes.yml' },
   { at: '09:40', workflow: 'kr-report-notes.yml', days: [6] },
   // 11-05: 수시 임원 공시(독립이사 신고·대표이사 변경·소집공고) + 상장사 등기임원 명단 순환 — 매일 세 번(주말에도 정정·수시 공시가 있다)
   { at: '06:20', workflow: 'kr-exec-market.yml', daily: true }, { at: '12:20', workflow: 'kr-exec-market.yml', daily: true },

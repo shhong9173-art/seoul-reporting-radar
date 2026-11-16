@@ -74,7 +74,7 @@ export const WATCHES = [
   { feed: 'kr-exec', label: '임원 명단 변화(정기보고서)', tool: 'kr_signals', schedule: '평일 07:50·21:50', staleHours: 60 },
   // 정기보고서 숨은 대목(kr_report_notes.py, 11-15 기자 "다른 언론사가 받아쓸 만한 큰 단독"): 출입처 분기·반기·사업보고서의 제재 현황·중요한 소송·
   // 연결 범위 변동을 앞 보고서와 비교해 새로 적힌 줄만. 전부 B(새 감시는 낮게 시작) — 제재·소송 줄이 적고 제때 읽은 것만 문서 알림 대상
-  { feed: 'kr-report-notes', label: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', tool: 'kr_signals', schedule: '평일 06:40·13:10·18:10·19:40, 토 09:40', staleHours: 80 },
+  { feed: 'kr-report-notes', label: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', tool: 'kr_signals', schedule: '평일 06:40·13:10·18:10·19:40·21:10, 토 09:40', staleHours: 80 },
   // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 회사 출신만 — 고위 출신 A)과
   // 출입처 소집공고 이사 후보(부실기업 경영진 여부 등), 상장사 등기임원 명단 순환 조회
   { feed: 'kr-exec-market', label: '수시 임원 공시·타사 임원 명단', tool: 'kr_signals', schedule: '매일 06:20·12:20·18:20', staleHours: 30 },

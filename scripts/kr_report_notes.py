@@ -277,6 +277,10 @@ def read_report(key, rcept, *, get, sleep, budget):
     texts, err = kx.fetch_document(key, rcept, get=get, sleep=sleep, want="제재")
     sleep(PAUSE)
     if not texts:
+        # OpenDART 014(파일이 존재하지 않습니다): 접수 뒤 몇 시간은 원문 파일이 아직 없다 — 실패가 아니라 대기다(다음 실행이 다시 읽는다).
+        # 11-16 분기보고서 마감일: 18:10 실행 16곳·19:40 실행 10곳이 이 응답이었고, 20:27 실행에서 그중 8곳이 읽혔다.
+        if "<status>014" in str(err or ""):
+            return "waiting", None, "원문 파일 준비 전(OpenDART 014)"
         return "failed", None, err or "원문 없음"
     best = {}
     for text in texts[:3]:
