@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16T16:50:36+09:00",
+  "generatedAt": "2026-11-16T17:42:57+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-16T10:45:53+09:00",
-      "rows": 98,
+      "generatedAt": "2026-11-16T17:42:16+09:00",
+      "rows": 122,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 0,
+    "new_official_receipt_review": 1,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 20,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-14",
     "through": "2026-11-16"
   },
-  "checkedOfficialRecentCandidates": 0,
+  "checkedOfficialRecentCandidates": 1,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 0,
+  "todayOnlyCount": 1,
   "historicalResearchCount": 28,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 28,
+  "totalRows": 29,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -88,6 +88,45 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261116800835",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "대한전선",
+      "title": "대한전선 · SUPPLY AND INSTALLATION OF 400kV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC460) (공시 원문)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 원문 표 확인: SUPPLY AND INSTALLATION OF 400kV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC460) · 계약금액 271,773,857,932원 · 상대 싱가포르 전력청 (SP POWERASSETS LIMITED). 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116800835"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+        "공시 표상 계약상대·관계·금액·기간 확인",
+        "공개된 최종 고객 자료와 발행법인 구분",
+        "내부 공급망 변경·장래 매출은 추정하지 않음"
+      ],
+      "officialTableTermsRetrieved": true,
+      "verifiedOfficialTableFields": {
+        "contract_subject": "SUPPLY AND INSTALLATION OF 400kV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC460)",
+        "contract_amount": "271,773,857,932",
+        "counterparty": "싱가포르 전력청 (SP POWERASSETS LIMITED)",
+        "supply_region": "싱가포르",
+        "contract_start": "2026-11-13",
+        "contract_end": "2029-06-30"
+      },
+      "inGroupCounterpartyPerIssuerFiling": false,
+      "externalNewCustomerVerified": false,
+      "actualShipmentsVerified": false,
+      "pressIndexNoHitsIsNotNoCoverage": true,
+      "editorialPriority": "new_official_filing_manual_review"
+    },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
       "tier": "verified_historical_investment_delta",
