@@ -261,20 +261,48 @@ def balance_issuers(items):
     return result
 
 
-def build(source,key="",historical=historical_title_search,search_limit=10,now=None):
+def reusable_checks(previous):
+    """앞 실행에서 끝난 과거 제목 검색 결과(공개번호·발명명칭이 같은 것) — 같은 공보를 날마다 다시 묻지 않는다."""
+    kept={}
+    for old in ((previous or {}).get("investigations") or []) if isinstance(previous,dict) else []:
+        check=old.get("priorFullTitleCheck") if isinstance(old,dict) else None
+        if (isinstance(check,dict) and isinstance(check.get("matches"),list)
+                and not str(check.get("status") or "").startswith(("과거 특허 원문 검색 오류","미검색"))
+                and old.get("publicationNumber") and old.get("title")):
+            kept[(old["publicationNumber"],old["title"])]=check
+    return kept
+
+
+def build(source,key="",historical=historical_title_search,search_limit=10,now=None,window=None,previous=None):
+    """search_limit: 이번 실행이 새로 보낼 과거 제목 검색 수. window: 검색 대상인 앞 순위 공보 수(기본 search_limit).
+
+    previous(앞 실행 결과)가 있으면 이미 확인한 공보는 그 결과를 다시 쓰고 호출하지 않는다.
+    """
     now=now or datetime.now(KST)
     if not 0<=search_limit<=20:
         raise ValueError("과거 특허 비교 검색 상한 0~20")
+    window=search_limit if window is None else window
+    if not 0<=window<=20:
+        raise ValueError("과거 특허 비교 대상 범위 0~20")
+    kept=reusable_checks(previous)
     items,rejected=merge_publications(source)
     relate(items)
     items.sort(key=lambda x:(-x["newsroomScore"],-int(x.get("publicationDate") or 0),x["publicationNumber"]))
     items=balance_issuers(items)
-    count=0
+    count=reused=seen_rows=0
     for row in items:
-        if count>=search_limit or not key:
-            continue
+        if seen_rows>=window:
+            break
         date=row.get("publicationDate") or ""
         if not re.fullmatch(r"20\d{6}",date):
+            continue
+        seen_rows+=1
+        old=kept.get((row.get("publicationNumber"),row.get("title")))
+        if old is not None:
+            row["priorFullTitleCheck"]=old
+            reused+=1
+            continue
+        if count>=search_limit or not key:
             continue
         target=(datetime.strptime(date,"%Y%m%d").date()-timedelta(days=1)).strftime("%Y%m%d")
         count+=1
@@ -303,6 +331,7 @@ def build(source,key="",historical=historical_title_search,search_limit=10,now=N
         "invalidDuplicateNumbers":rejected,
         "sourceCoverageComplete":source.get("sourceWindowComplete",False),
         "historicalQueriesAttempted":count,
+        "historicalChecksReused":reused,
         "rankingMethod":"공식 기술 근거 우선점수×공동출원 법인군 라운드로빈(출입처 편중 방지, 단독 확률 아님)",
         "historicalScope":"동일 발명명칭 공식 KIPRIS 공개공보 2023년 이후 목록 부분검색; 청구범위/해외패밀리 전체 선행기술 비교 아님",
         "warning":"출원/공개/등록·실제 기술 적용·세계최초·선행보도·단독은 각각 독립 검증해야 한다. 공동출원 하나는 1건.",
@@ -326,16 +355,26 @@ def main():
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
     limit=args.max_history if key else 0
     historical=historical_title_search
+    previous=None
+    try:
+        if Path(args.output).is_file():
+            previous=json.loads(Path(args.output).read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        previous=None
     if key:
         ledger=KiprisAccountLedger()
         if not ledger.should_probe("patent_deep"):
             limit=0
-        limit=min(limit,ledger.remaining("patent_deep"))
+        # 공보 조회가 달 끝까지 돌 몫을 먼저 남긴다 — 부가 조회는 남는 만큼만.
+        limit=min(limit,ledger.remaining("patent_deep"),ledger.extras_allowance("patent_deep"))
         fetch=ledger.fetcher("patent_deep",request_xml)
         historical=lambda k,t,c:historical_title_search(k,t,c,fetch=fetch)
         if limit<args.max_history:
             print("KIPRIS 공용 장부: 과거 제목 검색",args.max_history,"→",limit,"건으로 제한")
-    result=build(source,key=key,historical=historical,search_limit=limit)
+    result=build(source,key=key,historical=historical,search_limit=limit,
+                 window=args.max_history,previous=previous)
+    if result.get("historicalChecksReused"):
+        print("과거 제목 검색: 앞서 확인한 공보",result["historicalChecksReused"],"건은 다시 묻지 않음")
     if key:
         ledger.persist()
     out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True)

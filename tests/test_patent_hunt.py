@@ -533,6 +533,38 @@ class TransientRetryTests(unittest.TestCase):
             path.write_text("{broken",encoding="utf-8")
             self.assertFalse(p.weekly_done_today(path,now=NOW))
 
+
+class StretchWhenShort(unittest.TestCase):
+    """11-16: 이달 남은 몫(195건)이 남은 10평일 매일 조회(266건)에 모자라다 — 화·목을 쉬어 월말까지 끊기지 않게."""
+    class Book:
+        def __init__(self,short): self.short=short
+        def source_short(self): return self.short
+
+    def prev(self,when,complete=True):
+        return {"generatedAt":when.isoformat(timespec="seconds"),"sourceWindowComplete":complete}
+
+    def test_skips_tuesday_and_thursday_only_when_short_and_fresh(self):
+        tue=datetime(2026,11,17,8,30,tzinfo=KST)
+        fresh=self.prev(tue-timedelta(hours=24))
+        self.assertTrue(p.stretch_skip(self.Book(True),fresh,now=tue))
+        self.assertFalse(p.stretch_skip(self.Book(False),fresh,now=tue))          # 몫이 넉넉하면 매일
+        wed=tue+timedelta(days=1)
+        self.assertFalse(p.stretch_skip(self.Book(True),self.prev(wed-timedelta(hours=24)),now=wed))
+        thu=tue+timedelta(days=2)
+        self.assertTrue(p.stretch_skip(self.Book(True),self.prev(thu-timedelta(hours=24)),now=thu))
+
+    def test_does_not_skip_after_a_failed_or_old_run(self):
+        tue=datetime(2026,11,17,8,30,tzinfo=KST)
+        self.assertFalse(p.stretch_skip(self.Book(True),self.prev(tue-timedelta(days=4)),now=tue))   # 11-13 결과뿐(월요일 실패)
+        self.assertFalse(p.stretch_skip(self.Book(True),self.prev(tue-timedelta(hours=24),complete=False),now=tue))
+        self.assertFalse(p.stretch_skip(self.Book(True),None,now=tue))
+        self.assertFalse(p.stretch_skip(self.Book(True),{"generatedAt":"broken","sourceWindowComplete":True},now=tue))
+
+    def test_ledger_shares_match_the_company_lists(self):
+        import kipris_account_ledger as book
+        self.assertEqual(book.SOURCE_PER_WEEKDAY,len(p.APPLICANTS))
+        self.assertEqual(book.SOURCE_PER_MONDAY,len(p.WEEKLY_APPLICANTS))
+
 if __name__=="__main__":
     unittest.main()
 
