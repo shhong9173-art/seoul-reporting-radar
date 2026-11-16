@@ -1,19 +1,15 @@
 {
-  "generatedAt": "2026-11-16T10:46:55+09:00",
+  "generatedAt": "2026-11-16T16:50:36+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-16T02:03:23+09:00",
+      "generatedAt": "2026-11-16T16:24:07+09:00",
       "rows": 0,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
-        "recent_contracts",
-        "overseas_official",
-        "investigation_hunt",
-        "recent_metric_changes",
         "nhtsa_official",
         "dart_beat_monitor"
       ]
@@ -27,16 +23,16 @@
       "uninspectedRelevantDetails": 0
     },
     "investment": {
-      "status": "old_snapshot_not_a_current_scan",
-      "generatedAt": "2026-11-13T12:39:12+09:00",
+      "status": "source_snapshot_checked",
+      "generatedAt": "2026-11-16T12:14:45+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
-      "status": "old_snapshot_not_a_current_scan",
-      "generatedAt": "2026-11-14T00:18:56+09:00",
-      "rows": 23,
+      "status": "source_snapshot_checked",
+      "generatedAt": "2026-11-16T15:26:13+09:00",
+      "rows": 20,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
@@ -65,8 +61,8 @@
   "countsByEvidenceTier": {
     "new_official_receipt_review": 0,
     "new_official_list_heading_review": 0,
-    "verified_historical_investment_delta": 0,
-    "verified_historical_numeric_delta": 0,
+    "verified_historical_investment_delta": 3,
+    "verified_historical_numeric_delta": 20,
     "issuer_only_correction_unverified_original": 3,
     "older_public_contract_reference": 1,
     "unlinked_correction_text_followup": 1
@@ -78,10 +74,10 @@
   "checkedOfficialRecentCandidates": 0,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 0,
-  "historicalResearchCount": 5,
+  "historicalResearchCount": 28,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 5,
+  "totalRows": 28,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -92,6 +88,581 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "변압기 철심공장 · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.01 → 최근 공시 2026.11 (+10개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_investment_delta:20260814003228:중저압차단기 자동화설비",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "중저압차단기 자동화설비 · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.05 → 최근 공시 2026.10 (+5개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_investment_delta:20260814003228:청주 배전캠퍼스 신축(*)",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "청주 배전캠퍼스 신축(*) · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.06 → 최근 공시 2026.12 (+6개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113000671:한국타이어앤테크놀로지:productionActual:생산설비",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "한국타이어앤테크놀로지",
+      "title": "생산설비 · productionActual 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 65510 → 43158 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113000671:한국타이어앤테크놀로지:productionCapacity:생산설비",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "한국타이어앤테크놀로지",
+      "title": "생산설비 · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 89871 → 63006 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113000671:한국타이어앤테크놀로지:segmentSales:공임 / 차량정비 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "한국타이어앤테크놀로지",
+      "title": "공임 / 차량정비 등 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 17221 → 19741 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113000671:한국타이어앤테크놀로지:segmentSales:기타 / 기타",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "한국타이어앤테크놀로지",
+      "title": "기타 / 기타 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 195950 → 219790 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113000671:한국타이어앤테크놀로지:segmentSales:제조업[타이어부문] / 제품",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "한국타이어앤테크놀로지",
+      "title": "제조업[타이어부문] / 제품 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 7336848 → 7926139 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113001360:효성중공업:segmentSales:건설 / 주상복합, 아파트, 오피스텔 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "효성중공업",
+      "title": "건설 / 주상복합, 아파트, 오피스텔 등 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 1264738 → 1550954 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113001360:효성중공업:segmentSales:공통 / 임대 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "효성중공업",
+      "title": "공통 / 임대 등 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 24519 → 23267 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261113001360:효성중공업:segmentSales:중공업 / 변압기, 차단기, 전동기, 감속기 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "효성중공업",
+      "title": "중공업 / 변압기, 차단기, 전동기, 감속기 등 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-13",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 2936299 → 3211601 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:아시아",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호타이어",
+      "title": "아시아 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-12",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 587796 → 46639 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:유럽",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호타이어",
+      "title": "유럽 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-11-12",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 964717 → 1124210 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814002302:금호석유화학:segmentSales:용 역 / 서비스",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호석유화학",
+      "title": "용 역 / 서비스 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 1611 → 1748 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003667",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002302"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814002302:금호석유화학:segmentSales:운 송 / 서비스",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호석유화학",
+      "title": "운 송 / 서비스 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 4426 → 5577 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003667",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002302"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814002302:금호석유화학:segmentSales:하 역 / 서비스",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "금호석유화학",
+      "title": "하 역 / 서비스 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 21701 → 25980 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003667",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002302"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814002500:SK이노베이션:segmentSales:해외판매",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "SK이노베이션",
+      "title": "해외판매 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 3729260 → 3525849 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814004447",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002500"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:부산 / 초고압변압기, 배전변압기, HVDC Valve, FACTS",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "부산 / 초고압변압기, 배전변압기, HVDC Valve, FACTS · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 228651 → 484052 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:청주2 / 배전반, 초고압GIS, 변압기 철도/SE 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "청주2 / 배전반, 초고압GIS, 변압기 철도/SE 등 · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 719346 → 918975 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:청주2 / 배전반, 초고압GIS, 변압기, 철도/SE등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "청주2 / 배전반, 초고압GIS, 변압기, 철도/SE등 · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 804233 → 1029202 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003228:HD현대일렉트릭:productionActual:전기전자 부문 / 변압기 外",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "HD현대일렉트릭",
+      "title": "전기전자 부문 / 변압기 外 · productionActual 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 1920887 → 2178313 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814002832",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003228:HD현대일렉트릭:segmentSales:제 품",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "HD현대일렉트릭",
+      "title": "제 품 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 1912484 → 2170118 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814002832",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814004065:현대모비스:segmentSales:국 내",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "현대모비스",
+      "title": "국 내 · segmentSales 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 13421101 → 14146541 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814004056",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
     {
       "id": "issuer_only_correction_unverified_original:DART:20261102800394",
       "tier": "issuer_only_correction_unverified_original",
