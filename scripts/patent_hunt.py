@@ -21,6 +21,7 @@ from kipris_source_budget import SourceRequestMeter, SourceRequestBudgetExhauste
 from kipris_account_ledger import KiprisAccountLedger
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
+from http.client import IncompleteRead
 
 KST=timezone(timedelta(hours=9))
 # Public KIPRISPlus REST documentation: getAdvancedSearch / applicant / openDate.
@@ -166,6 +167,51 @@ def request_xml(url):
     with urlopen(req,timeout=20) as answer:
         response=answer.read(2_000_001)
     return response
+
+
+# 11-16: 월요일 묶음 첫 실행 날, 매일 조회 24곳 중 한 곳(현대제철)의 연결이 응답 없이 끊겨(RemoteDisconnected)
+# 그날 매일 조회 전체가 미완료로 끝났다(이전 자료 보존 · 뒤 단계 건너뜀 · 묶음 결과도 못 붙음).
+TRANSIENT=(ConnectionError,IncompleteRead,TimeoutError)
+RETRY_LIMIT=2
+RETRY_PAUSE=3.0
+
+
+def retry_once(fetch,*,limit=RETRY_LIMIT,pause=RETRY_PAUSE,sleep=time.sleep):
+    """연결이 끊기거나 시간 초과된 요청만 한 번 더 보낸다 — 실행당 limit번까지.
+
+    다시 보내는 요청도 fetch(장부·실행 한도)를 그대로 거치므로 1건으로 세고, 한도에 닿으면 장부가 막는다.
+    제공기관이 답한 오류(코드 22 등)·장부 중단·형식 오류는 다시 묻지 않는다.
+    """
+    left=[max(0,int(limit))]
+
+    def send(url):
+        try:
+            return fetch(url)
+        except Exception as error:
+            if isinstance(error,SourceRequestBudgetExhausted):
+                raise
+            reason=getattr(error,"reason",None)
+            if not (isinstance(error,TRANSIENT) or isinstance(reason,TRANSIENT)) or left[0]<=0:
+                raise
+            left[0]-=1
+            sleep(pause)
+            return fetch(url)
+    send.retried=lambda:max(0,int(limit))-left[0]
+    return send
+
+
+def weekly_done_today(path=None,now=None):
+    """오늘(KST) 이미 끝난 월요일 묶음 결과가 있으면 True — 같은 날 다시 돌 때 13곳을 또 묻지 않는다(무료 한도)."""
+    now=now or datetime.now(KST)
+    try:
+        data=json.loads(Path(path or WEEKLY_OUT).read_text(encoding="utf-8"))
+        stamp=datetime.fromisoformat(str(data.get("generatedAt")))
+        if stamp.utcoffset() is None:
+            return False
+        return (data.get("sourceWindowComplete") is True and isinstance(data.get("items"),list)
+                and stamp.astimezone(KST).date()==now.astimezone(KST).date())
+    except (OSError,ValueError,TypeError,AttributeError):
+        return False
 
 
 def search_applicant(key,term,from_date,to_date,fetch=request_xml,max_pages=MAX_PAGES):
@@ -626,6 +672,9 @@ def main():
     names=list(WEEKLY_APPLICANTS) if args.weekly else None
     status_out=Path("digests/patent_source_status_weekly_latest.json" if args.weekly else "digests/patent_source_status_latest.json")
     group=WEEKLY_APPLICANTS if args.weekly else APPLICANTS
+    if args.weekly and not args.out and weekly_done_today():
+        print("월요일 묶음: 오늘 이미 끝난 결과가 있어 다시 묻지 않음(KIPRIS 호출 0)")
+        return
     previous=None
     if output.is_file():
         try:
@@ -666,10 +715,11 @@ def main():
         ledger.persist()
         print("KIPRISPlus 제공기관 응답 22 재확인 대기: 공식 특허 이전 자료 보존")
         raise SystemExit(2)
+    resend=retry_once(meter.get)
     try:
         report=build(key,previous=previous,news_limit=args.max_news,names=names,
                      search=lambda k,term,start,end:search_applicant(
-                         k,term,start,end,fetch=meter.get))
+                         k,term,start,end,fetch=resend))
         codes=[str(row.get("providerResultCode"))
                for row in report.get("companyChecks",[]) if
                isinstance(row,dict) and row.get("status")=="source_error"]
@@ -682,6 +732,8 @@ def main():
     finally:
         meter.persist()
         ledger.persist()
+    if resend.retried():
+        print(f"KIPRIS 연결 끊김·시간 초과로 다시 보낸 요청 {resend.retried()}건(장부에 포함)")
     report["providerDiagnostics"]=meter.public()
     report["kiprisAccountLedger"]=ledger.public()
     save_publication_diagnostics(report,status_out)

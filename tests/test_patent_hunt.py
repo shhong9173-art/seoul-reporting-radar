@@ -467,6 +467,72 @@ class WeeklyGroupTests(unittest.TestCase):
         self.assertEqual([r["publicationNumber"] for r in merged["items"] if r["company"]=="LG화학"],[weekly["items"][0]["publicationNumber"]])
 
 
+
+class TransientRetryTests(unittest.TestCase):
+    """11-16: 한 회사의 연결 끊김(RemoteDisconnected) 하나로 매일 조회 전체가 미완료가 됐다."""
+    def test_dropped_connection_is_sent_once_more_and_counted(self):
+        from http.client import RemoteDisconnected
+        calls=[];naps=[]
+        def fetch(url):
+            calls.append(url)
+            if len(calls)==1:
+                raise RemoteDisconnected("closed")
+            return b"ok"
+        send=p.retry_once(fetch,sleep=naps.append)
+        self.assertEqual(send("u"),b"ok")
+        self.assertEqual(len(calls),2)          # 다시 보낸 것도 fetch(장부)를 거친다
+        self.assertEqual(naps,[p.RETRY_PAUSE])
+        self.assertEqual(send.retried(),1)
+
+    def test_url_error_wrapping_a_timeout_is_transient(self):
+        from urllib.error import URLError
+        calls=[]
+        def fetch(url):
+            calls.append(url)
+            if len(calls)==1:
+                raise URLError(TimeoutError("timed out"))
+            return b"ok"
+        self.assertEqual(p.retry_once(fetch,sleep=lambda s:None)("u"),b"ok")
+
+    def test_provider_answer_and_budget_stop_are_never_asked_again(self):
+        for error in (RuntimeError("KIPRISPlus 응답 오류 코드 22"),
+                      p.SourceRequestBudgetExhausted("source_request_budget_exhausted"),
+                      ValueError("빈 페이지")):
+            calls=[]
+            def fetch(url,error=error):
+                calls.append(url)
+                raise error
+            with self.assertRaises(type(error)):
+                p.retry_once(fetch,sleep=lambda s:None)("u")
+            self.assertEqual(len(calls),1)
+
+    def test_second_failure_and_run_limit_stop_retrying(self):
+        calls=[]
+        def fetch(url):
+            calls.append(url)
+            raise ConnectionResetError("reset")
+        send=p.retry_once(fetch,limit=2,sleep=lambda s:None)
+        for _ in range(3):
+            with self.assertRaises(ConnectionResetError):
+                send("u")
+        # 1·2번째 요청은 한 번씩 더(4건), 3번째는 실행 한도(2번)를 다 써서 그대로 실패(1건)
+        self.assertEqual(len(calls),5)
+        self.assertEqual(send.retried(),2)
+
+    def test_weekly_group_is_not_asked_twice_on_the_same_day(self):
+        import json,tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"weekly.json"
+            self.assertFalse(p.weekly_done_today(path,now=NOW))
+            good={"generatedAt":NOW.isoformat(timespec="seconds"),"sourceWindowComplete":True,"items":[]}
+            path.write_text(json.dumps(good),encoding="utf-8")
+            self.assertTrue(p.weekly_done_today(path,now=NOW))
+            self.assertFalse(p.weekly_done_today(path,now=NOW+timedelta(days=1)))   # 다음 날은 다시 묻는다
+            path.write_text(json.dumps({**good,"sourceWindowComplete":False}),encoding="utf-8")
+            self.assertFalse(p.weekly_done_today(path,now=NOW))                     # 미완료였으면 다시 묻는다
+            path.write_text("{broken",encoding="utf-8")
+            self.assertFalse(p.weekly_done_today(path,now=NOW))
+
 if __name__=="__main__":
     unittest.main()
 
