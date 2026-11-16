@@ -80,16 +80,18 @@ def exclusive(t):
     return any(re.search(p,s,re.I) for p in pats)
 
 def error_label(exc):
-    """Class name plus the HTTP status when there is one ('HTTPError 503') — counts-only diagnostics, no URL or query."""
+    """Class name plus the HTTP status when there is one ('HTTPError_503') — counts-only diagnostics, no URL or query.
+    The feed-health check only accepts identifier-like error types: 'HTTPError 503' (with a space) made every run crash
+    with ValueError('invalid_row') once Google News started answering 503/429 (11-17 04:30~ KST, auto-desk 8 runs)."""
     code=getattr(exc,'code',None)
-    return f"{type(exc).__name__} {code}" if isinstance(code,int) else type(exc).__name__
+    return f"{type(exc).__name__}_{code}" if isinstance(code,int) else type(exc).__name__
 
 def failure_summary(checks,items,threshold=10):
     """One counts-only line for the Actions log: why the run stopped (11-01: 11:30·12:10 KST runs stopped with no visible cause)."""
     bad=[c for c in checks if c.get('status') in ('transport_or_xml_error','malformed_rss')]
     kinds={}
     for c in bad:
-        k=c.get('errorType') or c.get('status')
+        k=(c.get('errorType') or c.get('status') or '').replace('_',' ')
         kinds[k]=kinds.get(k,0)+1
     empty=sum(1 for c in checks if c.get('status')=='checked_no_recent_rows')
     detail=', '.join(f'{k} ×{v}' for k,v in sorted(kinds.items(),key=lambda kv:-kv[1]))
