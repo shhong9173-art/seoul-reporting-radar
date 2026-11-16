@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-17T03:55:31+09:00",
+  "generatedAt": "2026-11-17T04:30:05+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-16T17:43:00+09:00",
-      "rows": 24,
+      "generatedAt": "2026-11-17T03:55:34+09:00",
+      "rows": 25,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 24,
+    "new_official_receipt_review": 25,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 20,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-15",
     "through": "2026-11-17"
   },
-  "checkedOfficialRecentCandidates": 24,
+  "checkedOfficialRecentCandidates": 25,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 24,
+  "todayOnlyCount": 25,
   "historicalResearchCount": 28,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 52,
+  "totalRows": 53,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -666,6 +666,30 @@
       "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002011"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116002191",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대모비스",
+      "title": "현대모비스 · 정기·주요공시 · [첨부추가]분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002191"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
