@@ -1823,7 +1823,8 @@ async function reportNotesSection(ctx, q, days, limit) {
     out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}B · ${kstAt(e.detectedAt)} · ${e.company} · ${e.kind} · 접수 ${filed || '?'}${e.late ? ' · 늦게 읽음(알림 안 검)' : ''}`);
     for (const l of (e.lines ?? []).slice(0, q ? 9 : 4)) out.push(`   ${String(l).startsWith('…') ? l : `새 줄: ${String(l).slice(0, q ? 600 : 300)}`}`);
     if (!q && (e.lines ?? []).length > 4) out.push(`   … 나머지는 company=${e.company}로`);
-    out.push(`   원문: ${e.url ?? '링크 없음'}`);
+    // id를 같이 적는다 — 처리 기록(package_save item_ids)을 보고서 주소가 아니라 이 대목 id로 남기게(보고서 한 편에 여러 건이 있다)
+    out.push(`   원문: ${e.url ?? '링크 없음'}${e.id ? ` · id ${e.id}` : ''}`);
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
   if (!rows.length) out.push(`조건에 맞는 새 줄 없음${notFiled.length ? ` — 미제출 ${notFiled.length}곳은 0건이 아니라 미확인` : ''}.`);

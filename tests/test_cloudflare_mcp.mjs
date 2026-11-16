@@ -5564,3 +5564,29 @@ test('처리 장부(11-16): 사업보고서 단서 줄의 회사·품목 낱말�
   const linked = ledgerEntries([pk('india-tdi-ssr', '[킬] 인도 TDI 일몰재심 — 기자 판단 약함', '접음', '2026-11-16T03:00:00Z', `원문 ${URL}`)], []);
   assert.equal(annotateHandled(block(`   출입처 단서: ${HINT}\n`), linked).marked, 1);
 });
+
+test('처리 장부(11-16): 정기보고서 주소를 적은 패키지가 같은 보고서의 다른 대목까지 〔이미 처리〕로 만들지 않는다', () => {
+  // 운영 11-16: '석화 3분기 가동률 발제'(답변 대기) 패키지에 3분기보고서 주소 3개가 연결되자 그 보고서의 숨은 대목 항목이 전부 숨겨졌다
+  const pk = (name, title, state, updated_at, body = '') => ({ name, title, state, updated_at, created_at: updated_at, body });
+  const URL = 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000765';
+  const petchem = () => ledgerEntries([pk('petchem-utilization-3q-pitch-1117', '[답변 대기] 석화 3분기 가동률 발제 — LG화학 답변 받음, 롯데 NC 49.1% 대산 반영 확인 중(11/17 오전 회신 예정)', '보류', '2026-11-16T10:15:00Z',
+    `3분기 보고서 수치(원문): LG화학 석유화학 부문 72.5%\n${LINK_LINE} ${URL}`)], []);
+  const FACT = 'LG화학 2026년 3분기(9-30 기준) 보고서(접수 11-16)에 앞 보고서에 없던 보고기간 후 사건 1줄: 「연결회사는 2026년 10월 28일 이사회 결의에 따라 종속기업인 주식회사 LG에너지솔루션 주식 6,535,939주를 2,499,997백만원에 매각하고」';
+  const note = { id: 'rptnote:00356361:202611014:after', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', kind: '보고기간 후 사건', company: 'LG화학', date: '2026-11-16T09:11:00Z', fact: FACT, url: URL };
+  assert.equal(matchHandled(note, petchem()), null);
+  const exec = { id: 'exec:00356361:202611014:새로 보임|홍길동|197001', watch: '임원 명단 변화(정기보고서)', kind: '임원 명단 변화', company: 'LG화학', date: '2026-11-16T09:11:00Z', fact: 'LG화학 2026년 3분기 임원 명단에 새로 보임 — 홍길동 전무', url: URL };
+  assert.equal(matchHandled(exec, petchem()), null);
+  // 한 건짜리 공시(수시 공시 등)는 주소가 같으면 그대로 같은 건이다
+  const filing = { id: 'dart:20261116000765', watch: '단독 후보 심사', kind: '공시', company: 'LG화학', date: '2026-11-16T09:11:00Z', fact: 'LG화학 타법인 주식 처분 결정', url: URL };
+  assert.equal(matchHandled(filing, petchem())?.how, '원문 주소');
+  // 구역 도구(kr_signals section=report)의 줄: id가 적혀 있어 보고서 주소만으로는 붙지 않는다
+  const block = `- [신규] B · 11-16 18:11 · LG화학 · 보고기간 후 사건 · 접수 2026-11-16\n   새 줄: 연결회사는 2026년 10월 28일 이사회 결의에 따라 종속기업인 주식회사 LG에너지솔루션 주식 6,535,939주를 2,499,997백만원에 매각하고\n   원문: ${URL} · id rptnote:00356361:202611014:after`;
+  assert.equal(annotateHandled(block, petchem()).marked, 0);
+  // 그 대목 id를 연결해 둔 패키지는 항목·구역 줄 모두 그대로 붙는다
+  const linked = () => ledgerEntries([pk('lgchem-lges-stake-prs', '[킬] LG화학 LG에너지솔루션 지분 매각·PRS — 이미 보도', '접음', '2026-11-16T10:15:00Z', `메모\n${LINK_LINE} rptnote:00356361:202611014:after`)], []);
+  assert.equal(matchHandled(note, linked())?.how, 'id');
+  assert.equal(annotateHandled(block, linked()).marked, 1);
+  // 같은 사건을 낱말로 적은 패키지(주소·id 없이)도 그대로 붙는다
+  const byWords = () => ledgerEntries([pk('lgchem-lges-stake-sale-1028', '[킬] LG화학, LG에너지솔루션 주식 매각·주가수익스왑 — 이미 보도', '접음', '2026-11-16T10:15:00Z')], []);
+  assert.ok(matchHandled(note, byWords())?.entry);
+});
