@@ -1,10 +1,55 @@
 {
-  "generatedAt": "2026-11-16T06:56:28+09:00",
-  "digestGeneratedAt": "2026-11-16T06:56:27+09:00",
+  "generatedAt": "2026-11-17T06:55:46+09:00",
+  "digestGeneratedAt": "2026-11-17T06:55:44+09:00",
   "scope": "명시적 원공시 접수번호에 한해 독립 검증. 후보 매칭은 미확정",
-  "correctionCount": 0,
-  "processedCount": 0,
+  "correctionCount": 1,
+  "processedCount": 1,
   "collectionComplete": true,
-  "status": "no_relevant_corrections",
-  "items": []
+  "status": "checked",
+  "items": [
+    {
+      "receiptNo": "20261116802608",
+      "company": "두산에너빌리티",
+      "report": "[기재정정]단일판매ㆍ공급계약체결",
+      "status": "original_unverified",
+      "originReceiptNo": null,
+      "originalDocumentVerified": false,
+      "changes": [],
+      "candidateOrigins": [
+        {
+          "receiptNo": "20261006800697",
+          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+          "date": "20261006",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006800697",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116802608",
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "2. 계약금액(원)",
+            "before": "-",
+            "after": "1,205,568,000,625",
+            "category": "amount",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116802608",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": true
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116802608"
+      },
+      "questions": [],
+      "referencedFilingDate": "2026-10-06",
+      "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지"
+    }
+  ]
 }
