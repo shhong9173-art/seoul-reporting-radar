@@ -262,7 +262,7 @@ class Notes(unittest.TestCase):
         self.assertTrue(any("〔회사명〕Hanwha Q CELLS America Inc./RWE Solar Development, LLC | 〔관 계〕종속기업 | 〔금액〕USD 157,200 | 〔이사회승인〕2026.07.21" in x
                             for x in s["guarantee"]))
         self.assertTrue(any("〔거래유형〕처분" in x and "〔관련 손익 (주1)〕18,480,232" in x for x in s["deal"]))
-        self.assertTrue(s["order"][0].startswith("〔품목〕포항 HyREX Demo Plant ESF 전기로 본체 내화물 공사 | 〔수주일자〕2026-09-01 | 〔납기〕2028-06-30 | 〔수주총액·수량〕- | 〔수주총액·금액〕10,800"))   # 두 줄 머리(COLSPAN)
+        self.assertTrue(s["order"][0].startswith("〔출입처 외 포스코퓨처엠〕 〔품목〕포항 HyREX Demo Plant ESF 전기로 본체 내화물 공사 | 〔수주일자〕2026-09-01 | 〔납기〕2028-06-30 | 〔수주총액·수량〕- | 〔수주총액·금액〕10,800"))   # 두 줄 머리(COLSPAN), 표 앞 '■ 포스코퓨처엠'은 출입처 외
         # 자회사 차입 지급보증('다. 채무보증 현황')은 보지 않고(이행보증·자금보충만), 그 뒤 제재 표를 앞 표 안 '지급보증' 낱말로 잘못 고르지 않는다
         self.assertEqual(n.sections(Q3)["guarantee"], [])
         self.assertEqual(len(n.sections(Q3)["sanction"]), 2)
@@ -331,6 +331,34 @@ class Notes(unittest.TestCase):
         # 이번 기간 날짜만 '새 날짜'로 — 계약 종료일·만기 같은 앞날 날짜는 세지 않는다
         self.assertFalse(n.in_period("〔계약시작일〕2025년 07월 | 〔계약종료일〕2030년 02월", (2026, 6), (2026, 11)))
         self.assertTrue(n.in_period("〔계약시작일〕2026년 08월 | 〔계약종료일〕2031년 12월", (2026, 6), (2026, 11)))
+
+    def test_same_text_rows_are_counted_and_amounts_summed(self):
+        # 11-17: 롯데케미칼 Kor-UZ 감자 5건이 숫자만 달라 화면에 1줄로만 보였다
+        head = ("<TR><TH>거래 상대방</TH><TH>거래유형</TH><TH>거래일자</TH><TH>거래 대상물</TH><TH>거래 목적</TH><TH>금 액</TH>"
+                "<TH>금액 산정 기준</TH><TH>관련 손익 (주1)</TH></TR>")
+        rows = [("2026-07-15", "56,538,631", "18,480,232"), ("2026-07-27", "37,692,421", "11,452,090"), ("2026-08-03", "42,431,526", "11,658,202"),
+                ("2026-08-04", "36,369,880", "9,873,086"), ("2026-08-05", "16,531,763", "4,462,777")]
+        body = "".join(f"<TR><TD>Kor-UZ Gas Chemical Investment Ltd.</TD><TD>처분</TD><TD>{d}</TD><TD>Kor-UZ 보통주</TD>"
+                       f"<TD>UZ-KOR로부터 수취한 대여금 원금 재분배</TD><TD>{a}</TD><TD>감자금액 산정</TD><TD>{b}</TD></TR>" for d, a, b in rows)
+        got = n.sections(f"<TABLE>{head}{body}</TABLE>")["deal"]
+        self.assertEqual(len(got), 1)
+        self.assertTrue(got[0].endswith("〔같은 글자 줄 5건 · 금액 합계 189,564,221〕"))
+        self.assertEqual(n.key_of(got[0]), n.key_of(got[0].rsplit(" 〔같은 글자", 1)[0]))   # 꼬리는 열쇠에서 빠진다
+
+    def test_non_beat_affiliate_order_lines_are_marked_and_go_last(self):
+        # 11-17: 포스코홀딩스 수주 새 줄 50줄 대부분이 포스코이앤씨(출입처 외) 건설 계약이었다
+        def order(who, rows):
+            body = "".join(f"<TR><TD>{a}</TD><TD>{b}</TD><TD>{c}</TD><TD>{d}</TD></TR>" for a, b, c, d in rows)
+            return (f"<P>■ {who} (단위: 백만원)</P><TABLE><TR><TH>품목</TH><TH>수주일자</TH><TH>납기</TH><TH>수주총액</TH></TR>{body}</TABLE>")
+        base = order("포스코", [("광양 3고로 개수 공사 설비", "2025-03-04", "2027-05-31", "21,000")]) + order("포스코이앤씨", [("서울 업무시설 신축공사 본공사", "2025-07-01", "2030-02-28", "300,000")])
+        cur = order("포스코", [("광양 3고로 개수 공사 설비", "2025-03-04", "2027-05-31", "21,000"), ("포항 전기로 본체 내화물 공사", "2026-09-01", "2028-06-30", "10,800")]) \
+            + order("포스코이앤씨", [("서울 업무시설 신축공사 본공사", "2025-07-01", "2030-02-28", "300,000"), ("동탄 주상복합 신축공사 본공사", "2026-08-01", "2031-12-31", "694,250")])
+        s = n.sections(cur)["order"]
+        self.assertTrue(any(x.startswith("〔출입처 외 포스코이앤씨〕 〔품목〕동탄") for x in s))
+        new = self.run_once(docs={"20261113000111": Q3 + cur, "20260814000222": H1 + base})["companies"]["두산에너빌리티"]["new"]["order"]
+        self.assertEqual(len(new), 2)
+        self.assertIn("전기로 본체 내화물", new[0])                               # 출입처 줄이 먼저
+        self.assertTrue(new[1].startswith("〔출입처 외 포스코이앤씨〕"))            # 계열사 줄은 뒤로
 
     def test_lines_dated_in_this_period_come_first(self):
         def doc(rows):

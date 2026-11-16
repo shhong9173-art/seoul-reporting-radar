@@ -82,6 +82,11 @@ HEADING_CELL = re.compile(r"(?:공시의|에\s*대한)\s*(?:기술|공시|설명
 GUAR_ROW_SKIP = re.compile(r"의무의\s*성격|추정\s*재무\s*영향|지급\s*보증\s*기관|내역은\s*없습니다")
 GUAR_SKIP = re.compile(r"제공\s*받은|PF|신용\s*보강|보고\s*기간\s*(?:후|종료)|위험\s*관리|시장\s*위험")
 TABLE_MAX = 200000   # 이보다 큰 표(상세표 통째)는 보지 않는다
+# 출입처가 아닌 계열사(AGENTS.md) — 지주사 보고서 수주 표에 이 회사 표가 섞이면 줄 앞에 표시하고 뒤로 보낸다
+# (11-17: 포스코홀딩스 수주 새 줄 50줄 대부분이 포스코이앤씨 건설 계약이었다)
+NON_BEAT = ("포스코이앤씨", "포스코퓨처엠", "포스코인터내셔널", "포스코DX", "포스코스틸리온", "포스코엠텍", "LG에너지솔루션", "SK온", "SK에너지",
+            "SK지오센트릭", "SK아이이테크놀로지", "SKIET", "현대로템", "현대스틸파이프", "현대건설", "현대엔지니어링", "LS메탈", "LS마린솔루션")
+AFFILIATE_MARK = re.compile(r"^〔출입처 외 [^〔〕]{1,20}〕")
 LABEL = re.compile(r"〔[^〔〕]{0,60}〕")   # 줄에 붙인 칸 이름(〔칸〕값)·위 줄에서 이어진 칸(〔칸=값〕) — 열쇠에서는 뺀다
 CELLX = re.compile(r"<(TD|TE|TU|TH)\b([^>]*)>(.*?)</\1>", re.S | re.I)
 DATE = re.compile(r"(?<![\d.,])(?:((?:19|20)\d\d)\s*(?:[.\-/]|년)\s*(\d{1,2})(?!\d)|['‘’]?(\d\d)\s*\.\s*(\d{1,2})\s*\.\s*\d{1,2}(?!\d))")
@@ -268,13 +273,33 @@ def units(block):
                     continue
                 if len(key_of(line)) >= 12 and not EMPTY.search(line) and not (BOILER.search(line) and len(line) < 160):
                     out.append(line)
-    seen, uniq = set(), []
+    groups = {}
     for line in out:
-        k = key_of(line)
-        if k not in seen:
-            seen.add(k)
-            uniq.append(line)
-    return uniq
+        groups.setdefault(key_of(line), []).append(line)
+    # 숫자만 다른 같은 글자 줄은 하나로 합치되 몇 건인지와 금액 칸 합계를 붙인다(11-17: 롯데케미칼 Kor-UZ 감자 5건이 화면에 1줄로만 보였다).
+    # 〔…〕 꼬리는 열쇠에서 빠진다.
+    return [first if len(rows) == 1 else f"{first} {same_rows_note(rows)}" for first, rows in ((rows[0], rows) for rows in groups.values())]
+
+
+AMOUNT_CELL = re.compile(r"〔([^〔〕=]*금\s*액[^〔〕=]*)〕\s*(-?\s*[\d,]+(?:\.\d+)?)\s*(?=\||$)")
+
+
+def same_rows_note(rows):
+    sums = {}
+    for i, row in enumerate(rows):
+        got = {re.sub(r"\s+", "", m.group(1)): m.group(2) for m in AMOUNT_CELL.finditer(row)}
+        for name in (got if i == 0 else list(sums)):
+            if name not in got:
+                sums.pop(name, None)
+                continue
+            try:
+                value = float(re.sub(r"[\s,]", "", got[name]))
+            except ValueError:
+                sums.pop(name, None)
+                continue
+            sums[name] = sums.get(name, 0.0) + value if i else value
+    total = " · ".join(f"{name} 합계 {int(v):,}" if float(v).is_integer() else f"{name} 합계 {v:,.2f}" for name, v in list(sums.items())[:2])
+    return f"〔같은 글자 줄 {len(rows)}건{' · ' + total if total else ''}〕"
 
 
 def digest(text):
@@ -418,6 +443,10 @@ def sections(text):
         else:
             continue
         lines = units(table) if lines is None else lines
+        if sec == "order":
+            who = next((c for c in NON_BEAT if c in near[-240:]), None)
+            if who:
+                lines = [f"〔출입처 외 {who}〕 {x}" for x in lines]
         # 주석의 전치표(행이 항목, 열이 보증 건 — 같은 칸 이름이 한 줄에 세 번 넘게)는 열이 하나 늘면 모든 줄이 바뀐다 — 뺀다.
         # 숫자 없는 짧은 줄('제공한 지급보증에 대한 공시의 기술' 같은 주석 표 제목 칸)도 뺀다(11-17 운영 첫 저장: OCI홀딩스)
         lines = [x for x in lines if max(Counter(LABEL.findall(x)).values() or [0]) < 3
@@ -553,7 +582,8 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
             fresh = fresh_lines(lines, set(base_keys.get(sec) or []))
             # 이번 보고 기간(앞 보고서 기준일 뒤) 날짜가 적힌 줄을 앞으로 — 옛 사건이 서식만 바뀌어 새 줄로 보일 때 새 사건이 묻히지 않게
             # (11-17: 포스코홀딩스 소송 새 줄 26줄 중 포스코이앤씨→다원시스 4,859억 회생채권 줄이 '그 밖 18줄'에 묻혀 있었다)
-            fresh.sort(key=lambda x: 0 if in_period(x, since_month, now_month) else 1)
+            # 출입처 외 계열사 표 줄(〔출입처 외 …〕)은 맨 뒤로(11-17 기자 결정)
+            fresh.sort(key=lambda x: (1 if AFFILIATE_MARK.search(x) else 0, 0 if in_period(x, since_month, now_month) else 1))
             if fresh:
                 new[sec] = [x[:LINE_MAX] for x in fresh[:KEEP_LINES]] + ([f"… 그 밖 {len(fresh) - KEEP_LINES}줄"] if len(fresh) > KEEP_LINES else [])
         # 다음 보고서와 견줄 열쇠: 이번 줄 + 앞 보고서 줄(이번에 생략했거나 못 찾은 대목이 다음에 통째로 새 줄로 보이지 않게).

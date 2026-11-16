@@ -3451,7 +3451,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·18:10·19:40·21:10, 토 09:40\)/);
 });
 
-test('정기보고서 숨은 대목 11-17 넓힘: 작성기준일 이후·보증·이해관계자 거래·수주 대목은 화면(B)에만, 표 줄 칸 이름 그대로', async () => {
+test('정기보고서 숨은 대목 11-17 넓힘: 보증·이해관계자 거래·수주는 화면(B)에만, 작성기준일 이후는 문서 알림, 표 줄 칸 이름 그대로', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const now = new Date(NOW.getTime() - 3600000).toISOString();
@@ -3469,9 +3469,13 @@ test('정기보고서 숨은 대목 11-17 넓힘: 작성기준일 이후·보증
   const b = (await call('radar_today', {}, opts)).text.split('[B · ')[1];
   const item = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
   assert.match(item('한화솔루션'), /앞 보고서에 없던 이행보증·자금보충 1줄: 「〔구분〕Hanwha Q CELLS America Inc\.의 모듈 매각 거래/);
-  for (const name of ['한화솔루션', 'OCI홀딩스', '롯데케미칼']) assert.doesNotMatch(item(name), /즉시 알림 대상/);   // 새 대목 알림은 기자가 정한다
+  for (const name of ['한화솔루션', '롯데케미칼']) assert.doesNotMatch(item(name), /즉시 알림 대상/);   // 보증·이해관계자 거래·수주는 화면에만
+  assert.match(item('OCI홀딩스'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 작성기준일 이후 주요사항 1줄/);   // 11-17 기자 결정
   const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '한화솔루션', noteLines: 1, late: false };
-  for (const kind of ['이행보증·자금보충', '작성기준일 이후 주요사항', '이해관계자 거래(출자·처분)', '수주']) assert.equal(docAlert({ ...note, note: kind }, undefined), null);
+  for (const kind of ['이행보증·자금보충', '이해관계자 거래(출자·처분)', '수주']) assert.equal(docAlert({ ...note, note: kind }, undefined), null);
+  // 11-17 기자 결정: 작성기준일 이후 주요사항은 보고기간 후 사건과 같은 규칙으로 문서 알림(매각·양도 같은 낱말 줄이 있을 때)
+  assert.match(docAlert({ ...note, company: 'OCI홀딩스', note: '작성기준일 이후 주요사항' }, undefined), /문서 알림 — 정기보고서에 새로 적힌 작성기준일 이후 주요사항 1줄에 OCI홀딩스/);
+  assert.equal(docAlert({ ...note, company: 'OCI홀딩스', note: '작성기준일 이후 주요사항', noteRoutine: true }, undefined), null);
   const k = (await call('kr_signals', { section: 'report', company: '한화솔루션' }, opts)).text;
   assert.match(k, /한화솔루션 · 이행보증·자금보충 · 접수 2026-11-16\n   새 줄: 〔구분〕Hanwha Q CELLS America/);
   assert.match(k, /비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 한화솔루션\(수주\)/);
