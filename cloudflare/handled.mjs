@@ -194,7 +194,13 @@ function matchEntry(p, e) {
 export function wordMatch(text, companyText, e) {
   return matchEntry(prepare(text, companyText), e);
 }
-const itemText = (x) => `${x.watch ?? ''} ${x.kind ?? ''} ${x.fact ?? ''} ${x.id ?? ''} ${x.url ?? ''}`;
+// 사업보고서 단서(listing_producers.py·ktc_producers.py가 덧붙이는 '품목 낱말이 나온 출입처 …')는 감시가 붙인 참고 줄이다 — 그 안의 회사·품목
+// 낱말로 다른 사건의 처리 장부에 맞추지 않는다(11-16 운영: 인도 TDI 재심 줄이 단서 속 '한화솔루션 … PE, PVC, CA, TDI' 때문에
+// '중국산 S-PVC 반덤핑(한화솔루션 신청)' 발제 패키지의 〔이미 처리〕로 찍혔다).
+const HINT_TAIL = / · 품목 (?:이름|낱말)이 나온 출입처 [\s\S]*$/;
+const HINT_LINE = /^\s+(?:〔출입처 단서〕|출입처 단서:)/;
+const ownFact = (x) => String(x.fact ?? '').replace(HINT_TAIL, '');
+const itemText = (x) => `${x.watch ?? ''} ${x.kind ?? ''} ${ownFact(x)} ${x.id ?? ''} ${x.url ?? ''}`;
 
 // 항목 하나 → { entry, how } (다시 내지 않을 것) · { similar } (비슷한 건 처리 이력, 숨기지 않음) · null
 // 같은 요청 안에서 같은 항목을 두 번 묻는다(새 항목 목록 + 14일 겹친 신호) — 장부에 답을 적어 두고 다시 쓴다.
@@ -212,7 +218,7 @@ export function matchHandled(item, ledger) {
   for (const e of entries) {
     if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) { out = { entry: e, how: 'id' }; break; }
     if (url && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
-    prep ??= prepare(itemText(item), `${item.company ?? ''} ${String(item.fact ?? '').slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
+    prep ??= prepare(itemText(item), `${item.company ?? ''} ${ownFact(item).slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
     const w = matchEntry(prep, e);
     if (!w) continue;
     const t = itemTime(item);
@@ -253,7 +259,9 @@ export function annotateHandled(text, ledger) {
     if (block.length < 12 || block.includes('〔이미 처리') || block.includes('〔처리 이력')) return;
     let hit = null;
     let linked = false;   // 패키지에 적힌 원문 주소·레이더 id로 맞음 = 같은 문서
-    const prep = prepare(block, block, anyCodeRe);
+    // 낱말 맞춤에는 사업보고서 단서 줄(따로 적힌 줄·줄 끝에 붙은 것)을 빼고 본다 — 주소·id 맞춤은 덩어리 전체로 한다
+    const own = lines.slice(from, to).filter((l) => !HINT_LINE.test(l)).map((l) => l.replace(HINT_TAIL, '')).join('\n');
+    const prep = prepare(own, own, anyCodeRe);
     const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
     const lineMs = d ? Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) : null;
     for (const e of entries) {
