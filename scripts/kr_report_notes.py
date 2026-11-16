@@ -78,6 +78,7 @@ GUAR = re.compile(r"(?:이행|채무|지급|연대)\s*보증|자금\s*보충|보
 GUAR_KEEP = re.compile(r"이행\s*보증|계약\s*이행|자금\s*보충|이행\s*의무|이행하지\s*않은")
 NOT_GUAR_HEAD = re.compile(r"거래|우발\s*부채|의무의\s*성격|추정\s*재무\s*영향|금융\s*자산|차입|지급\s*보증|채무\s*보증")
 # 주석 전치표의 항목 줄('의무의 성격에 대한 기술…', '우발부채의 추정재무영향…')과 '…내역은 없습니다' 줄(탐침 3: OCI홀딩스 10줄)
+HEADING_CELL = re.compile(r"(?:공시의|에\s*대한)\s*(?:기술|공시|설명)\s*$")
 GUAR_ROW_SKIP = re.compile(r"의무의\s*성격|추정\s*재무\s*영향|지급\s*보증\s*기관|내역은\s*없습니다")
 GUAR_SKIP = re.compile(r"제공\s*받은|PF|신용\s*보강|보고\s*기간\s*(?:후|종료)|위험\s*관리|시장\s*위험")
 TABLE_MAX = 200000   # 이보다 큰 표(상세표 통째)는 보지 않는다
@@ -417,8 +418,10 @@ def sections(text):
         else:
             continue
         lines = units(table) if lines is None else lines
-        # 주석의 전치표(행이 항목, 열이 보증 건 — 같은 칸 이름이 한 줄에 세 번 넘게)는 열이 하나 늘면 모든 줄이 바뀐다 — 뺀다
-        lines = [x for x in lines if max(Counter(LABEL.findall(x)).values() or [0]) < 3]
+        # 주석의 전치표(행이 항목, 열이 보증 건 — 같은 칸 이름이 한 줄에 세 번 넘게)는 열이 하나 늘면 모든 줄이 바뀐다 — 뺀다.
+        # 숫자 없는 짧은 줄('제공한 지급보증에 대한 공시의 기술' 같은 주석 표 제목 칸)도 뺀다(11-17 운영 첫 저장: OCI홀딩스)
+        lines = [x for x in lines if max(Counter(LABEL.findall(x)).values() or [0]) < 3
+                 and not (len(x) < 40 and not re.search(r"\d", x)) and not HEADING_CELL.search(x)]
         body[sec] = merged(body.get(sec), lines)
     # 연결 범위: 신규 연결·연결 제외가 함께 든 표(회사의 개요)
     for table in re.findall(r"<TABLE\b.*?</TABLE>", text, re.S | re.I):
