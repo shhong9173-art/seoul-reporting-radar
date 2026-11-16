@@ -275,6 +275,10 @@ class Notes(unittest.TestCase):
         wide = ('<P>특수관계자 지급보증</P><TABLE><TR><TH></TH><TH COLSPAN="3">지급보증의 구분</TH></TR><TR><TH></TH><TH>제공한 이행보증 1</TH><TH>제공한 이행보증 2</TH><TH>제공한 이행보증 3</TH></TR>'
                 '<TR><TD>피보증인</TD><TD>REC Silicon Inc</TD><TD>Hanwha Futureproof Corp</TD><TD>Garnet Solar Power Generation Station 1, LLC</TD></TR></TABLE>')
         self.assertIsNone(n.sections(recv).get("guarantee"))
+        # 주석 표 제목 칸만 있는 줄은 뺀다(11-17 운영: OCI홀딩스 '제공한 지급보증에 대한 공시의 기술')
+        title = ('<P>특수관계자 보증 및 담보제공</P><TABLE><TR><TD>특수관계자 보증 및 담보제공에 대한 공시의 기술</TD></TR>'
+                 '<TR><TD>(주1) 당사는 OCI TerraSus Sdn. Bhd.가 현지의 전기공급회사와 체결한 전기공급계약에 대해서, 계약이행보증을 하고 있습니다.</TD></TR></TABLE>')
+        self.assertEqual(n.sections(title)["guarantee"], ["(주1) 당사는 OCI TerraSus Sdn. Bhd.가 현지의 전기공급회사와 체결한 전기공급계약에 대해서, 계약이행보증을 하고 있습니다."])
         # 표 앞 글에 자금보충이 있어도 특수관계자 거래 표 전체를 보증으로 받지 않는다(그 낱말이 든 줄만)
         trade = ('<P>당사는 공동기업 차입금에 대해 자금보충 약정을 제공하고 있습니다.</P><TABLE><TR><TH>회사명</TH><TH>관계</TH><TH>거래종류</TH><TH>거래금액</TH></TR>'
                  '<TR><TD>오씨아이드림(주)</TD><TD>종속기업</TD><TD>용역매출, 임대수익 등</TD><TD>3,798,769</TD></TR></TABLE>')
