@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-16T17:40:59+09:00",
+ "generatedAt": "2026-11-16T21:44:31+09:00",
  "period": {
   "year": 2026,
   "report": "11014",
@@ -8,8 +8,8 @@
  },
  "source": "OpenDART 단일회사 전체 재무제표(fnlttSinglAcntAll)·직원 현황(empSttus)",
  "counts": {
-  "filed": 23,
-  "not_filed": 12,
+  "filed": 29,
+  "not_filed": 6,
   "failed": 0,
   "no_comparable_accounts": 0
  },
@@ -20,19 +20,272 @@
    "company": "현대자동차",
    "team": "자동차",
    "corpCode": "00164742",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116001437"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+   "quarter": {
+    "values": {
+     "revenue": 45110247000000,
+     "cost": 37788420000000,
+     "sga": 4644595000000,
+     "operating": 2677232000000
+    },
+    "prior": {
+     "revenue": 46721448000000,
+     "cost": 38437389000000,
+     "sga": 5746793000000,
+     "operating": 2537266000000
+    },
+    "ratios": {
+     "costRatio": 83.77,
+     "sgaRatio": 10.3,
+     "opMargin": 5.93
+    },
+    "priorRatios": {
+     "costRatio": 82.27,
+     "sgaRatio": 12.3,
+     "opMargin": 5.43
+    },
+    "deltaPp": {
+     "costRatio": 1.5,
+     "sgaRatio": -2.0,
+     "opMargin": 0.5
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 140264461000000,
+     "cost": 116189694000000,
+     "sga": 16031961000000,
+     "operating": 8042806000000
+    },
+    "prior": {
+     "revenue": 139415886000000,
+     "cost": 113042489000000,
+     "sga": 16600925000000,
+     "operating": 9772472000000
+    },
+    "ratios": {
+     "costRatio": 82.84,
+     "sgaRatio": 11.43,
+     "opMargin": 5.73
+    },
+    "priorRatios": {
+     "costRatio": 81.08,
+     "sgaRatio": 11.91,
+     "opMargin": 7.01
+    },
+    "deltaPp": {
+     "costRatio": 1.76,
+     "sgaRatio": -0.48,
+     "opMargin": -1.28
+    }
+   },
+   "capex": {
+    "current": 5187369000000,
+    "prior": 5545925000000,
+    "changePct": -6.5
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 71793,
+    "asOf": "2026-06-30",
+    "priorCount": 72759,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 45949800,
+    "priorAvgSalary": 44677126,
+    "salaryPct": 2.8,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -1.3
+   },
+   "tags": [
+    "[판관비율 -2.0%p]"
+   ]
   },
   {
    "company": "기아",
    "team": "자동차",
    "corpCode": "00106641",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116001529"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+   "quarter": {
+    "values": {
+     "revenue": 31597447000000,
+     "cost": 26583160000000,
+     "sga": 3196001000000,
+     "operating": 1818286000000
+    },
+    "prior": {
+     "revenue": 28686037000000,
+     "cost": 23276976000000,
+     "sga": 3946810000000,
+     "operating": 1462251000000
+    },
+    "ratios": {
+     "costRatio": 84.13,
+     "sgaRatio": 10.11,
+     "opMargin": 5.75
+    },
+    "priorRatios": {
+     "costRatio": 81.14,
+     "sgaRatio": 13.76,
+     "opMargin": 5.1
+    },
+    "deltaPp": {
+     "costRatio": 2.99,
+     "sgaRatio": -3.65,
+     "opMargin": 0.65
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 94136383000000,
+     "cost": 77275238000000,
+     "sga": 10209209000000,
+     "operating": 6651936000000
+    },
+    "prior": {
+     "revenue": 86053182000000,
+     "cost": 68688023000000,
+     "sga": 10129554000000,
+     "operating": 7235605000000
+    },
+    "ratios": {
+     "costRatio": 82.09,
+     "sgaRatio": 10.85,
+     "opMargin": 7.07
+    },
+    "priorRatios": {
+     "costRatio": 79.82,
+     "sgaRatio": 11.77,
+     "opMargin": 8.41
+    },
+    "deltaPp": {
+     "costRatio": 2.27,
+     "sgaRatio": -0.92,
+     "opMargin": -1.34
+    }
+   },
+   "capex": {
+    "current": 2828657000000,
+    "prior": 2426814000000,
+    "changePct": 16.6
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 35471,
+    "asOf": "2026-06-30",
+    "priorCount": 35666,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 47041865,
+    "priorAvgSalary": 44778725,
+    "salaryPct": 5.1,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -0.5
+   },
+   "tags": [
+    "[판관비율 -3.6%p]"
+   ]
   },
   {
    "company": "현대모비스",
    "team": "자동차",
    "corpCode": "00164788",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116002191"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002191",
+   "quarter": {
+    "values": {
+     "revenue": 15723316000000,
+     "cost": 13381278000000,
+     "sga": 1427911000000,
+     "operating": 914127000000
+    },
+    "prior": {
+     "revenue": 15031932000000,
+     "cost": 12902746000000,
+     "sga": 1348887000000,
+     "operating": 780299000000
+    },
+    "ratios": {
+     "costRatio": 85.1,
+     "sgaRatio": 9.08,
+     "opMargin": 5.81
+    },
+    "priorRatios": {
+     "costRatio": 85.84,
+     "sgaRatio": 8.97,
+     "opMargin": 5.19
+    },
+    "deltaPp": {
+     "costRatio": -0.74,
+     "sgaRatio": 0.11,
+     "opMargin": 0.62
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 47608525000000,
+     "cost": 40711189000000,
+     "sga": 4205403000000,
+     "operating": 2691933000000
+    },
+    "prior": {
+     "revenue": 45720207000000,
+     "cost": 39330575000000,
+     "sga": 3962650000000,
+     "operating": 2426982000000
+    },
+    "ratios": {
+     "costRatio": 85.51,
+     "sgaRatio": 8.83,
+     "opMargin": 5.65
+    },
+    "priorRatios": {
+     "costRatio": 86.02,
+     "sgaRatio": 8.67,
+     "opMargin": 5.31
+    },
+    "deltaPp": {
+     "costRatio": -0.51,
+     "sgaRatio": 0.16,
+     "opMargin": 0.34
+    }
+   },
+   "capex": {
+    "current": 990228000000,
+    "prior": 955890000000,
+    "changePct": 3.6
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 12489,
+    "asOf": "2026-06-30",
+    "priorCount": 12517,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 47545680,
+    "priorAvgSalary": 44074539,
+    "salaryPct": 7.9,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -0.2
+   },
+   "tags": []
   },
   {
    "company": "현대위아",
@@ -655,13 +908,187 @@
    "company": "KG스틸",
    "team": "철강·비철",
    "corpCode": "00115676",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116001720"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001720",
+   "quarter": {
+    "values": {
+     "revenue": 1000905445977,
+     "cost": 928028074903,
+     "sga": 48047982419,
+     "operating": 24829388655
+    },
+    "prior": {
+     "revenue": 830582292738,
+     "cost": 746650193221,
+     "sga": 30063329453,
+     "operating": 53868770064
+    },
+    "ratios": {
+     "costRatio": 92.72,
+     "sgaRatio": 4.8,
+     "opMargin": 2.48
+    },
+    "priorRatios": {
+     "costRatio": 89.89,
+     "sgaRatio": 3.62,
+     "opMargin": 6.49
+    },
+    "deltaPp": {
+     "costRatio": 2.83,
+     "sgaRatio": 1.18,
+     "opMargin": -4.01
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 2702570365736,
+     "cost": 2501090579734,
+     "sga": 112027626824,
+     "operating": 89452159178
+    },
+    "prior": {
+     "revenue": 2448221157556,
+     "cost": 2202825056570,
+     "sga": 89471910422,
+     "operating": 155924190564
+    },
+    "ratios": {
+     "costRatio": 92.54,
+     "sgaRatio": 4.15,
+     "opMargin": 3.31
+    },
+    "priorRatios": {
+     "costRatio": 89.98,
+     "sgaRatio": 3.65,
+     "opMargin": 6.37
+    },
+    "deltaPp": {
+     "costRatio": 2.56,
+     "sgaRatio": 0.5,
+     "opMargin": -3.06
+    }
+   },
+   "capex": {
+    "current": 76887619637,
+    "prior": 40490666798,
+    "changePct": 89.9
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 1686,
+    "asOf": "2026-06-30",
+    "priorCount": 1146,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 35231317,
+    "priorAvgSalary": 41273124,
+    "salaryPct": -14.6,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": 47.1
+   },
+   "tags": [
+    "[영업이익률 -4.0%p]",
+    "[직원 +47.1%]",
+    "[평균급여 -14.6%]",
+    "[설비투자 +89.9%]"
+   ]
   },
   {
    "company": "세아홀딩스",
    "team": "철강·비철",
    "corpCode": "00377610",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116001472"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001472",
+   "quarter": {
+    "values": {
+     "revenue": 1919307817639,
+     "cost": 1847752628994,
+     "sga": 70308221658,
+     "operating": 1246966987
+    },
+    "prior": {
+     "revenue": 1667589669999,
+     "cost": 1546545239701,
+     "sga": 70075116420,
+     "operating": 50969313878
+    },
+    "ratios": {
+     "costRatio": 96.27,
+     "sgaRatio": 3.66,
+     "opMargin": 0.06
+    },
+    "priorRatios": {
+     "costRatio": 92.74,
+     "sgaRatio": 4.2,
+     "opMargin": 3.06
+    },
+    "deltaPp": {
+     "costRatio": 3.53,
+     "sgaRatio": -0.54,
+     "opMargin": -3.0
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 5654240391210,
+     "cost": 5282190643557,
+     "sga": 215075052517,
+     "operating": 156974695136
+    },
+    "prior": {
+     "revenue": 4894322334775,
+     "cost": 4562789151613,
+     "sga": 197104115663,
+     "operating": 134429067499
+    },
+    "ratios": {
+     "costRatio": 93.42,
+     "sgaRatio": 3.8,
+     "opMargin": 2.78
+    },
+    "priorRatios": {
+     "costRatio": 93.23,
+     "sgaRatio": 4.03,
+     "opMargin": 2.75
+    },
+    "deltaPp": {
+     "costRatio": 0.19,
+     "sgaRatio": -0.23,
+     "opMargin": 0.03
+    }
+   },
+   "capex": {
+    "current": 199630369962,
+    "prior": 154205379846,
+    "changePct": 29.5
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 62,
+    "asOf": "2026-06-30",
+    "priorCount": 64,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 49780194,
+    "priorAvgSalary": 51606016,
+    "salaryPct": -3.5,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -3.1
+   },
+   "tags": [
+    "[원가율 +3.5%p]",
+    "[영업이익률 -3.0%p]"
+   ]
   },
   {
    "company": "세아제강",
@@ -1048,7 +1475,94 @@
    "company": "엘에스일렉트릭",
    "team": "전력·에너지",
    "corpCode": "00105855",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261116002011"
+   ],
+   "filedOn": "2026-11-16",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002011",
+   "quarter": {
+    "values": {
+     "revenue": 1877789046864,
+     "cost": 1430447927016,
+     "sga": 213798320123,
+     "operating": 233542799725
+    },
+    "prior": {
+     "revenue": 1216294667137,
+     "cost": 974166659713,
+     "sga": 141336607363,
+     "operating": 100791400061
+    },
+    "ratios": {
+     "costRatio": 76.18,
+     "sgaRatio": 11.39,
+     "opMargin": 12.44
+    },
+    "priorRatios": {
+     "costRatio": 80.09,
+     "sgaRatio": 11.62,
+     "opMargin": 8.29
+    },
+    "deltaPp": {
+     "costRatio": -3.91,
+     "sgaRatio": -0.23,
+     "opMargin": 4.15
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 4831339020378,
+     "cost": 3752045105203,
+     "sga": 540663963847,
+     "operating": 538629951328
+    },
+    "prior": {
+     "revenue": 3441421152088,
+     "cost": 2716833634668,
+     "sga": 427888764736,
+     "operating": 296698752684
+    },
+    "ratios": {
+     "costRatio": 77.66,
+     "sgaRatio": 11.19,
+     "opMargin": 11.15
+    },
+    "priorRatios": {
+     "costRatio": 78.95,
+     "sgaRatio": 12.43,
+     "opMargin": 8.62
+    },
+    "deltaPp": {
+     "costRatio": -1.29,
+     "sgaRatio": -1.24,
+     "opMargin": 2.53
+    }
+   },
+   "capex": {
+    "current": 151125352186,
+    "prior": 157007897518,
+    "changePct": -3.7
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 3471,
+    "asOf": "2026-06-30",
+    "priorCount": 3370,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 56056756,
+    "priorAvgSalary": 50710386,
+    "salaryPct": 10.5,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": 3.0
+   },
+   "tags": [
+    "[원가율 -3.9%p]",
+    "[영업이익률 +4.2%p]",
+    "[평균급여 +10.5%]"
+   ]
   },
   {
    "company": "대한전선",
@@ -2172,9 +2686,85 @@
      "KG모빌리티"
     ],
     "filed": [
+     "현대자동차",
+     "기아",
      "KG모빌리티"
     ],
-    "metrics": {},
+    "metrics": {
+     "opMarginPp": {
+      "values": [
+       [
+        "현대자동차",
+        -1.28
+       ],
+       [
+        "기아",
+        -1.34
+       ]
+      ],
+      "median": -1.31
+     },
+     "costRatioPp": {
+      "values": [
+       [
+        "현대자동차",
+        1.76
+       ],
+       [
+        "기아",
+        2.27
+       ]
+      ],
+      "median": 2.02
+     },
+     "capexPct": {
+      "values": [
+       [
+        "현대자동차",
+        -6.5
+       ],
+       [
+        "기아",
+        16.6
+       ]
+      ],
+      "median": 5.05
+     },
+     "employeesPct": {
+      "values": [
+       [
+        "현대자동차",
+        -1.3
+       ],
+       [
+        "기아",
+        -0.5
+       ],
+       [
+        "KG모빌리티",
+        -2.3
+       ]
+      ],
+      "median": -1.3
+     },
+     "salaryPct": {
+      "values": [
+       [
+        "현대자동차",
+        2.8
+       ],
+       [
+        "기아",
+        5.1
+       ],
+       [
+        "KG모빌리티",
+        6.9
+       ]
+      ],
+      "median": 5.1
+     }
+    },
     "skipped": []
    },
    {
@@ -2185,12 +2775,17 @@
      "HL만도"
     ],
     "filed": [
+     "현대모비스",
      "현대위아",
      "HL만도"
     ],
     "metrics": {
      "opMarginPp": {
       "values": [
+       [
+        "현대모비스",
+        0.34
+       ],
        [
         "현대위아",
         -0.21
@@ -2200,10 +2795,14 @@
         -0.43
        ]
       ],
-      "median": -0.32
+      "median": -0.21
      },
      "costRatioPp": {
       "values": [
+       [
+        "현대모비스",
+        -0.51
+       ],
        [
         "현대위아",
         -0.55
@@ -2213,10 +2812,14 @@
         -0.65
        ]
       ],
-      "median": -0.6
+      "median": -0.55
      },
      "capexPct": {
       "values": [
+       [
+        "현대모비스",
+        3.6
+       ],
        [
         "현대위아",
         114.6
@@ -2226,10 +2829,14 @@
         -13.7
        ]
       ],
-      "median": 50.45
+      "median": 3.6
      },
      "employeesPct": {
       "values": [
+       [
+        "현대모비스",
+        -0.2
+       ],
        [
         "현대위아",
         4.1
@@ -2239,10 +2846,14 @@
         -0.9
        ]
       ],
-      "median": 1.6
+      "median": -0.2
      },
      "salaryPct": {
       "values": [
+       [
+        "현대모비스",
+        7.9
+       ],
        [
         "현대위아",
         -27.0
@@ -2252,7 +2863,7 @@
         -8.1
        ]
       ],
-      "median": -17.55
+      "median": -8.1
      }
     },
     "skipped": []
@@ -2348,6 +2959,7 @@
     ],
     "filed": [
      "현대제철",
+     "KG스틸",
      "세아제강",
      "동국제강",
      "동국씨엠"
@@ -2358,6 +2970,10 @@
        [
         "현대제철",
         -0.12
+       ],
+       [
+        "KG스틸",
+        -3.06
        ],
        [
         "세아제강",
@@ -2372,13 +2988,17 @@
         1.78
        ]
       ],
-      "median": 1.4
+      "median": 1.02
      },
      "costRatioPp": {
       "values": [
        [
         "현대제철",
         0.11
+       ],
+       [
+        "KG스틸",
+        2.56
        ],
        [
         "세아제강",
@@ -2393,13 +3013,17 @@
         -1.4
        ]
       ],
-      "median": -0.92
+      "median": -0.67
      },
      "capexPct": {
       "values": [
        [
         "현대제철",
         -9.6
+       ],
+       [
+        "KG스틸",
+        89.9
        ],
        [
         "세아제강",
@@ -2414,7 +3038,7 @@
         -33.7
        ]
       ],
-      "median": -52.95
+      "median": -33.7
      },
      "employeesPct": {
       "values": [
@@ -2457,6 +3081,16 @@
     },
     "skipped": [
      [
+      "KG스틸",
+      "employeesPct",
+      "직원 수 +47.1% — 합병·분할 등 범위 변화 확인 전 업종 비교에서 뺌"
+     ],
+     [
+      "KG스틸",
+      "salaryPct",
+      "직원 수 +47.1% — 합병·분할 등 범위 변화 확인 전 업종 비교에서 뺌"
+     ],
+     [
       "세아제강",
       "salaryPct",
       "평균 급여 +56.5% — 공시 급여 총액·기간 확인 전 업종 비교에서 뺌"
@@ -2484,12 +3118,17 @@
      "두산에너빌리티"
     ],
     "filed": [
+     "엘에스일렉트릭",
      "대한전선",
      "두산에너빌리티"
     ],
     "metrics": {
      "opMarginPp": {
       "values": [
+       [
+        "엘에스일렉트릭",
+        2.53
+       ],
        [
         "대한전선",
         1.16
@@ -2499,10 +3138,14 @@
         1.51
        ]
       ],
-      "median": 1.33
+      "median": 1.51
      },
      "costRatioPp": {
       "values": [
+       [
+        "엘에스일렉트릭",
+        -1.29
+       ],
        [
         "대한전선",
         -0.98
@@ -2512,10 +3155,14 @@
         -1.83
        ]
       ],
-      "median": -1.41
+      "median": -1.29
      },
      "capexPct": {
       "values": [
+       [
+        "엘에스일렉트릭",
+        -3.7
+       ],
        [
         "대한전선",
         114.5
@@ -2525,7 +3172,33 @@
         -9.3
        ]
       ],
-      "median": 52.6
+      "median": -3.7
+     },
+     "employeesPct": {
+      "values": [
+       [
+        "엘에스일렉트릭",
+        3.0
+       ],
+       [
+        "두산에너빌리티",
+        3.6
+       ]
+      ],
+      "median": 3.3
+     },
+     "salaryPct": {
+      "values": [
+       [
+        "엘에스일렉트릭",
+        10.5
+       ],
+       [
+        "두산에너빌리티",
+        9.6
+       ]
+      ],
+      "median": 10.05
      }
     },
     "skipped": []
@@ -2694,6 +3367,102 @@
   ],
   "leads": [
    {
+    "id": "2026년 3분기:자동차 부품:salaryPct:현대모비스",
+    "group": "자동차 부품",
+    "metric": "salaryPct",
+    "label": "1인 평균 급여 증감률",
+    "company": "현대모비스",
+    "value": 7.9,
+    "why": "혼자 반대 방향",
+    "rest": [
+     [
+      "현대위아",
+      -27.0
+     ],
+     [
+      "HL만도",
+      -8.1
+     ]
+    ],
+    "text": "자동차 부품 3곳 2026년 3분기 1인 평균 급여 증감률: 현대모비스 +7.9% — 나머지 2곳 -27.0%~-8.1%(나머지 중앙값 -17.6%) · 혼자 반대 방향",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002191",
+    "filedOn": "2026-11-16",
+    "question": "왜 자동차 부품에서 현대모비스만 1인 평균 급여 증감률이(가) 다른 방향 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:자동차 부품:salaryPct:현대위아",
+    "group": "자동차 부품",
+    "metric": "salaryPct",
+    "label": "1인 평균 급여 증감률",
+    "company": "현대위아",
+    "value": -27.0,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대모비스",
+      7.9
+     ],
+     [
+      "HL만도",
+      -8.1
+     ]
+    ],
+    "text": "자동차 부품 3곳 2026년 3분기 1인 평균 급여 증감률: 현대위아 -27.0% — 나머지 2곳 -8.1%~+7.9%(나머지 중앙값 -0.1%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000731",
+    "filedOn": "2026-11-13",
+    "question": "왜 자동차 부품에서 현대위아만 1인 평균 급여 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:자동차 부품:capexPct:현대위아",
+    "group": "자동차 부품",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "현대위아",
+    "value": 114.6,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대모비스",
+      3.6
+     ],
+     [
+      "HL만도",
+      -13.7
+     ]
+    ],
+    "text": "자동차 부품 3곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 현대위아 +114.6% — 나머지 2곳 -13.7%~+3.6%(나머지 중앙값 -5.0%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000731",
+    "filedOn": "2026-11-13",
+    "question": "왜 자동차 부품에서 현대위아만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:전력기기·전선:capexPct:대한전선",
+    "group": "전력기기·전선",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "대한전선",
+    "value": 114.5,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "엘에스일렉트릭",
+      -3.7
+     ],
+     [
+      "두산에너빌리티",
+      -9.3
+     ]
+    ],
+    "text": "전력기기·전선 3곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 대한전선 +114.5% — 나머지 2곳 -9.3%~-3.7%(나머지 중앙값 -6.5%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000584",
+    "filedOn": "2026-11-13",
+    "question": "왜 전력기기·전선에서 대한전선만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
     "id": "2026년 3분기:철강:capexPct:동국제강",
     "group": "철강",
     "metric": "capexPct",
@@ -2707,6 +3476,10 @@
       -9.6
      ],
      [
+      "KG스틸",
+      89.9
+     ],
+     [
       "세아제강",
       -72.2
      ],
@@ -2715,11 +3488,139 @@
       -33.7
      ]
     ],
-    "text": "철강 4곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 동국제강 -94.1% — 나머지 3곳 -72.2%~-9.6%(나머지 중앙값 -33.7%) · 업종과 차이 큼",
+    "text": "철강 5곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 동국제강 -94.1% — 나머지 4곳 -72.2%~+89.9%(나머지 중앙값 -21.7%) · 업종과 차이 큼",
     "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000380",
     "filedOn": "2026-11-13",
     "question": "왜 철강에서 동국제강만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
     "firstSeen": "2026-11-16T17:40:59+09:00"
+   },
+   {
+    "id": "2026년 3분기:철강:capexPct:KG스틸",
+    "group": "철강",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "KG스틸",
+    "value": 89.9,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대제철",
+      -9.6
+     ],
+     [
+      "세아제강",
+      -72.2
+     ],
+     [
+      "동국제강",
+      -94.1
+     ],
+     [
+      "동국씨엠",
+      -33.7
+     ]
+    ],
+    "text": "철강 5곳 2026년 3분기 설비투자(유형자산 취득) 증감률: KG스틸 +89.9% — 나머지 4곳 -94.1%~-9.6%(나머지 중앙값 -53.0%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001720",
+    "filedOn": "2026-11-16",
+    "question": "왜 철강에서 KG스틸만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:철강:capexPct:세아제강",
+    "group": "철강",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "세아제강",
+    "value": -72.2,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대제철",
+      -9.6
+     ],
+     [
+      "KG스틸",
+      89.9
+     ],
+     [
+      "동국제강",
+      -94.1
+     ],
+     [
+      "동국씨엠",
+      -33.7
+     ]
+    ],
+    "text": "철강 5곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 세아제강 -72.2% — 나머지 4곳 -94.1%~+89.9%(나머지 중앙값 -21.7%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001602",
+    "filedOn": "2026-11-13",
+    "question": "왜 철강에서 세아제강만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:철강:opMarginPp:KG스틸",
+    "group": "철강",
+    "metric": "opMarginPp",
+    "label": "누적 영업이익률 변화",
+    "company": "KG스틸",
+    "value": -3.06,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대제철",
+      -0.12
+     ],
+     [
+      "세아제강",
+      1.91
+     ],
+     [
+      "동국제강",
+      1.02
+     ],
+     [
+      "동국씨엠",
+      1.78
+     ]
+    ],
+    "text": "철강 5곳 2026년 3분기 누적 영업이익률 변화: KG스틸 -3.1%p — 나머지 4곳 -0.1%p~+1.9%p(나머지 중앙값 +1.4%p) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001720",
+    "filedOn": "2026-11-16",
+    "question": "왜 철강에서 KG스틸만 누적 영업이익률 변화이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:철강:costRatioPp:KG스틸",
+    "group": "철강",
+    "metric": "costRatioPp",
+    "label": "누적 원가율 변화",
+    "company": "KG스틸",
+    "value": 2.56,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "현대제철",
+      0.11
+     ],
+     [
+      "세아제강",
+      -1.17
+     ],
+     [
+      "동국제강",
+      -0.67
+     ],
+     [
+      "동국씨엠",
+      -1.4
+     ]
+    ],
+    "text": "철강 5곳 2026년 3분기 누적 원가율 변화: KG스틸 +2.6%p — 나머지 4곳 -1.4%p~+0.1%p(나머지 중앙값 -0.9%p) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001720",
+    "filedOn": "2026-11-16",
+    "question": "왜 철강에서 KG스틸만 누적 원가율 변화이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
    },
    {
     "id": "2026년 3분기:철강:employeesPct:동국씨엠",
@@ -2750,32 +3651,76 @@
     "firstSeen": "2026-11-13T21:40:50+09:00"
    },
    {
-    "id": "2026년 3분기:철강:capexPct:현대제철",
-    "group": "철강",
+    "id": "2026년 3분기:자동차 부품:capexPct:HL만도",
+    "group": "자동차 부품",
     "metric": "capexPct",
     "label": "설비투자(유형자산 취득) 증감률",
-    "company": "현대제철",
-    "value": -9.6,
+    "company": "HL만도",
+    "value": -13.7,
     "why": "업종과 차이 큼",
     "rest": [
      [
-      "세아제강",
-      -72.2
+      "현대모비스",
+      3.6
      ],
      [
-      "동국제강",
-      -94.1
-     ],
-     [
-      "동국씨엠",
-      -33.7
+      "현대위아",
+      114.6
      ]
     ],
-    "text": "철강 4곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 현대제철 -9.6% — 나머지 3곳 -94.1%~-33.7%(나머지 중앙값 -72.2%) · 업종과 차이 큼",
-    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001807",
+    "text": "자동차 부품 3곳 2026년 3분기 설비투자(유형자산 취득) 증감률: HL만도 -13.7% — 나머지 2곳 +3.6%~+114.6%(나머지 중앙값 +59.1%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000213",
     "filedOn": "2026-11-16",
-    "question": "왜 철강에서 현대제철만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
-    "firstSeen": "2026-11-16T17:40:59+09:00"
+    "question": "왜 자동차 부품에서 HL만도만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:전력기기·전선:capexPct:두산에너빌리티",
+    "group": "전력기기·전선",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "두산에너빌리티",
+    "value": -9.3,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "엘에스일렉트릭",
+      -3.7
+     ],
+     [
+      "대한전선",
+      114.5
+     ]
+    ],
+    "text": "전력기기·전선 3곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 두산에너빌리티 -9.3% — 나머지 2곳 -3.7%~+114.5%(나머지 중앙값 +55.4%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000856",
+    "filedOn": "2026-11-13",
+    "question": "왜 전력기기·전선에서 두산에너빌리티만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
+   },
+   {
+    "id": "2026년 3분기:전력기기·전선:capexPct:엘에스일렉트릭",
+    "group": "전력기기·전선",
+    "metric": "capexPct",
+    "label": "설비투자(유형자산 취득) 증감률",
+    "company": "엘에스일렉트릭",
+    "value": -3.7,
+    "why": "업종과 차이 큼",
+    "rest": [
+     [
+      "대한전선",
+      114.5
+     ],
+     [
+      "두산에너빌리티",
+      -9.3
+     ]
+    ],
+    "text": "전력기기·전선 3곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 엘에스일렉트릭 -3.7% — 나머지 2곳 -9.3%~+114.5%(나머지 중앙값 +52.6%) · 업종과 차이 큼",
+    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002011",
+    "filedOn": "2026-11-16",
+    "question": "왜 전력기기·전선에서 엘에스일렉트릭만 설비투자(유형자산 취득) 증감률이(가) 크게 다른가 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+    "firstSeen": "2026-11-16T21:44:31+09:00"
    }
   ],
   "rules": [
