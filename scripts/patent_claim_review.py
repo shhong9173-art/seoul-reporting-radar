@@ -363,8 +363,20 @@ def choose_candidates(deep,limit):
     return chosen
 
 
+def reusable_reviews(previous):
+    """앞 실행에서 제1항 확인이 끝난 검토(오류·미완 없는 것) — 같은 공보를 날마다 다시 묻지 않는다."""
+    kept={}
+    for old in ((previous or {}).get("reviews") or []) if isinstance(previous,dict) else []:
+        if (isinstance(old,dict) and old.get("claimVerified") is True and old.get("publicationNumber")
+                and not old.get("historyError") and not old.get("errorType")
+                and all(x.get("status")!="previous_claim_unavailable"
+                        for x in old.get("priorComparisons") or [] if isinstance(x,dict))):
+            kept[(old["publicationNumber"],old.get("currentApplication"))]=old
+    return kept
+
+
 def build(deep,patents,key,limit=6,max_prior=2,now=None,detail=official_detail,
-          history=historical_title_search,news=related_press):
+          history=historical_title_search,news=related_press,previous=None):
     now=now or datetime.now(KST)
     if not 1<=limit<=8 or not 0<=max_prior<=2:
         raise ValueError("KIPRIS 상세조회 최대예산 범위 초과")
@@ -378,7 +390,15 @@ def build(deep,patents,key,limit=6,max_prior=2,now=None,detail=official_detail,
                 "dataAt":patents.get("generatedAt"),"reviewCount":0,
                 "reviews":[],"confirmedScoops":0}
     reports=[]
+    kept=reusable_reviews(previous)
+    reused=0
     for row in candidates:
+        old=kept.get((row.get("publicationNumber"),row.get("applicationNumber")))
+        if old is not None:
+            # KIPRIS는 다시 묻지 않고, 보도 대조만 새로 한다.
+            reports.append({**old,"relatedPress":news(row)} if news is not None else dict(old))
+            reused+=1
+            continue
         reports.append(inspect(row,key,old_limit=max_prior,detail=detail,
                                history=history,news=news))
         if detail is official_detail:
@@ -390,6 +410,7 @@ def build(deep,patents,key,limit=6,max_prior=2,now=None,detail=official_detail,
         "source":"KIPRISPlus getBibliographyDetailInfoSearch official claimInfoArray",
         "scope":"기본 후보 6개 출원서 제1항; 2023년 이후 동일 제목·동일 출원인 일부와 제한 대조",
         "reviewCount":len(reports),
+        "reusedReviews":reused,
         "currentClaimsVerified":sum(bool(r.get("claimVerified")) for r in reports),
         "pairedClaimsCompared":sum(sum(x.get("status")=="source_claim_text_compared_no_legal_novelty"
                      for x in r.get("priorComparisons",[])) for r in reports),
@@ -419,12 +440,21 @@ def main():
         raise SystemExit("KIPRIS 제공기관 응답 22 재확인 대기: 이전 청구항 비교 데이터 보존")
     if ledger.remaining("patent_claims")==0:
         raise SystemExit("KIPRIS 공용 장부 월 상한 도달: 이전 청구항 비교 데이터 보존")
-    fetch=ledger.fetcher("patent_claims",request_xml)
+    # 공보 조회가 달 끝까지 돌 몫을 먼저 남긴다 — 오늘 몫을 넘으면 요청을 보내지 않고, 앞서 확인한 공보는 다시 묻지 않는다.
+    allowance=ledger.extras_allowance("patent_claims")
+    previous=None
+    try:
+        if Path(args.output).is_file():
+            previous=json.loads(Path(args.output).read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        previous=None
+    print("KIPRIS 공용 장부: 오늘 청구항 조회 몫",allowance,"건")
+    fetch=ledger.fetcher("patent_claims",request_xml,cap=allowance)
     try:
         report=build(deep,patents,key,limit=args.max_current,max_prior=args.max_prior,
                      detail=lambda k,a:official_detail(k,a,fetch=fetch),
                      history=lambda k,t,c:historical_title_search(k,t,c,fetch=fetch),
-                     news=None if args.no_news else related_press)
+                     news=None if args.no_news else related_press,previous=previous)
     finally:
         ledger.persist()
     if report["currentClaimsVerified"]==0:

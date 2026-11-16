@@ -195,5 +195,50 @@ class ClaimReviewTests(unittest.TestCase):
         self.assertIn("미확인",r["queries"][0]["articles"][0]["status"])
 
 
+class ReuseEarlierReviews(unittest.TestCase):
+    """11-16: 같은 후보의 제1항을 날마다 다시 받아 무료 한도를 썼다."""
+    def data(self):
+        base={"generatedAt":"2026-10-13T04:06","status":"official_search_completed"}
+        deep={"patentDatasetGeneratedAt":base["generatedAt"],"uniquePublicationCount":1,
+              "investigations":[patent()]}
+        return base,deep
+
+    def test_verified_review_is_reused_without_kipris(self):
+        base,deep=self.data()
+        first=a.build(deep,base,"key",limit=1,max_prior=1,detail=mock_detail,now=NOW,news=None)
+        calls=[]
+        def counting(key,application):
+            calls.append(application)
+            return mock_detail(key,application)
+        second=a.build(deep,base,"key",limit=1,max_prior=1,detail=counting,now=NOW,news=None,previous=first)
+        self.assertEqual(calls,[])
+        self.assertEqual(second["reusedReviews"],1)
+        self.assertEqual(second["currentClaimsVerified"],1)
+        self.assertEqual(second["pairedClaimsCompared"],1)
+
+    def test_unfinished_review_is_asked_again(self):
+        base,deep=self.data()
+        def failing(key,application):
+            if application==OLD:
+                raise TimeoutError("x")
+            return mock_detail(key,application)
+        first=a.build(deep,base,"key",limit=1,max_prior=1,detail=failing,now=NOW,news=None)
+        self.assertEqual(first["reviews"][0]["priorComparisons"][0]["status"],"previous_claim_unavailable")
+        calls=[]
+        def counting(key,application):
+            calls.append(application)
+            return mock_detail(key,application)
+        second=a.build(deep,base,"key",limit=1,max_prior=1,detail=counting,now=NOW,news=None,previous=first)
+        self.assertEqual(second["reusedReviews"],0)
+        self.assertEqual(sorted(calls),sorted([CUR,OLD]))
+
+    def test_press_check_is_refreshed_for_a_reused_review(self):
+        base,deep=self.data()
+        first=a.build(deep,base,"key",limit=1,max_prior=1,detail=mock_detail,now=NOW,news=None)
+        second=a.build(deep,base,"key",limit=1,max_prior=1,detail=mock_detail,now=NOW,
+                       news=lambda row:{"status":"새로 확인"},previous=first)
+        self.assertEqual(second["reviews"][0]["relatedPress"],{"status":"새로 확인"})
+
+
 if __name__=="__main__":
     unittest.main()

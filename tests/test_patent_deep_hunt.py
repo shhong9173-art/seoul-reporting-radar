@@ -201,5 +201,51 @@ class PatentDeepTests(unittest.TestCase):
         self.assertEqual(result["investigations"][0]["priorFullTitleCheck"]["status"],"미검색")
 
 
+class ReuseEarlierChecks(unittest.TestCase):
+    """11-16: 같은 앞 순위 공보의 과거 제목 검색을 날마다 다시 보내 무료 한도를 썼다."""
+    def rows(self,n=4):
+        return [patent(number=f"1020260148{i:03d}",title=f"자율 주행 제어 방법 제{i}형") for i in range(n)]
+
+    def test_checked_publications_are_not_asked_again(self):
+        calls=[]
+        def fake(key,title,cutoff):
+            calls.append(title)
+            return {"rows":[],"total":0,"complete":True}
+        first=d.build({"items":self.rows(),"generatedAt":"t1"},key="key",historical=fake,search_limit=3,now=NOW)
+        self.assertEqual(len(calls),3)
+        second=d.build({"items":self.rows(),"generatedAt":"t2"},key="key",historical=fake,
+                       search_limit=3,window=3,previous=first,now=NOW)
+        self.assertEqual(len(calls),3)                               # 새 호출 없음
+        self.assertEqual(second["historicalQueriesAttempted"],0)
+        self.assertEqual(second["historicalChecksReused"],3)
+        done=[x for x in second["investigations"] if x["priorFullTitleCheck"]["status"]!="미검색"]
+        self.assertEqual(len(done),3)
+
+    def test_zero_allowance_keeps_earlier_checks_and_asks_nothing(self):
+        calls=[]
+        def fake(key,title,cutoff):
+            calls.append(title)
+            return {"rows":[],"total":0,"complete":True}
+        first=d.build({"items":self.rows(),"generatedAt":"t1"},key="key",historical=fake,search_limit=2,now=NOW)
+        calls.clear()
+        again=d.build({"items":self.rows(),"generatedAt":"t2"},key="key",historical=fake,
+                      search_limit=0,window=4,previous=first,now=NOW)
+        self.assertEqual(calls,[])
+        self.assertEqual(again["historicalChecksReused"],2)
+
+    def test_failed_or_unsearched_checks_are_asked_again(self):
+        def broken(key,title,cutoff):
+            raise TimeoutError("x")
+        first=d.build({"items":self.rows(2),"generatedAt":"t1"},key="key",historical=broken,search_limit=2,now=NOW)
+        calls=[]
+        def fake(key,title,cutoff):
+            calls.append(title)
+            return {"rows":[],"total":0,"complete":True}
+        second=d.build({"items":self.rows(2),"generatedAt":"t2"},key="key",historical=fake,
+                       search_limit=2,window=2,previous=first,now=NOW)
+        self.assertEqual(len(calls),2)
+        self.assertEqual(second["historicalChecksReused"],0)
+
+
 if __name__=="__main__":
     unittest.main()

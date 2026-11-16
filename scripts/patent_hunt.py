@@ -200,6 +200,28 @@ def retry_once(fetch,*,limit=RETRY_LIMIT,pause=RETRY_PAUSE,sleep=time.sleep):
     return send
 
 
+STRETCH_SKIP_WEEKDAYS=(1,3)   # 화·목
+STRETCH_FRESH=timedelta(hours=36)
+
+
+def stretch_skip(ledger,previous,now=None):
+    """이달 남은 호출 몫이 매일 조회에 모자라면 화·목은 쉰다(격일).
+
+    조회 창은 직전 완료 결과의 날짜 이틀 전부터 이어지므로(validated_incremental_snapshot) 쉬는 날 공개된 공보는
+    다음 실행이 읽는다 — 빠지지 않고 하루 늦을 뿐이다. 직전 완료 결과가 36시간보다 오래됐으면(전날 실패 등) 쉬지 않는다.
+    """
+    now=now or datetime.now(KST)
+    if now.astimezone(KST).weekday() not in STRETCH_SKIP_WEEKDAYS or not ledger.source_short():
+        return False
+    if not isinstance(previous,dict) or previous.get("sourceWindowComplete") is not True:
+        return False
+    try:
+        stamp=datetime.fromisoformat(str(previous.get("generatedAt")))
+        return stamp.utcoffset() is not None and timedelta(0)<=now-stamp<=STRETCH_FRESH
+    except (TypeError,ValueError):
+        return False
+
+
 def weekly_done_today(path=None,now=None):
     """오늘(KST) 이미 끝난 월요일 묶음 결과가 있으면 True — 같은 날 다시 돌 때 13곳을 또 묻지 않는다(무료 한도)."""
     now=now or datetime.now(KST)
@@ -695,6 +717,10 @@ def main():
     # Every KIPRIS request (patent, deep, claims, trademark) also goes through one
     # account ledger so the shared free tier is not silently overspent.
     ledger=KiprisAccountLedger()
+    if not args.weekly and not args.force_provider_probe and stretch_skip(ledger,previous):
+        print("KIPRIS 무료 한도 배분: 이달 남은 몫이 매일 조회에 모자라 오늘(화·목)은 쉼 — "
+              "다음 실행이 직전 결과 날짜부터 이어서 읽는다(KIPRIS 호출 0, 이전 자료 그대로)")
+        return
     meter=SourceRequestMeter("digests/kipris_source_request_budget_latest.json",
                              fetch=ledger.fetcher("patent_source",request_xml,
                                                   force=args.force_provider_probe))

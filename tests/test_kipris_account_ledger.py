@@ -140,5 +140,64 @@ class PatentWiring(unittest.TestCase):
         self.assertIn("kipris_account_ledger_latest.json", flow)
 
 
+
+class ExtrasYieldToSource(unittest.TestCase):
+    """11-16: 과거 제목·청구항 조회가 공보 조회 몫을 먹어 월말에 특허 감시가 통째로 멈출 뻔했다."""
+    def book(self, folder, now, counts):
+        Path(folder, "ledger.json").write_text(json.dumps({
+            "month": now.strftime("%Y-%m"), "status": "repository_requests_counted_not_account_quota",
+            "byPurpose": counts}), encoding="utf-8")
+        return ledger(folder, now=now)
+
+    def test_short_month_gives_extras_nothing_but_source_still_runs(self):
+        # 실제 11-16 장부: 특허 505 · 상표 141 — 남은 10평일 공보 조회(266건)도 모자라다
+        now = datetime(2026, 11, 16, 8, 33, tzinfo=KST)
+        with tempfile.TemporaryDirectory() as d:
+            book = self.book(d, now, {"patent_source": 305, "patent_deep": 80, "patent_claims": 120,
+                                      "trademark": 141, "diagnostic": 0})
+            self.assertEqual(book.extras_allowance("patent_deep"), 0)
+            self.assertEqual(book.extras_allowance("patent_claims"), 0)
+            self.assertEqual(book.remaining("patent_source"), 195)     # 공보 조회는 그대로 쓸 수 있다
+            book.fetcher("patent_source", lambda u: OK)("a")
+
+    def test_fresh_month_spreads_only_the_surplus(self):
+        # 12-01(화) 공보 24건을 쓴 뒤: 남은 22평일·월요일 4번 몫을 떼면 96건 → 하루·용도별 2건
+        now = datetime(2026, 12, 1, 8, 33, tzinfo=KST)
+        with tempfile.TemporaryDirectory() as d:
+            book = self.book(d, now, {"patent_source": 24, "patent_deep": 0, "patent_claims": 0,
+                                      "trademark": 0, "diagnostic": 0})
+            self.assertEqual(book.extras_allowance("patent_deep"), 2)
+            self.assertEqual(book.extras_allowance("patent_claims"), 2)
+            with self.assertRaises(ValueError):
+                book.extras_allowance("patent_source")
+
+    def test_source_is_short_in_november_but_not_in_a_fresh_month(self):
+        with tempfile.TemporaryDirectory() as d:
+            nov = self.book(d, datetime(2026, 11, 17, 8, 30, tzinfo=KST),
+                            {"patent_source": 305, "patent_deep": 80, "patent_claims": 120,
+                             "trademark": 141, "diagnostic": 0})
+            self.assertTrue(nov.source_short())
+            self.assertEqual(nov.source_headroom(), (195, 9, 2))
+        with tempfile.TemporaryDirectory() as d:
+            dec = self.book(d, datetime(2026, 12, 1, 8, 30, tzinfo=KST),
+                            {"patent_source": 0, "patent_deep": 0, "patent_claims": 0,
+                             "trademark": 0, "diagnostic": 0})
+            self.assertFalse(dec.source_short())
+
+    def test_run_cap_stops_before_sending(self):
+        with tempfile.TemporaryDirectory() as d:
+            book = ledger(d)
+            sent = []
+            send = book.fetcher("patent_claims", lambda u: sent.append(u) or OK, cap=2)
+            send("a"); send("b")
+            with self.assertRaises(KiprisBudgetStop):
+                send("c")
+            self.assertEqual(sent, ["a", "b"])
+            self.assertEqual(book.public()["byPurpose"]["patent_claims"], 2)   # 막힌 요청은 세지 않는다
+            zero = book.fetcher("patent_deep", lambda u: sent.append(u) or OK, cap=0)
+            with self.assertRaises(KiprisBudgetStop):
+                zero("d")
+            self.assertEqual(len(sent), 2)
+
 if __name__ == "__main__":
     unittest.main()

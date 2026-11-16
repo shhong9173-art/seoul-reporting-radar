@@ -38,6 +38,13 @@ PURPOSES = {
     "diagnostic": "diagnostic",
 }
 COOLDOWN = timedelta(hours=72)
+# 11-16: 평일 하루 44건(공보 24 + 과거 제목 8 + 청구항 12)을 쓰면 특허 묶음 700건이 월 21~23평일을 못 버틴다
+# (11월은 16일에 505건 — 그대로면 23일에 닿아 월말까지 공보 조회까지 멈춘다). 공보 조회(매일 + 월요일 묶음)가
+# 달 끝까지 돌 몫과 상표 몫을 먼저 떼고, 과거 제목 검색·청구항 비교는 남는 것만 남은 평일에 나눠 쓴다.
+SOURCE_PER_WEEKDAY = 24
+SOURCE_PER_MONDAY = 13
+TRADEMARK_PER_MONDAY = 36
+EXTRA_PURPOSES = ("patent_deep", "patent_claims")
 PACE_SECONDS = 0.2
 CODE = re.compile(rb"<resultCode>\s*([A-Za-z0-9_-]{1,12})\s*</resultCode>")
 SAFE_CATEGORIES = {"request_limit_reported", "access_denied_reported",
@@ -70,6 +77,18 @@ def provider_code(raw):
         return None
     hit = CODE.search(bytes(raw[:4000]))
     return hit.group(1).decode() if hit else None
+
+
+def runs_left_after(now):
+    """오늘 뒤 이달에 남은 평일 수와 월요일 수(KST)."""
+    day = now.astimezone(KST).date()
+    cur = day + timedelta(days=1)
+    weekdays = mondays = 0
+    while cur.month == day.month:
+        weekdays += cur.weekday() < 5
+        mondays += cur.weekday() == 0
+        cur += timedelta(days=1)
+    return weekdays, mondays
 
 
 class KiprisAccountLedger:
@@ -168,6 +187,31 @@ class KiprisAccountLedger:
         return max(0, min(self.monthly_limit - self.total(),
                           self.group_limits[group] - self.group_used(group)))
 
+    def extras_allowance(self, purpose):
+        """오늘 과거 제목 검색·청구항 비교에 쓸 수 있는 건수. 공보 조회와 상표 몫을 떼고 남는 것만 나눈다.
+
+        공보 조회(patent_source)는 이 값의 영향을 받지 않는다 — 몫이 모자라면 0이 되어 부가 조회만 쉰다.
+        """
+        if purpose not in EXTRA_PURPOSES:
+            raise ValueError("unknown_purpose")
+        left, weekdays, mondays = self.source_headroom()
+        spare = left - (weekdays * SOURCE_PER_WEEKDAY + mondays * SOURCE_PER_MONDAY)
+        return max(0, spare // (len(EXTRA_PURPOSES) * (weekdays + 1)))
+
+    def source_headroom(self):
+        """(특허 묶음이 이달 더 쓸 수 있는 건수 — 남은 월요일 상표 몫을 뺀 것, 오늘 뒤 남은 평일 수, 남은 월요일 수)."""
+        weekdays, mondays = runs_left_after(self.now)
+        trademark_need = max(0, min(self.group_limits["trademark"] - self.group_used("trademark"),
+                                    mondays * TRADEMARK_PER_MONDAY))
+        left = min(self.group_limits["patent"] - self.group_used("patent"),
+                   self.monthly_limit - self.total() - trademark_need)
+        return max(0, left), weekdays, mondays
+
+    def source_short(self):
+        """오늘을 포함해 달 끝까지 매일 공보 조회를 하기에 몫이 모자라면 True."""
+        left, weekdays, mondays = self.source_headroom()
+        return left < (1 + weekdays) * SOURCE_PER_WEEKDAY + mondays * SOURCE_PER_MONDAY
+
     def should_probe(self, purpose, force=False):
         if force:
             return True
@@ -244,13 +288,20 @@ class KiprisAccountLedger:
             self.persist()
         return False
 
-    def fetcher(self, purpose, fetch, *, force=False):
-        """Wrap a transport: count first, then send; note code 22 / 00 from the reply."""
+    def fetcher(self, purpose, fetch, *, force=False, cap=None):
+        """Wrap a transport: count first, then send; note code 22 / 00 from the reply.
+
+        cap: 이 실행에서 이 용도로 보낼 수 있는 최대 건수(넘으면 요청을 보내지 않고 멈춘다).
+        """
         if purpose not in PURPOSES:
             raise ValueError("unknown_purpose")
+        sent = [0]
 
         def send(url):
+            if cap is not None and sent[0] >= cap:
+                raise KiprisBudgetStop("run_allowance_reached")
             self.reserve(purpose, force=force)
+            sent[0] += 1
             raw = fetch(url)
             self.record_provider_code(provider_code(raw), purpose)
             return raw
