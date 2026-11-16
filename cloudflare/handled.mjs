@@ -197,6 +197,12 @@ export function wordMatch(text, companyText, e) {
 // 사업보고서 단서(listing_producers.py·ktc_producers.py가 덧붙이는 '품목 낱말이 나온 출입처 …')는 감시가 붙인 참고 줄이다 — 그 안의 회사·품목
 // 낱말로 다른 사건의 처리 장부에 맞추지 않는다(11-16 운영: 인도 TDI 재심 줄이 단서 속 '한화솔루션 … PE, PVC, CA, TDI' 때문에
 // '중국산 S-PVC 반덤핑(한화솔루션 신청)' 발제 패키지의 〔이미 처리〕로 찍혔다).
+// 정기보고서(분기·반기·사업보고서) 한 편에는 여러 건이 들어 있다. 패키지가 그 보고서 주소를 근거로 적었다고(가동률 수치 등) 같은 보고서의
+// 다른 대목(보고기간 후 사건·제재·소송·임원 명단 변화)까지 처리한 것은 아니다 — 이런 항목은 주소가 아니라 id나 낱말로만 맞춘다.
+// 11-16 운영: '[답변 대기] 석화 3분기 가동률 발제' 패키지가 LG화학·롯데케미칼·금호석유화학 3분기보고서 주소를 적자, 그 보고서에서 읽은
+// 숨은 대목 항목 전부(LG에너지솔루션 지분 매각·자회사 흡수합병·제재·소송)에 〔이미 처리〕가 붙어 단독 추천·알림에서 빠졌다.
+const MULTI_TOPIC_ID = /^(?:rptnote|exec):/;
+const MULTI_TOPIC_BLOCK = /(?:^|\s)id (?:rptnote|exec):/;
 const HINT_TAIL = / · 품목 (?:이름|낱말)이 나온 출입처 [\s\S]*$/;
 const HINT_LINE = /^\s+(?:〔출입처 단서〕|출입처 단서:)/;
 const ownFact = (x) => String(x.fact ?? '').replace(HINT_TAIL, '');
@@ -217,7 +223,7 @@ export function matchHandled(item, ledger) {
   let out = null;
   for (const e of entries) {
     if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) { out = { entry: e, how: 'id' }; break; }
-    if (url && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
+    if (url && !MULTI_TOPIC_ID.test(id) && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
     prep ??= prepare(itemText(item), `${item.company ?? ''} ${ownFact(item).slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
     const w = matchEntry(prep, e);
     if (!w) continue;
@@ -262,11 +268,12 @@ export function annotateHandled(text, ledger) {
     // 낱말 맞춤에는 사업보고서 단서 줄(따로 적힌 줄·줄 끝에 붙은 것)을 빼고 본다 — 주소·id 맞춤은 덩어리 전체로 한다
     const own = lines.slice(from, to).filter((l) => !HINT_LINE.test(l)).map((l) => l.replace(HINT_TAIL, '')).join('\n');
     const prep = prepare(own, own, anyCodeRe);
+    const multi = MULTI_TOPIC_BLOCK.test(block);   // 정기보고서에서 읽은 항목 — 보고서 주소만으로는 같은 건이 아니다
     const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
     const lineMs = d ? Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) : null;
     for (const e of entries) {
       if (!e.codeM) compile(e);
-      if (e.urlL.some((u) => urlIn(block, u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
+      if ((!multi && e.urlL.some((u) => urlIn(block, u))) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
       const w = matchEntry(prep, e);
       if (!w) continue;
       // 낱말만 맞은 오래된 줄(처리한 때보다 120일 넘게 앞선 날짜)은 그 건이 아니다 — 11-13 운영: '한화큐셀 조지아 대기허가 신청(30376)' 보류 건이
