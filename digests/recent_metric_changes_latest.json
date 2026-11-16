@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-14T00:18:56+09:00",
-  "sourceGeneratedAt": "2026-11-13T11:58:48+09:00",
+  "generatedAt": "2026-11-16T11:26:11+09:00",
+  "sourceGeneratedAt": "2026-11-16T11:26:11+09:00",
   "sourcePeriod": 2026,
-  "officialChanges": 23,
+  "officialChanges": 20,
   "items": [
     {
       "company": "엘에스일렉트릭",
@@ -83,6 +83,88 @@
           "46,639",
           "60,876",
           "45,886"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "생산설비"
+      ],
+      "reportingEntity": "기타부문-일반기계",
+      "priorValue": "65510",
+      "currentValue": "43158",
+      "diff": "-22352",
+      "percentChange": -34.12,
+      "unit": "백만원",
+      "period": "09",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20251113000643",
+        "20261113000671"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "sourceRows": [
+        [
+          "생산설비",
+          "65,510",
+          "54,169",
+          "22,288"
+        ],
+        [
+          "생산설비",
+          "43,158",
+          "88,157",
+          "54,169"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "topic": "productionCapacity",
+      "rowIdentity": [
+        "생산설비"
+      ],
+      "reportingEntity": "기타부문-일반기계",
+      "priorValue": "89871",
+      "currentValue": "63006",
+      "diff": "-26865",
+      "percentChange": -29.89,
+      "unit": "백만원",
+      "period": "09",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20251113000643",
+        "20261113000671"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
+      ],
+      "sourceRows": [
+        [
+          "생산설비",
+          "89,871",
+          "80,593",
+          "35,065"
+        ],
+        [
+          "생산설비",
+          "63,006",
+          "122,347",
+          "80,593"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -178,50 +260,6 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "효성중공업",
-      "topic": "segmentSales",
-      "rowIdentity": [
-        "건설",
-        "주상복합, 아파트, 오피스텔 등"
-      ],
-      "reportingEntity": "주요종속회사의내용",
-      "priorValue": "793315",
-      "currentValue": "1011988",
-      "diff": "218673",
-      "percentChange": 27.56,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003328",
-        "20260813001554"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003328",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554"
-      ],
-      "sourceRows": [
-        [
-          "건설",
-          "주상복합, 아파트, 오피스텔 등",
-          "793,315",
-          "1,765,459",
-          "1,696,452"
-        ],
-        [
-          "건설",
-          "주상복합, 아파트, 오피스텔 등",
-          "1,011,988",
-          "1,786,501",
-          "1,765,459"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
       "company": "금호석유화학",
       "topic": "segmentSales",
       "rowIdentity": [
@@ -266,81 +304,43 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "한국타이어앤테크놀로지",
-      "topic": "productionActual",
+      "company": "효성중공업",
+      "topic": "segmentSales",
       "rowIdentity": [
-        "생산설비"
+        "건설",
+        "주상복합, 아파트, 오피스텔 등"
       ],
-      "reportingEntity": "기타부문-일반기계",
-      "priorValue": "42195",
-      "currentValue": "32806",
-      "diff": "-9389",
-      "percentChange": -22.25,
+      "reportingEntity": "주요종속회사의내용",
+      "priorValue": "1264738",
+      "currentValue": "1550954",
+      "diff": "286216",
+      "percentChange": 22.63,
       "unit": "백만원",
-      "period": "06",
+      "period": "09",
       "fromYear": 2025,
       "toYear": 2026,
       "originalReceipts": [
-        "20250814003829",
-        "20260814003878"
+        "20251113000749",
+        "20261113001360"
       ],
       "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003829",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003878"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
       ],
       "sourceRows": [
         [
-          "생산설비",
-          "42,195",
-          "54,169",
-          "22,288"
+          "건설",
+          "주상복합, 아파트, 오피스텔 등",
+          "1,264,738",
+          "1,765,459",
+          "1,696,452"
         ],
         [
-          "생산설비",
-          "32,806",
-          "88,157",
-          "54,169"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
-      "company": "한국타이어앤테크놀로지",
-      "topic": "productionCapacity",
-      "rowIdentity": [
-        "생산설비"
-      ],
-      "reportingEntity": "기타부문-일반기계",
-      "priorValue": "61098",
-      "currentValue": "48275",
-      "diff": "-12823",
-      "percentChange": -20.99,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003829",
-        "20260814003878"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003829",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003878"
-      ],
-      "sourceRows": [
-        [
-          "생산설비",
-          "61,098",
-          "80,593",
-          "35,065"
-        ],
-        [
-          "생산설비",
-          "48,275",
-          "122,347",
-          "80,593"
+          "건설",
+          "주상복합, 아파트, 오피스텔 등",
+          "1,550,954",
+          "1,786,501",
+          "1,765,459"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -392,50 +392,6 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "한국타이어앤테크놀로지",
-      "topic": "segmentSales",
-      "rowIdentity": [
-        "공임",
-        "차량정비 등"
-      ],
-      "reportingEntity": "타이어부문",
-      "priorValue": "11957",
-      "currentValue": "14084",
-      "diff": "2127",
-      "percentChange": 17.79,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003829",
-        "20260814003878"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003829",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003878"
-      ],
-      "sourceRows": [
-        [
-          "공임",
-          "차량정비 등",
-          "11,957",
-          "23,498",
-          "21,016"
-        ],
-        [
-          "공임",
-          "차량정비 등",
-          "14,084",
-          "27,404",
-          "23,498"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
       "company": "금호타이어",
       "topic": "segmentSales",
       "rowIdentity": [
@@ -477,43 +433,43 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "동국제강",
-      "topic": "productionActual",
+      "company": "한국타이어앤테크놀로지",
+      "topic": "segmentSales",
       "rowIdentity": [
-        "후판",
-        "당진"
+        "공임",
+        "차량정비 등"
       ],
-      "reportingEntity": "7.기타참고사항-사업의내용(상세)",
-      "priorValue": "438403",
-      "currentValue": "498272",
-      "diff": "59869",
-      "percentChange": 13.66,
-      "unit": "톤",
-      "period": "06",
+      "reportingEntity": "타이어부문",
+      "priorValue": "17221",
+      "currentValue": "19741",
+      "diff": "2520",
+      "percentChange": 14.63,
+      "unit": "백만원",
+      "period": "09",
       "fromYear": 2025,
       "toYear": 2026,
       "originalReceipts": [
-        "20250814001194",
-        "20260814001702"
+        "20251113000643",
+        "20261113000671"
       ],
       "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001194",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814001702"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
       ],
       "sourceRows": [
         [
-          "후판",
-          "당진",
-          "438,403",
-          "775,141",
-          "493,973"
+          "공임",
+          "차량정비 등",
+          "17,221",
+          "23,498",
+          "21,016"
         ],
         [
-          "후판",
-          "당진",
-          "498,272",
-          "929,245",
-          "775,141"
+          "공임",
+          "차량정비 등",
+          "19,741",
+          "27,404",
+          "23,498"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -609,43 +565,43 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "HL만도",
+      "company": "한국타이어앤테크놀로지",
       "topic": "segmentSales",
       "rowIdentity": [
-        "인도",
-        "제품, 상품, 기타매출"
+        "기타",
+        "기타"
       ],
-      "reportingEntity": "자산항목:비품",
-      "priorValue": "504864",
-      "currentValue": "572034",
-      "diff": "67170",
-      "percentChange": 13.3,
+      "reportingEntity": "타이어부문",
+      "priorValue": "195950",
+      "currentValue": "219790",
+      "diff": "23840",
+      "percentChange": 12.17,
       "unit": "백만원",
-      "period": "06",
+      "period": "09",
       "fromYear": 2025,
       "toYear": 2026,
       "originalReceipts": [
-        "20250814003312",
-        "20260814004041"
+        "20251113000643",
+        "20261113000671"
       ],
       "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003312",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004041"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
       ],
       "sourceRows": [
         [
-          "인도",
-          "제품, 상품, 기타매출",
-          "504,864",
-          "900,328",
-          "819,467"
+          "기타",
+          "기타",
+          "195,950",
+          "232,519",
+          "176,999"
         ],
         [
-          "인도",
-          "제품, 상품, 기타매출",
-          "572,034",
-          "1,008,174",
-          "900,328"
+          "기타",
+          "기타",
+          "219,790",
+          "268,866",
+          "232,519"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -660,171 +616,36 @@
         "변압기, 차단기, 전동기, 감속기 등"
       ],
       "reportingEntity": "주요종속회사의내용",
-      "priorValue": "1792247",
-      "currentValue": "2017762",
-      "diff": "225515",
-      "percentChange": 12.58,
+      "priorValue": "2936299",
+      "currentValue": "3211601",
+      "diff": "275302",
+      "percentChange": 9.38,
       "unit": "백만원",
-      "period": "06",
+      "period": "09",
       "fromYear": 2025,
       "toYear": 2026,
       "originalReceipts": [
-        "20250814003328",
-        "20260813001554"
+        "20251113000749",
+        "20261113001360"
       ],
       "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003328",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
       ],
       "sourceRows": [
         [
           "중공업",
           "변압기, 차단기, 전동기, 감속기 등",
-          "1,792,247",
+          "2,936,299",
           "3,098,831",
           "2,576,345"
         ],
         [
           "중공업",
           "변압기, 차단기, 전동기, 감속기 등",
-          "2,017,762",
+          "3,211,601",
           "4,149,258",
           "3,098,831"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
-      "company": "한국타이어앤테크놀로지",
-      "topic": "segmentSales",
-      "rowIdentity": [
-        "제조업[타이어부문]",
-        "제품",
-        "타이어"
-      ],
-      "reportingEntity": "타이어부문",
-      "priorValue": "4703367",
-      "currentValue": "5210227",
-      "diff": "506860",
-      "percentChange": 10.78,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003829",
-        "20260814003878"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003829",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003878"
-      ],
-      "sourceRows": [
-        [
-          "제조업[타이어부문]",
-          "제품",
-          "타이어",
-          "4,703,367",
-          "9,134,980",
-          "8,721,308"
-        ],
-        [
-          "제조업[타이어부문]",
-          "제품",
-          "타이어",
-          "5,210,227",
-          "10,001,420",
-          "9,134,980"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
-      "company": "HL만도",
-      "topic": "segmentSales",
-      "rowIdentity": [
-        "기타",
-        "제품, 상품, 기타매출"
-      ],
-      "reportingEntity": "자산항목:비품",
-      "priorValue": "983610",
-      "currentValue": "1073980",
-      "diff": "90370",
-      "percentChange": 9.19,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003312",
-        "20260814004041"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003312",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004041"
-      ],
-      "sourceRows": [
-        [
-          "기타",
-          "제품, 상품, 기타매출",
-          "983,610",
-          "1,664,393",
-          "1,402,687"
-        ],
-        [
-          "기타",
-          "제품, 상품, 기타매출",
-          "1,073,980",
-          "1,968,656",
-          "1,664,393"
-        ]
-      ],
-      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
-      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
-      "priority": "business_document_diff_reporter_review"
-    },
-    {
-      "company": "HL만도",
-      "topic": "segmentSales",
-      "rowIdentity": [
-        "중국",
-        "제품, 상품, 기타매출"
-      ],
-      "reportingEntity": "자산항목:비품",
-      "priorValue": "1040262",
-      "currentValue": "1134119",
-      "diff": "93857",
-      "percentChange": 9.02,
-      "unit": "백만원",
-      "period": "06",
-      "fromYear": 2025,
-      "toYear": 2026,
-      "originalReceipts": [
-        "20250814003312",
-        "20260814004041"
-      ],
-      "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003312",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004041"
-      ],
-      "sourceRows": [
-        [
-          "중국",
-          "제품, 상품, 기타매출",
-          "1,040,262",
-          "2,303,132",
-          "2,306,815"
-        ],
-        [
-          "중국",
-          "제품, 상품, 기타매출",
-          "1,134,119",
-          "2,267,590",
-          "2,303,132"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -876,43 +697,46 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
-      "company": "HL만도",
+      "company": "한국타이어앤테크놀로지",
       "topic": "segmentSales",
       "rowIdentity": [
-        "미국",
-        "제품, 상품, 기타매출"
+        "제조업[타이어부문]",
+        "제품",
+        "타이어"
       ],
-      "reportingEntity": "자산항목:비품",
-      "priorValue": "860567",
-      "currentValue": "808233",
-      "diff": "-52334",
-      "percentChange": -6.08,
+      "reportingEntity": "타이어부문",
+      "priorValue": "7336848",
+      "currentValue": "7926139",
+      "diff": "589291",
+      "percentChange": 8.03,
       "unit": "백만원",
-      "period": "06",
+      "period": "09",
       "fromYear": 2025,
       "toYear": 2026,
       "originalReceipts": [
-        "20250814003312",
-        "20260814004041"
+        "20251113000643",
+        "20261113000671"
       ],
       "sourceUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814003312",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004041"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000643",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000671"
       ],
       "sourceRows": [
         [
-          "미국",
-          "제품, 상품, 기타매출",
-          "860,567",
-          "1,518,593",
-          "1,483,112"
+          "제조업[타이어부문]",
+          "제품",
+          "타이어",
+          "7,336,848",
+          "9,134,980",
+          "8,721,308"
         ],
         [
-          "미국",
-          "제품, 상품, 기타매출",
-          "808,233",
-          "1,642,287",
-          "1,518,593"
+          "제조업[타이어부문]",
+          "제품",
+          "타이어",
+          "7,926,139",
+          "10,001,420",
+          "9,134,980"
         ]
       ],
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
@@ -1000,6 +824,50 @@
       "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
       "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
       "priority": "business_document_diff_reporter_review"
+    },
+    {
+      "company": "효성중공업",
+      "topic": "segmentSales",
+      "rowIdentity": [
+        "공통",
+        "임대 등"
+      ],
+      "reportingEntity": "주요종속회사의내용",
+      "priorValue": "24519",
+      "currentValue": "23267",
+      "diff": "-1252",
+      "percentChange": -5.11,
+      "unit": "백만원",
+      "period": "09",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20251113000749",
+        "20261113001360"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
+      ],
+      "sourceRows": [
+        [
+          "공통",
+          "임대 등",
+          "24,519",
+          "30,690",
+          "27,775"
+        ],
+        [
+          "공통",
+          "임대 등",
+          "23,267",
+          "32,753",
+          "30,690"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
     }
   ],
   "coverage": [
@@ -1019,7 +887,7 @@
       "company": "효성중공업",
       "status": "same_period_rows_checked",
       "rowsCompared": 3,
-      "changes": 2
+      "changes": 3
     },
     {
       "company": "현대자동차",
@@ -1047,9 +915,8 @@
     },
     {
       "company": "HL만도",
-      "status": "same_period_rows_checked",
-      "rowsCompared": 6,
-      "changes": 4
+      "status": "not_comparable",
+      "reason": "원문·회계기간·접수번호 검증 부족"
     },
     {
       "company": "금호타이어",
@@ -1061,7 +928,7 @@
       "company": "한국타이어앤테크놀로지",
       "status": "same_period_rows_checked",
       "rowsCompared": 6,
-      "changes": 4
+      "changes": 5
     },
     {
       "company": "현대제철",
@@ -1085,7 +952,7 @@
       "company": "동국제강",
       "status": "same_period_rows_checked",
       "rowsCompared": 2,
-      "changes": 1
+      "changes": 0
     },
     {
       "company": "고려아연",
@@ -1165,7 +1032,7 @@
       "changes": 0
     }
   ],
-  "checkedCompanies": 26,
+  "checkedCompanies": 25,
   "scoopConfirmed": 0,
   "warning": "발췌된 일부 사업표의 첫 보고연도 숫자 비교. 공시 숫자 변화≠물량/가격/가동률 변화. 표 구성·단위/연결범위 최종 원문 확인 필요"
 }
