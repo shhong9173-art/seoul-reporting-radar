@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-16T10:55:00+09:00",
+  "generatedAt": "2026-11-16T21:46:43+09:00",
   "deskSourceGeneratedAt": "2026-11-13T08:33:20+09:00",
   "crossSourceGeneratedAt": {
-    "dartBusiness": "2026-11-13T11:58:48+09:00",
+    "dartBusiness": "2026-11-16T11:26:11+09:00",
     "dartContracts": "2026-11-16T08:12:21+09:00",
-    "dartInvestmentChange": "2026-11-13T12:39:12+09:00"
+    "dartInvestmentChange": "2026-11-16T12:14:45+09:00"
   },
   "inputAvailability": {
     "dartBusiness": true,
@@ -12,12 +12,11 @@
     "dartInvestmentChange": true
   },
   "candidateCount": 87,
-  "candidateWithSpecificTermOverlap": 1,
+  "candidateWithSpecificTermOverlap": 0,
   "checkEvents": 0,
   "publicChecksOnCurrentCandidates": 0,
   "stageCounts": {
-    "cross_document_context_needs_company_confirmation": 1,
-    "patent_only_no_project_identity": 86
+    "patent_only_no_project_identity": 87
   },
   "prioritized": [
     {
@@ -1754,8 +1753,8 @@
       "title": "회전 노브 오픈 방식 트레이",
       "coveredCompanies": [
         "기아",
-        "현대모비스",
-        "현대차"
+        "현대차",
+        "현대모비스"
       ],
       "topic": "미분류·이종산업 탐색",
       "technicalTerms": [],
@@ -5238,56 +5237,42 @@
       "technicalTerms": [
         "전기로"
       ],
-      "sameIssuerDartRowsObserved": 16,
+      "sameIssuerDartRowsObserved": 15,
       "sameIssuerBackgroundSources": [
         {
           "company": "포스코",
           "sourceType": "dart_business_table",
           "reference": "productionCapacity",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
-          "published": "20260819",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
+          "published": "20261113",
           "linkState": "same_company_only_no_patent_relation"
         },
         {
           "company": "포스코",
           "sourceType": "dart_business_table",
           "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
-          "published": "20260819",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
+          "published": "20261113",
           "linkState": "same_company_only_no_patent_relation"
         },
         {
           "company": "포스코",
           "sourceType": "dart_business_table",
           "reference": "utilization",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
-          "published": "20260819",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
+          "published": "20261113",
           "linkState": "same_company_only_no_patent_relation"
         },
         {
           "company": "포스코",
           "sourceType": "dart_business_table",
           "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
-          "published": "20260819",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
+          "published": "20261113",
           "linkState": "same_company_only_no_patent_relation"
         }
       ],
-      "independentDartTechnicalOverlap": [
-        {
-          "company": "포스코",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "text": "신/증설 광양 전기로 신설 2023-02-20 2026-06-17 6,420 5,334 1,086",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
-          "published": "20260819",
-          "snapshotAt": "2026-11-13T11:58:48+09:00",
-          "technicalTermsShared": [
-            "전기로"
-          ],
-          "relation": "same_issuer_technical_words_not_project_identity"
-        }
-      ],
+      "independentDartTechnicalOverlap": [],
       "humanPublicCheckStatuses": {
         "prior_coverage": "not_reviewed",
         "company_response": "not_reviewed",
@@ -5302,14 +5287,14 @@
         "industry_impact",
         "reporting_angle"
       ],
-      "stage": "cross_document_context_needs_company_confirmation",
+      "stage": "patent_only_no_project_identity",
       "publicCompanyResponseMarkedByReporter": false,
       "independentlyValidatedCompanyResponse": false,
       "specificProjectLinkVerified": false,
       "impactCausalityVerified": false,
       "approvedForPublication": false,
       "confirmedExclusive": false,
-      "nextStep": "동일 기업의 DART 공시에서 기술어휘가 겹쳐도 실제 같은 프로젝트인지 회사 직접 확인"
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
       "publicationNumber": "1020260162274",
