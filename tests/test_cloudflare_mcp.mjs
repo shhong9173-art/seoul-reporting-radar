@@ -5542,3 +5542,25 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: '캐나다', fact: '캐나다 CBSA 행정재심: Carbon and alloy steel line pipe 2 — 새 문서' }).key, 'other');             // 목록 새 줄 유형으로 보내지 않는다
   assert.ok((await rpc('tools/list', {}, o)).body.result.tools.find((x) => x.name === 'trade_remedies').inputSchema.properties.section.enum.includes('cbsa'));
 });
+
+test('처리 장부(11-16): 사업보고서 단서 줄의 회사·품목 낱말로 다른 사건의 〔이미 처리〕를 붙이지 않는다', () => {
+  // 운영 11-16: trade_remedies(section=notices)의 인도 TDI 재심 줄이 단서 속 '한화솔루션 … PE, PVC, CA, TDI' 때문에 S-PVC 발제 패키지에 붙었다
+  const pk = (name, title, state, updated_at, body = '') => ({ name, title, state, updated_at, created_at: updated_at, body });
+  const L = () => ledgerEntries([pk('ktc-china-spvc-prelim-1126', '중국산 S-PVC 반덤핑(무역위 23-2026-4, 한화솔루션 신청) 예비조사 11/26 + 영국 한국산 PVC PMS', '발제함', '2026-11-16T03:00:00Z')], []);
+  const HINT = '품목 낱말이 나온 출입처 2025 사업보고서(II. 사업의 내용): TDI — 한화솔루션 8곳 「보를 재작성하였습니다. 1. 사업의 개요 PE, PVC, CA, TDI 제품 등을 생산ㆍ판매하는 기초소재 부문과 셀과 모듈 등의 태양광」(접수 20261112000461) — 보고서에 낱말이 있다는 것뿐, 조사 대상 수출자인지·그 나라 수출 여부는 미확인(회사 확인)';
+  const OWN = 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) originating in or exported from China PR, Japan and Korea RP';
+  const URL = 'https://www.dgtr.gov.in/en/anti-dumping-cases/anti-dumping-investigation-concerning-imports-toluene-diisocyanate-tdi';
+  const block = (hintLine) => `- 2026-11-12T18:28 · 인도 · 인도 DGTR 반덤핑 조사\n   잡힌 사실: ${OWN}\n${hintLine}   원문: ${URL}`;
+  assert.equal(annotateHandled(block(`   출입처 단서: ${HINT}\n`), L()).marked, 0);          // 구역 도구(따로 적힌 줄)
+  assert.equal(annotateHandled(block(`   〔출입처 단서〕 ${HINT}\n`), L()).marked, 0);        // 단독 데스크 표기
+  assert.equal(annotateHandled(`- 2026-11-12 · 인도 DGTR 반덤핑 조사: ${OWN} · ${HINT}\n   원문: ${URL}`, L()).marked, 0);   // 줄 끝에 붙은 것
+  // 오늘의 레이더 항목(fact 끝에 단서가 붙는다): 짧은 줄이라 단서가 회사 찾는 앞 200자 안에 든다
+  const item = (fact) => ({ id: 'remedy:dgtr:tdi', watch: '무역구제', kind: '해외 조사 목록 새 줄', company: '', date: '2026-11-12T09:28:00Z', fact, url: URL });
+  assert.equal(matchHandled(item(`인도 TDI 반덤핑 재심 · ${HINT}`), L()), null);
+  // 그 사건 자체의 줄은 그대로 맞는다(단서를 빼도 회사·품목이 줄에 있다)
+  const real = '- 2026-11-10 · 무역위원회 · 중국산 PVC 서스펜션 수지 덤핑 조사\n   잡힌 사실: 한화솔루션 신청 PVC 반덤핑 예비조사 일정\n   원문: https://www.ktc.go.kr/x';
+  assert.equal(annotateHandled(real, L()).marked, 1);
+  // 패키지에 적힌 원문 주소로 맞는 것은 단서 줄이 있어도 그대로다
+  const linked = ledgerEntries([pk('india-tdi-ssr', '[킬] 인도 TDI 일몰재심 — 기자 판단 약함', '접음', '2026-11-16T03:00:00Z', `원문 ${URL}`)], []);
+  assert.equal(annotateHandled(block(`   출입처 단서: ${HINT}\n`), linked).marked, 1);
+});
