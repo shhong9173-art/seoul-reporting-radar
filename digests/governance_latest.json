@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-16T07:44:42+09:00",
- "windowStart": "2026-10-17",
+ "generatedAt": "2026-11-17T07:44:06+09:00",
+ "windowStart": "2026-10-18",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -17,8 +17,8 @@
    "company": "현대자동차",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 549,
-   "rowsInWindow": 1
+   "rowsReturned": 550,
+   "rowsInWindow": 2
   },
   {
    "company": "현대자동차",
@@ -164,8 +164,8 @@
    "company": "넥센타이어",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 5,
-   "rowsInWindow": 1
+   "rowsReturned": 6,
+   "rowsInWindow": 2
   },
   {
    "company": "넥센타이어",
@@ -726,8 +726,26 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 37,
+ "count": 39,
  "items": [
+  {
+   "company": "넥센타이어",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-16",
+   "receiptNo": "20261116000118",
+   "reporter": "넥센",
+   "role": "사실상지배주주",
+   "shares": 46255201.0,
+   "sharesChange": 591023.0,
+   "ratio": 44.4,
+   "ratioChange": 0.56,
+   "tags": [
+    "[지분율 +0.56%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000118"
+  },
   {
    "company": "넥센타이어",
    "team": "자동차",
@@ -949,6 +967,22 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000135"
+  },
+  {
+   "company": "현대자동차",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-16",
+   "receiptNo": "20261116000767",
+   "reporter": "박무곤",
+   "role": "비등기임원 상무",
+   "shares": 397.0,
+   "sharesChange": 8.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000767"
   },
   {
    "company": "한화솔루션",
