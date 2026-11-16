@@ -58,7 +58,13 @@ class ProductionRssDateAndIdentity(unittest.TestCase):
             raise urllib.error.HTTPError("https://news.google.com/rss/search?q=x", 503, "Service Unavailable", {}, None)
         NAMESPACE["get"]=fail
         self.assertEqual(parse_feed("완성차","현대차"),[])
-        self.assertEqual(NAMESPACE["FEED_CHECKS"][-1]["errorType"],"HTTPError 503")
+        self.assertEqual(NAMESPACE["FEED_CHECKS"][-1]["errorType"],"HTTPError_503")
+        # 11-17: 피드 상태 점검(build)이 이 줄을 받아야 한다 — 'HTTPError 503'(띄어쓰기)이면 invalid_row로 수집 전체가 멈췄다
+        import sys
+        sys.path.insert(0,str(ROOT/"scripts"))
+        import auto_news_feed_health as feed_health
+        health=feed_health.build(list(NAMESPACE["FEED_CHECKS"]),expected=4,news_items=0,now=datetime.now(KST))
+        self.assertEqual(health["errorQueries"],1)
         checks=NAMESPACE["FEED_CHECKS"]+[{"status":"transport_or_xml_error","errorType":"URLError"},{"status":"checked_no_recent_rows"},{"status":"checked_recent_rows"}]
         line=NAMESPACE["failure_summary"](checks,4)
         self.assertEqual(line,"국내 뉴스 수집 4건(문턱 10) — 검색 4개 중 실패 2(HTTPError 503 ×1, URLError ×1) · 최근 기사 없음 1")
