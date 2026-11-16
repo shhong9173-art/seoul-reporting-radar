@@ -79,7 +79,8 @@ class Notes(unittest.TestCase):
                 rows = lists.get(params["corp_code"])
                 return R(body={"status": "000", "list": rows} if rows else {"status": "013"})
             if url.endswith("/document.xml"):
-                return R(content=zipped(docs[params["rcept_no"]]))
+                body = docs[params["rcept_no"]]
+                return R(content=body if isinstance(body, bytes) else zipped(body))
             raise AssertionError(url)
 
         return n.run("k", now=now, year=year, report=report, previous=previous, get=get, sleep=lambda s: None,
@@ -239,6 +240,17 @@ class Notes(unittest.TestCase):
         doc = self.run_once(docs={"20261113000111": "<TITLE>1. 사업</TITLE><P>제재 낱말만 있음</P>", "20260814000222": H1})
         self.assertEqual((doc["status"], doc["checks"][0]["status"], doc["events"]), ("partial", "failed", []))
         self.assertEqual(doc["companies"]["두산에너빌리티"]["status"], "pending")      # 앞 보고서 열쇠는 남긴다
+
+    def test_a_document_file_that_is_not_ready_yet_waits_for_the_next_run(self):
+        # 11-16 마감일 저녁: 접수 직후 OpenDART가 원문 대신 014(파일이 존재하지 않습니다)를 돌려줬다 — 실패가 아니라 대기
+        not_ready = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><result><status>014</status><message>x</message></result>'
+        doc = self.run_once(docs={"20261113000111": not_ready, "20260814000222": H1})
+        self.assertEqual((doc["checks"][0]["status"], doc["events"]), ("waiting", []))
+        self.assertIn("014", doc["checks"][0]["error"])
+        self.assertEqual((doc["summary"]["waiting"], doc["summary"]["failed"]), (1, 0))
+        again = self.run_once(previous=doc)                                   # 다음 실행에서 파일이 올라오면 그대로 읽는다
+        self.assertEqual(again["companies"]["두산에너빌리티"]["status"], "ok")
+        self.assertTrue(again["events"])
 
 
 if __name__ == "__main__":

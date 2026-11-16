@@ -2620,6 +2620,8 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.ok(dueAt(new Date('2026-11-16T10:40:00Z')).includes('kr-report-notes.yml'));               // Mon 19:40 KST — 그날 제출분, 19:43 알림 직전
   assert.ok(dueAt(new Date('2026-11-16T04:10:00Z')).includes('kr-report-notes.yml'));               // Mon 13:10 KST
   assert.ok(dueAt(new Date('2026-11-16T09:10:00Z')).includes('kr-report-notes.yml'));               // Mon 18:10 KST — 18:43 알림 전
+  assert.ok(dueAt(new Date('2026-11-16T12:10:00Z')).includes('kr-report-notes.yml'));               // Mon 21:10 KST — 저녁 제출분(원문 파일이 늦게 올라온다), 21:43 알림 전
+  assert.ok(!dueAt(new Date('2026-11-21T12:10:00Z')).includes('kr-report-notes.yml'));              // Sat 21:10 KST는 아니다
   assert.ok(dueAt(new Date('2026-11-21T00:40:00Z')).includes('kr-report-notes.yml'));               // Sat 09:40 KST — 금요일 늦은 제출분
   assert.ok(!dueAt(new Date('2026-11-21T10:40:00Z')).includes('kr-report-notes.yml'));              // Sat 19:40 KST는 아니다
   assert.deepEqual(dueAt(new Date('2026-10-28T23:00:00Z')), ['scoop-radar.yml']);  // Thu 08:00 KST
@@ -3446,7 +3448,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match(one.text, /새 줄: 줄8\n   … 그 밖 27줄/);
   assert.match((await call('kr_signals', {}, opts)).text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 14일\]/);
   const none = PRIVATE();
-  assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·18:10·19:40, 토 09:40\)/);
+  assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·18:10·19:40·21:10, 토 09:40\)/);
 });
 
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {
