@@ -1183,7 +1183,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${e.company} ${e.period ?? ''} 보고서${filed ? `(접수 ${filed})` : ''}에 앞 보고서에 없던 ${e.kind} ${lines.length}줄${more ? `(${more.replace(/^…\s*/, '')} 더)` : ''}: `
         + `${lines.slice(0, 2).map((l) => `「${l.slice(0, 220)}」`).join(' / ')}${lines.length > 2 ? ' …' : ''}`
         + ` (자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다. 시점·금액·사유는 원문·회사 확인${e.late ? ' · 접수 뒤 늦게 읽음' : ''})`,
-      check: hint(e.company, words.length ? words : ({ 제재: ['제재'], 소송: ['소송'], '보고기간 후 사건': ['매각'], '매각예정·중단영업': ['매각'] }[e.kind] ?? ['자회사'])) });
+      check: hint(e.company, words.length ? words : ({ 제재: ['제재'], 소송: ['소송'], '보고기간 후 사건': ['매각'], '작성기준일 이후 주요사항': ['매각'], '매각예정·중단영업': ['매각'],
+        '이행보증·자금보충': ['보증'], '이해관계자 거래(출자·처분)': ['출자'], 수주: ['수주'] }[e.kind] ?? ['자회사'])) });
   }
 
   // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건

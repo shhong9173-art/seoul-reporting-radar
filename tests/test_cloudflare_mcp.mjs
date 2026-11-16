@@ -3451,6 +3451,33 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·18:10·19:40·21:10, 토 09:40\)/);
 });
 
+test('정기보고서 숨은 대목 11-17 넓힘: 작성기준일 이후·보증·이해관계자 거래·수주 대목은 화면(B)에만, 표 줄 칸 이름 그대로', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const ev = (code, company, sec, kind, lines) => ({ id: `rptnote:${code}:202611014:${sec}`, kind, company, tier: 'B', url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026111200${code.slice(-4)}`,
+    detectedAt: now, filed: '20261116', period: '2026년 3분기(9-30 기준)', lines, text: `${company} 새로 적힌 ${kind}` });
+  const rwe = '〔구분〕Hanwha Q CELLS America Inc.의 모듈 매각 거래 관련 이행보증 (2026.08.04 체결) | 〔회사명〕Hanwha Q CELLS America Inc./RWE Solar Development, LLC | 〔관 계〕종속기업 | 〔금액〕USD 157,200 | 〔이사회승인〕2026.07.21';
+  const doc = { schema: 'kr_report_notes/v1', generatedAt: now, status: 'complete', period: { year: 2026, report: '11014', label: '2026년 3분기(9-30 기준)' },
+    checks: [{ source: '한화솔루션', status: 'ok', returned: 3 }],
+    companies: { 한화솔루션: { period: '202611014', status: 'ok', omitted: [], nobase: ['order'], missing: [], new: {} } },
+    summary: { companies: 39, read: 1, waiting: 0, failed: 0, docsRead: 2, newLines: { guarantee: 1, dated: 1, deal: 1 } },
+    events: [ev('00106641', '한화솔루션', 'guarantee', '이행보증·자금보충', [rwe]),
+      ev('00148896', 'OCI홀딩스', 'dated', '작성기준일 이후 주요사항', ['(3) 미국 현지시간 2026년 11월 12일 종속회사인 OCI Alabama LLC가 매각됨에 따라, 연결대상 종속회사에서 제외되었습니다.']),
+      ev('00126380', '롯데케미칼', 'deal', '이해관계자 거래(출자·처분)', ['〔거래 상대방〕Kor-UZ Gas Chemical Investment Ltd. | 〔거래유형〕처분 | 〔금 액〕56,538,631 | 〔관련 손익 (주1)〕18,480,232'])] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const b = (await call('radar_today', {}, opts)).text.split('[B · ')[1];
+  const item = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
+  assert.match(item('한화솔루션'), /앞 보고서에 없던 이행보증·자금보충 1줄: 「〔구분〕Hanwha Q CELLS America Inc\.의 모듈 매각 거래/);
+  for (const name of ['한화솔루션', 'OCI홀딩스', '롯데케미칼']) assert.doesNotMatch(item(name), /즉시 알림 대상/);   // 새 대목 알림은 기자가 정한다
+  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '한화솔루션', noteLines: 1, late: false };
+  for (const kind of ['이행보증·자금보충', '작성기준일 이후 주요사항', '이해관계자 거래(출자·처분)', '수주']) assert.equal(docAlert({ ...note, note: kind }, undefined), null);
+  const k = (await call('kr_signals', { section: 'report', company: '한화솔루션' }, opts)).text;
+  assert.match(k, /한화솔루션 · 이행보증·자금보충 · 접수 2026-11-16\n   새 줄: 〔구분〕Hanwha Q CELLS America/);
+  assert.match(k, /비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 한화솔루션\(수주\)/);
+  assert.match(k, /표 줄의 〔칸 이름〕값은 보고서 표 머리글/);
+});
+
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {
   const opts = PRIVATE();
   const env = opts.env;

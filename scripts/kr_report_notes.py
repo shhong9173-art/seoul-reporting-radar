@@ -31,6 +31,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -54,11 +55,35 @@ MONTH = {"11013": "03", "11012": "06", "11014": "09", "11011": "12"}
 # after·held(11-15 probe 251): 11-13 이데일리 단독 「한화솔루션, 한화시마론 한화디펜스에 넘겼다」는 11-12 분기보고서 연결 주석 '31. 보고기간후사건'의 한 문장
 # (10-30 Hanwha Cimarron LLC 지분 전부 매각, 58,962백만원)이었다. 같은 보고서 '15. 매각예정자산 및 중단영업'에는 오펠라이카 공장 운영 중단 결정이 적혀 있었다.
 # 이 두 주석은 분기보고서에서도 생략되지 않는다.
-SECTIONS = {"after": "보고기간 후 사건", "held": "매각예정·중단영업", "sanction": "제재", "suit": "소송", "consol": "연결 범위"}
+SECTIONS = {"after": "보고기간 후 사건", "dated": "작성기준일 이후 주요사항", "held": "매각예정·중단영업", "sanction": "제재", "suit": "소송", "consol": "연결 범위",
+            "guarantee": "이행보증·자금보충", "deal": "이해관계자 거래(출자·처분)", "order": "수주"}
+# 앞 보고서와 견주지 않아도 새 줄인 대목(그 보고서 기준일 뒤의 일) — 앞 보고서에 대목이 없어도 비교한다
+AFTER_LIKE = ("after", "dated")
 MUST = ("sanction", "suit")   # 모든 정기보고서에 제목이 있는 대목 — 못 찾으면 미확인. 나머지(보고기간 후 사건·매각예정·연결 범위 표)는 없는 보고서가 흔하다
-VERSION = 3          # 읽는 대목이 늘면 올린다 — 앞서 읽은 접수번호도 한 번 다시 읽는다
+VERSION = 4          # 읽는 대목이 늘면 올린다 — 앞서 읽은 접수번호도 한 번 다시 읽는다(4: 작성기준일 이후·이행보증·이해관계자 거래·수주, 11-17)
 AFTER_TITLE = re.compile(r"보고기간\s*후\s*사건|보고기간\s*종료\s*일?\s*(?:이후|후)|재무상태표일\s*(?:이후|후)")
 HELD_TITLE = re.compile(r"매각예정|중단\s*영업")
+DATED_TITLE = re.compile(r"작성\s*기준일\s*이후")
+# 'Ⅺ-4. 작성기준일 이후 발생한 주요사항 등 기타사항'에서 '가.' 뒤에 오는 소제목(11-17 탐침: 녹색경영·인증·보호예수 줄이 새 줄로 섞임)
+DATED_STOP = re.compile(r">\s*나\s*[.)]\s*[가-힣]|합병\s*등의?\s*사후\s*정보|녹색\s*(?:경영|기술|인증|성장)|온실\s*가스\s*(?:배출|에너지)|정부의?\s*인증|"
+                        r"조건부\s*자본\s*증권|보호\s*예수|공모\s*자금|직접\s*금융\s*자금")
+# 표로 고르는 대목(11-17 3분기보고서 전수 비교: 한화솔루션 RWE 이행보증·롯데케미칼 Kor-UZ 감자·포스코퓨처엠 HyREX 수주 줄이
+# 이 감시의 다섯 대목 밖에 있었다). 표 머리 두 줄과 표 바로 앞 글로 가른다 — 수주 > 이해관계자 거래 > 보증 순.
+ORDER_HEAD = re.compile(r"수주\s*(?:일자|일|총액|금액|잔고|잔액|내역)")
+# 이해관계자 거래: '대주주와의 자산양수도 등' 표(거래유형·거래 대상물·거래 목적 칸) — 특수관계자 매출·매입 표는 아니다
+DEAL_HEAD = re.compile(r"거래\s*유형|거래\s*대상물")   # '거래목적'만 있는 표는 파생상품 거래 내역(탐침: 고려아연 금·달러 선물 25줄)
+# 보증: 이행보증·계약이행·자금보충만(고객 계약·사업 위험이 드러나는 것). 자회사 차입 지급보증·PF 신용보강·받은 보증은 분기마다 수십 줄이고
+# 큰 것은 따로 공시된다(11-17 탐침: 보증 표 전체를 보니 LS 94줄·두산 67줄 — 대부분 차입보증·PF·주석 전치표)
+GUAR = re.compile(r"(?:이행|채무|지급|연대)\s*보증|자금\s*보충|보증\s*(?:금액|한도|내역|기간|처|종류)")
+GUAR_KEEP = re.compile(r"이행\s*보증|계약\s*이행|자금\s*보충|이행\s*의무|이행하지\s*않은")
+NOT_GUAR_HEAD = re.compile(r"거래|우발\s*부채|의무의\s*성격|추정\s*재무\s*영향|금융\s*자산|차입|지급\s*보증|채무\s*보증")
+# 주석 전치표의 항목 줄('의무의 성격에 대한 기술…', '우발부채의 추정재무영향…')과 '…내역은 없습니다' 줄(탐침 3: OCI홀딩스 10줄)
+GUAR_ROW_SKIP = re.compile(r"의무의\s*성격|추정\s*재무\s*영향|지급\s*보증\s*기관|내역은\s*없습니다")
+GUAR_SKIP = re.compile(r"제공\s*받은|PF|신용\s*보강|보고\s*기간\s*(?:후|종료)|위험\s*관리|시장\s*위험")
+TABLE_MAX = 200000   # 이보다 큰 표(상세표 통째)는 보지 않는다
+LABEL = re.compile(r"〔[^〔〕]{0,60}〕")   # 줄에 붙인 칸 이름(〔칸〕값)·위 줄에서 이어진 칸(〔칸=값〕) — 열쇠에서는 뺀다
+CELLX = re.compile(r"<(TD|TE|TU|TH)\b([^>]*)>(.*?)</\1>", re.S | re.I)
+DATE = re.compile(r"(?<![\d.,])(?:((?:19|20)\d\d)\s*(?:[.\-/]|년)\s*(\d{1,2})(?!\d)|['‘’]?(\d\d)\s*\.\s*(\d{1,2})\s*\.\s*\d{1,2}(?!\d))")
 EMPTY = re.compile(r"해당\s*사항\s*(?:이\s*)?없|해당\s*없음|^[-–—\s]*$")
 # 분기보고서는 일부 대목을 줄여 적을 수 있다(11-15 probe 249: 16곳 중 여러 곳의 제재 대목이 한 줄) — 그 안내 줄은 새 줄이 아니다
 BOILER = re.compile(r"기재를?\s*생략|기재하지\s*(?:않|아니)|변동\s*(?:된\s*)?(?:사항|내용)\s*(?:이|은)?\s*없|참[조고]하(?:시기|여|십시오)")
@@ -86,8 +111,110 @@ def key_of(line):
     """숫자·기호·빈칸을 뺀 글자 — 금액·날짜 표기만 다른 줄은 같은 줄로 본다.
     금액 단위('각 100만원' ↔ '각 1,000,000 원' — 11-15 운영: 롯데케미칼 제재 표가 단위 표기만 바뀌어 옛 줄 23줄이 새 줄로 보였다)와
     주어('연결실체는' ↔ '당사는' — 연결·별도 주석이 같은 사건을 두 번 적는다)도 뺀다. 이 함수를 바꾸면 저장해 둔 열쇠와 어긋나므로 VERSION을 올린다."""
-    line = MONEY_UNIT.sub("", PERIOD_WORDS.sub("", line))
+    line = MONEY_UNIT.sub("", PERIOD_WORDS.sub("", LABEL.sub(" ", line)))
     return re.sub(r"[\d\s.,·()\[\]\-–—~%:/|※*'\"“”‘’㈜]", "", SUBJECT.sub("", line))
+
+
+def span_of(attrs, name):
+    m = re.search(name + r"""\s*=\s*["']?(\d+)""", attrs or "", re.I)
+    return max(1, min(int(m.group(1)), 40)) if m else 1
+
+
+def table_grid(part):
+    """표 → 줄마다 [(칸 번호, 글자, 위 줄에서 이어진 칸인지, 차지한 칸 수)]. ROWSPAN·COLSPAN을 펴서 칸 번호를 맞춘다(칸 이름 붙이기용).
+    줄 수는 kx.ROW와 같다."""
+    out, carry = [], {}   # carry: 칸 번호 → [남은 줄 수, 글자, 첫 칸인지, 차지한 칸 수]
+    for tr in kx.ROW.findall(part):
+        cells, c, started = [], 0, {}
+
+        def pull(limit=None):
+            nonlocal c
+            while c in carry and (limit is None or c < limit):
+                left, text, first, span = carry[c]
+                if first:
+                    cells.append((c, text, True, span))
+                c += 1
+        for _, attrs, body in CELLX.findall(tr):
+            pull()
+            text, cs, rs = clean(body), span_of(attrs, "COLSPAN"), span_of(attrs, "ROWSPAN")
+            cells.append((c, text, False, cs))
+            if rs > 1:
+                for k in range(cs):
+                    started[c + k] = [rs - 1, text, k == 0, cs]
+            c += cs
+        for col in sorted(k for k in carry if k >= c):
+            left, text, first, span = carry[col]
+            if first:
+                cells.append((col, text, True, span))
+        for col in list(carry):
+            carry[col][0] -= 1
+            if carry[col][0] <= 0:
+                del carry[col]
+        carry.update(started)
+        out.append(cells)
+    return out
+
+
+def short_label(parts):
+    text = "·".join(dict.fromkeys(p for p in parts if p))
+    text = re.sub(r"[〔〕]", "", text)
+    return text if len(text) <= 18 else text[:17] + "…"
+
+
+def labelled(grid, labels, *, skip_first=False):
+    """내용 줄 → '〔칸 이름〕값 | 〔칸 이름〕값'(칸 이름을 모르면 값만). 위 줄에서 합쳐 내려온(ROWSPAN) 칸 값도 제자리에 넣는다 —
+    행이 끼어들면 합친 칸의 첫 줄이 바뀌어, 값을 첫 줄에만 두면 같은 줄이 다른 열쇠가 된다(11-17 탐침: 포스코홀딩스 수주 표 50줄이 새 줄로 보임).
+    〔칸 이름〕은 열쇠(key_of)에서 빠진다 — 머리글 표기가 바뀌어도 같은 줄이다."""
+    cells = sorted((g for g in grid if g[1]), key=lambda g: g[0])
+    if skip_first:
+        own = [g for g in cells if not g[2]]
+        if own:
+            cells = [g for g in cells if g is not own[0]]
+    out = []
+    for col, text, _, _ in cells:
+        name = short_label(labels.get(col) or [])
+        out.append((f"〔{name}〕" if name and name != text else "") + text)
+    return " | ".join(out)
+
+
+def dates_of(line):
+    """줄에 적힌 (해, 달)들 — '2026-08-21'·'2026년 8월'·'26. 08. 21'."""
+    out = []
+    for m in DATE.finditer(line or ""):
+        y, mo = (int(m.group(1)), int(m.group(2))) if m.group(1) else (2000 + int(m.group(3)), int(m.group(4)))
+        if 1 <= mo <= 12 and 2000 <= y <= 2100:
+            out.append((y, mo))
+    return out
+
+
+def latest_date(line):
+    """줄에 적힌 가장 늦은 (해, 달). 없으면 None."""
+    got = dates_of(line)
+    return max(got) if got else None
+
+
+def in_period(line, since, until):
+    """앞 보고서 기준일 뒤 ~ 지금 사이 날짜가 적힌 줄인지 — 계약 종료일·보증 만기 같은 앞날 날짜는 세지 않는다
+    (탐침: 포스코홀딩스 수주 표에서 2025년 시작·2030년 종료 계약이 2026년 8월 새 계약보다 앞에 섰다)."""
+    return any(since < d <= until for d in dates_of(line))
+
+
+def near_text(text, start, span=2500):
+    """표 바로 앞 글(끝 240자). 앞 표가 끝난 뒤부터만 보되, '[기준일 : …] (단위 : …)' 같은 짧은 표는 글로 본다
+    (11-17 탐침: 한화솔루션 '다. 이행보증, 자금보충 약정 등' 문단과 보증 표 사이에 단위 표가 끼어 있었다)."""
+    seg = text[max(0, start - span):start]
+    up = seg.upper()
+    pos = len(seg)
+    while True:
+        close = up.rfind("</TABLE>", 0, pos)
+        if close < 0:
+            break
+        opening = up.rfind("<TABLE", 0, close)
+        if opening < 0 or len(clean(seg[opening:close])) > 160:
+            seg = seg[close + 8:]
+            break
+        pos = opening
+    return clean(seg)[-240:]
 
 
 def units(block):
@@ -96,11 +223,12 @@ def units(block):
     out = []
     for part in kx.TABLE_SPLIT.split(block or ""):
         if part[:6].upper() == "<TABLE":
-            rows = []
-            for tr in kx.ROW.findall(part):
-                cells = [c for c in (clean(c[1]) for c in kx.CELL.findall(tr)) if c]
+            rows, cols = [], []
+            for (head, cells), grid in zip(((bool(re.search(r"<TH\b", tr, re.I)), [c for c in (clean(c[1]) for c in kx.CELL.findall(tr)) if c])
+                                            for tr in kx.ROW.findall(part)), table_grid(part)):
                 if cells:
-                    rows.append((bool(re.search(r"<TH\b", tr, re.I)), cells))
+                    rows.append((head, cells))
+                    cols.append(grid)
             pairs = [c for _, c in rows if len(c) == 2 and len(c[0]) <= 30 and not re.fullmatch(r"구\s*분|항\s*목", c[0])]
             # 두 칸 표로 보는 조건: 세 칸 넘는 줄이 하나도 없어야 한다(probe 252: 한화솔루션 '보고기간후사건' 표는 사건이 열로 나뉜 표였는데
             # 두 칸 줄이 많다는 이유로 두 칸 표로 읽혀, 사건을 글로 적은 세 칸짜리 줄 — 한화시마론 매각 문장 — 이 통째로 빠졌다)
@@ -109,18 +237,29 @@ def units(block):
                 if len(key_of(line)) >= 12:
                     out.append(line)
                 continue
-            for head, cells in rows:
+            labels, started = {}, False
+            for (head, cells), grid in zip(rows, cols):
                 # 주석 표의 칸 이름('…의 성격에 대한 기술', '…에 대한 공시')은 줄 글자에서 뺀다
-                if len(cells) > 1 and LABEL_CELL.search(cells[0]):
+                drop_first = len(cells) > 1 and LABEL_CELL.search(cells[0])
+                if drop_first:
                     cells = cells[1:]
                 elif len(cells) == 1 and LABEL_CELL.search(cells[0]) and len(cells[0]) < 60:
                     continue
                 line = " | ".join(cells)
                 # 머리 줄: <TH>거나, 숫자 없이 짧은 칸뿐이거나, 연도 없이 '제재기관·처벌 또는 조치' 같은 칸 이름만 있는 줄
                 if head or (not re.search(r"\d", line) and all(len(c) <= 16 for c in cells)) or (HEAD_ROW.search(line) and not re.search(r"(?:19|20)\d\d", line)):
+                    # 표 맨 위(첫 내용 줄 전)의 머리 줄만 칸 이름으로 쓴다 — 표 가운데 '국내'·'해외' 같은 구분 줄은 칸 이름이 아니다
+                    if not started and (head or len(cells) >= 2) and not NOISE.search(line):
+                        for col, text, _, span in grid:
+                            if text and not NOISE.search(text):
+                                for k in range(span):
+                                    got = labels.setdefault(col + k, [])
+                                    if not got or got[-1] != text:
+                                        got.append(text)
                     continue
                 if len(key_of(line)) >= 8 and not EMPTY.search(line) and not NOISE.search(line) and not (BOILER.search(line) and len(line) < 160):
-                    out.append(line)
+                    started = True
+                    out.append(labelled(grid, labels, skip_first=bool(drop_first)))
         else:
             for p in re.split(r"</P>|<BR\s*/?>", part, flags=re.I):
                 line = clean(p)
@@ -191,7 +330,7 @@ def prose(lines, *, keep_rows):
     out = []
     for x in lines:
         cells = [c for c in x.split(" | ")] if SEP not in x else [x]
-        said = [c for c in cells if len(c) >= 30 and SENTENCE.search(c)]
+        said = [LABEL.sub("", c).strip() for c in cells if len(c) >= 30 and SENTENCE.search(c)]
         if said:
             out += said
         elif keep_rows:
@@ -200,6 +339,12 @@ def prose(lines, *, keep_rows):
     if any(SENTENCE.search(x) for x in out):
         out = [x for x in out if SENTENCE.search(x) or len(x) >= 60]
     return out
+
+
+def same_lines(a, b):
+    def ks(lines):
+        return {key_of(x) for x in lines or [] if not str(x).startswith("…")}
+    return ks(a) == ks(b)
 
 
 def merged(old, new):
@@ -224,6 +369,16 @@ def sections(text):
             body["sanction"] = None if not got and BOILER.search(clean(text[end:nxt])[:600]) else got
         elif AFTER_TITLE.search(title):
             body["after"] = merged(body.get("after"), prose(units(text[end:nxt]), keep_rows=True))   # 연결·별도 주석을 합친다
+        elif DATED_TITLE.search(title) and "dated" not in body:
+            # 'Ⅺ-4. 작성기준일 이후 발생한 주요사항 등 기타사항'의 '가.' 부분만(나. 합병 등의 사후정보·다. 녹색경영 앞까지).
+            # 11-17: OCI홀딩스 3분기보고서 — 'OCI Alabama LLC가 매각됨에 따라 연결대상 종속회사에서 제외'가 여기 한 줄이었다.
+            block = text[end:nxt]
+            stop = DATED_STOP.search(block, 30)
+            if stop:
+                # 멈춤 낱말이 든 문단(표)의 처음에서 자른다 — 문장 가운데서 자르거나 태그를 반쯤 남기지 않게
+                up = block.upper()
+                block = block[:max(up.rfind("<P", 0, stop.start()), up.rfind("<TABLE", 0, stop.start()), 0)]
+            body["dated"] = prose(units(block), keep_rows=True)
         elif HELD_TITLE.search(title):
             # 매각예정자산 주석은 숫자 표가 대부분 — 글로 적은 문장(결정·사유)만 본다
             body["held"] = merged(body.get("held"), prose(units(text[end:nxt]), keep_rows=False))
@@ -241,6 +396,30 @@ def sections(text):
             block = text[m.end() - 1:m.end() + 9000]
             stop = re.search(r"<TITLE\b|<P[^>]*>\s*\d{1,2}\.\s*[가-힣]", block[60:])
             body["after"] = merged(body.get("after"), prose(units(block[:60 + stop.start()] if stop else block), keep_rows=True))
+    # 표로 고르는 대목: 이행보증·자금보충, 이해관계자와의 출자·처분·자산양수도, 수주 — 표 머리 두 줄과 표 바로 앞 글로 가른다
+    for m in re.finditer(r"<TABLE\b.*?</TABLE>", text, re.S | re.I):
+        table = m.group(0)
+        if len(table) > TABLE_MAX:
+            continue
+        head = clean(" ".join(kx.ROW.findall(table)[:2]))
+        near = near_text(text, m.start())
+        lines = None
+        if ORDER_HEAD.search(head):
+            sec = "order"
+        elif DEAL_HEAD.search(head):
+            sec = "deal"
+        elif (GUAR.search(head) or GUAR.search(near[-160:])) and not GUAR_SKIP.search(head + " " + near[-160:]):
+            sec = "guarantee"
+            # 표 머리에 이행보증·자금보충이 있으면 표 전체, 아니면 그 낱말이 든 줄만 — 표 앞 글로 표 전체를 받으면
+            # 특수관계자 거래·우발부채 전치표가 섞였다(탐침: OCI홀딩스 28줄)
+            whole = bool(GUAR_KEEP.search(head) or (GUAR_KEEP.search(near[-160:]) and re.search(r"금액|보증", head) and not NOT_GUAR_HEAD.search(head)))
+            lines = [x for x in units(table) if (whole or GUAR_KEEP.search(x)) and not GUAR_SKIP.search(x[:120]) and not GUAR_ROW_SKIP.search(x[:80])]
+        else:
+            continue
+        lines = units(table) if lines is None else lines
+        # 주석의 전치표(행이 항목, 열이 보증 건 — 같은 칸 이름이 한 줄에 세 번 넘게)는 열이 하나 늘면 모든 줄이 바뀐다 — 뺀다
+        lines = [x for x in lines if max(Counter(LABEL.findall(x)).values() or [0]) < 3]
+        body[sec] = merged(body.get(sec), lines)
     # 연결 범위: 신규 연결·연결 제외가 함께 든 표(회사의 개요)
     for table in re.findall(r"<TABLE\b.*?</TABLE>", text, re.S | re.I):
         flat = clean(table)
@@ -315,6 +494,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
                 if alt in c2:
                     codes[name] = c2[alt]
     budget, events, checks = [DOC_BUDGET], [], []
+    since_month, now_month = (base_year, int(MONTH[base_report])), (now.year, now.month)
     since = (now - dt.timedelta(days=430)).strftime("%Y%m%d")
     for name in names:
         short = kx.SHORT.get(name, name)
@@ -339,7 +519,8 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
             checks.append({"source": short, "status": "ok", "returned": sum(len(v) for v in (kept.get("new") or {}).values()), "note": "앞서 읽음"})
             continue
         # 앞 보고서 줄 열쇠: 저장본(직전 기간에 읽어 둔 것)이 있으면 그것, 없으면 앞 보고서를 받는다
-        base_keys = kept.get("keys") if kept.get("period") == f"{base_year}{base_report}" else None
+        # 대목이 늘기 전(v가 다른) 저장본의 앞 보고서 열쇠는 새 대목 열쇠가 없다 — 앞 보고서를 다시 받는다
+        base_keys = kept.get("keys") if kept.get("period") == f"{base_year}{base_report}" and kept.get("v") == VERSION else None
         base_rcept = None
         if base_keys is None:
             base_rcept, _ = report_of(rows, base_year, base_report)
@@ -354,7 +535,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
         cst, csec, cerr = read_report(key, rcept, get=get, sleep=sleep, budget=budget)
         if cst != "ok":
             # 앞 보고서 열쇠는 버리지 않는다 — 다음 실행에 이번 보고서만 다시 받는다
-            notes[short] = {"period": f"{base_year}{base_report}", "keys": base_keys, "status": "pending", "rcept": None}
+            notes[short] = {"v": VERSION, "period": f"{base_year}{base_report}", "keys": base_keys, "status": "pending", "rcept": None}
             checks.append({"source": short, "status": "waiting" if cst == "waiting" else "failed", "error": cerr})
             continue
         new, omitted, nobase = {}, [], []
@@ -362,11 +543,14 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
             if lines is None:
                 omitted.append(sec)   # 이번 보고서가 이 대목을 생략(분기보고서) — 0건이 아니라 비교 못 함
                 continue
-            if base_keys.get(sec) is None and sec != "after":
+            if base_keys.get(sec) is None and sec not in AFTER_LIKE:
                 nobase.append(sec)    # 앞 보고서에서 못 찾았거나 앞 보고서가 생략 — 비교하지 않는다(전부 새 줄로 보이는 것을 막는다). 이번 줄은 다음 비교의 기준이 된다
                 continue
             # 보고기간 후 사건은 그 보고서 기준일 뒤의 일이라 앞 보고서에 없어도 전부 새 줄이다
             fresh = fresh_lines(lines, set(base_keys.get(sec) or []))
+            # 이번 보고 기간(앞 보고서 기준일 뒤) 날짜가 적힌 줄을 앞으로 — 옛 사건이 서식만 바뀌어 새 줄로 보일 때 새 사건이 묻히지 않게
+            # (11-17: 포스코홀딩스 소송 새 줄 26줄 중 포스코이앤씨→다원시스 4,859억 회생채권 줄이 '그 밖 18줄'에 묻혀 있었다)
+            fresh.sort(key=lambda x: 0 if in_period(x, since_month, now_month) else 1)
             if fresh:
                 new[sec] = [x[:LINE_MAX] for x in fresh[:KEEP_LINES]] + ([f"… 그 밖 {len(fresh) - KEEP_LINES}줄"] if len(fresh) > KEEP_LINES else [])
         # 다음 보고서와 견줄 열쇠: 이번 줄 + 앞 보고서 줄(이번에 생략했거나 못 찾은 대목이 다음에 통째로 새 줄로 보이지 않게).
@@ -392,7 +576,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
                   "filed": filed, "period": kx.period_label(year, report), "lines": lines, **({"late": True} if late else {}),
                   "text": f"{short} {kx.period_label(year, report)} 보고서에 새로 적힌 {SECTIONS[sec]} {len([x for x in lines if not x.startswith('…')])}줄 — {lines[0][:220]}"}
             prior = old_by_id.get(ev["id"])
-            if prior and prior.get("lines") == lines:   # 정정 보고서를 다시 읽었는데 줄이 그대로면 처음 본 때를 지킨다
+            if prior and same_lines(prior.get("lines"), lines):   # 정정 보고서를 다시 읽었는데 줄이 그대로면(칸 이름·순서만 달라도) 처음 본 때를 지킨다
                 ev["detectedAt"] = prior.get("detectedAt") or stamp
                 if prior.get("late"):
                     ev["late"] = True
