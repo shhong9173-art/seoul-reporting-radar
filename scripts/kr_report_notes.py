@@ -76,7 +76,9 @@ DEAL_HEAD = re.compile(r"거래\s*유형|거래\s*대상물")   # '거래목적'
 # 큰 것은 따로 공시된다(11-17 탐침: 보증 표 전체를 보니 LS 94줄·두산 67줄 — 대부분 차입보증·PF·주석 전치표)
 GUAR = re.compile(r"(?:이행|채무|지급|연대)\s*보증|자금\s*보충|보증\s*(?:금액|한도|내역|기간|처|종류)")
 GUAR_KEEP = re.compile(r"이행\s*보증|계약\s*이행|자금\s*보충|이행\s*의무|이행하지\s*않은")
-NOT_GUAR_HEAD = re.compile(r"거래|우발\s*부채|의무의\s*성격|추정\s*재무\s*영향|금융\s*자산")
+NOT_GUAR_HEAD = re.compile(r"거래|우발\s*부채|의무의\s*성격|추정\s*재무\s*영향|금융\s*자산|차입|지급\s*보증|채무\s*보증")
+# 주석 전치표의 항목 줄('의무의 성격에 대한 기술…', '우발부채의 추정재무영향…')과 '…내역은 없습니다' 줄(탐침 3: OCI홀딩스 10줄)
+GUAR_ROW_SKIP = re.compile(r"의무의\s*성격|추정\s*재무\s*영향|지급\s*보증\s*기관|내역은\s*없습니다")
 GUAR_SKIP = re.compile(r"제공\s*받은|PF|신용\s*보강|보고\s*기간\s*(?:후|종료)|위험\s*관리|시장\s*위험")
 TABLE_MAX = 200000   # 이보다 큰 표(상세표 통째)는 보지 않는다
 LABEL = re.compile(r"〔[^〔〕]{0,60}〕")   # 줄에 붙인 칸 이름(〔칸〕값)·위 줄에서 이어진 칸(〔칸=값〕) — 열쇠에서는 뺀다
@@ -411,7 +413,7 @@ def sections(text):
             # 표 머리에 이행보증·자금보충이 있으면 표 전체, 아니면 그 낱말이 든 줄만 — 표 앞 글로 표 전체를 받으면
             # 특수관계자 거래·우발부채 전치표가 섞였다(탐침: OCI홀딩스 28줄)
             whole = bool(GUAR_KEEP.search(head) or (GUAR_KEEP.search(near[-160:]) and re.search(r"금액|보증", head) and not NOT_GUAR_HEAD.search(head)))
-            lines = [x for x in units(table) if (whole or GUAR_KEEP.search(x)) and not GUAR_SKIP.search(x[:120])]
+            lines = [x for x in units(table) if (whole or GUAR_KEEP.search(x)) and not GUAR_SKIP.search(x[:120]) and not GUAR_ROW_SKIP.search(x[:80])]
         else:
             continue
         lines = units(table) if lines is None else lines

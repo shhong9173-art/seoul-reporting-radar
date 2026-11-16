@@ -279,6 +279,13 @@ class Notes(unittest.TestCase):
         trade = ('<P>당사는 공동기업 차입금에 대해 자금보충 약정을 제공하고 있습니다.</P><TABLE><TR><TH>회사명</TH><TH>관계</TH><TH>거래종류</TH><TH>거래금액</TH></TR>'
                  '<TR><TD>오씨아이드림(주)</TD><TD>종속기업</TD><TD>용역매출, 임대수익 등</TD><TD>3,798,769</TD></TR></TABLE>')
         self.assertEqual(n.sections(trade)["guarantee"], [])
+        # 표 앞 글에 자금보충이 있어도 자회사 차입 지급보증 표는 표 전체로 받지 않는다(탐침 3: LS 하나은행 지급보증 줄)
+        loan = ('<P>엘에스엠트론㈜는 공동기업 차입금에 대해 자금보충약정을 체결하였습니다.</P><TABLE><TR><TH>구분</TH><TH>회사명</TH><TH>차입은행</TH><TH>지급보증액</TH><TH>보증기간</TH></TR>'
+                '<TR><TD>종속기업</TD><TD>PT.LSAG Cable Indonesia</TD><TD>하나은행</TD><TD>USD 5</TD><TD>2026-07-07 ~ 2027-07-07</TD></TR>'
+                '<TR><TD>공동기업</TD><TD>에이치앤엘어드밴스드(주)</TD><TD>한국산업은행 외</TD><TD>USD 76,068</TD><TD>자금보충약정 2026-09-10 ~ 2029-03-20</TD></TR></TABLE>')
+        got = n.sections(loan)["guarantee"]
+        self.assertEqual(len(got), 1)
+        self.assertIn("자금보충약정", got[0])
         # '거래목적'만 있는 파생상품 거래 표는 이해관계자 거래가 아니다
         deriv = ('<TABLE><TR><TH>거래목적</TH><TH>상품종류</TH><TH>계약물량(USD)</TH><TH>계약내용</TH><TH>거래처</TH><TH>계약일자</TH><TH>손익</TH></TR>'
                  '<TR><TD>매매목적</TD><TD>Gold</TD><TD>1,608</TD><TD>Sell</TD><TD>하나증권</TD><TD>2026-08-31</TD><TD>388,336</TD></TR></TABLE>')
