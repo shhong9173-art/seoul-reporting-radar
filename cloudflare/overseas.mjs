@@ -1789,8 +1789,10 @@ const kstAt = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new 
 
 // 정기보고서 숨은 대목(kr-report-notes feed, 11-15): 출입처 분기·반기·사업보고서의 보고기간 후 사건·매각예정·중단영업 주석, 제재 현황·중요한 소송·연결 범위에서 앞 보고서에 없던 줄.
 // kr_signals 아래(section=report). 회사가 보고서에 직접 적은 것 — 새 줄이라도 사건은 앞서 보도됐을 수 있다.
-const NOTE_SEC = { after: '보고기간 후 사건', held: '매각예정·중단영업', sanction: '제재', suit: '소송', consol: '연결 범위' };
-const NOTE_RANK = { '보고기간 후 사건': 0, '매각예정·중단영업': 1, 제재: 2, 소송: 3, '연결 범위': 4 };
+// 11-17: 작성기준일 이후 주요사항·이행보증·채무보증·이해관계자 거래(출자·처분)·수주 표 대목을 더함(3분기보고서 전수 비교에서 다섯 대목 밖에 있던 줄들)
+const NOTE_SEC = { after: '보고기간 후 사건', dated: '작성기준일 이후 주요사항', held: '매각예정·중단영업', sanction: '제재', suit: '소송', consol: '연결 범위',
+  guarantee: '이행보증·채무보증', deal: '이해관계자 거래(출자·처분)', order: '수주' };
+const NOTE_RANK = { '보고기간 후 사건': 0, '작성기준일 이후 주요사항': 1, '매각예정·중단영업': 2, 제재: 3, 소송: 4, '이해관계자 거래(출자·처분)': 5, '이행보증·채무보증': 6, '연결 범위': 7, 수주: 8 };
 async function reportNotesSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-report-notes');
   const when = '평일 06:40·13:10·18:10·19:40·21:10, 토 09:40';
@@ -1817,7 +1819,7 @@ async function reportNotesSection(ctx, q, days, limit) {
     ...(omitted.length ? [`범위: 이번 보고서가 대목을 생략한 곳('작성기준에 따라 분기보고서에는 기재 생략' — 0건이 아니라 비교 못 함, 반기·사업보고서에서 본다) ${omitted.length}곳: ${omitted.slice(0, 16).join(', ')}${omitted.length > 16 ? ' …' : ''}`] : []),
     ...(nobase.length ? [`범위: 앞 보고서에 대목이 없거나 생략돼 이번에는 비교 못 한 곳(이번 줄이 다음 비교의 기준) ${nobase.length}곳: ${nobase.slice(0, 16).join(', ')}${nobase.length > 16 ? ' …' : ''}`] : []),
     ...(missing.length ? [`범위: 대목을 못 찾은 곳(미확인): ${missing.slice(0, 14).join(', ')}${missing.length > 14 ? ' …' : ''}`] : []),
-    '읽는 법: 보고기간 후 사건(재무제표 주석)은 그 보고서 기준일 뒤의 일이라 적힌 줄 전부가 새 줄이다. 그 밖 대목은 표 한 줄·문단 하나가 한 줄이고, 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄(금액만 바뀐 줄은 안 잡는다). 〔처음 보는 건〕= 두 칸짜리 사건 표가 통째로 새로 생김, 〔앞 보고서에도 있던 건 · 바뀐 줄〕= 같은 당사자 사건의 진행 상황 등이 바뀜.'];
+    '읽는 법: 보고기간 후 사건(재무제표 주석)은 그 보고서 기준일 뒤의 일이라 적힌 줄 전부가 새 줄이다. 그 밖 대목은 표 한 줄·문단 하나가 한 줄이고, 숫자·기호를 뺀 글자가 앞 보고서에 없으면 새 줄(금액만 바뀐 줄은 안 잡는다). 〔처음 보는 건〕= 두 칸짜리 사건 표가 통째로 새로 생김, 〔앞 보고서에도 있던 건 · 바뀐 줄〕= 같은 당사자 사건의 진행 상황 등이 바뀜. 표 줄의 〔칸 이름〕값은 보고서 표 머리글, 〔칸=값〕은 위 줄에서 이어진(합친) 칸. 대목마다 이번 보고 기간 날짜가 적힌 줄이 먼저 나온다.'];
   for (const e of rows.slice(0, limit)) {
     const filed = String(e.filed ?? '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
     out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}B · ${kstAt(e.detectedAt)} · ${e.company} · ${e.kind} · 접수 ${filed || '?'}${e.late ? ' · 늦게 읽음(알림 안 검)' : ''}`);

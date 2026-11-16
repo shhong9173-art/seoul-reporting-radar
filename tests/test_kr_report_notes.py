@@ -60,7 +60,8 @@ class Notes(unittest.TestCase):
     def test_sections_read_sanctions_suits_and_consolidation_only(self):
         s = n.sections(Q3)
         self.assertEqual(len(s["sanction"]), 2)
-        self.assertIn("2026.09.03 | 고용노동부 창원지청 | 당사 | 과태료 1,500만원 | 퇴직연금 최소적립금 미달", s["sanction"])
+        self.assertIn("〔일자〕2026.09.03 | 〔제재기관〕고용노동부 창원지청 | 〔대상자〕당사 | 〔처벌 또는 조치 내용〕과태료 1,500만원 | 〔사유〕퇴직연금 최소적립금 미달", s["sanction"])   # 표 줄에는 칸 이름을 붙인다(11-17)
+        self.assertEqual(n.key_of("〔일자〕2026.09.03 | 〔제재기관〕고용노동부 창원지청 | 〔대상자〕당사 | 〔처벌 또는 조치 내용〕과태료 1,500만원 | 〔사유〕퇴직연금 최소적립금 미달"), n.key_of("2026.09.03 | 고용노동부 창원지청 | 당사 | 과태료 1,500만원 | 퇴직연금 최소적립금 미달"))   # 칸 이름은 열쇠에서 빠진다
         self.assertEqual(len(s["suit"]), 2)                                  # 견질어음·채무보증 표는 읽지 않는다
         self.assertFalse(any("지급보증" in x or "백지어음" in x for x in s["suit"]))
         self.assertEqual(s["consol"], ["신규 연결: Doosan GridTech LLC | 신규 설립", "연결 제외: 두산메카텍㈜ | 지분 매각"])
@@ -91,7 +92,7 @@ class Notes(unittest.TestCase):
         doc = self.run_once(calls=calls)
         c = doc["companies"]["두산에너빌리티"]
         self.assertEqual((c["status"], c["rcept"], c["baseRcept"], c["missing"]), ("ok", "20261113000111", "20260814000222", []))
-        self.assertEqual(c["new"]["sanction"], ["2026.09.03 | 고용노동부 창원지청 | 당사 | 과태료 1,500만원 | 퇴직연금 최소적립금 미달"])   # 숫자 표기만 바뀐 과징금 줄은 아니다
+        self.assertEqual(c["new"]["sanction"], ["〔일자〕2026.09.03 | 〔제재기관〕고용노동부 창원지청 | 〔대상자〕당사 | 〔처벌 또는 조치 내용〕과태료 1,500만원 | 〔사유〕퇴직연금 최소적립금 미달"])   # 숫자 표기만 바뀐 과징금 줄은 아니다
         self.assertEqual(len(c["new"]["suit"]), 1)                                # 소가만 바뀐 (1)은 아니고 새 소송 (2)만
         self.assertIn("텍사스 남부 연방지방법원", c["new"]["suit"][0])
         self.assertEqual(c["new"]["consol"], ["연결 제외: 두산메카텍㈜ | 지분 매각"])
@@ -99,7 +100,7 @@ class Notes(unittest.TestCase):
         self.assertEqual(sorted(ev), ["소송", "연결 범위", "제재"])
         self.assertEqual((ev["제재"]["id"], ev["제재"]["tier"], ev["제재"]["late"], ev["제재"]["url"]),
                          ("rptnote:00159616:202611014:sanction", "B", True, "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000111"))
-        self.assertEqual(doc["summary"]["newLines"], {"after": 0, "held": 0, "sanction": 1, "suit": 1, "consol": 1})
+        self.assertEqual(doc["summary"]["newLines"], {"after": 0, "dated": 0, "held": 0, "sanction": 1, "suit": 1, "consol": 1, "guarantee": 0, "deal": 0, "order": 0})
         self.assertEqual([c for c in calls if c[0] == "document.xml"], [("document.xml", "20260814000222"), ("document.xml", "20261113000111")])
         calls.clear()
         again = self.run_once(previous=doc, calls=calls)                           # 같은 접수번호면 다시 받지 않는다
@@ -120,7 +121,7 @@ class Notes(unittest.TestCase):
         nxt = n.run("k", now=dt.datetime(2027, 3, 19, 6, 20, tzinfo=KST), year=2026, report="11011", previous=again, get=get, sleep=lambda s: None,
                     registry={"companies": {"두산에너빌리티": {"corp_code": "00159616"}}}, table={}, only=["두산에너빌리티"])
         self.assertEqual([c for c in calls if c[0] == "document.xml"], [("document.xml", "20270318000333")])
-        self.assertEqual(nxt["companies"]["두산에너빌리티"]["new"]["sanction"], ["2026.12.01 | 공정거래위원회 | 당사 | 시정명령 및 과징금 20억원 | 부당한 공동행위"])
+        self.assertEqual(nxt["companies"]["두산에너빌리티"]["new"]["sanction"], ["〔일자〕2026.12.01 | 〔제재기관〕공정거래위원회 | 〔대상자〕당사 | 〔처벌 또는 조치 내용〕시정명령 및 과징금 20억원 | 〔사유〕부당한 공동행위"])
         fresh = [e for e in nxt["events"] if e["id"].startswith("rptnote:00159616:202611011")]
         self.assertEqual((len(fresh), "late" in fresh[0]), (1, False))              # 접수 다음 날 읽었고 첫 실행이 아니다 — 늦게 읽은 표시가 없다(알림 대상)
 
@@ -161,7 +162,7 @@ class Notes(unittest.TestCase):
                      ["2025.06.11", "환경부", "당사", "경고", "자가측정 미이행"], ["2026.11.20", "고용노동부", "당사", "과태료 1,500만원", "퇴직연금 최소적립금 미달"]], [], [])
         nxt = self.run_once(previous=doc, lists={"00159616": [{"report_nm": "사업보고서 (2026.12)", "rcept_no": "20270318000333", "rcept_dt": "20270318"}]},
                             docs={"20270318000333": fy}, year=2026, report="11011", now=dt.datetime(2027, 3, 18, 19, 40, tzinfo=KST))
-        self.assertEqual(nxt["companies"]["두산에너빌리티"]["new"]["sanction"], ["2026.11.20 | 고용노동부 | 당사 | 과태료 1,500만원 | 퇴직연금 최소적립금 미달"])
+        self.assertEqual(nxt["companies"]["두산에너빌리티"]["new"]["sanction"], ["〔일자〕2026.11.20 | 〔제재기관〕고용노동부 | 〔대상자〕당사 | 〔처벌 또는 조치 내용〕과태료 1,500만원 | 〔사유〕퇴직연금 최소적립금 미달"])
         # 앞 보고서(1분기)가 대목을 생략했으면 비교하지 않는다 — 반기보고서의 제재 줄 전부가 새 줄로 쏟아지지 않는다(probe 250: 포스코홀딩스 126줄)
         lists = {"00159616": [{"report_nm": "반기보고서 (2026.06)", "rcept_no": "20260814000222", "rcept_dt": "20260814"},
                               {"report_nm": "분기보고서 (2026.03)", "rcept_no": "20260515000444", "rcept_dt": "20260515"}]}
@@ -174,7 +175,7 @@ class Notes(unittest.TestCase):
         table = ("<TABLE><TR><TD>일자</TD><TD>제재기관</TD><TD>대상자</TD><TD>처벌 또는 조치내용</TD><TD>금전적 제재금액</TD><TD>사유 및 근거법령</TD></TR>"
                  "<TR><TD>2025. 3. 6.</TD><TD>울산지방법원</TD><TD>회사</TD><TD>벌금 부과</TD><TD>100만원</TD><TD>산업안전보건법 제173조</TD></TR></TABLE>"
                  "<P>[기준일 : 2026.09.30] (원화단위 : 백만원)</P><P>[Lotte Chemical California, Inc.]</P>")
-        self.assertEqual(n.sections(head + table)["sanction"], ["2025. 3. 6. | 울산지방법원 | 회사 | 벌금 부과 | 100만원 | 산업안전보건법 제173조"])
+        self.assertEqual(n.sections(head + table)["sanction"], ["〔일자〕2025. 3. 6. | 〔제재기관〕울산지방법원 | 〔대상자〕회사 | 〔처벌 또는 조치내용〕벌금 부과 | 〔금전적 제재금액〕100만원 | 〔사유 및 근거법령〕산업안전보건법 제173조"])
         self.assertEqual(n.key_of("당반기말 현재 연결실체가 피소되어 계류중인 소송사건은 451건(소송가액 1조 2,649억원)입니다."),
                          n.key_of("당분기말 현재 연결실체가 피소되어 계류중인 소송사건은 448건(소송가액 1조 2,310억원)입니다."))
         self.assertEqual(n.key_of("2025. 3. 6. | 울산지방법원 | 벌금 부과 | 각 100만원"), n.key_of("2025. 3. 6. | 울산지방법원 | 벌금 부과 | 각 1,000,000 원"))
@@ -223,6 +224,90 @@ class Notes(unittest.TestCase):
         # 주석마다 제목 표시가 없는 보고서: 소제목으로 찾는다
         plain = Q3 + '<P>31. 보고기간후사건</P><P>당사는 2026년 11월 3일 이사회에서 인도네시아 법인 청산을 결의하였습니다.</P><TITLE ATOC="Y">4. 재무제표</TITLE><P>다른 대목</P>'
         self.assertEqual(n.sections(plain)["after"], ["당사는 2026년 11월 3일 이사회에서 인도네시아 법인 청산을 결의하였습니다."])
+
+    def test_table_sections_guarantee_deal_order_and_after_the_reporting_date(self):
+        # 11-17 3분기보고서 전수 비교에서 다섯 대목 밖에 있던 줄들(실제 표 꼴을 줄인 것)
+        def guar(rows):
+            body = "".join(f"<TR><TD>{a}</TD><TD>{b}</TD><TD>종속기업</TD><TD>{c}</TD><TD>{d}</TD></TR>" for a, b, c, d in rows)
+            return ("<P>다. 이행보증, 자금보충 약정 등</P><P>당사는 해외 현지법인의 계약에 대해 이행보증 및 자금보충 약정을 제공하고 있습니다.</P>"
+                    f"<TABLE><TR><TH>구분</TH><TH>회사명</TH><TH>관 계</TH><TH>금액</TH><TH>이사회승인</TH></TR>{body}</TABLE>")
+        marubeni = ("Hanwha Japan CO.,LTD.와 Marubeni Corporation 간의 Sale and Purchase Contract 상의 의무를 보증(2013.02.19. 체결)",
+                    "Hanwha Japan CO.,LTD./Marubeni Corporation", "USD 131,000", "2012.12.12")
+        rwe = ("Hanwha Q CELLS America Inc.의 모듈 매각 거래 관련 이행보증 납품 일정 및 품질 보증 등 납품 이행 관련 의무 전반에 대한 이행보증 (2026.08.04 체결)",
+               "Hanwha Q CELLS America Inc./RWE Solar Development, LLC", "USD 157,200", "2026.07.21")
+
+        def deal(rows):
+            body = "".join("<TR>" + "".join(f"<TD>{c}</TD>" for c in r) + "</TR>" for r in rows)
+            return ("<P>2. 대주주와의 자산양수도 등</P><P>(1) 당분기 중 지배회사의 이해관계자와의 자산양수도 거래 (단위: 천원)</P>"
+                    "<TABLE><TR><TH>거래 상대방</TH><TH>거래유형</TH><TH>지배회사과의관계</TH><TH>거래일자</TH><TH>거래 대상물</TH><TH>거래 목적</TH>"
+                    f"<TH>금 액</TH><TH>금액 산정 기준</TH><TH>관련 손익 (주1)</TH><TH>비 고</TH></TR>{body}</TABLE>")
+        fund = ["Clean H2 Infra Fund S.L.P", "출자", "관계기업", "2026-05-13", "Clean H2 Infra Fund S.L.P 의 보통주", "10차 투자금 납입", "8,991,248", "지분비율에 따른 출자금액 산정", "-", "이사회 승인 완료"]
+        koruz = ["Kor-UZ Gas Chemical Investment Ltd.", "처분", "공동기업", "2026-07-15", "Kor-UZ Gas Chemical Investment Ltd. 의 보통주",
+                 "UZ-KOR로부터 수취한 대여금 원금 재분배", "56,538,631", "주주들의 지분비율에 따른 감자금액 산정", "18,480,232", "이사회 승인 완료"]
+
+        def order(rows):
+            body = "".join("<TR>" + "".join(f"<TD>{c}</TD>" for c in r) + "</TR>" for r in rows)
+            return ('<P>■ 포스코퓨처엠 당분기말 현재 수주잔고 총액은 약 43,418백만원입니다. (단위 : 백만원)</P><TABLE>'
+                    '<TR><TH ROWSPAN="2">품목</TH><TH ROWSPAN="2">수주일자</TH><TH ROWSPAN="2">납기</TH><TH COLSPAN="2">수주총액</TH><TH COLSPAN="2">기납품액</TH><TH COLSPAN="2">수주잔고</TH></TR>'
+                    f'<TR><TH>수량</TH><TH>금액</TH><TH>수량</TH><TH>금액</TH><TH>수량</TH><TH>금액</TH></TR>{body}</TABLE>')
+        gwangyang = ["광양 2고로 2차개수", "2025-03-04", "2027-05-31", "-", "21,000", "-", "2,553", "-", "18,447"]
+        hyrex = ["포항 HyREX Demo Plant ESF 전기로 본체 내화물 공사", "2026-09-01", "2028-06-30", "-", "10,800", "-", "4", "-", "10,796"]
+        dated = ('<TITLE ATOC="Y">4. 작성기준일 이후 발생한 주요사항 등 기타사항</TITLE><P>가. 작성기준일 이후 발생한 주요사항</P>'
+                 '<P>(3) 미국 현지시간 2026년 11월 12일 종속회사인 OCI Alabama LLC가 매각됨에 따라, 연결대상 종속회사에서 제외되었습니다.</P>'
+                 '<P>나. 합병 등의 사후정보</P><P>당사는 2024년 3월 흡수합병을 완료하였으며 합병 전후 재무사항은 다음과 같이 비교하여 기재하였습니다.</P>')
+        h1 = H1.replace('<TITLE ATOC="Y">4. 작성기준일 이후 발생한 주요사항</TITLE><P>해당사항 없음</P>', "") + guar([marubeni]) + deal([fund]) + order([gwangyang])
+        q3 = Q3.replace('<TITLE ATOC="Y">4. 작성기준일 이후 발생한 주요사항</TITLE><P>해당사항 없음</P>', "") + guar([marubeni, rwe]) + deal([fund, koruz]) + order([gwangyang, hyrex]) + dated
+        s = n.sections(q3)
+        self.assertEqual(s["dated"], ["(3) 미국 현지시간 2026년 11월 12일 종속회사인 OCI Alabama LLC가 매각됨에 따라, 연결대상 종속회사에서 제외되었습니다."])   # '나.' 앞까지
+        self.assertTrue(any("〔회사명〕Hanwha Q CELLS America Inc./RWE Solar Development, LLC | 〔관 계〕종속기업 | 〔금액〕USD 157,200 | 〔이사회승인〕2026.07.21" in x
+                            for x in s["guarantee"]))
+        self.assertTrue(any("〔거래유형〕처분" in x and "〔관련 손익 (주1)〕18,480,232" in x for x in s["deal"]))
+        self.assertTrue(s["order"][0].startswith("〔품목〕포항 HyREX Demo Plant ESF 전기로 본체 내화물 공사 | 〔수주일자〕2026-09-01 | 〔납기〕2028-06-30 | 〔수주총액·수량〕- | 〔수주총액·금액〕10,800"))   # 두 줄 머리(COLSPAN)
+        # '다. 채무보증 현황' 표는 앞 글로 고르고, 그 뒤 제재 표는 앞 표 안의 '지급보증' 낱말로 잘못 고르지 않는다
+        self.assertEqual(n.sections(Q3)["guarantee"], ["Doosan Enerbility America | 지급보증 3,500억원으로 증가"])
+        doc = self.run_once(docs={"20261113000111": q3, "20260814000222": h1})
+        new = doc["companies"]["두산에너빌리티"]["new"]
+        self.assertEqual([len(new[k]) for k in ("dated", "guarantee", "deal", "order")], [1, 1, 1, 1])   # 앞 보고서에 있던 줄은 빠진다
+        self.assertIn("RWE Solar Development", new["guarantee"][0])
+        self.assertIn("UZ-KOR로부터 수취한 대여금 원금 재분배", new["deal"][0])
+        self.assertIn("HyREX", new["order"][0])
+        kinds = {e["kind"] for e in doc["events"]}
+        self.assertTrue({"작성기준일 이후 주요사항", "이행보증·채무보증", "이해관계자 거래(출자·처분)", "수주"} <= kinds)
+        # 앞 보고서에 그 표가 없으면 비교하지 않는다(작성기준일 이후 주요사항은 보고기간 후 사건처럼 늘 비교)
+        bare = self.run_once(docs={"20261113000111": q3, "20260814000222": H1.replace('<TITLE ATOC="Y">4. 작성기준일 이후 발생한 주요사항</TITLE><P>해당사항 없음</P>', "")})
+        c = bare["companies"]["두산에너빌리티"]
+        self.assertEqual((sorted(c["nobase"]), len(c["new"]["dated"])), (["deal", "order"], 1))
+        self.assertEqual(len(c["new"]["guarantee"]), 2)                       # 보증 대목은 앞 보고서(채무보증 현황 표)에 있어 비교한다 — 앞 보고서에 없던 이행보증 표 두 줄은 새 줄
+
+    def test_rowspan_cells_carry_down_and_keys_do_not_change(self):
+        table = ('<TITLE ATOC="Y">2. 우발부채 등에 관한 사항</TITLE><P>가. 중요한 소송사건</P><TABLE>'
+                 '<TR><TD COLSPAN="2">소송 당사자</TD><TD COLSPAN="2">최종소송가액</TD><TD ROWSPAN="2">소송내용</TD><TD ROWSPAN="2">진행경과</TD><TD ROWSPAN="2">비고</TD></TR>'
+                 '<TR><TD>원고</TD><TD>피고</TD><TD>외화</TD><TD>원화</TD></TR>'
+                 '<TR><TD ROWSPAN="2">포스코이앤씨</TD><TD>(주)다원시스</TD><TD></TD><TD>485,856</TD><TD>신안산선 7공구 다원시스 회생채권조사확정재판 신청</TD><TD>1심 중</TD><TD>소 제기일: 26. 08. 21</TD></TR>'
+                 '<TR><TD>엔지니어링공제조합</TD><TD></TD><TD>19,222</TD><TD>신안산선 7공구 다원시스 계약이행보증금 청구소송</TD><TD>1심 중</TD><TD>소 제기일: 26. 07. 07</TD></TR>'
+                 '<TR><TD>Campelo Costa</TD><TD>포스코홀딩스</TD><TD></TD><TD>1,680</TD><TD>브라질법인 중재 집행 소송</TD><TD>1심중</TD><TD>소 제기일 : \'25. 9. 25.</TD></TR>'
+                 '</TABLE><P>나. 견질 또는 담보용 어음ㆍ수표 현황</P>')
+        suit = n.sections(table)["suit"]
+        self.assertEqual(suit[0], "〔소송 당사자·원고〕포스코이앤씨 | 〔소송 당사자·피고〕(주)다원시스 | 〔최종소송가액·원화〕485,856 | 〔소송내용〕신안산선 7공구 다원시스 회생채권조사확정재판 신청 | 〔진행경과〕1심 중 | 〔비고〕소 제기일: 26. 08. 21")
+        self.assertEqual(suit[1], "〔소송 당사자·원고=포스코이앤씨〕 〔소송 당사자·피고〕엔지니어링공제조합 | 〔최종소송가액·원화〕19,222 | 〔소송내용〕신안산선 7공구 다원시스 계약이행보증금 청구소송 | 〔진행경과〕1심 중 | 〔비고〕소 제기일: 26. 07. 07")
+        # 열쇠는 칸 이름을 붙이기 전 줄(빈칸 뺀 내용 칸을 ' | '로 이은 것)과 같다 — 저장해 둔 앞 보고서 열쇠와 어긋나지 않는다
+        self.assertEqual(n.key_of(suit[1]), n.key_of("엔지니어링공제조합 | 19,222 | 신안산선 7공구 다원시스 계약이행보증금 청구소송 | 1심 중 | 소 제기일: 26. 07. 07"))
+        self.assertEqual(n.latest_date(suit[0]), (2026, 8))
+        self.assertEqual(n.latest_date("소 제기일 : '25. 9. 25. | 소가 12.5억원"), (2025, 9))
+        self.assertEqual(n.latest_date("2026년 7월 30일 소 취하"), (2026, 7))
+        self.assertIsNone(n.latest_date("청구금액 7,974억원 · 지분율 26.5%"))
+
+    def test_lines_dated_in_this_period_come_first(self):
+        def doc(rows):
+            body = "".join("<TR>" + "".join(f"<TD>{c}</TD>" for c in r) + "</TR>" for r in rows)
+            return ('<TITLE ATOC="Y">2. 우발부채 등에 관한 사항</TITLE><P>가. 중요한 소송사건</P><TABLE><TR><TH>원고</TH><TH>피고</TH><TH>소송내용</TH><TH>비고</TH></TR>'
+                    f'{body}</TABLE><P>나. 견질 또는 담보용 어음ㆍ수표 현황</P><TITLE ATOC="Y">3. 제재 등과 관련된 사항</TITLE><P>해당사항 없음</P>')
+        old = [f"{k}건설" for k in "가나다라마바사아자차"]
+        base = doc([["기존 원고", "당사", "공사대금 청구", "소 제기일 2024.05.01"]])
+        rows = [[o, "당사", "서식만 바뀐 옛 소송", "소 제기일 2025.03.01"] for o in old] + [["포스코이앤씨", "(주)다원시스", "회생채권조사확정재판", "소 제기일: 26. 08. 21"]]
+        got = self.run_once(docs={"20261113000111": doc(rows), "20260814000222": base})["companies"]["두산에너빌리티"]["new"]["suit"]
+        self.assertIn("다원시스", got[0])                                      # 이번 기간 날짜 줄이 맨 앞(8줄 자르기에 묻히지 않는다)
+        self.assertEqual(got[-1], "… 그 밖 3줄")
 
     def test_late_reads_are_marked_and_a_reread_keeps_the_first_seen_time(self):
         first = self.run_once()                                               # 감시 첫 실행 — 늦게 읽은 것으로 표시(알림 없음)
