@@ -263,8 +263,27 @@ class Notes(unittest.TestCase):
                             for x in s["guarantee"]))
         self.assertTrue(any("〔거래유형〕처분" in x and "〔관련 손익 (주1)〕18,480,232" in x for x in s["deal"]))
         self.assertTrue(s["order"][0].startswith("〔품목〕포항 HyREX Demo Plant ESF 전기로 본체 내화물 공사 | 〔수주일자〕2026-09-01 | 〔납기〕2028-06-30 | 〔수주총액·수량〕- | 〔수주총액·금액〕10,800"))   # 두 줄 머리(COLSPAN)
-        # '다. 채무보증 현황' 표는 앞 글로 고르고, 그 뒤 제재 표는 앞 표 안의 '지급보증' 낱말로 잘못 고르지 않는다
-        self.assertEqual(n.sections(Q3)["guarantee"], ["Doosan Enerbility America | 지급보증 3,500억원으로 증가"])
+        # 자회사 차입 지급보증('다. 채무보증 현황')은 보지 않고(이행보증·자금보충만), 그 뒤 제재 표를 앞 표 안 '지급보증' 낱말로 잘못 고르지 않는다
+        self.assertEqual(n.sections(Q3)["guarantee"], [])
+        self.assertEqual(len(n.sections(Q3)["sanction"]), 2)
+        # 문단과 표 사이에 '[기준일 : …] (단위 : …)' 짧은 표가 끼어도 앞 글로 고른다(한화솔루션 실제 꼴)
+        unit = "<TABLE><TR><TD>[기준일 : 2026. 09. 30]</TD><TD>(단위 : 백만원, 천미불)</TD></TR></TABLE>"
+        g = n.sections(guar([rwe]).replace("<TABLE><TR><TH>구분", unit + "<TABLE><TR><TH>구분"))["guarantee"]
+        self.assertEqual(len(g), 1)
+        # 받은 보증·PF 신용보강·주석 전치표(같은 칸 이름이 한 줄에 셋 이상)는 뺀다
+        recv = '<P>제공받은 지급보증 현황</P><TABLE><TR><TH>제공자</TH><TH>보증금액</TH><TH>보증내용</TH></TR><TR><TD>서울보증보험</TD><TD>6,991,487</TD><TD>계약이행보증 등</TD></TR></TABLE>'
+        wide = ('<P>특수관계자 지급보증</P><TABLE><TR><TH></TH><TH COLSPAN="3">지급보증의 구분</TH></TR><TR><TH></TH><TH>제공한 이행보증 1</TH><TH>제공한 이행보증 2</TH><TH>제공한 이행보증 3</TH></TR>'
+                '<TR><TD>피보증인</TD><TD>REC Silicon Inc</TD><TD>Hanwha Futureproof Corp</TD><TD>Garnet Solar Power Generation Station 1, LLC</TD></TR></TABLE>')
+        self.assertIsNone(n.sections(recv).get("guarantee"))
+        # 표 앞 글에 자금보충이 있어도 특수관계자 거래 표 전체를 보증으로 받지 않는다(그 낱말이 든 줄만)
+        trade = ('<P>당사는 공동기업 차입금에 대해 자금보충 약정을 제공하고 있습니다.</P><TABLE><TR><TH>회사명</TH><TH>관계</TH><TH>거래종류</TH><TH>거래금액</TH></TR>'
+                 '<TR><TD>오씨아이드림(주)</TD><TD>종속기업</TD><TD>용역매출, 임대수익 등</TD><TD>3,798,769</TD></TR></TABLE>')
+        self.assertEqual(n.sections(trade)["guarantee"], [])
+        # '거래목적'만 있는 파생상품 거래 표는 이해관계자 거래가 아니다
+        deriv = ('<TABLE><TR><TH>거래목적</TH><TH>상품종류</TH><TH>계약물량(USD)</TH><TH>계약내용</TH><TH>거래처</TH><TH>계약일자</TH><TH>손익</TH></TR>'
+                 '<TR><TD>매매목적</TD><TD>Gold</TD><TD>1,608</TD><TD>Sell</TD><TD>하나증권</TD><TD>2026-08-31</TD><TD>388,336</TD></TR></TABLE>')
+        self.assertNotIn("deal", n.sections(deriv))
+        self.assertEqual(n.sections(wide)["guarantee"], [])
         doc = self.run_once(docs={"20261113000111": q3, "20260814000222": h1})
         new = doc["companies"]["두산에너빌리티"]["new"]
         self.assertEqual([len(new[k]) for k in ("dated", "guarantee", "deal", "order")], [1, 1, 1, 1])   # 앞 보고서에 있던 줄은 빠진다
@@ -272,14 +291,14 @@ class Notes(unittest.TestCase):
         self.assertIn("UZ-KOR로부터 수취한 대여금 원금 재분배", new["deal"][0])
         self.assertIn("HyREX", new["order"][0])
         kinds = {e["kind"] for e in doc["events"]}
-        self.assertTrue({"작성기준일 이후 주요사항", "이행보증·채무보증", "이해관계자 거래(출자·처분)", "수주"} <= kinds)
+        self.assertTrue({"작성기준일 이후 주요사항", "이행보증·자금보충", "이해관계자 거래(출자·처분)", "수주"} <= kinds)
         # 앞 보고서에 그 표가 없으면 비교하지 않는다(작성기준일 이후 주요사항은 보고기간 후 사건처럼 늘 비교)
         bare = self.run_once(docs={"20261113000111": q3, "20260814000222": H1.replace('<TITLE ATOC="Y">4. 작성기준일 이후 발생한 주요사항</TITLE><P>해당사항 없음</P>', "")})
         c = bare["companies"]["두산에너빌리티"]
         self.assertEqual((sorted(c["nobase"]), len(c["new"]["dated"])), (["deal", "order"], 1))
         self.assertEqual(len(c["new"]["guarantee"]), 2)                       # 보증 대목은 앞 보고서(채무보증 현황 표)에 있어 비교한다 — 앞 보고서에 없던 이행보증 표 두 줄은 새 줄
 
-    def test_rowspan_cells_carry_down_and_keys_do_not_change(self):
+    def test_rowspan_cells_are_filled_in_every_row_so_keys_do_not_depend_on_where_a_merge_starts(self):
         table = ('<TITLE ATOC="Y">2. 우발부채 등에 관한 사항</TITLE><P>가. 중요한 소송사건</P><TABLE>'
                  '<TR><TD COLSPAN="2">소송 당사자</TD><TD COLSPAN="2">최종소송가액</TD><TD ROWSPAN="2">소송내용</TD><TD ROWSPAN="2">진행경과</TD><TD ROWSPAN="2">비고</TD></TR>'
                  '<TR><TD>원고</TD><TD>피고</TD><TD>외화</TD><TD>원화</TD></TR>'
@@ -289,13 +308,18 @@ class Notes(unittest.TestCase):
                  '</TABLE><P>나. 견질 또는 담보용 어음ㆍ수표 현황</P>')
         suit = n.sections(table)["suit"]
         self.assertEqual(suit[0], "〔소송 당사자·원고〕포스코이앤씨 | 〔소송 당사자·피고〕(주)다원시스 | 〔최종소송가액·원화〕485,856 | 〔소송내용〕신안산선 7공구 다원시스 회생채권조사확정재판 신청 | 〔진행경과〕1심 중 | 〔비고〕소 제기일: 26. 08. 21")
-        self.assertEqual(suit[1], "〔소송 당사자·원고=포스코이앤씨〕 〔소송 당사자·피고〕엔지니어링공제조합 | 〔최종소송가액·원화〕19,222 | 〔소송내용〕신안산선 7공구 다원시스 계약이행보증금 청구소송 | 〔진행경과〕1심 중 | 〔비고〕소 제기일: 26. 07. 07")
-        # 열쇠는 칸 이름을 붙이기 전 줄(빈칸 뺀 내용 칸을 ' | '로 이은 것)과 같다 — 저장해 둔 앞 보고서 열쇠와 어긋나지 않는다
-        self.assertEqual(n.key_of(suit[1]), n.key_of("엔지니어링공제조합 | 19,222 | 신안산선 7공구 다원시스 계약이행보증금 청구소송 | 1심 중 | 소 제기일: 26. 07. 07"))
+        self.assertEqual(suit[1], "〔소송 당사자·원고〕포스코이앤씨 | 〔소송 당사자·피고〕엔지니어링공제조합 | 〔최종소송가액·원화〕19,222 | 〔소송내용〕신안산선 7공구 다원시스 계약이행보증금 청구소송 | 〔진행경과〕1심 중 | 〔비고〕소 제기일: 26. 07. 07")
+        # 칸 이름은 열쇠에서 빠진다. 합쳐 내려온 칸 값은 열쇠에 든다 — 줄이 끼어들어 합친 칸의 첫 줄이 바뀌어도 같은 줄이 같은 열쇠
+        self.assertEqual(n.key_of(suit[1]), n.key_of("포스코이앤씨 | 엔지니어링공제조합 | 19,222 | 신안산선 7공구 다원시스 계약이행보증금 청구소송 | 1심 중 | 소 제기일: 26. 07. 07"))
+        moved = table.replace('<TR><TD ROWSPAN="2">포스코이앤씨</TD><TD>(주)다원시스</TD>', '<TR><TD ROWSPAN="3">포스코이앤씨</TD><TD>(주)새피고</TD><TD></TD><TD>1</TD><TD>새 소송</TD><TD>1심 중</TD><TD>-</TD></TR><TR><TD>(주)다원시스</TD>')
+        self.assertTrue(set(n.keys_of(suit)) <= set(n.keys_of(n.sections(moved)["suit"])))
         self.assertEqual(n.latest_date(suit[0]), (2026, 8))
         self.assertEqual(n.latest_date("소 제기일 : '25. 9. 25. | 소가 12.5억원"), (2025, 9))
         self.assertEqual(n.latest_date("2026년 7월 30일 소 취하"), (2026, 7))
         self.assertIsNone(n.latest_date("청구금액 7,974억원 · 지분율 26.5%"))
+        # 이번 기간 날짜만 '새 날짜'로 — 계약 종료일·만기 같은 앞날 날짜는 세지 않는다
+        self.assertFalse(n.in_period("〔계약시작일〕2025년 07월 | 〔계약종료일〕2030년 02월", (2026, 6), (2026, 11)))
+        self.assertTrue(n.in_period("〔계약시작일〕2026년 08월 | 〔계약종료일〕2031년 12월", (2026, 6), (2026, 11)))
 
     def test_lines_dated_in_this_period_come_first(self):
         def doc(rows):
