@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-16T17:42:57+09:00",
+  "generatedAt": "2026-11-17T03:55:31+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-16T16:24:07+09:00",
-      "rows": 0,
+      "generatedAt": "2026-11-16T17:43:00+09:00",
+      "rows": 24,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-16T17:42:16+09:00",
-      "rows": 122,
+      "generatedAt": "2026-11-17T03:54:59+09:00",
+      "rows": 124,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -31,7 +31,7 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-16T15:26:13+09:00",
+      "generatedAt": "2026-11-17T01:57:03+09:00",
       "rows": 20,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 1,
+    "new_official_receipt_review": 24,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 20,
@@ -68,21 +68,21 @@
     "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-14",
-    "through": "2026-11-16"
+    "recentFrom": "2026-11-15",
+    "through": "2026-11-17"
   },
-  "checkedOfficialRecentCandidates": 1,
+  "checkedOfficialRecentCandidates": 24,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
+  "todayOnlyCount": 24,
   "historicalResearchCount": 28,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 29,
+  "totalRows": 52,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
     "unverified_correction": 0,
-    "same_receipt_merged": 0
+    "same_receipt_merged": 1
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
@@ -126,6 +126,558 @@
       "actualShipmentsVerified": false,
       "pressIndexNoHitsIsNotNoCoverage": true,
       "editorialPriority": "new_official_filing_manual_review"
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000213",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "HL만도",
+      "title": "HL만도 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000213"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000241",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "가온전선",
+      "title": "가온전선 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000241"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000262",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "S-Oil",
+      "title": "S-Oil · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000262"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000726",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "KG모빌리티",
+      "title": "KG모빌리티 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000726"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000765",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LG화학",
+      "title": "LG화학 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000765"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000917",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대오토에버",
+      "title": "현대오토에버 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000917"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000922",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LS",
+      "title": "LS · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000922"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000957",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "SK이노베이션",
+      "title": "SK이노베이션 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000957"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116000994",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "고려아연",
+      "title": "고려아연 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000994"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001026",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "GS",
+      "title": "GS · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001026"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001028",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "HD현대일렉트릭",
+      "title": "HD현대일렉트릭 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001111",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "GS칼텍스",
+      "title": "GS칼텍스 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001111"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001124",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "넥센타이어",
+      "title": "넥센타이어 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001124"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001188",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "금호석유화학",
+      "title": "금호석유화학 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001188"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001437",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대자동차",
+      "title": "현대자동차 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001472",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "세아홀딩스",
+      "title": "세아홀딩스 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001472"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001501",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "한국전력공사",
+      "title": "한국전력공사 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001501"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001529",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "기아",
+      "title": "기아 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001603",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LS전선",
+      "title": "LS전선 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001603"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001664",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "태광산업",
+      "title": "태광산업 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001664"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001720",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "KG스틸",
+      "title": "KG스틸 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001720"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116001807",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대제철",
+      "title": "현대제철 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001807"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261116002011",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "엘에스일렉트릭",
+      "title": "엘에스일렉트릭 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116002011"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
