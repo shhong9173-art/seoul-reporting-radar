@@ -49,7 +49,11 @@ class Words(unittest.TestCase):
                     {"word": "매각", "line": "대산 SM 공장 매각 협상을 진행 중입니다"},
                     {"word": "가동중단", "line": "여수 NPG 공정은 2026년 12월 가동중단 예정입니다"},
                     {"word": "과징금", "line": "동 규정을 위반할 경우 매출액의 6%를 넘지 않는 과징금을 부과 받을 수 있습니다."},   # 일반 조항
-                    {"word": "매각", "line": "당사는 2025년 7월 14일 공작기계사업부문 매각을 완료하였습니다."}]})                    # 앞 기간의 일
+                    {"word": "매각", "line": "당사는 2025년 7월 14일 공작기계사업부문 매각을 완료하였습니다."},                    # 앞 기간의 일
+                    {"word": "과징금", "line": "당분기말 현재 진행 중인 소송의 최종 결과와 이에 따른 과징금 또는 벌금 등이 재무상태에 미칠 영향을 합리적으로 추정할 수 없어 충당부채를 인식하지 아니하였습니다."},
+                    {"word": "과징금", "line": "⑧소프트웨어 업데이트 준수사항 미이행 과징금/과태료 제재(시행-2025.8.14) 등이 신설 되었습니다."},
+                    {"word": "매각", "line": "2025년 배출권 매각 및 정부제출은 2026년 8월 중으로 확정되었습니다."},
+                    {"word": "매각", "line": "8. 매각예정자산당분기말 현재 당사의 매각예정자산 내역은 다음과 같습니다."}]})
             if a["rcp"] == "20261113001597":
                 return Resp(200, {"status": "missing", "cur": True, "base": False})
             return Resp(500, None)
@@ -63,7 +67,7 @@ class Words(unittest.TestCase):
         self.assertEqual((ev["kind"], ev["tier"], ev["company"], ev["url"]), (w.KIND, "B", "LG화학", "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000765"))
         self.assertNotIn("late", ev)
         self.assertIn("가동중단·매각 낱말이 든 줄 2개", ev["text"])
-        self.assertEqual(out["companies"]["LG화학"]["wordScan"], {"v": w.VERSION, "rcept": "20261116000765", "base": "20260814000765", "at": NOW.isoformat(timespec="seconds"), "lines": 2, "raw": 5})
+        self.assertEqual(out["companies"]["LG화학"]["wordScan"], {"v": w.VERSION, "rcept": "20261116000765", "base": "20260814000765", "at": NOW.isoformat(timespec="seconds"), "lines": 2, "raw": 9})
         self.assertNotIn("wordScan", out["companies"]["롯데케미칼"])        # 원문 미리 넣기 전 — 다음 실행
         self.assertTrue(any(e["id"] == "rptword:20261113001597" for e in out["events"]))   # 옛 이벤트는 그대로
         self.assertEqual(out["wordScan"]["scanned"], 1)
@@ -76,6 +80,15 @@ class Words(unittest.TestCase):
         evs = [e for e in out["events"] if e["id"] == "rptword:20261116001437"]
         self.assertEqual(len(evs), 1)
         self.assertEqual((evs[0]["lines"], evs[0].get("late")), (["〔회생〕 당분기 중 협력사 A사가 회생절차 개시를 신청하였습니다"], True))   # 접수 나흘 뒤 처음 비교
+
+
+    def test_rescan_with_no_lines_drops_old_version_event(self):
+        d = doc()
+        d["companies"] = {"현대차": {**d["companies"]["현대차"], "wordScan": {"v": 1, "rcept": "20261116001437"}}}
+        d["events"].append({"id": "rptword:20261116001437", "kind": w.KIND, "company": "현대차", "lines": ["〔매각〕 1판이 낸 일반 조항"]})
+        out, c = w.run(d, "t" * 43, post=lambda *a, **k: Resp(200, {"status": "ok", "lines": []}), now=NOW)
+        self.assertFalse(any(e["id"] == "rptword:20261116001437" for e in out["events"]))
+        self.assertEqual(out["companies"]["현대차"]["wordScan"]["v"], w.VERSION)
 
 
 if __name__ == "__main__":

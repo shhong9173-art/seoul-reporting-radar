@@ -36,11 +36,14 @@ WORDS = ["회생", "파산", "영업정지", "조업정지", "가동중단", "�
          "고발", "과징금", "철수", "청산", "매각", "리콜"]
 KEEP = 8
 SCAN_MAX = 120
-VERSION = 2   # 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 — 1로 비교한 보고서도 다시 본다
+VERSION = 3   # 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 · 3: 불확실성 문구·법령 시행 목록·배출권·표 머리 문장도 뺌
 # 이번 보고 기간에 일어난 일이라는 표시(날짜는 rn.in_period로 따로 본다)
 NOW_MARK = re.compile(r"당분기\s*(중|말|에)|당기\s*중|보고기간\s*(후|종료일\s*이후|말\s*이후)|작성기준일\s*이후|(진행|추진|검토|협의)\s*중(입니다|이며|에\s*있)|예정(입니다|이며)")
 # 일반 조항·회계정책·계약 조건 문장(11-17 첫 실행: '…과징금을 부과 받을 수 있습니다', '매각예정으로 분류된 …의 처분', '풋옵션 … 매각할 수 있습니다')
-BOILER = re.compile(r"수\s*있(습니다|다|으며|는)|경우(에는|에|,)|정책|기준서|조건으로|의거|에 따라\s*(정한|부과)|해당하는\s*행위")
+# 3판(11-17 2판 실행 38곳): '…과징금 또는 벌금 등이 … 합리적으로 추정할 수 없어 충당부채를 인식하지 아니하였습니다'(LG화학·HD현대오일뱅크),
+# 법령 시행 목록(KG모빌리티 '…과징금/과태료 제재(시행-2025.8.14)'), 배출권 매각, '…내역은 다음과 같습니다' 표 머리, 사채·주주간 약정의 '…경우' 조건
+BOILER = re.compile(r"수\s*있(습니다|다|으며|는)|경우|정책|기준서|조건으로|의거|에 따라\s*(정한|부과)|해당하는\s*행위|합리적으로\s*(추정|예측)할\s*수\s*없"
+                    r"|(공포|시행)\s*[-–(/]|배출권|다음과\s*같습니다")
 
 
 def letters(s):
@@ -60,6 +63,7 @@ def run(doc, token, *, post, now=None):
     counts = {"eligible": 0, "already": 0, "scanned": 0, "missing": 0, "failed": 0, "events": 0, "lines": 0}
     headers = ps._headers(token)
     fresh = []
+    stale = set()
     for short, v in (doc.get("companies") or {}).items():
         if not (isinstance(v, dict) and v.get("status") == "ok" and v.get("period") == period
                 and re.fullmatch(r"\d{14}", str(v.get("rcept") or "")) and re.fullmatch(r"\d{14}", str(v.get("baseRcept") or ""))):
@@ -85,6 +89,7 @@ def run(doc, token, *, post, now=None):
         got = [x for x in body.get("lines") or [] if isinstance(x, dict) and x.get("word") in WORDS and letters(x.get("line"))[:40] not in known
                and (NOW_MARK.search(str(x.get("line"))) or rn.in_period(str(x.get("line")), since_month, (9999, 12))) and not BOILER.search(str(x.get("line")))]
         got.sort(key=lambda x: WORDS.index(x["word"]))
+        stale.add(f"rptword:{v['rcept']}")   # 다시 비교한 보고서는 앞 판의 줄을 지운다(0줄이면 그대로 없어진다)
         v["wordScan"] = {"v": VERSION, "rcept": v["rcept"], "base": v["baseRcept"], "at": stamp, "lines": len(got), "raw": len(body.get("lines") or [])}
         counts["scanned"] += 1
         if not got:
@@ -99,7 +104,7 @@ def run(doc, token, *, post, now=None):
                       "detectedAt": stamp, "filed": v.get("filed"), "period": label, "lines": lines, **({"late": True} if age >= 2 else {}),
                       "text": f"{short} {label} 보고서 전체에서 앞 보고서에 없던 줄 가운데 {'·'.join(words[:5])} 낱말이 든 줄 {len(got)}개 — {str(got[0]['line'])[:200]}"})
         counts["lines"] += len(got)
-    ids = {e["id"] for e in fresh}
+    ids = {e["id"] for e in fresh} | stale
     doc["events"] = [e for e in events if e.get("id") not in ids] + fresh
     counts["events"] = len(fresh)
     doc["wordScan"] = {"at": stamp, "words": WORDS, **{k: counts[k] for k in ("eligible", "already", "scanned", "missing", "failed")}}
