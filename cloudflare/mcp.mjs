@@ -102,7 +102,7 @@ export const TOOLS = [
     inputSchema: obj({ company: str('출입처 이름(예: 현대제철)'), corp_code: str('DART 고유번호 8자리'),
       start: str('시작일 YYYYMMDD(기본 90일 전)'), end: str('종료일 YYYYMMDD') }) },
   { name: 'dart_find_text', access: 'private', handler: dartFindText,
-    description: 'DART 공시 원문(document.xml)에서 낱말을 찾아 앞뒤 문맥과 파일별 해시를 준다. 건설중인자산·계약상대방·생산능력 같은 확인용. 큰 정기보고서라 원문(ZIP)이 시간 초과면 DART 누리집 목차의 장별 본문을 나눠 읽는다(못 읽은 장은 이름과 함께 미확인).',
+    description: 'DART 공시 원문(document.xml)에서 낱말을 찾아 앞뒤 문맥과 파일별 해시를 준다. 건설중인자산·계약상대방·생산능력 같은 확인용. 큰 정기보고서라 원문(ZIP)이 시간 초과면 DART 누리집 목차의 장별 본문을 나눠 읽는다(못 읽은 장은 이름과 함께 미확인, 한 번에 다 못 읽으면 결과의 "이어 읽기" start로). 나눠 읽은 장은 기자 전용 저장소에 하루 두어 같은 보고서를 다른 낱말로 찾을 때 DART에 다시 묻지 않는다.',
     inputSchema: obj({ rcp_no: str('접수번호 14자리'), word: str('찾을 낱말'), limit: int('문맥 수(기본 8)', 1, 20), start: int('나눠 읽기 이어 읽기: 앞 결과의 "이어 읽기" start 값', 0, 500) }, ['rcp_no', 'word']) },
   { name: 'ecos_find', access: 'private', handler: ecosFind,
     description: '한국은행 ECOS 통계표·항목 코드 찾기(실시간). query만 주면 통계표, stat(예: 404Y016 생산자물가 품목별)과 query를 주면 항목 코드·주기·수록 기간.',
