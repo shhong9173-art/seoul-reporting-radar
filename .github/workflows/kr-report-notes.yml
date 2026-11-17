@@ -1,6 +1,7 @@
 name: Periodic Report Hidden Notes
 # 출입처 분기·반기·사업보고서의 보고기간 후 사건·매각예정 주석, 제재 현황·중요한 소송·연결 범위 변동에서 새로 적힌 줄만(11-15 기자: 큰 단독).
 # 11-17: 작성기준일 이후 주요사항, 이행보증·자금보충·이해관계자 거래(출자·처분)·수주 표도(표 줄엔 칸 이름).
+# 11-17: 이어서 이번 기간 읽은 출입처 보고서 원문 글자를 기자 전용 저장소(/ingest/dart-text)에 미리 넣는다(dart_text_prewarm.py, 실행당 12건).
 # 평일 06:40·13:10·18:10·19:40, 토 09:40 KST(Cloudflare 요청) + GitHub 예약 20:40 KST(대비용, 6시간 안 정시 요청 성공이면 건너뜀).
 # 코드가 바뀐 push는 저장하지 않고 건수만 남긴다. 결과는 기자 전용 저장소(kr-report-notes)에만 — 공개 JSON 없음, 공개 로그에는 건수만.
 on:
@@ -9,6 +10,8 @@ on:
     paths:
       - 'scripts/kr_report_notes.py'
       - 'tests/test_kr_report_notes.py'
+      - 'scripts/dart_text_prewarm.py'
+      - 'tests/test_dart_text_prewarm.py'
       - '.github/workflows/kr-report-notes.yml'
   schedule:
     - cron: '40 11 * * 1-5'
@@ -62,7 +65,7 @@ jobs:
       - name: Install API client
         run: python -m pip install "requests>=2.31,<3"
       - name: Test section reading and comparison
-        run: python -m unittest discover -s tests -p 'test_kr_report_notes.py' -v
+        run: python -m unittest discover -s tests -p 'test_kr_report_notes.py' -v && python -m unittest discover -s tests -p 'test_dart_text_prewarm.py' -v
       - name: Compare report sections (counts-only log)
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -74,3 +77,13 @@ jobs:
           else
             python scripts/kr_report_notes.py --dry-run --only 두산에너빌리티 한화솔루션 현대제철
           fi
+      # 11-17 기자 '추천대로': 이번 기간 읽은 출입처 보고서 원문 글자를 기자 전용 저장소에 미리 넣는다 — dart_find_text가 한 번에 끝까지 찾게.
+      # 실패해도 정기보고서 감시 결과는 그대로(이미 저장됨). 로그는 건수만.
+      - name: Prewarm report text for dart_find_text (counts-only log)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false')
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/dart_text_prewarm.py

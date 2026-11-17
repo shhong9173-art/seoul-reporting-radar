@@ -538,6 +538,28 @@ export async function dartFindText(ctx, args) {
   // 이어 읽기(start): 앞 호출이 시간 한도로 다 못 읽은 장부터. 원문(ZIP)은 이미 시간 초과였으니 다시 받지 않는다.
   // 같은 보고서가 이 작업자에서 방금 시간 초과였어도 바로 나눠 읽는다(낱말을 바꿔 여러 번 찾을 때 15초씩 버리지 않게)
   const start = clampInt(args.start, 0, 500, 0);
+  // 미리 받아 둔 원문(11-17 '추천대로'): 정기보고서 감시(GitHub Actions)가 출입처 보고서 원문(ZIP) 글자를 저장소에 넣어 둔다 — 있으면 한 번에 끝까지
+  if (!start) {
+    let pre = null;
+    try { pre = await storeOp(ctx, 'darttext.search', { rcp, word, max: limit }); } catch { pre = null; }
+    if (pre?.have) {
+      const out = [`DART 원문 검색: ${rcp} "${word}" · 레이더가 미리 받아 둔 원문(OpenDART ZIP, ${kstStamp(new Date(pre.at)).slice(5, 16)} 수집) · 글자 ${pre.chars}자 · 조각 ${pre.chunks}개를 다 읽음`];
+      const sourceUrl = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
+      let found = 0;
+      for (const h of pre.hits ?? []) {
+        const take = (h.excerpts ?? []).slice(0, Math.max(0, limit - found));
+        if (!take.length) break;
+        out.push(`\n■ ${h.name} · ${h.chars}자 · ${h.total}곳 · sha256:${h.hash}`);
+        out.push(await issueEvidence(ctx, 'source', { url: sourceUrl, hash: h.hash, date: publicationDate('', sourceUrl), excerpt: take.join('\n') }));
+        for (const x of take) { out.push(`… ${x.replace(/\s+/g, ' ')} …`); found += 1; }
+      }
+      const total = (pre.hits ?? []).reduce((n, h) => n + h.total, 0);
+      if (total > found) out.push(`\n찾은 곳 ${total}곳 중 ${found}곳만 옮김(limit을 올리면 더)`);
+      out.push(`\n원문 링크: ${sourceUrl}`);
+      if (!found) out.push('이 낱말은 원문 텍스트에서 찾지 못함(표 이미지·첨부 PDF 안의 글자는 못 봄).');
+      return textResult(out.join('\n'));
+    }
+  }
   // 하루 저장(11-17 '추천대로'): 나눠 읽은 보고서는 장별 본문이 기자 전용 저장소에 있다 — 원문(ZIP)도 DART 누리집도 다시 묻지 않는다
   let cache = null;
   try { cache = await storeOp(ctx, 'dartcache.get', { rcp, word, from: start, max: limit }); } catch { cache = null; }

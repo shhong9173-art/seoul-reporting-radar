@@ -8,6 +8,7 @@ import { board, boardPart } from './board.mjs';
 import { check, login } from './auth.mjs';
 import { translateRoute } from './translate.mjs';
 import { browserFileUpload, browserFiles, browserUpload } from './local_browser.mjs';
+import { dartTextRoute } from './dart_text.mjs';
 export { RadarStore } from './store.mjs';
 
 export default {
@@ -23,6 +24,7 @@ export default {
     if (pathname === '/upload/browser') return browserUpload(request, env);   // 기자 컴퓨터 Aside 직접 올리기(열쇠 지문 확인)
     if (pathname === '/upload/browser-file') return browserFileUpload(request, env);   // 기자 컴퓨터가 받은 호주 사건 문서 PDF 조각(같은 열쇠)
     if (pathname === '/ingest/browser-files') return browserFiles(request, env);       // 무역구제 감시가 그 PDF를 받아 가고 칸을 비운다(MCP 토큰)
+    if (pathname === '/ingest/dart-text') return dartTextRoute(request, env);       // 정기보고서 감시가 받은 출입처 보고서 원문 글자(dart_find_text가 먼저 찾음)
     if (pathname.startsWith('/ingest/')) return handleIngest(request, env);
     return redirect.fetch(request, env, ctx);
   },
