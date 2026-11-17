@@ -2032,7 +2032,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 37개/);
+  assert.match(r.text, /기자 전용 감시 38개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2359,7 +2359,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 37개/);
+  assert.match(r.text, /기자 전용 감시 38개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2445,7 +2445,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 37개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 38개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -4175,6 +4175,39 @@ test('지방의회 회의록(council-minutes): 키 없으면 미설정(0건 아�
   assert.match(k.text, /- A · 2026-10-20 · 화성시의회 제300회 본회의 · 기아 · 안건 1\. 시정에 관한 질문\n   대목: 「김의원: 화성시 우정읍 기아 오토랜드/);
   assert.match(k.text, /원문: 회의록 번호 CLIKC1\(국회도서관 지방의정포털 검색\)/);
   assert.match(k.text, /사건 낱말 없는 언급 1건 접음 — show_all=true/);
+});
+
+test('국회 회의록(assembly-minutes): 미설정은 0건 아님, A는 레이더 B·대조 낱말, kr_official assembly 구역(발언자·쪽·접은 수)', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = (doc) => worker.fetch(new Request(ORIGIN + '/ingest/assembly-minutes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal((await post({ schema: 'assembly_minutes/v1', generatedAt: now, status: 'not_configured', items: [], events: [],
+    checks: [{ source: '열린국회정보 회의록', status: 'unset', error: 'ASSEMBLY_API_KEY 미설정' }] })).status, 200);
+  assert.match((await call('kr_official', { section: 'assembly' }, opts)).text, /\[국회 회의록\] 미설정 — ASSEMBLY_API_KEY 미설정 \(0건 아님\)/);
+  const a = { id: 'nam:57701:현대제철', company: '현대제철', kind: '위원회 회의록', committee: '산업통상자원중소벤처기업위원회', meeting: '제22대 제439회 제6차 산업통상자원중소벤처기업위원회',
+    date: '20261109', agenda: '1. 2027년도 예산안', snippets: ['62쪽 · 산업통상부장관 김정관 · 현대제철 당진 공장의 가동 중단 문제는 회사와 협의하고 있습니다.'], tier: 'A', pid: '57701',
+    url: 'https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=57701', firstSeen: now };
+  const doc = { schema: 'assembly_minutes/v1', generatedAt: now, status: 'complete',
+    checks: [{ source: '열린국회정보 회의록(위원회·국정감사)', status: 'ok', meetings: 12, returned: 12, opened: 12, read: 12, committees: ['산업통상자원중소벤처기업위원회', '정무위원회'] }],
+    items: [a, { ...a, id: 'nam:57437:포스코', company: '포스코', kind: '국정감사 회의록', date: '20261022', tier: 'C', old: true, snippets: ['3쪽 · 증인 홍길동 · 포스코 광양제철소 화재 사고'] },
+      { ...a, id: 'nam:57701:현대차', company: '현대차', tier: 'C', snippets: ['2쪽 · 김정호 위원 · 현대자동차 그룹이 새만금에 9조 원'] }],
+    events: [{ id: a.id, tier: 'A', kind: '국회 회의록', company: '현대제철', committee: a.committee, detectedAt: now, url: a.url,
+      text: '산업통상자원중소벤처기업위원회 위원회 회의록(2026-11-09) · 현대제철 대목 「62쪽 · 산업통상부장관 김정관 · 현대제철 당진 공장의 가동 중단 문제는 회사와 협의하고 있습니다.」 · 열린국회정보 회의록 PDF · 의원 질의는 주장 — 정부 답변·회사 확인' }] };
+  assert.equal((await post(doc)).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.doesNotMatch(r.text.split('[A · ')[1].split('[B · ')[0], /국회 회의록/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /국회 회의록 · 현대제철\n   산업통상자원중소벤처기업위원회 위원회 회의록\(2026-11-09\) · 현대제철 대목/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === a.id);
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['현대제철', ['중단', '국회'], undefined]);
+  const k = await call('kr_official', { section: 'assembly' }, opts);
+  assert.match(k.text, /\[국회 회의록 · 열린국회정보 위원회·국정감사 회의록 · 확인 [^\]]+\] 1건\n원천: 열린국회정보 회의록\(위원회·국정감사\) ok\(지켜보는 회의록 12, 새 12, 읽음 12\/12\) · 위원회 산업통상자원중소벤처기업·정무\(소위 포함\)/);
+  assert.match(k.text, /- A · 2026-11-09 · 산업통상자원중소벤처기업위원회 위원회 회의록 · 현대제철 · 안건 1\. 2027년도 예산안\n   대목: 「62쪽 · 산업통상부장관 김정관 · 현대제철 당진/);
+  assert.match(k.text, /사건 낱말 없거나 옛 회의인 언급 2건 접음 — 포스코 1·현대차 1 · show_all=true/);
+  const all = await call('kr_official', { section: 'assembly', show_all: true, company: '포스코' }, opts);
+  assert.match(all.text, /- C · 2026-10-22 · 산업통상자원중소벤처기업위원회 국정감사 회의록 · 포스코 · 옛 회의\(늦게 읽음 — 사건 낱말 있지만 C\)/);
+  assert.match((await call('kr_official', {}, opts)).text, /\[국회 회의록 · /);
 });
 
 test('경쟁지 단독 역추적: 종류·매체별 집계(scoop_reverse·주간 점검)', async () => {

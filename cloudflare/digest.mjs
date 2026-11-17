@@ -64,6 +64,8 @@ export const WATCHES = [
   { feed: 'union-notices', label: '노조 성명·보도자료', tool: 'kr_official', schedule: '매일 09:30·12:30·15:30·18:30·21:30', staleHours: 30 },
   // 지방의회 회의록(council_watch.py): 국회도서관 지방의정포털 회의록 API — 출입처 이름 대목에 인허가·불법·오염·감면·증설·이전 등이면 A
   { feed: 'council-minutes', label: '지방의회 회의록', tool: 'kr_official', schedule: '매일 09:10', staleHours: 60 },
+  // 국회 회의록(assembly_minutes_watch.py): 열린국회정보 위원회·국정감사 회의록 PDF — 출입 업종 상임위 회의록의 출입처 이름 대목에 불법·과징금·사고·폐쇄·감산 등 + 14일 안이면 A
+  { feed: 'assembly-minutes', label: '국회 회의록', tool: 'kr_official', schedule: '매일 09:50', staleHours: 60 },
   // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
   { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
   // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
@@ -1225,6 +1227,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // 11-13 기자 결정: 한 단계 내림(A→B, B→C). 그날 A 16건 중 7건이 포항시의회 회의록 발언이었고 단독감이 없었다(11-12 한정어업 건은 접음).
     push(e.tier === 'A' ? 'B' : 'C', W['council-minutes'], { kind: e.kind ?? '지방의회 회의록', id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word], [], council ? [council] : []) });
+  }
+
+  // 국회 회의록: 수집기 A(사건 낱말 + 회의일 14일 안)를 B로(지방의회 회의록과 같이 한 단계 내림 — 새 감시라 기자 판정이 쌓일 때까지). 의원 질의는 주장
+  for (const e of docs['assembly-minutes']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const t = String(e.text ?? '');
+    const word = /과징금|고발|수사|압수수색|담합|불법|위반/.test(t) ? '위반' : /사고|사망|산재|중대재해|화재|폭발/.test(t) ? '사고'
+      : /폐쇄|철수|매각|감산|가동\s?중단|생산\s?중단|구조조정|희망퇴직/.test(t) ? '중단' : /리콜|결함/.test(t) ? '결함' : /증설|신설|이전/.test(t) ? '증설' : '국회';
+    // 기사는 위원회 이름을 안 쓸 때가 많아 대조 필수 낱말로 넣지 않는다(지방의회는 의회 이름 필수)
+    push(e.tier === 'A' ? 'B' : 'C', W['assembly-minutes'], { kind: e.kind ?? '국회 회의록', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word, '국회']) });
   }
 
   // 노조 성명·보도자료: 사망·사고·파업·매각·분할·가처분 등 A, 그 밖 B(이름이 본문에만 있으면 한 단계 내림). 노조 발표는 한쪽 주장

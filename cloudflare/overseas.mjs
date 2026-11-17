@@ -1443,6 +1443,36 @@ export async function councilSection(ctx, q, days, limit, includeMinor = false) 
   return out;
 }
 
+// 국회 회의록(assembly-minutes feed): 열린국회정보 위원회·국정감사 회의록 PDF에서 출입처 이름 대목(발언자·쪽). kr_official section=assembly.
+export async function assemblySection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'assembly-minutes');
+  if (!doc) return ['\n[국회 회의록] 아직 수집 전 — 미확인(매일 09:50)'];
+  if (doc.broken) return ['\n[국회 회의록] 저장 형식 오류 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  if (c.status === 'unset') return [`\n[국회 회의록] 미설정 — ${c.error ?? 'ASSEMBLY_API_KEY 없음'} (0건 아님)`];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const base = (doc.items ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.company, x.committee, x.kind, x.meeting, x.agenda, ...(x.snippets ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const comms = (c.committees ?? []).map((n) => String(n).replace(/위원회$/, '')).join('·');
+  const out = [`\n[국회 회의록 · 열린국회정보 위원회·국정감사 회의록 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 처음 본 날 최근 ${days}일] ${rows.length}건`,
+    `원천: ${c.source ?? '?'} ${c.status ?? '?'}(지켜보는 회의록 ${c.meetings ?? 0}, 새 ${c.returned ?? 0}, 읽음 ${c.read ?? 0}/${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending} — 다음 실행` : ''}${c.error ? `, ${c.error}` : ''})${comms ? ` · 위원회 ${comms}(소위 포함)` : ''}`];
+  for (const x of rows.slice(0, limit)) {
+    const d = String(x.date ?? '');
+    out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.committee} ${x.kind ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 읽음 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
+    for (const sn of (x.snippets ?? []).slice(0, includeMinor ? 3 : 2)) out.push(`   대목: 「${String(sn).slice(0, 360)}」`);
+    out.push(`   원문: ${x.url ?? `회의록 ${x.pid}`}`);
+  }
+  if (base.length > rows.length) {
+    const by = {};
+    for (const x of base) if (x.tier === 'C') by[x.company] = (by[x.company] ?? 0) + 1;
+    const top = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${k} ${n}`).join('·');
+    out.push(`(사건 낱말 없거나 옛 회의인 언급 ${base.length - rows.length}건 접음${top ? ` — ${top}` : ''} · show_all=true, company로 회사 하나)`);
+  }
+  if (!rows.length) out.push('조건에 맞는 회의록 대목 없음(조회 실패면 미확인).');
+  out.push('   검증 상태: 국회 회의록 PDF(자동 글자 뽑기 — 줄바꿈 자리 띄어쓰기가 틀릴 수 있음). 의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개');
+  return out;
+}
+
 // 노조 성명·보도자료(union-notices feed): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름. kr_official labor 구역 아래.
 export async function unionSection(ctx, q, days, limit, includeMinor = false) {
   const doc = await readFeed(ctx, 'union-notices');
@@ -1642,12 +1672,13 @@ export async function stacksSection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council', 'assembly'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'council') return textResult((await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')).join('\n').trim());
+  if (section === 'assembly') return textResult((await assemblySection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')).join('\n').trim());
   if (section === 'labor') return textResult([...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)),
     ...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')].join('\n').trim());
   const insolvency = !section || section === 'insolvency'
@@ -1663,6 +1694,7 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await assemblySection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
