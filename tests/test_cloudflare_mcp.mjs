@@ -14,7 +14,7 @@ import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from 
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
-import { allowedUrl, relayKey } from '../cloudflare/live_tools.mjs';
+import { allowedUrl, dartViewerDocs, relayKey } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
@@ -448,6 +448,12 @@ test('source_document reads the DART filing body instead of the frame page', asy
   assert.match(r.text, /본문 PBR 1\.2배 목표/);
   assert.doesNotMatch(r.text, /잠시만 기다려주세요/);
   assert.match(r.text, /기업가치제고계획\(자율공시\): https:\/\/dart\.fss\.or\.kr\/report\/viewer\.do\?rcpNo=20261021800308&dcmNo=11111/);
+  // 11-17 실제 분기보고서: DART는 목차 변수 이름(node1·node2)을 장마다 다시 쓴다 — 변수별 마지막 값만 남기면 장 3~4개만 보였다
+  const toc = (n, rows) => rows.map(([v, text, ele, off, len]) => `var ${v} = {}; ${v}['text'] = "${text}"; ${v}['id'] = "${ele}"; ${v}['rcpNo'] = "${n}"; ${v}['dcmNo'] = "9"; ${v}['eleId'] = "${ele}"; ${v}['offset'] = "${off}"; ${v}['length'] = "${len}"; ${v}['dtd'] = "dart4.xsd"; ${v}['tocNo'] = "${ele}"; treeData.push(${v});`).join('\n');
+  const real = `<script>${toc('20261116000765', [['node1', 'I. 회사의 개요', 2, 100, 50], ['node2', '1. 회사의 개요', 3, 100, 20], ['node2', '2. 회사의 연혁', 4, 120, 30],
+    ['node1', 'II. 사업의 내용', 8, 200, 80], ['node2', '1. 사업의 개요', 9, 200, 40]])}</script>`;
+  assert.deepEqual(dartViewerDocs(real, '20261116000765').map((d) => [d.text, d.eleId]),
+    [['I. 회사의 개요', '2'], ['1. 회사의 개요', '3'], ['2. 회사의 연혁', '4'], ['II. 사업의 내용', '8'], ['1. 사업의 개요', '9']]);
 });
 
 test('source_document only opens allowlisted hosts and returns a content hash', async () => {
@@ -523,7 +529,7 @@ test('dart tools require the private connection and a key, and search inside doc
       : page(url.includes('eleId=10') ? '여수 NPG 공정 가동 중단 결정 — 위험관리 여수 NPG 공정 가동 중단 결정' : '위험관리 여수 NPG 공정 가동 중단 결정')) });
   const sp = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG 공정' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: split });
   assert.ok(!sp.isError);
-  assert.match(sp.text, /OpenDART 원문\(ZIP\) 시간 초과 → DART 누리집 목차 3개 장\(윗장에 들어 있는 아랫절 1개 빼고 2개\)을 나눠 읽음/);
+  assert.match(sp.text, /OpenDART 원문\(ZIP\) 시간 초과 → DART 누리집 목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음/);
   assert.match(sp.text, /■ II\. 사업의 내용 · \d+자 · 2곳 · sha256:[0-9a-f]{64} · https:\/\/dart\.fss\.or\.kr\/report\/viewer\.do\?rcpNo=20261116000765&dcmNo=1&eleId=10/);
   assert.ok(!split.calls.some((c) => c.url.includes('eleId=15')));   // 윗장 범위(100~1000) 안의 아랫절(500~700)은 따로 받지 않는다
   assert.match(sp.text, /읽은 장 1\/2 · 못 읽은 장 1개\(XI\. 그 밖에 투자자 보호\) — 그 안은 미확인/);
@@ -532,6 +538,19 @@ test('dart tools require the private connection and a key, and search inside doc
   const nr = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: none });
   assert.ok(nr.isError);
   assert.match(nr.text, /OpenDART 원문 실패\(시간 초과\) · DART 누리집 목차도 실패\(시간 초과\) — 원문 미확인\. 정기보고서면 kr_signals\(section=report\)/);
+  // 아주 큰 윗장(150만 자 넘는 III. 재무에 관한 사항)은 윗장 대신 아랫절을 받는다
+  const bigFrame = `<script>
+    var node1 = {}; node1['text'] = "III. 재무에 관한 사항"; node1['rcpNo'] = "20261116000765"; node1['dcmNo'] = "1"; node1['eleId'] = "20"; node1['offset'] = "1000"; node1['length'] = "3000000"; node1['dtd'] = "dart4.xsd";
+    var node2 = {}; node2['text'] = "3. 연결재무제표 주석"; node2['rcpNo'] = "20261116000765"; node2['dcmNo'] = "1"; node2['eleId'] = "23"; node2['offset'] = "5000"; node2['length'] = "900000"; node2['dtd'] = "dart4.xsd";
+    var node2 = {}; node2['text'] = "5. 재무제표 주석"; node2['rcpNo'] = "20261116000765"; node2['dcmNo'] = "1"; node2['eleId'] = "25"; node2['offset'] = "1000000"; node2['length'] = "800000"; node2['dtd'] = "dart4.xsd";
+  </script>`;
+  const bf = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': timeout,
+    'https://dart.fss.or.kr/dsaf001/main.do': new Response(bigFrame, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://dart.fss.or.kr/report/viewer.do': (url) => page(url.includes('eleId=25') ? '우발부채 NPG 공정 관련 손상' : '연결 주석') });
+  const bt = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: bf });
+  assert.match(bt.text, /목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음/);
+  assert.match(bt.text, /■ 5\. 재무제표 주석 · /);
+  assert.ok(!bf.calls.some((c) => c.url.includes('eleId=20')));   // 300만 자 윗장은 받지 않음
   const list = fakeFetch({ 'https://opendart.fss.or.kr/api/list.json': Response.json({ status: '000', total_count: 1, total_page: 1,
     list: [{ rcept_dt: '20261023', report_nm: '단일판매ㆍ공급계약체결', rcept_no: '20261023000111', flr_nm: '현대제철', rm: '유' }] }) });
   const l = await call('dart_filings', { company: '현대제철' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: list });

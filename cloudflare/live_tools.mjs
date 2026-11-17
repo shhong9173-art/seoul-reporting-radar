@@ -353,10 +353,22 @@ export function dartViewerDocs(html, rcpNo) {
     const key = [doc.dcmNo, doc.eleId, doc.offset, doc.length].join('|');
     if (!seen.has(key)) { seen.add(key); docs.push(doc); }
   }
-  const nodes = {};
-  const assign = /([A-Za-z_$][\w$]*)\s*\[\s*['"](text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['"]\s*\]\s*=\s*(['"])(.*?)\3\s*;/gis;
-  for (const m of html.matchAll(assign)) (nodes[m[1]] ??= {})[m[2]] = decodeEntities(m[4]).trim();
-  for (const f of Object.values(nodes)) {
+  // 목차 노드: DART는 같은 변수 이름(node1·node2…)을 장마다 다시 쓴다(11-17 실제 분기보고서: 목차 140여 개가 변수 4개로).
+  // 변수별 마지막 값만 남기면 장 3~4개만 보였다 — 같은 변수에 이미 있는 칸이 다시 나오거나 '= {}'로 비우면 새 노드로 끊는다.
+  const done = [];
+  const cur = {};
+  const step = /([A-Za-z_$][\w$]*)\s*(?:=\s*\{\s*\}|\[\s*['"](text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['"]\s*\]\s*=\s*(['"])(.*?)\3\s*;)/gis;
+  for (const m of html.matchAll(step)) {
+    const v = m[1];
+    if (!m[2]) { if (cur[v]) done.push(cur[v]); delete cur[v]; continue; }
+    if (cur[v] && m[2] in cur[v]) { done.push(cur[v]); delete cur[v]; }
+    (cur[v] ??= {})[m[2]] = decodeEntities(m[4]).trim();
+  }
+  done.push(...Object.values(cur));
+  // 끊는 차례가 문서 차례와 다를 수 있어(윗장 변수는 다음 장까지 열려 있다) 문서·위치·길이(윗장 먼저) 순으로 놓는다
+  const num = (x) => Number(x ?? 0) || 0;
+  done.sort((a, b) => num(a.dcmNo) - num(b.dcmNo) || num(a.offset) - num(b.offset) || num(b.length) - num(a.length));
+  for (const f of done) {
     if (f.rcpNo !== rcpNo || !['dcmNo', 'eleId', 'offset', 'length', 'dtd'].every((k) => f[k])) continue;
     const key = [f.dcmNo, f.eleId, f.offset, f.length].join('|');
     if (seen.has(key)) {
@@ -564,6 +576,8 @@ export async function dartFindText(ctx, args) {
 // 장마다 15초, 나눠 읽기 전체 35초. 못 읽은 장은 이름을 적고 그 안은 미확인으로 둔다. 찾은 곳이 한도에 닿으면 나머지 장은 읽지 않는다.
 const VIEWER_BATCH = 6;
 const VIEWER_BUDGET_MS = 35000;
+const VIEWER_PARENT_MAX = 1_500_000;   // 목차 범위 글자 수 — 이보다 큰 윗장은 아랫절로 나눠 받는다
+const VIEWER_CAP = 12_000_000;
 async function dartViewerSearch(ctx, rcp, word, limit, why) {
   const main = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
   const headers = { 'User-Agent': sourceAgent(ctx, new URL(main)), Accept: 'text/html,application/xhtml+xml' };
@@ -580,10 +594,15 @@ async function dartViewerSearch(ctx, rcp, word, limit, why) {
   // 윗장(예: II. 사업의 내용)의 범위가 아랫절(5. 위험관리…)을 품으면 아랫절은 따로 받지 않는다(같은 글을 두 번 받고 두 번 옮기지 않게)
   const range = (p) => [Number(p.offset), Number(p.offset) + Number(p.length)];
   const holds = (b, a) => b.dcmNo === a.dcmNo && Number(b.length) > 0 && range(a)[0] >= range(b)[0] && range(a)[1] <= range(b)[1];
+  // 다만 아주 큰 윗장(III. 재무에 관한 사항처럼 주석까지 품은 것)은 한 번에 못 받으니 윗장 대신 아랫절을 받는다
+  const big = (p) => Number(p.length) > VIEWER_PARENT_MAX;
   const listed = parts.length;
-  parts = parts.filter((a, i) => !parts.some((b, j) => j !== i && holds(b, a) && (!holds(a, b) || j < i)));
+  parts = parts.filter((a, i) => {
+    if (big(a) && parts.some((b, j) => j !== i && holds(a, b) && !holds(b, a))) return false;
+    return !parts.some((b, j) => j !== i && !big(b) && holds(b, a) && (!holds(a, b) || j < i));
+  });
   const deadline = Date.now() + VIEWER_BUDGET_MS;
-  const out = [`DART 원문 검색: ${rcp} "${word}" · OpenDART 원문(ZIP) ${why} → DART 누리집 목차 ${listed}개 장${listed > parts.length ? `(윗장에 들어 있는 아랫절 ${listed - parts.length}개 빼고 ${parts.length}개)` : ''}을 나눠 읽음`];
+  const out = [`DART 원문 검색: ${rcp} "${word}" · OpenDART 원문(ZIP) ${why} → DART 누리집 목차 ${listed}개 장${listed > parts.length ? `(범위가 겹치는 장 ${listed - parts.length}개 빼고 ${parts.length}개)` : ''}을 나눠 읽음`];
   const seen = new Set();
   const missed = [];
   let found = 0;
@@ -597,7 +616,7 @@ async function dartViewerSearch(ctx, rcp, word, limit, why) {
       try {
         const r = await ctx.fetch(p.viewer, { signal: AbortSignal.timeout(Math.max(3000, Math.min(TIMEOUT_MS, deadline - Date.now()))), headers: { ...headers, Referer: main } });
         if (!r.ok) return null;
-        return htmlToText(decodeBytes(await readCapped(r, 4_000_000), r.headers.get('Content-Type') ?? '').text);
+        return htmlToText(decodeBytes(await readCapped(r, VIEWER_CAP), r.headers.get('Content-Type') ?? '').text);
       } catch { return null; }
     }));
     for (const [j, text] of texts.entries()) {
