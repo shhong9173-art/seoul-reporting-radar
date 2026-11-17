@@ -238,7 +238,8 @@ def us(no, mark, day, classes, oid, who, bases=(), updated=None):
             "status": {"primary": "pending", "stage": "examining", "raw": {"code": "630"}}, "office_code": "US", "filing_route": "direct_national",
             "application_number": no, "filing_date": day, "nice_classes": classes, "updated_at": f"{updated or day}T10:00:00.000Z",
             "owners": [{"id": oid, "name": who, "country_code": "KR", "entity_id": "ent_1"}],
-            "filing_bases": [{"basis_type": b, "nice_class": classes[0]} for b in bases]}
+            "filing_bases": [{"basis_type": b, "nice_class": classes[0]} for b in bases],
+            "classifications": [{"nice_class": classes[0], "goods_services_text": "Brake discs for vehicles; Brake pads for automobiles"}] if classes else []}
 
 
 class ListFake(SignaFake):
@@ -298,6 +299,8 @@ class SignaOwnerList(unittest.TestCase):
                          ("own_h1,own_p1", "US", (NOW.date() + dt.timedelta(days=1) - dt.timedelta(days=120)).isoformat(), False))   # 첫 목록 조회는 출원일 창 전체
         by = {x["applicationNumber"]: x for x in tue["filings"]}
         self.assertEqual((by["99000010"]["isNew"], by["99000010"]["basis"], by["99000010"]["tier"]), (True, ["intent_to_use"], "B"))
+        # 11-17 탐침: 목록 줄의 classifications[].goods_services_text(지정상품)를 그대로 싣는다(상세 조회 없이)
+        self.assertEqual(by["99000010"]["goods"], [{"class": 12, "text": "Brake discs for vehicles; Brake pads for automobiles"}])
         self.assertEqual((by["98000001"]["isNew"], by["98000001"]["baseline"]), (False, True))            # 첫 목록 조회에 딸려 온 3주 넘은 출원은 기준선
         self.assertEqual(tue["fresh"], ["uspto:99000010"])
         self.assertEqual([(c["company"], c["status"], c.get("mode")) for c in tue["checks"]],
