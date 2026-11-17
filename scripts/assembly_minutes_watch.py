@@ -50,6 +50,7 @@ WIDTH = 150
 NEAR = 60
 PAUSE = 0.5
 NO_DATA = "INFO-200"
+NOT_POSTED = "등록되지 않았습니다"   # 회의록 PDF 주소가 파일 대신 돌려주는 알림(원본 파일 아직 안 올라옴)
 # 출입처 이름: 지방의회 회의록과 같은 규칙 + 국회에서 흔한 '현대차·기아'
 TERMS = [(c, re.compile(p)) for _t, c, p in cw.TERMS]
 TERMS.append(("기아", re.compile(r"(?:현대차|현대자동차)\s?[·,및와과]\s?기아(?![가-힣])")))
@@ -187,19 +188,33 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
     fresh = [m for m in found if m["pid"] not in seen]
     opened, read_ok = 0, 0
     recent = (now.date() - dt.timedelta(days=RECENT_DAYS)).strftime("%Y%m%d")
-    for m in fresh[:DETAIL_BUDGET]:
-        opened += 1
+    waiting, left = 0, 0
+    for m in fresh:
+        if opened >= DETAIL_BUDGET:
+            left += 1
+            continue
+        counted = False
         try:
             r = get(m["url"], headers=UA, timeout=120)
             raw = getattr(r, "content", b"") or b""
+            if not raw.startswith(b"%PDF") and NOT_POSTED in raw[:600].decode("utf-8", "ignore"):
+                # 11-18 첫 실행: 국정감사 회의록 12개가 '내려받을 원본 회의록 파일이 등록되지 않았습니다' 알림(HTML 135바이트) —
+                # 목록에는 있지만 파일이 아직 안 올라온 것. 실패로 세지 않고(세 번 넘김 없음) 다음 실행에 다시 본다.
+                waiting += 1
+                tries.pop(m["pid"], None)
+                sleep(PAUSE)
+                continue
+            opened, counted = opened + 1, True
             if not raw.startswith(b"%PDF"):
                 raise ValueError(f"PDF 아님 HTTP {getattr(r, 'status_code', '?')}")
             text = extract(raw)
             if len(text or "") < 500:
                 raise ValueError("글자 없음")
         except Exception as e:  # noqa: BLE001
+            opened += 0 if counted else 1   # 받기 자체가 실패한 것도 한 개로 센다
             tries[m["pid"]] = tries.get(m["pid"], 0) + 1
-            errors.append(f"회의록 {m['pid']}:{type(e).__name__}{'(3번째, 넘김)' if tries[m['pid']] >= 3 else ''}")
+            why = f"({str(e)[:24]})" if isinstance(e, ValueError) else ""
+            errors.append(f"회의록 {m['pid']}:{type(e).__name__}{why}{'(3번째, 넘김)' if tries[m['pid']] >= 3 else ''}")
             if tries[m["pid"]] >= 3:
                 seen[m["pid"]] = m["date"]
                 tries.pop(m["pid"], None)
@@ -233,13 +248,14 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
                                "text": (f"{m['committee']} {m['kind']}({d[:4]}-{d[4:6]}-{d[6:]}) · {comp} 대목 「{snips[0][:260]}」"
                                         + (f" · 안건 {rec['agenda'][:80]}" if rec["agenda"] else "")
                                         + " · 열린국회정보 회의록 PDF · 의원 질의는 주장 — 정부 답변·회사 확인")})
-    pending = max(0, len(fresh) - DETAIL_BUDGET)
+    pending = left
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     api_failed = sum(1 for e in errors if not e.startswith("회의록 "))
     status = "failed" if api_failed >= LOOKBACK_DAYS else "partial" if errors else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status,
             "checks": [{"source": "열린국회정보 회의록(위원회·국정감사)", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "meetings": len(found), "returned": len(fresh), "opened": opened, "read": read_ok, **({"pending": pending} if pending else {}),
+                        **({"notPosted": waiting} if waiting else {}),
                         "committees": list(WATCH), **({"error": "; ".join(errors[:4]) + (f" 외 {len(errors) - 4}" if len(errors) > 4 else "")} if errors else {})}],
             "seen": dict(sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:3000]),
             **({"tries": tries} if tries else {}),
@@ -248,7 +264,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
             "rules": ["열린국회정보 위원회 회의록(최근 21일 회의일)·국정감사 회의록 중 출입 업종 상임위(산자중기위·기후에너지환경노동위·국토위·재경위·정무위, 소위 포함)의 새 회의록 PDF에서 출입처 이름 대목(앞뒤 150자, 발언자·쪽).",
                       f"회사 이름 앞뒤 60자 안에 불법·과징금·고발·수사·담합·오염·사고·사망·산재·폐쇄·철수·매각·감산·가동 중단·구조조정·하청·리콜·결함·증설·이전 낱말이 있고 회의일이 {RECENT_DAYS}일 안이면 A, 아니면 C.",
                       "의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개(회의일과 공개일이 다르다). PDF 글자 뽑기에서 줄바꿈 자리 띄어쓰기가 틀릴 수 있다.",
-                      "조회 실패·PDF 받기 실패는 미확인(0건 아님). 한 실행 30개 — 넘으면 다음 실행."]}
+                      "조회 실패·PDF 받기 실패는 미확인(0건 아님). 원본 파일이 아직 안 올라온 회의록은 날마다 다시 본다(위원회 회의록은 회의일 21일, 국정감사는 75일 안). 한 실행 30개 — 넘으면 다음 실행."]}
 
 
 def main():

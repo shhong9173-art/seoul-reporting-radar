@@ -1455,7 +1455,7 @@ export async function assemblySection(ctx, q, days, limit, includeMinor = false)
   const rows = base.filter((x) => includeMinor || x.tier !== 'C');
   const comms = (c.committees ?? []).map((n) => String(n).replace(/위원회$/, '')).join('·');
   const out = [`\n[국회 회의록 · 열린국회정보 위원회·국정감사 회의록 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 처음 본 날 최근 ${days}일] ${rows.length}건`,
-    `원천: ${c.source ?? '?'} ${c.status ?? '?'}(지켜보는 회의록 ${c.meetings ?? 0}, 새 ${c.returned ?? 0}, 읽음 ${c.read ?? 0}/${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending} — 다음 실행` : ''}${c.error ? `, ${c.error}` : ''})${comms ? ` · 위원회 ${comms}(소위 포함)` : ''}`];
+    `원천: ${c.source ?? '?'} ${c.status ?? '?'}(지켜보는 회의록 ${c.meetings ?? 0}, 새 ${c.returned ?? 0}, 읽음 ${c.read ?? 0}/${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending} — 다음 실행` : ''}${c.notPosted ? `, 파일 아직 안 올라옴 ${c.notPosted}(날마다 다시 — 0건 아님)` : ''}${c.error ? `, ${c.error}` : ''})${comms ? ` · 위원회 ${comms}(소위 포함)` : ''}`];
   for (const x of rows.slice(0, limit)) {
     const d = String(x.date ?? '');
     out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.committee} ${x.kind ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 읽음 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
