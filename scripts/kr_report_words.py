@@ -36,7 +36,7 @@ WORDS = ["회생", "파산", "영업정지", "조업정지", "가동중단", "�
          "고발", "과징금", "철수", "청산", "매각", "리콜"]
 KEEP = 8
 SCAN_MAX = 120
-VERSION = 3   # 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 · 3: 불확실성 문구·법령 시행 목록·배출권·표 머리 문장도 뺌
+VERSION = 4   # 4(11-18): 출입처 외 표시 · 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 · 3: 불확실성 문구·법령 시행 목록·배출권·표 머리 문장도 뺌
 # 이번 보고 기간에 일어난 일이라는 표시(날짜는 rn.in_period로 따로 본다)
 NOW_MARK = re.compile(r"당분기\s*(중|말|에)|당기\s*중|보고기간\s*(후|종료일\s*이후|말\s*이후)|작성기준일\s*이후|(진행|추진|검토|협의)\s*중(입니다|이며|에\s*있)|예정(입니다|이며)")
 # 일반 조항·회계정책·계약 조건 문장(11-17 첫 실행: '…과징금을 부과 받을 수 있습니다', '매각예정으로 분류된 …의 처분', '풋옵션 … 매각할 수 있습니다')
@@ -44,6 +44,25 @@ NOW_MARK = re.compile(r"당분기\s*(중|말|에)|당기\s*중|보고기간\s*(�
 # 법령 시행 목록(KG모빌리티 '…과징금/과태료 제재(시행-2025.8.14)'), 배출권 매각, '…내역은 다음과 같습니다' 표 머리, 사채·주주간 약정의 '…경우' 조건
 BOILER = re.compile(r"수\s*있(습니다|다|으며|는)|경우|정책|기준서|조건으로|의거|에 따라\s*(정한|부과)|해당하는\s*행위|합리적으로\s*(추정|예측)할\s*수\s*없"
                     r"|(공포|시행)\s*[-–(/]|배출권|다음과\s*같습니다")
+
+
+# 출입처 외(11-18 '추천대로'): 정기보고서 감시와 같은 NON_BEAT 이름, 그리고 '종속회사인 (주)○○'처럼 이름이 적힌 국내 자회사 —
+# 줄 앞에 〔출입처 외 ○○〕를 붙이고 뒤로 보낸다(GS 보고서의 GS E&R 해남풍력 매각, 포스코홀딩스 보고서의 포스코이앤씨 영업정지 등).
+# 해외 법인 이름(…Co., Ltd.·LLC)은 그 회사 자신의 일로 보고 붙이지 않는다(LG화학 하이퐁 법인 청산 등).
+SUB = re.compile(r"(?:종속(?:회사|기업)|자회사)(?:인|의)?\s*(?:\(주\)|㈜|주식회사)?\s*([가-힣][가-힣A-Za-z0-9]{1,15})")
+PARTICLE = re.compile(r"(?:\(주\)|㈜)?(?:은|는|이|가|의|에|와|과|를|을|로|으로)?$")
+
+
+def outsider(line, company):
+    for n in rn.NON_BEAT:
+        if n in line:
+            return n
+    m = SUB.search(line)
+    if m:
+        name = PARTICLE.sub("", m.group(1)).strip()
+        if len(name) >= 2 and name not in (company, "주식회사") and not company.startswith(name):
+            return name
+    return None
 
 
 def letters(s):
@@ -88,13 +107,15 @@ def run(doc, token, *, post, now=None):
         known = " ".join(letters(l) for e in events if e.get("company") == short and e.get("kind") != KIND for l in e.get("lines") or [])
         got = [x for x in body.get("lines") or [] if isinstance(x, dict) and x.get("word") in WORDS and letters(x.get("line"))[:40] not in known
                and (NOW_MARK.search(str(x.get("line"))) or rn.in_period(str(x.get("line")), since_month, (9999, 12))) and not BOILER.search(str(x.get("line")))]
-        got.sort(key=lambda x: WORDS.index(x["word"]))
+        for x in got:
+            x["who"] = outsider(str(x.get("line")), short)
+        got.sort(key=lambda x: (1 if x["who"] else 0, WORDS.index(x["word"])))
         stale.add(f"rptword:{v['rcept']}")   # 다시 비교한 보고서는 앞 판의 줄을 지운다(0줄이면 그대로 없어진다)
         v["wordScan"] = {"v": VERSION, "rcept": v["rcept"], "base": v["baseRcept"], "at": stamp, "lines": len(got), "raw": len(body.get("lines") or [])}
         counts["scanned"] += 1
         if not got:
             continue
-        lines = [f"〔{x['word']}〕 {str(x['line'])[:600]}" for x in got[:KEEP]] + ([f"… 그 밖 {len(got) - KEEP}줄"] if len(got) > KEEP else [])
+        lines = [f"{'〔출입처 외 ' + x['who'] + '〕 ' if x['who'] else ''}〔{x['word']}〕 {str(x['line'])[:600]}" for x in got[:KEEP]] + ([f"… 그 밖 {len(got) - KEEP}줄"] if len(got) > KEEP else [])
         try:
             age = (now.date() - dt.datetime.strptime(str(v.get("filed")), "%Y%m%d").date()).days
         except ValueError:

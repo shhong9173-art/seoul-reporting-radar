@@ -91,5 +91,20 @@ class Words(unittest.TestCase):
         self.assertEqual(out["companies"]["현대차"]["wordScan"]["v"], w.VERSION)
 
 
+    def test_affiliate_lines_marked_and_sorted_last(self):
+        d = doc()
+        d["companies"] = {"GS": {"status": "ok", "period": "202611014", "rcept": "20261116001026", "baseRcept": "20260814001026", "filed": "20261116"}}
+        lines = [{"word": "매각", "line": "연결실체의 종속회사인 (주)지에스이앤알의 경영진은 해남풍력사업 관련 건설중인자산을 매도하기 위한 계획을 수립하였고, 2026년 내 자산매각절차를 완료할 예정입니다."},
+                 {"word": "영업정지", "line": "2026년 10월 2일 포스코이앤씨는 영업정지 8개월의 행정처분 사전통지서를 수령하였습니다."},
+                 {"word": "청산", "line": "당분기 중 LG Chem Hai Phong Vietnam Co., Ltd.는 청산되었습니다."},
+                 {"word": "과징금", "line": "당분기 중 개인정보보호위원회는 과징금 12,836백만원을 부과하였습니다."}]
+        out, _ = w.run(d, "t" * 43, post=lambda *a, **k: Resp(200, {"status": "ok", "lines": lines}), now=NOW)
+        ev = [e for e in out["events"] if e["id"] == "rptword:20261116001026"][0]
+        self.assertEqual(ev["lines"], ["〔과징금〕 당분기 중 개인정보보호위원회는 과징금 12,836백만원을 부과하였습니다.",
+                                       "〔청산〕 당분기 중 LG Chem Hai Phong Vietnam Co., Ltd.는 청산되었습니다.",      # 해외 법인은 그 회사 일
+                                       "〔출입처 외 포스코이앤씨〕 〔영업정지〕 2026년 10월 2일 포스코이앤씨는 영업정지 8개월의 행정처분 사전통지서를 수령하였습니다.",
+                                       "〔출입처 외 지에스이앤알〕 〔매각〕 연결실체의 종속회사인 (주)지에스이앤알의 경영진은 해남풍력사업 관련 건설중인자산을 매도하기 위한 계획을 수립하였고, 2026년 내 자산매각절차를 완료할 예정입니다."])
+
+
 if __name__ == "__main__":
     unittest.main()
