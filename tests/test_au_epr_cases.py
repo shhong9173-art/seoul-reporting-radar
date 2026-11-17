@@ -267,6 +267,22 @@ class AuEpr(unittest.TestCase):
         self.assertIn("보관(종결) 목록으로 옮겨짐: 「698 - Aluminium zinc coated steel (≥600mm) from Korea, Vietnam」 · 가장 최근 공지 「Findings of continuation inquiry」(2026-11-17)", arch["text"])
         self.assertEqual((got["au-epr:698:doc:18"]["tier"], got["au-epr:698:doc:19"]["tier"]), ("B", "C"))
         self.assertEqual((chk4["cases"], chk4["archived"], sec4["cases"]["698"].get("missing")), (2, 2, None))
+        # 11-17: 보관 사건이 수집에서 빠지면 이유를 남긴다 — 공지일이 150일을 넘겼으면 'aged', 아니면 목록에서 밀린 'outOfList'
+        later = dt.datetime(2027, 2, 22, 16, 2, tzinfo=KST)    # 688 최근 공지 2026-09-24 + 151일
+        sec5, ev5, _ = a.collect(upload(rows + moved, later), sec4, later + dt.timedelta(minutes=10))
+        self.assertEqual(ev5, [])
+        self.assertNotIn("688", sec5["cases"])
+        self.assertEqual([(r["no"], r["updated"], r["reason"]) for r in sec5["retired"]], [("688", "2026-09-24", "aged")])
+        soon = wed + dt.timedelta(days=2)                       # 150일 전인데 수집에서 빠짐: 목록 최근 줄에서 밀린 것
+        sec6, _, _ = a.collect(upload(rows + moved, soon), sec4, soon + dt.timedelta(minutes=10))
+        self.assertEqual([(r["no"], r["reason"]) for r in sec6["retired"]], [("688", "outOfList")])
+        # 다시 수집에 들어오면 줄을 지우고, 30일이 지난 줄도 지운다
+        back = soon + dt.timedelta(hours=7)
+        sec7, _, _ = a.collect(upload(rows + more + moved, back), sec6, back + dt.timedelta(minutes=10))
+        self.assertNotIn("retired", sec7)
+        old = later + dt.timedelta(days=31)
+        sec8, _, _ = a.collect(upload(rows + moved, old), sec5, old + dt.timedelta(minutes=10))
+        self.assertNotIn("retired", sec8)
         _, ev5, _ = a.collect(upload(rows + more + moved, wed + dt.timedelta(hours=7)), sec4, wed + dt.timedelta(hours=7, minutes=10))
         self.assertEqual(ev5, [])
         # 보관 사건이 수집에서 빠지면(공지일이 150일을 넘김) 조용히 내려놓는다

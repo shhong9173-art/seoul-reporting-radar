@@ -5,6 +5,7 @@ import { ageNote, readFeed } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { kstMD, maintenanceMemo } from './stack_memo.mjs';
 import { clampInt, textResult, uniqueList } from './common.mjs';
+import { lastBrowserSlot } from './local_browser.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -634,7 +635,7 @@ const AU_KIND = { investigation: '조사', continuation: '종료재심', review:
 const AU_DATES = [['Initiation Date', '개시'], ['PAD earliest date', '예비 판정(PAD) 가능일'], ['SEF no later than', '필수사실 보고서(SEF) 기한'],
   ['Final recommendation due no later than', '최종 권고 기한']];
 const auDate = (dates, key) => Object.entries(dates ?? {}).find(([k]) => k.replace(/\*+/g, '').trim() === key)?.[1];
-export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fromIso = '') {
+export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fromIso = '', nowMs = null) {
   if (!epr) return ['\n[호주 ATRC 사건 공개기록(EPR)] 아직 수집 전 — 미확인(기자 컴퓨터 수집이 사건 페이지를 올린 뒤부터)'];
   const all = Object.entries(epr.cases ?? {}).map(([no, c]) => ({ ...c, no }));
   const pdf = epr.pdf ?? {};
@@ -647,6 +648,13 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   const texts = Object.values(pdf).filter((x) => (x.excerpts ?? []).length).length;
   const out = [`\n[호주 ATRC 사건 공개기록(EPR) · 한국 관련 진행 사건 ${live.length}건(진행 목록 ${epr.listTotal ?? '?'}건 중)${archived.length ? ` · 종결·보관 ${archived.length}건` : ''} · 수집 ${Number.isNaN(Date.parse(epr.fetchedAt)) ? '?' : new Date(Date.parse(epr.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')}(한국시간) · 기준선 ${String(epr.baselineAt ?? '').slice(0, 10)}]`];
   if (epr.status !== 'ok') out.push(`미확인(0건 아님): ${epr.error ?? epr.status} — 아래는 직전에 읽은 것`);
+  // 11-17('추천대로'): 이 화면의 수집이 가장 최근 예정 수집(평일 09:00·16:00, 여유 45분) 전 것이면 한 줄 — 수집 시각만 보고 최신인지 알 수 없었다
+  const slot = Number.isFinite(nowMs) ? lastBrowserSlot(nowMs) : null;
+  const got = Date.parse(epr.fetchedAt ?? '');
+  if (slot != null && Number.isFinite(got) && got < slot - 10 * 60000) {
+    out.push(`⚠ 이 수집은 ${new Date(slot + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} 예정 수집 전 것 — 그 뒤 기자 컴퓨터 수집이 안 올라왔거나 아직 반영 전`
+      + '(올라오면 하루 한 번 바로, 아니면 평일 07:40·21:30 감시 때 반영). 그 사이 새 문서는 미확인 — 수집 상태는 radar_health');
+  }
   if (texts || (epr.want ?? []).length) out.push(`본문: 출입처 이름이 든 문서 ${texts}건의 PDF에서 한국·출입처 대목을 읽음${(epr.want ?? []).length ? ` · 다음 수집(평일 09:00·16:00)에 받을 문서 ${epr.want.length}건(${epr.want.map((w) => `EPR ${w.key}`).join(', ')})` : ''}`);
   const docLine = (d) => `${d.date || '날짜 없음'} EPR ${d.no}번 ${d.type} 「${d.title}」${(d.companies ?? []).length ? `(${d.companies.join('·')})` : ''}`;
   const caseLines = (c) => {
@@ -681,6 +689,12 @@ export function auEprSection(epr, events, q = '', limit = 8, showAll = false, fr
   if (archived.length) {
     out.push(`종결·보관 사건(TRN 목록의 최근 공지가 150일 안) ${archived.length}건:`);
     for (const c of archived.slice(0, showAll ? limit : Math.min(limit, 4))) caseLines(c);
+  }
+  // 11-17: 따라가기 끝낸 보관 사건과 그 이유(150일 지남 / TRN 목록 최근 줄에서 밀림) — 소리 없이 사라지지 않게
+  const retired = (epr.retired ?? []).filter((r) => r && matches(q, r.no, r.title));
+  if (retired.length) {
+    out.push(`따라가기 끝낸 보관 사건: ${retired.map((r) => `${String(r.title ?? '').startsWith(String(r.no)) ? r.title : `${r.no} ${r.title ?? ''}`}(가장 최근 공지 ${r.updated ?? '?'} — `
+      + `${r.reason === 'aged' ? '150일이 지나 수집 범위 밖' : 'TRN 목록 최근 줄에서 밀려 수집 범위 밖, 새 공지가 붙으면 다시 따라감'} · ${String(r.at ?? '').slice(5, 10)} 감지)`).join(' / ')}`);
   }
   const gone = all.filter((c) => c.gone && !c.archived && hit(c));
   if (gone.length) out.push(`진행 목록에서 빠진 사건: ${gone.map((c) => `${c.no} ${c.commodity ?? ''}(${String(c.gone).slice(0, 10)} 감지)`).join(' · ')} — 종결·보관으로 옮겨졌을 수 있음`);
@@ -785,7 +799,7 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
   if (!section || section === 'cbsa') out.push(...cittSection(doc.citt, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 3), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
-  if (!section || section === 'au') out.push(...auEprSection(doc.auEpr, doc.events, q, section === 'au' ? limit : Math.min(limit, 4), showAll, new Date(ctx.now.getTime() - (section === 'au' && !args.days ? 60 : days) * 86400000).toISOString()));
+  if (!section || section === 'au') out.push(...auEprSection(doc.auEpr, doc.events, q, section === 'au' ? limit : Math.min(limit, 4), showAll, new Date(ctx.now.getTime() - (section === 'au' && !args.days ? 60 : days) * 86400000).toISOString(), ctx.now.getTime()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();

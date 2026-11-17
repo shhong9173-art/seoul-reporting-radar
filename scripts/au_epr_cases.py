@@ -57,6 +57,8 @@ FRESH_HOURS = 30          # 수집이 이보다 오래되면 미확인(무역구
 FRESH_MONDAY = 78         # 토·일과 월요일 오전에는 금요일 수집까지
 FRESH_DAYS = 45           # 새 문서·새 사건으로 알리는 것은 문서일·개시일이 이 안일 때만
 BURST = 6                 # 한 사건에서 한 번에 이보다 많이 새로 보이면 한 줄로 묶는다
+ARCHIVE_DAYS = 150        # 수집 코드(kr_browser_collect.js)가 따라가는 보관 사건: TRN 최근 공지일이 이 안
+RETIRED_KEEP_DAYS = 30    # 따라가기 끝낸 보관 사건 줄을 화면에 남기는 날 수
 MAX_DOCS = 60
 CASE_NO = re.compile(r"^[A-Za-z0-9-]{1,20}$")
 MONTHS = {m: i + 1 for i, m in enumerate("january february march april may june july august september october november december".split())}
@@ -255,6 +257,8 @@ def collect(browser, previous, now):
     same_upload = had and prev.get("fetchedAt") == fetched   # 같은 수집을 다시 읽는 실행: 비교할 새 것이 없다
     cutoff = (now.date() - dt.timedelta(days=FRESH_DAYS)).isoformat()
     cases, events, counts = {}, [], {"newDocs": 0, "newCases": 0, "changes": 0, "gone": 0, "unread": 0}
+    keep_from = (now - dt.timedelta(days=RETIRED_KEEP_DAYS)).isoformat(timespec="seconds")
+    retired = [r for r in prev.get("retired") or [] if isinstance(r, dict) and str(r.get("at") or "") >= keep_from]
 
     def push(no, c, key, text, tier, url=None, firms=None):
         events.append({"id": f"{PAGE_ID}:{no}:{key}", "pageId": PAGE_ID, "country": "호주", "label": label_of(no, c), "text": text,
@@ -322,7 +326,13 @@ def collect(browser, previous, now):
         if no in cases or not isinstance(old, dict):
             continue
         if old.get("archived"):
-            continue   # 보관 사건이 수집에서 빠짐(공지일이 150일을 넘김): 조용히 내려놓는다
+            # 보관 사건이 수집에서 빠짐: 내려놓되 이유를 한 줄 남긴다(11-17 기자 '추천대로' — 703이 소리 없이 사라져 이유를 몰랐다).
+            # 가장 최근 공지일이 150일을 넘겼으면 수집 범위 밖, 아니면 TRN 목록 최근 줄에서 밀린 것(새 공지가 붙으면 다시 따라간다)
+            upd = iso_date(old.get("updated")) or str(old.get("updated") or "")
+            aged = bool(upd) and upd <= (now.date() - dt.timedelta(days=ARCHIVE_DAYS - 1)).isoformat()
+            retired = [r for r in retired if r.get("no") != no] + [{"no": no, "title": old.get("title") or old.get("commodity") or no,
+                       "updated": upd or None, "at": stamp, "reason": "aged" if aged else "outOfList"}]
+            continue
         miss = old.get("missing", 0) if same_upload else old.get("missing", 0) + 1
         rec = {**old, "missing": miss}
         if miss >= 2 and not old.get("gone"):
@@ -337,8 +347,9 @@ def collect(browser, previous, now):
     live = [c for c in cases.values() if not c.get("missing") and not c.get("archived")]
     keys = {doc_key(no, d) for no, c in cases.items() for d in c.get("docs") or []}
     pdf = dict(sorted(((k, v) for k, v in pdf.items() if k in keys and isinstance(v, dict)), key=lambda kv: str(kv[1].get("date") or ""), reverse=True)[:PDF_KEEP])
+    retired = [r for r in retired if r.get("no") not in cases]   # 다시 따라가게 된 사건은 뺀다
     section = {"status": "ok", "checkedAt": stamp, "fetchedAt": fetched, "baselineAt": prev.get("baselineAt") or stamp, "listTotal": total, "cases": cases,
-               "pdf": pdf, "want": want_list(cases, pdf, now)}
+               "pdf": pdf, "want": want_list(cases, pdf, now), **({"retired": retired} if retired else {})}
     counts["archived"] = sum(1 for c in cases.values() if c.get("archived"))
     check = {"source": SOURCE, "status": "partial" if counts["unread"] else "ok", "returned": sum(len(c.get("docs") or []) for c in live), "cases": len(live),
              "listTotal": total, "events": len(events), "baseline": not had, **counts,

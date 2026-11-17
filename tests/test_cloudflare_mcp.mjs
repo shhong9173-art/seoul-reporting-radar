@@ -5439,6 +5439,16 @@ test('호주 ATRC 사건 공개기록(11-14): 진행 사건마다 단계·일정
   assert.match(sec3, /\n종결·보관 사건\(TRN 목록의 최근 공지가 150일 안\) 1건:\n- 사건 688 · 688 - Certain flat rolled steel products from China, Korea · 종결·보관 · 문서 제목에 나온 출입처 이름 현대제철\n   가장 최근 공지 「Findings of subsidy investigation」\(2026-09-24\) · 문서 41건 · 개시 24 October 2025 · 필수사실 보고서\(SEF\) 기한 23 June 2026\n   최근 문서: 2026-09-24 EPR 41번 Notice - TRN 「TRN 2026\/104 - Findings of subsidy investigation」 · 2026-08-10 EPR 33번 Submission 「Exporter - Hyundai Steel Company - Response to SEF 688」\(현대제철\)\n   원문: https:\/\/www\.industry\.gov\.au\/australian-trade-remedies-commission\/archive-cases-and-electronic-public-record-epr\/688\n/);
   assert.match((await call('trade_remedies', { section: 'au', show_all: true }, o3)).text, /문장 12개 중 3개\)[^\n]*Third sentence about Korea/);
   assert.match((await call('trade_remedies', { section: 'au', company: 'particular market situation' }, o3)).text, /한국 관련 진행 사건 1건[^\n]*\n[\s\S]*- 사건 698 /);   // 본문 대목으로도 찾는다
+  // 11-17: 따라가기 끝낸 보관 사건과 이유, 그리고 화면의 수집이 가장 최근 예정 수집 전 것이면 한 줄
+  assert.doesNotMatch(sec3, /예정 수집 전 것|따라가기 끝낸/);
+  const retired = { ...withText, retired: [{ no: '703', title: '703 - Zinc coated (galvanised) steel from Korea', updated: '2026-06-19', at: '2026-11-16T23:00:10+09:00', reason: 'aged' },
+    { no: '690', title: '690 - Steel rod in coils', updated: '2026-09-01', at: '2026-11-16T23:00:10+09:00', reason: 'outOfList' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [], events: [], auEpr: retired }) }), o3.env, {});
+  const sec4 = (await call('trade_remedies', { section: 'au' }, { ...o3, now: new Date('2026-11-17T01:00:00Z') })).text;   // 화 10:00 KST
+  assert.match(sec4, /\n⚠ 이 수집은 11-17 09:00 예정 수집 전 것 — 그 뒤 기자 컴퓨터 수집이 안 올라왔거나 아직 반영 전\(올라오면 하루 한 번 바로, 아니면 평일 07:40·21:30 감시 때 반영\)\. 그 사이 새 문서는 미확인 — 수집 상태는 radar_health\n/);
+  assert.match(sec4, /\n따라가기 끝낸 보관 사건: 703 - Zinc coated \(galvanised\) steel from Korea\(가장 최근 공지 2026-06-19 — 150일이 지나 수집 범위 밖 · 11-16 감지\) \/ 690 - Steel rod in coils\(가장 최근 공지 2026-09-01 — TRN 목록 최근 줄에서 밀려 수집 범위 밖, 새 공지가 붙으면 다시 따라감 · 11-16 감지\)\n/);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'au' }, { ...o3, now: new Date('2026-11-16T09:00:00Z') })).text, /예정 수집 전 것/);   // 월 18:00 — 16:00 수집(16:03) 반영됨
   // radar_today: 출입처 이름이 든 새 문서는 A, 이름 없는 Report는 B, 이름 없는 의견서·모르는 등급은 C
   const r = (await call('radar_today', {}, o)).text;
   assert.match(r, /\n\[A · [^\n]*\] 1건/);
