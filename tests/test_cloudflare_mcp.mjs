@@ -2341,6 +2341,8 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     s.us.filings[0].coreClasses = [28];
     await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
     assert.match((await call('trademarks', {}, opts)).text, /출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · 지정상품\(28류\) Toy vehicles; ride-on toys · Signa/);
+    // radar_today 줄에도 같은 지정상품(11-17 기자: 추천대로) — 화면을 따로 안 열어도 무엇에 쓸 이름인지 보이게
+    assert.match((await call('radar_today', { include_minor: true }, opts)).text, /출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · 지정상품\(28류\) Toy vehicles; ride-on toys · Signa 2차 자료/);
     s.us.filings[0].goods = [{ class: 12, text: 'x'.repeat(300) }];
     await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
     assert.match((await call('trademarks', {}, opts)).text, / · 지정상품\(12류\) x{139}… · Signa/);
