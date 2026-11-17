@@ -55,7 +55,7 @@ async function alertLines(ctx, days, judgedById, index) {
   }
   const real = (w) => (w && !String(w).startsWith('감시 미상') ? w : null);
   // 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다)
-  const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', fac: 'kr-official',
+  const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', nam: 'assembly-minutes', fac: 'kr-official',
     wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', gl: 'global-beat',
     gov: 'governance', cp: 'dart-counterparty', exec: 'kr-exec', rptnote: 'kr-report-notes', ustr: 'ustr-comments', execm: 'kr-exec-market', execc: 'kr-exec-check', epo: 'epo-patents' };
   const byPrefix = (id) => WATCHES.find((w) => w.feed === PREFIX[String(id).split(':')[0]])?.label;

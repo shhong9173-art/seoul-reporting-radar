@@ -42,6 +42,8 @@ export const SLOTS = [
   { at: '21:30', workflow: 'union-notices.yml', daily: true },
   // 지방의회 회의록(국회도서관 API, 키 CLIK_API_KEY): 회의록은 몇 주 늦게 올라온다 — 하루 한 번.
   { at: '09:10', workflow: 'council-minutes.yml', daily: true },
+  // 국회 회의록(열린국회정보, 키 ASSEMBLY_API_KEY): 회의 며칠 뒤 PDF가 올라온다 — 하루 한 번(PDF 30개까지).
+  { at: '09:50', workflow: 'assembly-minutes.yml', daily: true },
   // 기자 기사 자동 대조(아이뉴스24 사이트맵·작성자 메타): 점심·저녁 기사 출고 뒤.
   // 11-04: 실적 업종 비교 — 공시 마감 주간에 하루 두 번(GitHub 예약 18:40은 새벽까지 밀려 대비용)
   { at: '17:40', workflow: 'earnings-compare.yml' }, { at: '21:40', workflow: 'earnings-compare.yml' },
