@@ -1828,10 +1828,12 @@ export async function radarTodayData(ctx, args) {
   // 기자 컴퓨터 Aside 수집(11-08): 컴퓨터가 꺼져 예약 수집이 빠져도 다른 감시 상태로는 안 보인다
   // 상태 읽기가 실패하면 줄을 숨기지 않고 미확인으로 적는다(줄이 없으면 '이상 없음'으로 읽히기 때문)
   const bh = await browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
-  if (bh) h.push(`- ${bh}`);
+  // 11-17('추천대로'): 맨 위로 — 단독 알림(scoop_desk alerts)은 수집 상태를 4줄까지만 옮기고, 아침 발제는 첫 줄을 요약한다.
+  // 공장등록 일부 실패 같은 상시 줄 아래에 묻혀 11-17 09:00 수집이 빠진 것을 radar_health를 열어야만 알았다.
+  if (bh) h.unshift(`- ${bh}`);
   // 단독 후보 즉시 알림(11-17): 예약 시각마다 남기는 기록 줄이 빈 곳 — 알림이 안 온 게 '보낼 것 없음'인지 '실행 실패'인지 가른다
   const ah = await alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
-  if (ah) h.push(`- ${ah}`);
+  if (ah) h.unshift(`- ${ah}`);
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
   else {
