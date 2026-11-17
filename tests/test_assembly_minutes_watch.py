@@ -146,6 +146,22 @@ class AssemblyMinutesTest(unittest.TestCase):
         finally:
             w.DETAIL_BUDGET = old
 
+    def test_mando_needs_hl_or_context_and_old_items_are_rechecked(self):
+        rx = [r for c, r in w.TERMS if c == "HL만도"][0]
+        self.assertFalse(rx.search("AIDC만도 18.4GW, 2035년도까지 준공하겠다"))      # 11-18 첫 실행
+        self.assertFalse(rx.search("그것만도 어렵습니다"))
+        self.assertTrue(rx.search("HL만도 평택공장 하청노동자"))
+        self.assertTrue(rx.search("만도 평택공장에서"))
+        bad = {"id": "nam:57378:HL만도", "company": "HL만도", "snippets": ["51쪽 · 어기구 위원 · AIDC만도 18.4GW"], "tier": "C", "firstSeen": "2026-11-18T01:56:00+09:00"}
+        ok = {"id": "nam:57375:HL만도", "company": "HL만도", "snippets": ["102쪽 · 서왕진 위원 · HL만도 평택공장 하청노동자"], "tier": "C", "firstSeen": "2026-11-18T01:56:00+09:00"}
+        prev = {"schema": w.SCHEMA, "items": [bad, ok], "events": [{"id": "nam:57378:HL만도", "tier": "A", "detectedAt": "2026-11-18T01:56:00+09:00"}],
+                "seen": {"57701": "20261109", "57437": "20261022"}}
+        doc = w.run(NOW, prev, key="k", get=fake_get([]), sleep=lambda s: None, extract=extract)
+        ids = {x["id"] for x in doc["items"]}
+        self.assertNotIn("nam:57378:HL만도", ids)
+        self.assertIn("nam:57375:HL만도", ids)
+        self.assertEqual(doc["events"], [])
+
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
         self.assertEqual(doc["status"], "failed")
