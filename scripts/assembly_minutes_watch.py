@@ -52,7 +52,10 @@ PAUSE = 0.5
 NO_DATA = "INFO-200"
 NOT_POSTED = "등록되지 않았습니다"   # 회의록 PDF 주소가 파일 대신 돌려주는 알림(원본 파일 아직 안 올라옴)
 # 출입처 이름: 지방의회 회의록과 같은 규칙 + 국회에서 흔한 '현대차·기아'
-TERMS = [(c, re.compile(p)) for _t, c, p in cw.TERMS]
+# HL만도: 지방의회 규칙의 '만도' 홀로 쓰기는 국회 회의록에서 조사 '~만도'(11-18 첫 실행 'AIDC만도 18.4GW')를 잡았다 —
+# 'HL만도·에이치엘만도'와, 앞이 글자·숫자가 아니고 뒤에 공장·노조 같은 낱말이 붙은 '만도'만.
+MANDO = r"(?:HL|에이치엘)\s?만\s?도|(?<![가-힣A-Za-z0-9])만도(?=\s?(?:평택|익산|원주|공장|노조|지회|하청|사측|노동자|협력사|모빌리티))"
+TERMS = [(c, re.compile(MANDO if c == "HL만도" else p)) for _t, c, p in cw.TERMS]
 TERMS.append(("기아", re.compile(r"(?:현대차|현대자동차)\s?[·,및와과]\s?기아(?![가-힣])")))
 A_WORDS = re.compile(r"불법|위반|행정처분|과징금|과태료|고발|수사|압수수색|담합|특혜|오염|(?<!우수)유출|누출|악취|사고|사망|산재|산업재해|중대재해|화재|폭발"
                      r"|폐쇄|철수|매각|감산|가동\s?중단|생산\s?중단|구조조정|희망퇴직|불법\s?파견|하청|체불|리콜|결함|증설|신설"
@@ -183,7 +186,12 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
     seen = dict(prev.get("seen") or {})
     tries = {k: v for k, v in (prev.get("tries") or {}).items() if isinstance(v, int)}
     known = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id")}
-    events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
+    # 이름 규칙을 고치면 앞서 남긴 대목도 지금 규칙으로 다시 본다(대목에 회사 이름이 안 맞으면 뺀다 — 11-18 HL만도)
+    rx_of = {}
+    for c, rx in TERMS:
+        rx_of.setdefault(c, []).append(rx)
+    known = {k: v for k, v in known.items() if any(rx.search(str(sn)) for rx in rx_of.get(v.get("company"), []) for sn in v.get("snippets") or [])}
+    events = [e for e in prev.get("events") or [] if isinstance(e, dict) and (e.get("id") in known or not str(e.get("id", "")).startswith("nam:"))]
     found, errors = meetings(get, key, now, sleep)
     fresh = [m for m in found if m["pid"] not in seen]
     opened, read_ok = 0, 0
