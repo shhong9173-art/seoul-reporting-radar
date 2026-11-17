@@ -178,6 +178,32 @@ class TextRules(unittest.TestCase):
         self.assertIsNone(kx.owner_flag({"rel": "계열회사 임원"}))
         self.assertIsNone(kx.owner_flag({"rel": "-"}))
 
+    def test_same_name_birth_year_one_apart_is_the_same_person(self):
+        # 11-17 포스코 정석모: 반기 1967년생(등기 기타비상무) → 3분기 1966년생(등기 기타비상무) — 빠짐 A·새 임원 B로 갈렸다
+        base = [{"name": "정석모", "birth": "1967.03", "ofcps": "이사", "reg": "기타비상무이사", "career": "", "end": "2027.03.25"}]
+        cur = [{"name": "정석모", "birth": "1966.03", "ofcps": "이사", "reg": "기타비상무이사", "career": "", "end": "2027.03.25"}]
+        new, gone, changed, _ = kx.diff(cur, base)
+        self.assertEqual((new, gone, changed), ([], [], []))
+        # 출생연도가 2년 넘게 다르면 다른 사람
+        far = [dict(cur[0], birth="1964.03")]
+        new, gone, _, _ = kx.diff(far, base)
+        self.assertEqual((len(new), len(gone)), (1, 1))
+
+    def test_title_wording_only_change_is_c_even_for_owner_family(self):
+        # 11-17 LS일렉트릭 구소희: '연구위원(이사)' → '이사'(미등기, 관계 칸 '특수관계인(친인척)') — 오너 일가 규칙으로 A가 됐다
+        def p(ofcps):
+            return {"name": "구소희", "birth": "1986.11", "ofcps": ofcps, "reg": "미등기", "career": "", "rel": "특수관계인(친인척)", "job": "", "end": ""}
+        others = [{"name": f"임원{i}", "birth": "1970.01", "ofcps": "상무", "reg": "미등기", "career": "", "rel": "", "job": "", "end": ""} for i in range(5)]
+        ev, _ = kx.company_events("엘에스일렉트릭", "00105855", "3분기", "반기", "mid", [p("이사")] + others, [p("연구위원(이사)")] + others, [], [],
+                                   url="u", base_as_of=None, watch={}, others={})
+        e = next(x for x in ev if x["kind"] == "직위 변경")
+        self.assertEqual(e["tier"], "C")
+        self.assertIn("직위 표기만 바뀜", e["text"])
+        # 직급이 바뀌면(상무 → 전무) 표기 변경이 아니다 — 오너 일가면 그대로 A
+        ev, _ = kx.company_events("엘에스일렉트릭", "00105855", "3분기", "반기", "mid", [p("전무")] + others, [p("상무")] + others, [], [],
+                                   url="u", base_as_of=None, watch={}, others={})
+        self.assertEqual(next(x for x in ev if x["kind"] == "직위 변경")["tier"], "A")
+
     def test_keys(self):
         self.assertEqual(kx.birth_key("1970년 10월"), "197010")
         self.assertEqual(kx.birth_key("1970.10"), "197010")
