@@ -5623,3 +5623,18 @@ test('처리 장부(11-16): 정기보고서 주소를 적은 패키지가 같은
   const byWords = () => ledgerEntries([pk('lgchem-lges-stake-sale-1028', '[킬] LG화학, LG에너지솔루션 주식 매각·주가수익스왑 — 이미 보도', '접음', '2026-11-16T10:15:00Z')], []);
   assert.ok(matchHandled(note, byWords())?.entry);
 });
+
+test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(고장 아님, 11-17 기자 결정)', async () => {
+  const exp = (days) => new Date(NOW.getTime() + days * 86400000).toISOString();
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const base = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'complete', quotas: [], federalRegister: [], pages: [], rules: [], events: [],
+    checks: [{ source: 'USITC EDIS 문서', status: 'ok', returned: 10 }], edis: { checkedAt: recent, docs: [], watched: {}, tokenNote: null } };
+  for (const [days, want] of [[5, /무역구제: 미국 ITC 문서\(EDIS\) 첨부 본문 토큰 만료 D-5\(\d{4}-\d{2}-\d{2}\) — 만료돼도 목록·제목·당사자는 계속 읽는다/], [20, null]]) {
+    const opts = PRIVATE();
+    const doc = { ...base, edis: { ...base.edis, tokenExpires: exp(days) } };
+    assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+    const text = (await call('radar_today', {}, opts)).text;
+    if (want) assert.match(text, want);
+    else assert.doesNotMatch(text, /첨부 본문 토큰 만료 D-/);
+  }
+});
