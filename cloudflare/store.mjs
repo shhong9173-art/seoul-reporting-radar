@@ -42,7 +42,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS dart_cache (rcp TEXT NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
      hash TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (rcp, idx))`,
   // 출입처 정기보고서 원문 글자(11-17 '추천대로'): 정기보고서 감시(GitHub Actions)가 OpenDART 원문(ZIP)을 받아 글자로 바꿔 넣는다.
-  // dart_find_text가 이것부터 찾는다 — 작업자에서는 큰 보고서 ZIP이 15초 안에 안 오고, 나눠 읽기는 요청 50개 한도에 걸렸다. 100일·보고서 80건까지.
+  // dart_find_text가 이것부터 찾는다 — 작업자에서는 큰 보고서 ZIP이 15초 안에 안 오고, 나눠 읽기는 요청 50개 한도에 걸렸다. 100일·보고서 120건까지(이번·앞 기간).
   `CREATE TABLE IF NOT EXISTS dart_text (rcp TEXT NOT NULL, idx INTEGER NOT NULL, name TEXT NOT NULL, body TEXT NOT NULL,
      hash TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (rcp, idx))`,
   // 홈페이지 로그인 실패 기록(아이피별·전체 1시간 잠금 계산용, 하루 지나면 지움)
@@ -55,6 +55,10 @@ const SCHEMA = [
 const DART_CACHE_MS = 24 * 3600000;
 const DART_CACHE_ROW_MAX = 1_900_000;
 const DART_TEXT_MS = 100 * 86400000;
+// 줄 비교 열쇠: 숫자·기호·띄어쓰기를 빼고, 기간 낱말(당분기·당반기 → 당기 등)을 맞춘 글자 — 금액·날짜만 바뀐 줄은 같은 줄로 본다
+const LINE_KEY_MIN = 12;
+export const lineKey = (l) => String(l ?? '').replace(/당분기|당반기/g, '당기').replace(/전분기|전반기/g, '전기').replace(/분기|반기/g, '기간')
+  .replace(/[^가-힣A-Za-z]/g, '');
 
 // Durable Object (fetch-style so it runs without the cloudflare:workers import).
 export class RadarStore {
@@ -176,9 +180,37 @@ export class RadarStore {
           saved += 1;
         }
         this.sql.exec('DELETE FROM dart_text WHERE created_at < ?', new Date(Date.parse(at) - DART_TEXT_MS).toISOString());
-        const keep = this.all('SELECT rcp FROM dart_text GROUP BY rcp ORDER BY MAX(created_at) DESC LIMIT 80').map((r) => r.rcp);
+        const keep = this.all('SELECT rcp FROM dart_text GROUP BY rcp ORDER BY MAX(created_at) DESC LIMIT 120').map((r) => r.rcp);
         if (keep.length) this.sql.exec(`DELETE FROM dart_text WHERE rcp NOT IN (${keep.map(() => '?').join(',')})`, ...keep);
         return { saved };
+      }
+      // 보고서 전체 새 낱말(11-17 기자 '그렇게해'): 이번 보고서 줄 가운데 앞 보고서에 없던 줄(숫자·기호·띄어쓰기를 뺀 글자 기준)에서
+      // 감시 낱말이 든 것. 정해진 대목만 읽는 정기보고서 감시 밖(사업의 내용·주석 아무 데나)에 새로 적힌 줄을 잡는다. 대목만 돌려준다.
+      case 'darttext.newlines': {
+        const cur = this.all('SELECT body FROM dart_text WHERE rcp = ? ORDER BY idx', String(args.rcp));
+        const base = this.all('SELECT body FROM dart_text WHERE rcp = ? ORDER BY idx', String(args.base));
+        if (!cur.length || !base.length) return { status: 'missing', cur: cur.length > 0, base: base.length > 0 };
+        const words = (Array.isArray(args.words) ? args.words : []).map(String).filter((w) => w && w.length <= 20).slice(0, 40);
+        const max = Math.min(Number(args.max ?? 60) || 60, 200);
+        const have = new Set();
+        for (const r of base) for (const l of r.body.split('\n')) { const k = lineKey(l); if (k.length >= LINE_KEY_MIN) have.add(k); }
+        const seen = new Set();
+        const lines = [];
+        let scanned = 0;
+        outer: for (const r of cur) {
+          for (const l of r.body.split('\n')) {
+            scanned += 1;
+            const w = words.find((x) => l.includes(x));
+            if (!w) continue;
+            const k = lineKey(l);
+            if (k.length < LINE_KEY_MIN || have.has(k) || seen.has(k)) continue;
+            seen.add(k);
+            const at = l.indexOf(w);
+            lines.push({ word: w, line: l.length <= 700 ? l : `${at > 250 ? '…' : ''}${l.slice(Math.max(0, at - 250), at + 450)}${at + 450 < l.length ? '…' : ''}` });
+            if (lines.length >= max) break outer;
+          }
+        }
+        return { status: 'ok', lines, scanned, baseLines: have.size };
       }
       // 미리 받아 둔 원문 글자에서 낱말 찾기 — 대목만 돌려준다(본문째 보내지 않는다)
       case 'darttext.search': {

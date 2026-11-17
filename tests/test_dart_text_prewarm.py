@@ -33,11 +33,11 @@ class Prewarm(unittest.TestCase):
 
     def test_targets_only_this_period_ok_reports(self):
         doc = {"period": {"year": 2026, "report": "11014"}, "companies": {
-            "LG화학": {"status": "ok", "period": "202611014", "rcept": "20261116000765"},
+            "LG화학": {"status": "ok", "period": "202611014", "rcept": "20261116000765", "baseRcept": "20260814000999"},
             "롯데케미칼": {"status": "pending", "period": "202611012", "rcept": None},
             "한화솔루션": {"status": "ok", "period": "202611012", "rcept": "20260814000111"},   # 앞 기간
             "같은 접수": {"status": "ok", "period": "202611014", "rcept": "20261116000765"}}}
-        self.assertEqual(p.targets(doc), ["20261116000765"])
+        self.assertEqual(p.targets(doc), ["20261116000765", "20260814000999"])   # 이번 보고서 먼저, 그다음 앞 보고서
 
     def test_run_skips_stored_waits_on_014_and_keeps_budget(self):
         doc = {"period": {"year": 2026, "report": "11014"}, "companies": {

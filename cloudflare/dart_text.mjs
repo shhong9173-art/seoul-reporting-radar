@@ -58,3 +58,17 @@ export async function dartTextRoute(request, env, deps = {}) {
   const r = await storeOp(ctx, 'darttext.put', { rcp: doc.rcp, chunks });
   return Response.json({ saved: r.saved, chunks: chunks.length });
 }
+
+// 보고서 전체 새 낱말(/ingest/dart-text-scan, 11-17): 정기보고서 감시가 회사마다 이번·앞 보고서 접수번호와 감시 낱말을 보내면
+// 저장소 안에서 비교해 앞 보고서에 없던 줄 가운데 낱말이 든 줄만 돌려준다(scripts/kr_report_words.py). 둘 중 하나라도 아직 안 넣었으면 missing.
+export async function dartTextScanRoute(request, env, deps = {}) {
+  const notFound = new Response('Not found', { status: 404 });
+  const m = /^Bearer\s+([A-Za-z0-9_-]{16,128})$/.exec(request.headers.get('Authorization') ?? '');
+  if (!m || !(await safeEqual(m[1], env?.MCP_ACCESS_TOKEN))) return notFound;
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'POST' } });
+  let a;
+  try { a = await request.json(); } catch { return Response.json({ error: 'bad json' }, { status: 400 }); }
+  if (!/^\d{14}$/.test(String(a?.rcp ?? '')) || !/^\d{14}$/.test(String(a?.base ?? '')) || !Array.isArray(a?.words)) return Response.json({ error: 'schema' }, { status: 400 });
+  const ctx = { env, now: deps.now ?? new Date() };
+  return Response.json(await storeOp(ctx, 'darttext.newlines', { rcp: a.rcp, base: a.base, words: a.words, max: a.max }));
+}

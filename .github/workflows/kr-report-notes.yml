@@ -1,7 +1,8 @@
 name: Periodic Report Hidden Notes
 # 출입처 분기·반기·사업보고서의 보고기간 후 사건·매각예정 주석, 제재 현황·중요한 소송·연결 범위 변동에서 새로 적힌 줄만(11-15 기자: 큰 단독).
 # 11-17: 작성기준일 이후 주요사항, 이행보증·자금보충·이해관계자 거래(출자·처분)·수주 표도(표 줄엔 칸 이름).
-# 11-17: 이어서 이번 기간 읽은 출입처 보고서 원문 글자를 기자 전용 저장소(/ingest/dart-text)에 미리 넣는다(dart_text_prewarm.py, 실행당 12건).
+# 11-17: 이어서 이번 기간 읽은 출입처 보고서와 그 앞 보고서 원문 글자를 기자 전용 저장소(/ingest/dart-text)에 미리 넣고(dart_text_prewarm.py, 실행당 20건),
+#        두 보고서 줄을 비교해 앞 보고서에 없던 감시 낱말 줄을 '보고서 전체 새 낱말'로 붙인다(kr_report_words.py).
 # 평일 06:40·13:10·18:10·19:40, 토 09:40 KST(Cloudflare 요청) + GitHub 예약 20:40 KST(대비용, 6시간 안 정시 요청 성공이면 건너뜀).
 # 코드가 바뀐 push는 저장하지 않고 건수만 남긴다. 결과는 기자 전용 저장소(kr-report-notes)에만 — 공개 JSON 없음, 공개 로그에는 건수만.
 on:
@@ -12,6 +13,8 @@ on:
       - 'tests/test_kr_report_notes.py'
       - 'scripts/dart_text_prewarm.py'
       - 'tests/test_dart_text_prewarm.py'
+      - 'scripts/kr_report_words.py'
+      - 'tests/test_kr_report_words.py'
       - '.github/workflows/kr-report-notes.yml'
   schedule:
     - cron: '40 11 * * 1-5'
@@ -65,7 +68,7 @@ jobs:
       - name: Install API client
         run: python -m pip install "requests>=2.31,<3"
       - name: Test section reading and comparison
-        run: python -m unittest discover -s tests -p 'test_kr_report_notes.py' -v && python -m unittest discover -s tests -p 'test_dart_text_prewarm.py' -v
+        run: python -m unittest discover -s tests -p 'test_kr_report_notes.py' -v && python -m unittest discover -s tests -p 'test_dart_text_prewarm.py' -v && python -m unittest discover -s tests -p 'test_kr_report_words.py' -v
       - name: Compare report sections (counts-only log)
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -87,3 +90,12 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
         run: python scripts/dart_text_prewarm.py
+      # 11-17 기자 '그렇게해': 보고서 전체 새 낱말 — 저장소에 넣어 둔 이번·앞 보고서 줄을 비교해 앞 보고서에 없던 회생·가압류·영업정지·철수·매각·과징금 등 줄을
+      # 정기보고서 감시 결과에 '보고서 전체 새 낱말'(B, 알림 안 검)로 붙인다. 실패해도 감시 결과는 그대로. 로그는 건수만.
+      - name: Scan whole reports for new watch-word lines (counts-only log)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false')
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/kr_report_words.py
