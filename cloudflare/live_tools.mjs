@@ -525,17 +525,17 @@ export async function dartFindText(ctx, args) {
   let bytes;
   try {
     const r = await ctx.fetch(`https://opendart.fss.or.kr/api/document.xml?crtfc_key=${encodeURIComponent(key)}&rcept_no=${rcp}`, { signal: signal(), headers: API_HEADERS });
-    if (!r.ok) return textResult(`OpenDART HTTP ${r.status} — 원문 미확인`, true);
+    if (!r.ok) return dartViewerSearch(ctx, rcp, word, limit, `HTTP ${r.status}`);
     bytes = await readCapped(r, 30_000_000);
   } catch (e) {
-    return textResult(`OpenDART 원문 실패: ${e.name === 'TimeoutError' ? '시간 초과' : e.message} — 원문 미확인`, true);
+    return dartViewerSearch(ctx, rcp, word, limit, e.name === 'TimeoutError' ? '시간 초과' : e.message);
   }
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
     const msg = new TextDecoder('utf-8').decode(bytes.slice(0, 400));
     return textResult(`OpenDART가 ZIP 대신 응답: ${(/<message>([^<]+)/.exec(msg) || /"message"\s*:\s*"([^"]+)/.exec(msg) || [])[1] ?? '형식 오류'} — 원문 미확인`, true);
   }
   let entries;
-  try { entries = await readZip(bytes); } catch (e) { return textResult(`ZIP 해제 실패: ${e.message}`, true); }
+  try { entries = await readZip(bytes); } catch (e) { return dartViewerSearch(ctx, rcp, word, limit, `ZIP 해제 실패(${e.message})`); }
   const out = [`DART 원문 검색: ${rcp} "${word}" · 파일 ${entries.length}개`];
   let found = 0;
   for (const entry of entries) {
@@ -556,6 +556,72 @@ export async function dartFindText(ctx, args) {
   }
   out.push(`\n원문 링크: https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`);
   if (!found) out.push('이 낱말은 원문 텍스트에서 찾지 못함(표 이미지·첨부 PDF 안의 글자는 못 봄).');
+  return textResult(out.join('\n'));
+}
+
+// 11-17 기자 결정('추천대로'): 큰 정기보고서는 OpenDART 원문(ZIP)을 15초 안에 못 받아 '시간 초과'가 잦았다(11-17 아침 발제 2회,
+// 11-16 분기보고서 훑기). 그때는 DART 누리집 보고서 목차의 장(章)별 본문(viewer.do)을 6개씩 나눠 받아 같은 낱말을 찾는다.
+// 장마다 15초, 나눠 읽기 전체 35초. 못 읽은 장은 이름을 적고 그 안은 미확인으로 둔다. 찾은 곳이 한도에 닿으면 나머지 장은 읽지 않는다.
+const VIEWER_BATCH = 6;
+const VIEWER_BUDGET_MS = 35000;
+async function dartViewerSearch(ctx, rcp, word, limit, why) {
+  const main = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
+  const headers = { 'User-Agent': sourceAgent(ctx, new URL(main)), Accept: 'text/html,application/xhtml+xml' };
+  const fail = (what) => textResult(`OpenDART 원문 실패(${why}) · DART 누리집 ${what} — 원문 미확인. 정기보고서면 kr_signals(section=report)에 수집기가 뽑아 둔 대목이 있는지 본다`, true);
+  let parts;
+  try {
+    const r = await ctx.fetch(main, { signal: signal(), headers });
+    if (!r.ok) return fail(`목차 HTTP ${r.status}`);
+    parts = dartViewerDocs(decodeBytes(await readCapped(r, 4_000_000), r.headers.get('Content-Type') ?? '').text, rcp);
+  } catch (e) {
+    return fail(`목차도 실패(${e.name === 'TimeoutError' ? '시간 초과' : e.message})`);
+  }
+  if (!parts.length) return fail('목차에서 본문 주소를 못 찾음');
+  // 윗장(예: II. 사업의 내용)의 범위가 아랫절(5. 위험관리…)을 품으면 아랫절은 따로 받지 않는다(같은 글을 두 번 받고 두 번 옮기지 않게)
+  const range = (p) => [Number(p.offset), Number(p.offset) + Number(p.length)];
+  const holds = (b, a) => b.dcmNo === a.dcmNo && Number(b.length) > 0 && range(a)[0] >= range(b)[0] && range(a)[1] <= range(b)[1];
+  const listed = parts.length;
+  parts = parts.filter((a, i) => !parts.some((b, j) => j !== i && holds(b, a) && (!holds(a, b) || j < i)));
+  const deadline = Date.now() + VIEWER_BUDGET_MS;
+  const out = [`DART 원문 검색: ${rcp} "${word}" · OpenDART 원문(ZIP) ${why} → DART 누리집 목차 ${listed}개 장${listed > parts.length ? `(윗장에 들어 있는 아랫절 ${listed - parts.length}개 빼고 ${parts.length}개)` : ''}을 나눠 읽음`];
+  const seen = new Set();
+  const missed = [];
+  let found = 0;
+  let read = 0;
+  let next = 0;
+  while (next < parts.length && found < limit) {
+    if (Date.now() > deadline) break;
+    const batch = parts.slice(next, next + VIEWER_BATCH);
+    next += batch.length;
+    const texts = await Promise.all(batch.map(async (p) => {
+      try {
+        const r = await ctx.fetch(p.viewer, { signal: AbortSignal.timeout(Math.max(3000, Math.min(TIMEOUT_MS, deadline - Date.now()))), headers: { ...headers, Referer: main } });
+        if (!r.ok) return null;
+        return htmlToText(decodeBytes(await readCapped(r, 4_000_000), r.headers.get('Content-Type') ?? '').text);
+      } catch { return null; }
+    }));
+    for (const [j, text] of texts.entries()) {
+      const p = batch[j];
+      if (text == null) { missed.push(p); continue; }
+      read += 1;
+      const hits = [];
+      let i = text.indexOf(word);
+      while (i >= 0) { hits.push(i); i = text.indexOf(word, i + word.length); }
+      // 윗장(章)과 아랫절이 같은 글을 품기도 해 같은 대목은 한 번만 옮긴다
+      const fresh = hits.map((at) => text.slice(Math.max(0, at - 160), at + word.length + 160)).filter((x) => !seen.has(x.replace(/\s+/g, ' ')));
+      if (!fresh.length) continue;
+      const take = fresh.slice(0, Math.max(0, limit - found));
+      const hash = await sha256Hex(text);
+      out.push(`\n■ ${p.text || `문서 ${p.dcmNo}/${p.eleId}`} · ${text.length}자 · ${hits.length}곳 · sha256:${hash} · ${p.viewer}`);
+      if (take.length) out.push(await issueEvidence(ctx, 'source', { url: main, hash, date: publicationDate('', main), excerpt: take.join('\n') }));
+      for (const x of take) { seen.add(x.replace(/\s+/g, ' ')); out.push(`… ${x.replace(/\s+/g, ' ')} …`); found += 1; }
+    }
+  }
+  const unread = parts.length - next;
+  out.push(`\n읽은 장 ${read}/${parts.length}${missed.length ? ` · 못 읽은 장 ${missed.length}개(${missed.slice(0, 6).map((p) => p.text || p.eleId).join(', ')}${missed.length > 6 ? ' 등' : ''}) — 그 안은 미확인` : ''}`
+    + `${unread ? ` · ${found >= limit ? `찾은 곳이 한도(${limit})에 닿아` : '시간 한도로'} 나머지 ${unread}개 장은 안 읽음` : ''}`);
+  out.push(`원문 링크: ${main}`);
+  if (!found) out.push(`이 낱말은 읽은 장에서 찾지 못함${missed.length || unread ? '(못 읽은 장은 미확인)' : ''}(표 이미지·첨부 PDF 안의 글자는 못 봄).`);
   return textResult(out.join('\n'));
 }
 
