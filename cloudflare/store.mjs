@@ -57,6 +57,8 @@ const DART_CACHE_ROW_MAX = 1_900_000;
 const DART_TEXT_MS = 100 * 86400000;
 // 줄 비교 열쇠: 숫자·기호·띄어쓰기를 빼고, 기간 낱말(당분기·당반기 → 당기 등)을 맞춘 글자 — 금액·날짜만 바뀐 줄은 같은 줄로 본다
 const LINE_KEY_MIN = 12;
+// 문장 나누기: '…다.' 끝과 표 칸(' | ')에서
+export const sentences = (l) => String(l ?? '').split(/(?<=다\.)\s*|\s*\|\s*/).map((x) => x.trim()).filter(Boolean);
 export const lineKey = (l) => String(l ?? '').replace(/당분기|당반기/g, '당기').replace(/전분기|전반기/g, '전기').replace(/분기|반기/g, '기간')
   .replace(/[^가-힣A-Za-z]/g, '');
 
@@ -192,22 +194,26 @@ export class RadarStore {
         if (!cur.length || !base.length) return { status: 'missing', cur: cur.length > 0, base: base.length > 0 };
         const words = (Array.isArray(args.words) ? args.words : []).map(String).filter((w) => w && w.length <= 20).slice(0, 40);
         const max = Math.min(Number(args.max ?? 60) || 60, 200);
+        // 문장 단위(11-17 첫 실행: 줄 단위로는 긴 문단의 다른 문장 하나만 바뀌어도 문단 전체가 새 줄로 보였다 — 페루 광구 중재 문단 등)
         const have = new Set();
-        for (const r of base) for (const l of r.body.split('\n')) { const k = lineKey(l); if (k.length >= LINE_KEY_MIN) have.add(k); }
+        for (const r of base) for (const l of r.body.split('\n')) for (const s of sentences(l)) { const k = lineKey(s); if (k.length >= LINE_KEY_MIN) have.add(k); }
         const seen = new Set();
         const lines = [];
         let scanned = 0;
         outer: for (const r of cur) {
           for (const l of r.body.split('\n')) {
-            scanned += 1;
-            const w = words.find((x) => l.includes(x));
-            if (!w) continue;
-            const k = lineKey(l);
-            if (k.length < LINE_KEY_MIN || have.has(k) || seen.has(k)) continue;
-            seen.add(k);
-            const at = l.indexOf(w);
-            lines.push({ word: w, line: l.length <= 700 ? l : `${at > 250 ? '…' : ''}${l.slice(Math.max(0, at - 250), at + 450)}${at + 450 < l.length ? '…' : ''}` });
-            if (lines.length >= max) break outer;
+            if (!words.some((x) => l.includes(x))) continue;
+            for (const s of sentences(l)) {
+              scanned += 1;
+              const w = words.find((x) => s.includes(x));
+              if (!w) continue;
+              const k = lineKey(s);
+              if (k.length < LINE_KEY_MIN || have.has(k) || seen.has(k)) continue;
+              seen.add(k);
+              const at = s.indexOf(w);
+              lines.push({ word: w, line: s.length <= 600 ? s : `${at > 250 ? '…' : ''}${s.slice(Math.max(0, at - 250), at + 350)}${at + 350 < s.length ? '…' : ''}` });
+              if (lines.length >= max) break outer;
+            }
           }
         }
         return { status: 'ok', lines, scanned, baseLines: have.size };

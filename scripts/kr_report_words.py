@@ -7,7 +7,9 @@
 감시 낱말(회생·가압류·영업정지·철수·매각·과징금 등)이 든 줄만 받아 정기보고서 감시 결과(kr-report-notes)에 '보고서 전체 새 낱말'로 붙인다.
 
 - 회사·보고서마다 한 번만(같은 접수번호를 다시 비교하지 않는다). 이번·앞 보고서 글자가 아직 저장소에 없으면 다음 실행.
-- 줄 비교는 숫자·기호·띄어쓰기를 뺀 글자 기준(금액·날짜만 바뀐 줄은 같은 줄) — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있다.
+- 문장 비교는 숫자·기호·띄어쓰기를 뺀 글자 기준(금액·날짜만 바뀐 문장은 같은 문장) — 서식이 바뀌면 옛 문장이 새 문장으로 보일 수 있다.
+- 11-17 첫 실행(줄 단위)이 일반 조항·회계정책·옛 일 문단을 많이 냈다 — 이번 보고 기간 표시(당분기 중·보고기간 후·앞 보고서 기준일 뒤 날짜)가
+  있는 문장(앞으로의 날짜·'예정입니다'·'진행 중입니다' 포함)만 남기고, '…할 수 있습니다'·'경우'·정책·기준서 같은 일반 조항 문장은 뺀다.
 - 정기보고서 감시가 이미 새 줄로 잡은 줄은 다시 내지 않는다.
 - 등급 B, 즉시 알림은 걸지 않는다(기자가 정하면 건다). 로그에는 건수만.
 """
@@ -23,6 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import kr_exec_watch as kx  # noqa: E402  (BASE)
+import kr_report_notes as rn  # noqa: E402  (MONTH·in_period)
 import private_store as ps  # noqa: E402
 
 KST = dt.timezone(dt.timedelta(hours=9))
@@ -31,7 +35,12 @@ KIND = "보고서 전체 새 낱말"
 WORDS = ["회생", "파산", "영업정지", "조업정지", "가동중단", "가동 중단", "생산중단", "생산 중단", "압수수색", "가압류", "가처분",
          "고발", "과징금", "철수", "청산", "매각", "리콜"]
 KEEP = 8
-SCAN_MAX = 60
+SCAN_MAX = 120
+VERSION = 2   # 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 — 1로 비교한 보고서도 다시 본다
+# 이번 보고 기간에 일어난 일이라는 표시(날짜는 rn.in_period로 따로 본다)
+NOW_MARK = re.compile(r"당분기\s*(중|말|에)|당기\s*중|보고기간\s*(후|종료일\s*이후|말\s*이후)|작성기준일\s*이후|(진행|추진|검토|협의)\s*중(입니다|이며|에\s*있)|예정(입니다|이며)")
+# 일반 조항·회계정책·계약 조건 문장(11-17 첫 실행: '…과징금을 부과 받을 수 있습니다', '매각예정으로 분류된 …의 처분', '풋옵션 … 매각할 수 있습니다')
+BOILER = re.compile(r"수\s*있(습니다|다|으며|는)|경우(에는|에|,)|정책|기준서|조건으로|의거|에 따라\s*(정한|부과)|해당하는\s*행위")
 
 
 def letters(s):
@@ -44,6 +53,9 @@ def run(doc, token, *, post, now=None):
     stamp = now.isoformat(timespec="seconds")
     period = f"{(doc.get('period') or {}).get('year')}{(doc.get('period') or {}).get('report')}"
     label = (doc.get("period") or {}).get("label") or ""
+    year, report = (doc.get("period") or {}).get("year"), str((doc.get("period") or {}).get("report") or "")
+    dy, base_report = kx.BASE.get(report, (0, report))
+    since_month = (int(year or now.year) + dy, int(rn.MONTH.get(base_report, "01")))
     events = [e for e in doc.get("events") or [] if isinstance(e, dict)]
     counts = {"eligible": 0, "already": 0, "scanned": 0, "missing": 0, "failed": 0, "events": 0, "lines": 0}
     headers = ps._headers(token)
@@ -53,7 +65,7 @@ def run(doc, token, *, post, now=None):
                 and re.fullmatch(r"\d{14}", str(v.get("rcept") or "")) and re.fullmatch(r"\d{14}", str(v.get("baseRcept") or ""))):
             continue
         counts["eligible"] += 1
-        if (v.get("wordScan") or {}).get("rcept") == v["rcept"]:
+        if (v.get("wordScan") or {}).get("rcept") == v["rcept"] and (v.get("wordScan") or {}).get("v") == VERSION:
             counts["already"] += 1
             continue
         try:
@@ -70,9 +82,10 @@ def run(doc, token, *, post, now=None):
             continue
         # 정기보고서 감시가 이미 새 줄로 잡은 줄은 빼고, 무거운 낱말 순으로
         known = " ".join(letters(l) for e in events if e.get("company") == short and e.get("kind") != KIND for l in e.get("lines") or [])
-        got = [x for x in body.get("lines") or [] if isinstance(x, dict) and x.get("word") in WORDS and letters(x.get("line"))[:40] not in known]
+        got = [x for x in body.get("lines") or [] if isinstance(x, dict) and x.get("word") in WORDS and letters(x.get("line"))[:40] not in known
+               and (NOW_MARK.search(str(x.get("line"))) or rn.in_period(str(x.get("line")), since_month, (9999, 12))) and not BOILER.search(str(x.get("line")))]
         got.sort(key=lambda x: WORDS.index(x["word"]))
-        v["wordScan"] = {"rcept": v["rcept"], "base": v["baseRcept"], "at": stamp, "lines": len(got)}
+        v["wordScan"] = {"v": VERSION, "rcept": v["rcept"], "base": v["baseRcept"], "at": stamp, "lines": len(got), "raw": len(body.get("lines") or [])}
         counts["scanned"] += 1
         if not got:
             continue
