@@ -508,7 +508,21 @@ def diff(cur, base):
         if twin:
             new.remove(p)
             gone.remove(twin)
+    # 11-17: 출생년월 표기만 달라진 같은 사람(포스코 정석모 1967년생 빠짐 A + 1966년생 새 임원 B로 갈렸다) —
+    # 이름이 같고 출생연도가 1년 안이면 같은 사람으로 본다(같은 회사 명단 안에서만)
+    twins = []
+    for p in list(new):
+        py = birth_key(p["birth"])[:4]
+        twin = next((g for g in gone if py and name_key(g["name"]) == name_key(p["name"]) and birth_key(g["birth"])[:4]
+                     and abs(int(birth_key(g["birth"])[:4]) - int(py)) <= 1), None)
+        if twin:
+            new.remove(p)
+            gone.remove(twin)
+            twins.append((twin, p))
     changed = []
+    for x, y in twins:
+        if norm_ofcps(x["ofcps"]) != norm_ofcps(y["ofcps"]) or norm_reg(x["reg"]) != norm_reg(y["reg"]):
+            changed.append((x, y))
     for k in set(a) & set(b):
         x, y = a[k], b[k]
         if norm_ofcps(x["ofcps"]) != norm_ofcps(y["ofcps"]) or norm_reg(x["reg"]) != norm_reg(y["reg"]):
@@ -592,7 +606,13 @@ def company_events(company, code, cur_label, base_label, season, cur, base, chan
             flags.append({"kind": "임기 중 빠짐", "text": f"등기임원 임기 만료일 {end.isoformat()} 전에 이사회에서 내려와 미등기로 남음"})
         top = bool(TOP.search(norm_ofcps(y["ofcps"]))) and not TOP.search(norm_ofcps(x["ofcps"]))
         kind = "등기임원 됨" if reg_up else "등기임원에서 내려옴" if reg_down else "직위 변경"
-        if flags or (mid and top):
+        # 11-17: 직위 표기만 바뀐 줄('연구위원(이사)' → '이사' — 같은 직급, 한쪽이 다른 쪽을 품음)은 오너 일가여도 C
+        ox, oy = norm_ofcps(x["ofcps"]), norm_ofcps(y["ofcps"])
+        wording = (kind == "직위 변경" and not top and rank_of(x["ofcps"]) == rank_of(y["ofcps"])
+                   and (ox in oy or oy in ox) and norm_reg(x["reg"]) == norm_reg(y["reg"]))
+        if wording:
+            tier = "C"
+        elif flags or (mid and top):
             tier = "A"
         elif reg_up or reg_down or top:
             tier = "B"
@@ -600,7 +620,7 @@ def company_events(company, code, cur_label, base_label, season, cur, base, chan
             tier = "C"
         events.append(_event(kind, tier, company, code, y, flags, url,
                              f"{short} {cur_label} 임원 {kind} — {y['name']} {norm_ofcps(x['ofcps'])}({x['reg']}) → {norm_ofcps(y['ofcps'])}({y['reg']})"
-                             f"{' · 승진' if up else ''}", extra={"before": {"ofcps": x["ofcps"], "reg": x["reg"]}}))
+                             f"{' · 승진' if up else ''}{' · 직위 표기만 바뀜' if wording else ''}", extra={"before": {"ofcps": x["ofcps"], "reg": x["reg"]}}))
     if full:
         n0 = sum(1 for p in base if p["reg"] == "미등기")
         n1 = sum(1 for p in cur if p["reg"] == "미등기")
