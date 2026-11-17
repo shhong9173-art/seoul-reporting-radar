@@ -36,6 +36,9 @@ KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "ustr_comments/v1"
 LOOKBACK_DAYS = 45
 READ_BUDGET = 130     # 한 실행에 본문까지 읽는 의견서 수 — 넘으면 '대기'(0건 아님), 다음 실행에서 읽는다
+# 대량 게시(11-17 기자 결정): USMCA 공동검토(USTR-2026-0595·0596)처럼 마감 뒤 의견서가 한꺼번에 올라와 밀린 것이 기본 한도보다 많으면
+# 그 실행만 이만큼까지 읽는다(regulations.gov 키 한도 시간당 1000회 — 의견서 한 건에 API 1회 + 첨부 내려받기)
+BURST_BUDGET = 400
 KEEP_DAYS = 200       # 잡힌 의견서를 화면에 두는 기간
 FILE_MAX = 25_000_000
 PAGES = 90
@@ -181,7 +184,7 @@ def notices(now, get):
         return None, type(e).__name__
 
 
-def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None, read_budget=READ_BUDGET):
+def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None, read_budget=READ_BUDGET, burst=BURST_BUDGET):
     if get is None:
         import requests
         get = requests.get
@@ -209,6 +212,21 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
     # 기준선: 감시 시작일보다 사흘 넘게 먼저 게시된 의견서(첫 읽기가 여러 실행에 걸쳐도 같은 기준)
     cutoff = (dt.datetime.fromisoformat(started) - dt.timedelta(days=BASELINE_DAYS)).strftime("%Y-%m-%d")
     read = waiting = 0
+    backlog = sum(1 for d in listed if not ((seen.get(d.get("id")) or {}).get("status") in ("ok", "nopdf", "scan")
+                                          or (seen.get(d.get("id")) or {}).get("tries", 0) >= 3))
+    burst_on = read_budget == READ_BUDGET and backlog > read_budget
+    if burst_on:
+        read_budget = min(burst, backlog)
+    # 목록에서 빠진 의견서(11-17: 302 → 299) — 목록을 끝까지 받았을 때만 센다. 철회·비공개 전환 추정(원인 미확인)
+    list_complete = bool(listed) and not any(c["status"] != "ok" for c in checks)
+    listed_ids = {d.get("id") for d in listed}
+    edge = (now - dt.timedelta(days=LOOKBACK_DAYS - 2)).strftime("%Y-%m-%d")
+    if list_complete:
+        for cid, v in seen.items():
+            if cid in listed_ids:
+                v.pop("gone", None)
+            elif str(v.get("posted") or "") >= edge:
+                v.setdefault("gone", stamp)
     for d in listed:
         cid = d.get("id")
         a = d.get("attributes") or {}
@@ -263,7 +281,8 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None,
         "source": "regulations.gov API v4(USTR 의견서·첨부 PDF) · federalregister.gov API(USTR 고시)", "keyType": "DEMO_KEY" if key == "DEMO_KEY" else "개인 키",
         "lookbackDays": LOOKBACK_DAYS, "checks": checks, "items": rows, "seen": seen, "docketTitles": dockets, "notices": fr if fr is not None else (prev.get("notices") or []),
         "summary": {"listed": len(listed), "readNow": read, "waiting": waiting, "known": len(seen), "scan": by("scan"), "nopdf": by("nopdf"), "failed": by("failed"),
-                    "korea": sum(1 for v in seen.values() if v.get("korea")), "items": len(rows), "fresh": sum(1 for x in rows if x.get("firstSeen") == stamp and not x.get("baseline"))},
+                    "korea": sum(1 for v in seen.values() if v.get("korea")), "items": len(rows), "fresh": sum(1 for x in rows if x.get("firstSeen") == stamp and not x.get("baseline")),
+                    "dropped": sum(1 for v in seen.values() if v.get("gone")), "burst": read_budget if burst_on else 0},
         "rules": ["의견서는 낸 쪽의 주장이다 — USTR 판단이 아니고, 한국 정부·회사 입장은 따로 확인한다.",
                   "발췌는 영어 원문 그대로다. 기사에 쓸 때는 원문 PDF의 쪽·문단을 다시 확인한다.",
                   "USTR 자체 의견 포털(comments.ustr.gov — 301조 조사 의견)은 읽지 못한다. 스캔본 PDF는 글자를 못 뽑는다."],
@@ -287,11 +306,12 @@ def main():
             print(f"::warning title=ustr-comments-state::이전 상태 조회 실패({e}) — 이번에는 저장하지 않는다(읽은 목록을 지우지 않으려고)")
             return 0
     read = 12 if a.dry_run else max(1, min(a.read, 600))
-    doc = collect(key, now=now, previous=previous, read_budget=read, budget=uc.Budget(read * 2 + 40) if key != "DEMO_KEY" else None)
+    doc = collect(key, now=now, previous=previous, read_budget=read, budget=uc.Budget(max(read, BURST_BUDGET) * 2 + 40) if key != "DEMO_KEY" else None)
     s = doc["summary"]
     # 공개 로그에는 건수만(제출자·발췌는 찍지 않는다)
     print(f"::notice title=ustr-comments::목록 {s['listed']}건 · 이번에 본문 읽음 {s['readNow']} · 대기 {s['waiting']} · 누적 읽음 {s['known']}(스캔본 {s['scan']}·첨부 없음 {s['nopdf']}·실패 {s['failed']}) · "
-          f"한국 언급 {s['korea']}건 · 출입 업종 대목 {s['items']}건(이번 새 항목 {s['fresh']}) · 관보 고시 {len(doc['notices'])}건 · 키 {doc['keyType']}")
+          f"한국 언급 {s['korea']}건 · 출입 업종 대목 {s['items']}건(이번 새 항목 {s['fresh']}) · 관보 고시 {len(doc['notices'])}건 · 키 {doc['keyType']}"
+          f" · 목록에서 빠짐(철회 추정) {s['dropped']}건" + (f" · 대량 게시 — 이번 실행 읽기 한도 {s['burst']}" if s["burst"] else ""))
     if a.dry_run or not token:
         return 0
     if doc["status"] == "failed":
