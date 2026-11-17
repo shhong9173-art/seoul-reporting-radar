@@ -559,6 +559,14 @@ test('dart tools require the private connection and a key, and search inside doc
   assert.match(cont.text, /OpenDART 원문\(ZIP\) 이어 읽기 → DART 누리집 목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음 · 2번째 장부터/);
   assert.match(cont.text, /읽은 장 1\/1\(2번째부터\)/);
   assert.equal(bf.calls.filter((c) => c.url.includes('eleId=23')).length, 2);   // 앞 두 호출만 23을 읽고 이어 읽기는 25부터
+  // 작업자 바깥 요청 한도(50개): 장은 한 번에 36개까지 받고 나머지는 이어 읽기로
+  const many = `<script>${Array.from({ length: 40 }, (_, k) => `var node1 = {}; node1['text'] = "${k + 1}. 주석"; node1['rcpNo'] = "20261116000768"; node1['dcmNo'] = "1"; node1['eleId'] = "${k + 10}"; node1['offset'] = "${k * 1000}"; node1['length'] = "500"; node1['dtd'] = "dart4.xsd";`).join('\n')}</script>`;
+  const mf = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': timeout,
+    'https://dart.fss.or.kr/dsaf001/main.do': new Response(many, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://dart.fss.or.kr/report/viewer.do': () => page('관련 없음') });
+  const mt = await call('dart_find_text', { rcp_no: '20261116000768', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: mf });
+  assert.equal(mf.calls.filter((c) => c.url.includes('viewer.do')).length, 36);
+  assert.match(mt.text, /읽은 장 36\/40 · 한 번에 읽는 장 한도\(36개\)로 나머지 4개 장은 안 읽음\n이어 읽기: dart_find_text\(rcp_no=20261116000768, word="NPG", start=36\) — 37번째 장\(37\. 주석\)부터/);
   const list = fakeFetch({ 'https://opendart.fss.or.kr/api/list.json': Response.json({ status: '000', total_count: 1, total_page: 1,
     list: [{ rcept_dt: '20261023', report_nm: '단일판매ㆍ공급계약체결', rcept_no: '20261023000111', flr_nm: '현대제철', rm: '유' }] }) });
   const l = await call('dart_filings', { company: '현대제철' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: list });

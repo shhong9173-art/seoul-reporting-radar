@@ -584,7 +584,10 @@ const VIEWER_BATCH = 6;
 const VIEWER_BUDGET_MS = 35000;
 const VIEWER_PARENT_MAX = 1_500_000;   // 목차 범위 글자 수 — 이보다 큰 윗장은 아랫절로 나눠 받는다
 const VIEWER_CAP = 12_000_000;
-const VIEWER_MIN_LEFT_MS = 5000;        // 남은 시간이 이보다 적으면 새 묶음을 시작하지 않는다(이어 읽기로 넘김)
+const VIEWER_MIN_LEFT_MS = 5000;
+// Cloudflare 작업자는 한 번 부를 때 바깥 요청을 50개까지만 보낸다(11-17 실제 조회: 48번째 장부터 'Too many subrequests').
+// 원문(ZIP)·목차·근거 기록 몫을 남기고 장은 한 번에 36개까지 — 나머지는 이어 읽기(start)로
+const VIEWER_MAX_FETCH = 36;        // 남은 시간이 이보다 적으면 새 묶음을 시작하지 않는다(이어 읽기로 넘김)
 const ZIP_SLOW = new Map();             // 접수번호 → 원문(ZIP) 시간 초과 시각(이 작업자 메모리, 사라져도 무방)
 async function dartViewerSearch(ctx, rcp, word, limit, why, start = 0) {
   const main = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
@@ -619,9 +622,13 @@ async function dartViewerSearch(ctx, rcp, word, limit, why, start = 0) {
   let read = 0;
   let next = from;
   let slow = 0;
+  let fetched = 0;
+  let capped = false;
   while (next < parts.length && found < limit) {
     if (deadline - Date.now() < VIEWER_MIN_LEFT_MS) break;
-    const batch = parts.slice(next, next + VIEWER_BATCH);
+    if (fetched >= VIEWER_MAX_FETCH) { capped = true; break; }
+    const batch = parts.slice(next, next + Math.min(VIEWER_BATCH, VIEWER_MAX_FETCH - fetched));
+    fetched += batch.length;
     next += batch.length;
     const texts = await Promise.all(batch.map(async (p) => {
       try {
@@ -651,7 +658,7 @@ async function dartViewerSearch(ctx, rcp, word, limit, why, start = 0) {
   }
   const unread = parts.length - next;
   out.push(`\n읽은 장 ${read}/${parts.length - from}${from ? `(${from + 1}번째부터)` : ''}${missed.length ? ` · 못 읽은 장 ${missed.length}개(${missed.slice(0, 6).map((p) => `${p.text || p.eleId}: ${p.why}`).join(', ')}${missed.length > 6 ? ' 등' : ''}) — 그 안은 미확인` : ''}`
-    + `${unread ? ` · ${found >= limit ? `찾은 곳이 한도(${limit})에 닿아` : '시간 한도로'} 나머지 ${unread}개 장은 안 읽음` : ''}`);
+    + `${unread ? ` · ${found >= limit ? `찾은 곳이 한도(${limit})에 닿아` : capped ? `한 번에 읽는 장 한도(${VIEWER_MAX_FETCH}개)로` : '시간 한도로'} 나머지 ${unread}개 장은 안 읽음` : ''}`);
   if (unread && found < limit) out.push(`이어 읽기: dart_find_text(rcp_no=${rcp}, word="${word}", start=${next}) — ${next + 1}번째 장(${parts[next].text || parts[next].eleId})부터`);
   if (slow) out.push(`장 ${slow}개가 시간 초과 — 같은 start로 다시 부르면 다시 받는다`);
   out.push(`원문 링크: ${main}`);
