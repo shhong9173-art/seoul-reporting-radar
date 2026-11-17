@@ -566,7 +566,27 @@ test('dart tools require the private connection and a key, and search inside doc
     'https://dart.fss.or.kr/report/viewer.do': () => page('관련 없음') });
   const mt = await call('dart_find_text', { rcp_no: '20261116000768', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: mf });
   assert.equal(mf.calls.filter((c) => c.url.includes('viewer.do')).length, 36);
-  assert.match(mt.text, /읽은 장 36\/40 · 한 번에 읽는 장 한도\(36개\)로 나머지 4개 장은 안 읽음\n이어 읽기: dart_find_text\(rcp_no=20261116000768, word="NPG", start=36\) — 37번째 장\(37\. 주석\)부터/);
+  assert.match(mt.text, /읽은 장 36\/40 · 한 번에 받는 장 한도\(36개\)로 나머지 4개 장은 안 읽음\n이어 읽기: dart_find_text\(rcp_no=20261116000768, word="NPG", start=36\) — 37번째 장\(37\. 주석\)부터/);
+  // 11-17: 받은 장과 목차는 기자 전용 저장소에 하루 — 같은 보고서를 낱말만 바꿔 찾으면 원문(ZIP)·목차·받아 둔 장을 다시 묻지 않는다
+  const own = PRIVATE({ DART_API_KEY: 'k' });
+  const cf = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': timeout,
+    'https://dart.fss.or.kr/dsaf001/main.do': new Response(many.replaceAll('20261116000768', '20261116000769'), { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://dart.fss.or.kr/report/viewer.do': (url) => page(url.includes('eleId=12') ? '연결 범위 변동 — 여수 NPG 공정 손상차손' : url.includes('eleId=45') ? '보고기간 후 사건 NPG 매각' : '관련 없음') });
+  const c1 = await call('dart_find_text', { rcp_no: '20261116000769', word: '없는낱말' }, { ...own, fetch: cf });
+  assert.match(c1.text, /읽은 장 36\/40/);
+  const before = cf.calls.length;
+  const c2 = await call('dart_find_text', { rcp_no: '20261116000769', word: 'NPG' }, { ...own, fetch: cf });
+  assert.match(c2.text, /OpenDART 원문\(ZIP\) 오늘 나눠 읽어 둔 보고서 → DART 누리집 목차 40개 장을 나눠 읽음 · 오늘 받아 둔 장 36개는 저장소에서/);
+  assert.match(c2.text, /■ 3\. 주석 · \d+자 · 1곳 · sha256:[0-9a-f]{64}[^\n]*\n검증 기록 ID: [^\n]+\n… 연결 범위 변동 — 여수 NPG 공정 손상차손 …/);
+  assert.match(c2.text, /■ 36\. 주석 · [^\n]*\n검증 기록 ID: [^\n]+\n… 보고기간 후 사건 NPG 매각 …/);
+  assert.match(c2.text, /읽은 장 40\/40/);   // 저장소 36개 + 새로 받은 4개
+  const asked = cf.calls.slice(before);
+  assert.equal(asked.filter((c) => c.url.startsWith('https://opendart') || c.url.includes('main.do')).length, 0);
+  assert.equal(asked.filter((c) => c.url.includes('viewer.do')).length, 4);
+  // 세 번째는 요청 0개
+  const c3 = await call('dart_find_text', { rcp_no: '20261116000769', word: '손상차손' }, { ...own, fetch: cf });
+  assert.match(c3.text, /읽은 장 40\/40/);
+  assert.equal(cf.calls.length, before + 4);
   const list = fakeFetch({ 'https://opendart.fss.or.kr/api/list.json': Response.json({ status: '000', total_count: 1, total_page: 1,
     list: [{ rcept_dt: '20261023', report_nm: '단일판매ㆍ공급계약체결', rcept_no: '20261023000111', flr_nm: '현대제철', rm: '유' }] }) });
   const l = await call('dart_filings', { company: '현대제철' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: list });

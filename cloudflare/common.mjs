@@ -80,6 +80,17 @@ export function textResult(text, isError = false) {
   return { content: [{ type: 'text', text: body }], ...(isError ? { isError: true } : {}) };
 }
 
+// 낱말이 나온 곳과 앞뒤 160자 대목. 200자 안에 다시 나오면 한 대목으로 묶는다(곳 수는 그대로 센다).
+// dart_find_text 나눠 읽기(live_tools.mjs)와 저장소의 장별 본문 검색(store.mjs)이 같은 규칙을 쓴다.
+export function wordHits(text, word, max = 20) {
+  const t = String(text ?? '');
+  const at = [];
+  let total = 0;
+  let i = word ? t.indexOf(word) : -1;
+  while (i >= 0) { total += 1; if (!at.length || i - at[at.length - 1] > 200) at.push(i); i = t.indexOf(word, i + word.length); }
+  return { total, excerpts: at.slice(0, max).map((x) => t.slice(Math.max(0, x - 160), x + word.length + 160)) };
+}
+
 export async function sha256Hex(text) {
   const data = typeof text === 'string' ? new TextEncoder().encode(text) : text;
   const digest = await crypto.subtle.digest('SHA-256', data);

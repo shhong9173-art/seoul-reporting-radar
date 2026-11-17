@@ -2,7 +2,7 @@
 // feedback. Lives in a SQLite-backed Durable Object behind the access token,
 // never in the public repository or GitHub Pages.
 import { POLICY, checkVerifiedCandidate, formatCheck } from './scoring.mjs';
-import { kstDate, textResult } from './common.mjs';
+import { kstDate, textResult, wordHits } from './common.mjs';
 
 export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류', '접음'];
 export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
@@ -37,12 +37,19 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, verdict TEXT NOT NULL,
      reason TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS blobs (name TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+  // DART 보고서 장별 본문(dart_find_text 나눠 읽기, 11-17): 같은 보고서를 낱말만 바꿔 다시 찾을 때 DART에 다시 묻지 않게 하루만.
+  // idx -1은 목차(장 목록 JSON). 공개 공시 글이지만 기자가 무엇을 찾았는지는 남기지 않는다(낱말은 저장하지 않음).
+  `CREATE TABLE IF NOT EXISTS dart_cache (rcp TEXT NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+     hash TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (rcp, idx))`,
   // 홈페이지 로그인 실패 기록(아이피별·전체 1시간 잠금 계산용, 하루 지나면 지움)
   `CREATE TABLE IF NOT EXISTS login_fail (ip TEXT NOT NULL, at TEXT NOT NULL)`,
   // what a judged item was when it was judged (watch, kind, tier) — feeds roll over, the weekly review still needs it
   `CREATE TABLE IF NOT EXISTS feedback_meta (item_id TEXT PRIMARY KEY, watch TEXT NOT NULL, kind TEXT NOT NULL,
      tier TEXT NOT NULL, flag TEXT NOT NULL, title TEXT NOT NULL, updated_at TEXT NOT NULL)`,
 ];
+
+const DART_CACHE_MS = 24 * 3600000;
+const DART_CACHE_ROW_MAX = 1_900_000;
 
 // Durable Object (fetch-style so it runs without the cloudflare:workers import).
 export class RadarStore {
@@ -115,6 +122,40 @@ export class RadarStore {
         this.sql.exec(`INSERT INTO blobs (name, body, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(name) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`, args.name, args.body, at);
         return { saved: true };
+      // 장별 본문 검색: 저장된 장 가운데 from 이후에서 낱말을 찾아 대목만 돌려준다(본문째 보내지 않는다)
+      case 'dartcache.get': {
+        this.sql.exec('DELETE FROM dart_cache WHERE created_at < ?', new Date(Date.parse(at) - DART_CACHE_MS).toISOString());
+        const toc = this.all('SELECT body FROM dart_cache WHERE rcp = ? AND idx = -1', String(args.rcp))[0];
+        if (!toc) return { toc: null, cached: [], hits: [] };
+        const rows = this.all('SELECT idx, title, body, hash FROM dart_cache WHERE rcp = ? AND idx >= ? ORDER BY idx', String(args.rcp), Number(args.from ?? 0));
+        const word = String(args.word ?? '');
+        const hits = [];
+        for (const r of rows) {
+          const h = wordHits(r.body, word, Number(args.max ?? 20));
+          if (h.total) hits.push({ idx: r.idx, title: r.title, chars: r.body.length, hash: r.hash, ...h });
+        }
+        let parsed = null;
+        try { parsed = JSON.parse(toc.body); } catch { parsed = null; }
+        return { toc: parsed, cached: rows.map((r) => r.idx), hits };
+      }
+      case 'dartcache.put': {
+        const rcp = String(args.rcp);
+        if (args.toc) this.sql.exec(`INSERT INTO dart_cache (rcp, idx, title, body, hash, created_at) VALUES (?, -1, '목차', ?, '', ?)
+          ON CONFLICT(rcp, idx) DO UPDATE SET body = excluded.body, created_at = excluded.created_at`, rcp, JSON.stringify(args.toc), at);
+        let saved = 0;
+        for (const x of args.sections ?? []) {
+          if (typeof x?.text !== 'string' || !Number.isInteger(x.idx) || x.idx < 0) continue;
+          if (new TextEncoder().encode(x.text).length > DART_CACHE_ROW_MAX) continue;   // 한 줄 2MB 한도(SQLite) — 큰 장은 저장하지 않는다
+          this.sql.exec(`INSERT INTO dart_cache (rcp, idx, title, body, hash, created_at) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(rcp, idx) DO UPDATE SET title = excluded.title, body = excluded.body, hash = excluded.hash, created_at = excluded.created_at`,
+          rcp, x.idx, String(x.title ?? '').slice(0, 200), x.text, String(x.hash ?? ''), at);
+          saved += 1;
+        }
+        // 보고서는 최근 것 8건까지만 둔다
+        const keep = this.all('SELECT rcp FROM dart_cache GROUP BY rcp ORDER BY MAX(created_at) DESC LIMIT 8').map((r) => r.rcp);
+        if (keep.length) this.sql.exec(`DELETE FROM dart_cache WHERE rcp NOT IN (${keep.map(() => '?').join(',')})`, ...keep);
+        return { saved };
+      }
       case 'blobs.get':
         return { row: this.all('SELECT name, body, updated_at FROM blobs WHERE name = ?', args.name)[0] ?? null };
       case 'blobs.delete':   // 기자 컴퓨터가 올린 파일 조각 비우기(local_browser.mjs) — 이름을 정확히 준 한 줄만
