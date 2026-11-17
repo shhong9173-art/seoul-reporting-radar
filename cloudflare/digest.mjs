@@ -6,6 +6,7 @@ import { storeOp } from './store.mjs';
 import { EXCLUDING, entryLabel, loadLedger, matchHandled } from './handled.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { browserHealth } from './local_browser.mjs';
+import { alertHealth } from './alert_health.mjs';
 import { runsHealth } from './gh_runs.mjs';
 import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
@@ -1828,6 +1829,9 @@ export async function radarTodayData(ctx, args) {
   // 상태 읽기가 실패하면 줄을 숨기지 않고 미확인으로 적는다(줄이 없으면 '이상 없음'으로 읽히기 때문)
   const bh = await browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
   if (bh) h.push(`- ${bh}`);
+  // 단독 후보 즉시 알림(11-17): 예약 시각마다 남기는 기록 줄이 빈 곳 — 알림이 안 온 게 '보낼 것 없음'인지 '실행 실패'인지 가른다
+  const ah = await alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
+  if (ah) h.push(`- ${ah}`);
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
   else {
