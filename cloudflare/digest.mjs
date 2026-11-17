@@ -1489,6 +1489,12 @@ function health(ctx, docs) {
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
     // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
     if (typeof d.healthNote === 'string' && d.healthNote) lines.push(`- ${w.label}: ${d.healthNote.slice(0, 300)}`);
+    // 11-17 기자 결정('전부 추천대로'): EDIS 첨부 본문 토큰 만료 7일 전부터 한 줄. 고장이 아니다 — 만료돼도 목록·제목·당사자는 계속 읽는다(11-15 기자: 필요할 때만 갱신)
+    const exp = Date.parse(d.edis?.tokenExpires ?? '');
+    if (w.feed === 'trade-remedy' && Number.isFinite(exp) && !d.edis?.tokenNote) {
+      const left = Math.ceil((exp - ctx.now.getTime()) / 86400000);
+      if (left <= 7) lines.push(`- ${w.label}: 미국 ITC 문서(EDIS) 첨부 본문 토큰 ${left > 0 ? `만료 D-${left}(${String(d.edis.tokenExpires).slice(0, 10)})` : '만료'} — 만료돼도 목록·제목·당사자는 계속 읽는다. 337 본문이 필요하면 EDIS에서 새로 받아 EDIS_API_TOKEN 비밀값을 바꾼다`);
+    }
   }
   return lines;
 }
