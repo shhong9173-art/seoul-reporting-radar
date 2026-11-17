@@ -1177,7 +1177,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       note: e.kind, noteLines: lines.length + (more ? NOTE_ALERT_MAX : 0), late: Boolean(e.late),
       // 기일만 더해진 진행 상황(앞 보고서에도 있던 사건의 바뀐 줄인데 끝에 판결·합의 같은 결과 낱말이 없음)뿐이면 알림을 걸지 않는다
       // 보고기간 후 사건 중 배당·사채·자사주·차입·지급보증만 있는 것(대개 따로 공시된다)도 알림을 걸지 않는다 — 매각·인수·양도·청산·중단·재협의 같은 낱말이 든 줄이 있어야 한다
-      noteRoutine: e.kind === '보고기간 후 사건'
+      // 11-17 기자 결정: 작성기준일 이후 주요사항(OCI Alabama 매각이 여기 한 줄이었다)도 보고기간 후 사건과 같은 규칙으로 알림
+      noteRoutine: ['보고기간 후 사건', '작성기준일 이후 주요사항'].includes(e.kind)
         ? !lines.some((l) => NOTE_DEAL.test(l) && !/자기\s*주식|자사주/.test(l))
         : lines.every((l) => l.startsWith('〔앞 보고서에도 있던 건') && !NOTE_OUTCOME.test(l.slice(-130))),
       fact: `${e.company} ${e.period ?? ''} 보고서${filed ? `(접수 ${filed})` : ''}에 앞 보고서에 없던 ${e.kind} ${lines.length}줄${more ? `(${more.replace(/^…\s*/, '')} 더)` : ''}: `
@@ -1573,7 +1574,7 @@ export function docAlert(x, verdict) {
     // 정기보고서에 새로 적힌 보고기간 후 사건·제재·소송(11-15 감시와 함께 넣음 — 기자가 뺄 수 있다): 제때 읽었고 새 줄이 몇 줄뿐일 때만.
     // 보고기간 후 사건: 11-13 이데일리 단독(한화시마론 매각)이 11-12 분기보고서 연결 주석의 이 대목 한 문장이었다(probe 251).
     // 수십 줄이 한꺼번에 새로 보이면 서식 변경일 가능성이 커 화면에만 둔다. 기일만 더해진 소송 진행 상황, 매각예정·중단영업, 연결 범위도 화면에만.
-    if (!covered && !x.late && !x.noteRoutine && ['보고기간 후 사건', '제재', '소송'].includes(x.note) && x.noteLines <= NOTE_ALERT_MAX) {
+    if (!covered && !x.late && !x.noteRoutine && ['보고기간 후 사건', '작성기준일 이후 주요사항', '제재', '소송'].includes(x.note) && x.noteLines <= NOTE_ALERT_MAX) {
       return `문서 알림 — 정기보고서에 새로 적힌 ${x.note} ${x.noteLines}줄에 ${names.join('·')}(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨)`;
     }
   }
