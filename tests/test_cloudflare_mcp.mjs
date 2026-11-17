@@ -1,4 +1,5 @@
 import { irNote } from '../cloudflare/trademarks.mjs';
+import { alertGaps, alertRuns } from '../cloudflare/alert_health.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
@@ -5648,4 +5649,38 @@ test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(
     if (want) assert.match(text, want);
     else assert.doesNotMatch(text, /첨부 본문 토큰 만료 D-/);
   }
+});
+
+test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄이 빈 곳을 radar_today·radar_health(기자 전용) 수집 상태에 띄운다', async () => {
+  const at = (iso) => Date.parse(iso);
+  // 기록 줄 읽기: 패키지 날짜(KST) + HH:MM, '조회 실패'는 돈 것으로 치지 않는다
+  assert.deepEqual(alertRuns('alert-20261117', '[단독 후보 알림 08:55] 1건 (대신 보냄)\n…\n[단독 후보 알림 12:47] 0건\n[단독 후보 알림 15:44] 조회 실패\n보낸 id: a'),
+    [{ at: at('2026-11-17T08:55:00+09:00'), failed: false }, { at: at('2026-11-17T12:47:00+09:00'), failed: false }, { at: at('2026-11-17T15:44:00+09:00'), failed: true }]);
+  assert.deepEqual(alertRuns('morning-20261117', '[단독 후보 알림 08:55] 1건'), []);
+  const runs = alertRuns('alert-20261117', '[단독 후보 알림 08:55] 1건\n[단독 후보 알림 15:44] 조회 실패');
+  // 13:40: 12:43 기록 없음(08:55 대신 보낸 것은 08:43 몫) · 13:20(여유 50분 안)에는 아직 묻지 않는다 · 12:43 전 시각은 기록 시작 전이라 묻지 않는다
+  assert.deepEqual(alertGaps(at('2026-11-17T13:40:00+09:00'), runs).missed, [at('2026-11-17T12:43:00+09:00')]);
+  assert.deepEqual(alertGaps(at('2026-11-17T13:20:00+09:00'), runs).missed, []);
+  // 16:40: 12:43도 15:43(조회 실패)도 빈 것
+  assert.deepEqual(alertGaps(at('2026-11-17T16:40:00+09:00'), runs).missed, [at('2026-11-17T12:43:00+09:00'), at('2026-11-17T15:43:00+09:00')]);
+
+  const opts = PRIVATE();
+  const line = async (iso) => ((await call('radar_today', { hours: 1 }, { ...opts, now: new Date(iso) })).text.match(/^- 단독 후보 즉시 알림.*$/m) ?? [null])[0];
+  const save = (body) => call('package_save', { name: 'alert-20261117', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 11-17 · 누적 1건', body }, opts);
+  await save('[단독 후보 알림 08:55] 1건\n…\n보낸 id: rptnote:1');
+  assert.equal(await line('2026-11-17T03:30:00Z'), null);   // 12:30 KST — 기록 시작(12:43) 전
+  assert.equal(await line('2026-11-17T04:40:00Z'), '- 단독 후보 즉시 알림(Claude 앱 예약 작업, 매일 08:43·12:43·15:43·18:43·21:43·23:43): ⚠ 예약 1번 기록 없음(12:43)'
+    + ' · 마지막 기록 11-17 08:55 KST — 실행이 실패했을 수 있다(사용 한도 등). 그 사이 알림 대상은 미확인 — 다음 실행이 범위를 넓혀 다시 본다.');
+  await save('[단독 후보 알림 08:55] 1건\n…\n[단독 후보 알림 12:47] 0건\n보낸 id: rptnote:1');
+  assert.equal(await line('2026-11-17T04:40:00Z'), null);
+  // 이튿날 09:40: 어제 패키지까지 함께 본다 — 12:47 뒤로 15:43·18:43·21:43·23:43·08:43 다섯 번 기록 없음
+  assert.match(await line('2026-11-18T00:40:00Z'), /⚠ 예약 5번 기록 없음\(11-17 15:43·11-17 18:43·11-17 21:43·11-17 23:43·08:43\) · 마지막 기록 11-17 12:47 KST — .* 여러 번 빠졌으니 Claude 앱 예약 작업의 실행 기록을 확인$/);
+
+  // radar_health: 공개 연결은 그대로, 기자 전용 연결에만 기자 컴퓨터 수집·알림 기록 줄
+  const fetch = fakeFetch();
+  assert.doesNotMatch((await call('radar_health', {}, { fetch, now: new Date('2026-11-17T04:00:00Z') })).text, /기자 전용|기자 컴퓨터|단독 후보 즉시 알림/);
+  await save('[단독 후보 알림 08:55] 1건\n보낸 id: rptnote:1');
+  const h = (await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T04:40:00Z') })).text;
+  assert.match(h, /\n\[기자 전용\] ⚠ 기자 컴퓨터 수집\(Aside 예약 작업[^\n]*: 결과 없음 — 미확인\n/);
+  assert.match(h, /\n\[기자 전용\] ⚠ 단독 후보 즉시 알림\([^\n]*예약 1번 기록 없음\(12:43\)/);
 });
