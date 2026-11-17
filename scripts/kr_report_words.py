@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import kr_exec_watch as kx  # noqa: E402  (BASE)
 import kr_report_notes as rn  # noqa: E402  (MONTH·in_period)
 import private_store as ps  # noqa: E402
+from dart_counterparty_watch import BEAT_RX  # noqa: E402  (출입처 법인 이름 — '오씨아이 주식회사' 등)
 
 KST = dt.timezone(dt.timedelta(hours=9))
 KIND = "보고서 전체 새 낱말"
@@ -36,7 +37,7 @@ WORDS = ["회생", "파산", "영업정지", "조업정지", "가동중단", "�
          "고발", "과징금", "철수", "청산", "매각", "리콜"]
 KEEP = 8
 SCAN_MAX = 120
-VERSION = 4   # 4(11-18): 출입처 외 표시 · 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 · 3: 불확실성 문구·법령 시행 목록·배출권·표 머리 문장도 뺌
+VERSION = 5   # 5(11-18): 자회사 이름은 회사 표지가 붙은 것만 · 4(11-18): 출입처 외 표시 · 2(11-17): 문장 단위 비교 + 이번 보고 기간 표시가 있는 문장만 + 일반 조항 문장 빼기 · 3: 불확실성 문구·법령 시행 목록·배출권·표 머리 문장도 뺌
 # 이번 보고 기간에 일어난 일이라는 표시(날짜는 rn.in_period로 따로 본다)
 NOW_MARK = re.compile(r"당분기\s*(중|말|에)|당기\s*중|보고기간\s*(후|종료일\s*이후|말\s*이후)|작성기준일\s*이후|(진행|추진|검토|협의)\s*중(입니다|이며|에\s*있)|예정(입니다|이며)")
 # 일반 조항·회계정책·계약 조건 문장(11-17 첫 실행: '…과징금을 부과 받을 수 있습니다', '매각예정으로 분류된 …의 처분', '풋옵션 … 매각할 수 있습니다')
@@ -49,19 +50,40 @@ BOILER = re.compile(r"수\s*있(습니다|다|으며|는)|경우|정책|기준�
 # 출입처 외(11-18 '추천대로'): 정기보고서 감시와 같은 NON_BEAT 이름, 그리고 '종속회사인 (주)○○'처럼 이름이 적힌 국내 자회사 —
 # 줄 앞에 〔출입처 외 ○○〕를 붙이고 뒤로 보낸다(GS 보고서의 GS E&R 해남풍력 매각, 포스코홀딩스 보고서의 포스코이앤씨 영업정지 등).
 # 해외 법인 이름(…Co., Ltd.·LLC)은 그 회사 자신의 일로 보고 붙이지 않는다(LG화학 하이퐁 법인 청산 등).
-SUB = re.compile(r"(?:종속(?:회사|기업)|자회사)(?:인|의)?\s*(?:\(주\)|㈜|주식회사)?\s*([가-힣][가-힣A-Za-z0-9]{1,15})")
-PARTICLE = re.compile(r"(?:\(주\)|㈜)?(?:은|는|이|가|의|에|와|과|를|을|로|으로)?$")
+# 5판(11-18 4판 실행): 회사 표지((주)·㈜·주식회사)가 이름 바로 앞이나 뒤에 붙은 것만 자회사 이름으로 본다 —
+# 4판이 '종속기업투자주식'을 '투자주식', '중국 자회사 매각'을 '매각', '종속회사 오씨아이 주식회사'를 '오씨아'(조사 '이'로 잘못 자름)로 붙였다.
+# 조사는 받침에 맞을 때만 자르고, 출입처 법인 이름(오씨아이=OCI 등)은 출입처 외로 치지 않는다.
+MARK = r"(?:\(주\)|㈜|주식회사)"
+NAME = r"([가-힣A-Z][가-힣A-Za-z0-9&]{1,15})"
+SUB = re.compile(rf"(?:종속(?:회사|기업)|자회사)(?:인|의)?\s*(?:{MARK}\s*{NAME}|{NAME}\s*{MARK})")
+
+
+def _batchim(ch):
+    o = ord(ch) - 0xAC00
+    return None if not 0 <= o < 11172 else o % 28   # 0이면 받침 없음, 8이면 ㄹ
+
+
+def strip_particle(name):
+    for p in ("으로", "의", "에", "은", "는", "이", "가", "을", "를", "과", "와", "로"):
+        if not name.endswith(p) or len(name) - len(p) < 2:
+            continue
+        b = _batchim(name[-len(p) - 1])
+        if p in ("의", "에") or (b is not None and ((p in ("은", "이", "을", "과", "으로") and b) or (p in ("는", "가", "를", "와") and not b)
+                                                     or (p == "로" and b in (0, 8)))):
+            return name[: -len(p)]
+    return name
 
 
 def outsider(line, company):
     for n in rn.NON_BEAT:
         if n in line:
             return n
-    m = SUB.search(line)
-    if m:
-        name = PARTICLE.sub("", m.group(1)).strip()
-        if len(name) >= 2 and name not in (company, "주식회사") and not company.startswith(name):
-            return name
+    for m in SUB.finditer(line):
+        name = m.group(1) or m.group(2)
+        name = strip_particle(name) if m.group(1) else name
+        if len(name) < 2 or name == company or company.startswith(name) or any(rx.search(name) for _, rx in BEAT_RX):
+            continue
+        return name
     return None
 
 
