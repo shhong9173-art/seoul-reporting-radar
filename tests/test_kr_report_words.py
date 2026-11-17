@@ -106,5 +106,17 @@ class Words(unittest.TestCase):
                                        "〔출입처 외 지에스이앤알〕 〔매각〕 연결실체의 종속회사인 (주)지에스이앤알의 경영진은 해남풍력사업 관련 건설중인자산을 매도하기 위한 계획을 수립하였고, 2026년 내 자산매각절차를 완료할 예정입니다."])
 
 
+    def test_outsider_needs_company_mark_and_skips_beats(self):
+        # 11-18 4판 실행에서 잘못 붙은 표시
+        self.assertIsNone(w.outsider("(*14) 당분기 중 회사는 LG Chem Hai Phong Vietnam Co., Ltd.의 청산이 완료됨에 따라 해당 종속기업투자주식의 장부금액 3,079백만원을 제거하였습니다.", "LG화학"))
+        self.assertIsNone(w.outsider("생산운영 효율화 계획에 따라 '26년 하반기 중에 중국 자회사 매각 및 노후화된 증평 공장의 생산 중단 추진 중이며", "SK이노베이션"))
+        self.assertIsNone(w.outsider("(15) 오씨아이 주식회사 영업정지와 관련된 우발부채 당분기말 현재 종속회사 오씨아이 주식회사는 TDI 제조 및 판매 사업을 중단하기로 결정하였습니다.", "OCI홀딩스"))
+        # 맞게 붙은 표시
+        self.assertEqual(w.outsider("롯데에너지머티리얼즈의 종속회사인 롯데에코월(주)는 당분기 중 지분 매각(2026. 9. 3.)에 따라 지배력을 상실하여", "롯데케미칼"), "롯데에코월")
+        self.assertEqual(w.outsider("연결실체는 종속기업인 롯데에너지머티리얼즈㈜의 종속기업인 롯데에코월㈜ 지분 매각과 관련하여", "롯데케미칼"), "롯데에너지머티리얼즈")
+        self.assertEqual(w.outsider("연결실체의 종속회사인 (주)지에스이앤알의 경영진은", "GS"), "지에스이앤알")
+        self.assertEqual(w.outsider("종속회사인 (주)한빛이 보유한", "GS"), "한빛")          # 받침 뒤 '이'는 조사
+        self.assertEqual(w.outsider("종속회사인 (주)가나다아이 지분을", "GS"), "가나다아이")  # 받침 없는 '이'는 이름
+
 if __name__ == "__main__":
     unittest.main()
