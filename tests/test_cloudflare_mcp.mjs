@@ -532,25 +532,33 @@ test('dart tools require the private connection and a key, and search inside doc
   assert.match(sp.text, /OpenDART 원문\(ZIP\) 시간 초과 → DART 누리집 목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음/);
   assert.match(sp.text, /■ II\. 사업의 내용 · \d+자 · 2곳 · sha256:[0-9a-f]{64} · https:\/\/dart\.fss\.or\.kr\/report\/viewer\.do\?rcpNo=20261116000765&dcmNo=1&eleId=10/);
   assert.ok(!split.calls.some((c) => c.url.includes('eleId=15')));   // 윗장 범위(100~1000) 안의 아랫절(500~700)은 따로 받지 않는다
-  assert.match(sp.text, /읽은 장 1\/2 · 못 읽은 장 1개\(XI\. 그 밖에 투자자 보호\) — 그 안은 미확인/);
+  assert.match(sp.text, /읽은 장 1\/2 · 못 읽은 장 1개\(XI\. 그 밖에 투자자 보호: HTTP 500\) — 그 안은 미확인/);
   assert.match(split.calls.find((c) => c.url.includes('viewer.do')).init.headers['User-Agent'], /seoul-reporting-radar/);   // 브라우저 흉내를 내지 않는다
   const none = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': timeout, 'https://dart.fss.or.kr/dsaf001/main.do': timeout });
-  const nr = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: none });
+  const nr = await call('dart_find_text', { rcp_no: '20261116000766', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: none });
   assert.ok(nr.isError);
   assert.match(nr.text, /OpenDART 원문 실패\(시간 초과\) · DART 누리집 목차도 실패\(시간 초과\) — 원문 미확인\. 정기보고서면 kr_signals\(section=report\)/);
   // 아주 큰 윗장(150만 자 넘는 III. 재무에 관한 사항)은 윗장 대신 아랫절을 받는다
   const bigFrame = `<script>
-    var node1 = {}; node1['text'] = "III. 재무에 관한 사항"; node1['rcpNo'] = "20261116000765"; node1['dcmNo'] = "1"; node1['eleId'] = "20"; node1['offset'] = "1000"; node1['length'] = "3000000"; node1['dtd'] = "dart4.xsd";
-    var node2 = {}; node2['text'] = "3. 연결재무제표 주석"; node2['rcpNo'] = "20261116000765"; node2['dcmNo'] = "1"; node2['eleId'] = "23"; node2['offset'] = "5000"; node2['length'] = "900000"; node2['dtd'] = "dart4.xsd";
-    var node2 = {}; node2['text'] = "5. 재무제표 주석"; node2['rcpNo'] = "20261116000765"; node2['dcmNo'] = "1"; node2['eleId'] = "25"; node2['offset'] = "1000000"; node2['length'] = "800000"; node2['dtd'] = "dart4.xsd";
+    var node1 = {}; node1['text'] = "III. 재무에 관한 사항"; node1['rcpNo'] = "20261116000767"; node1['dcmNo'] = "1"; node1['eleId'] = "20"; node1['offset'] = "1000"; node1['length'] = "3000000"; node1['dtd'] = "dart4.xsd";
+    var node2 = {}; node2['text'] = "3. 연결재무제표 주석"; node2['rcpNo'] = "20261116000767"; node2['dcmNo'] = "1"; node2['eleId'] = "23"; node2['offset'] = "5000"; node2['length'] = "900000"; node2['dtd'] = "dart4.xsd";
+    var node2 = {}; node2['text'] = "5. 재무제표 주석"; node2['rcpNo'] = "20261116000767"; node2['dcmNo'] = "1"; node2['eleId'] = "25"; node2['offset'] = "1000000"; node2['length'] = "800000"; node2['dtd'] = "dart4.xsd";
   </script>`;
   const bf = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': timeout,
     'https://dart.fss.or.kr/dsaf001/main.do': new Response(bigFrame, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
     'https://dart.fss.or.kr/report/viewer.do': (url) => page(url.includes('eleId=25') ? '우발부채 NPG 공정 관련 손상' : '연결 주석') });
-  const bt = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: bf });
+  const bt = await call('dart_find_text', { rcp_no: '20261116000767', word: 'NPG' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: bf });
   assert.match(bt.text, /목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음/);
   assert.match(bt.text, /■ 5\. 재무제표 주석 · /);
   assert.ok(!bf.calls.some((c) => c.url.includes('eleId=20')));   // 300만 자 윗장은 받지 않음
+  // 같은 보고서를 다시 찾으면 원문(ZIP)을 다시 받지 않는다 · 이어 읽기(start)는 그 장부터, 원문(ZIP) 없이
+  const again = await call('dart_find_text', { rcp_no: '20261116000767', word: '주석' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: bf });
+  assert.match(again.text, /OpenDART 원문\(ZIP\) 방금 시간 초과\(다시 받지 않음\) → /);
+  assert.equal(bf.calls.filter((c) => c.url.startsWith('https://opendart')).length, 1);
+  const cont = await call('dart_find_text', { rcp_no: '20261116000767', word: 'NPG', start: 1 }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: bf });
+  assert.match(cont.text, /OpenDART 원문\(ZIP\) 이어 읽기 → DART 누리집 목차 3개 장\(범위가 겹치는 장 1개 빼고 2개\)을 나눠 읽음 · 2번째 장부터/);
+  assert.match(cont.text, /읽은 장 1\/1\(2번째부터\)/);
+  assert.equal(bf.calls.filter((c) => c.url.includes('eleId=23')).length, 2);   // 앞 두 호출만 23을 읽고 이어 읽기는 25부터
   const list = fakeFetch({ 'https://opendart.fss.or.kr/api/list.json': Response.json({ status: '000', total_count: 1, total_page: 1,
     list: [{ rcept_dt: '20261023', report_nm: '단일판매ㆍ공급계약체결', rcept_no: '20261023000111', flr_nm: '현대제철', rm: '유' }] }) });
   const l = await call('dart_filings', { company: '현대제철' }, { ...PRIVATE({ DART_API_KEY: 'k' }), fetch: list });

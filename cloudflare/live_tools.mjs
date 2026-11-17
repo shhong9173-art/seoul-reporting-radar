@@ -534,12 +534,18 @@ export async function dartFindText(ctx, args) {
   const word = String(args.word ?? '').trim();
   if (!/^\d{14}$/.test(rcp) || word.length < 1) return textResult('rcp_no(14자리 접수번호)와 word를 넣어 주세요.', true);
   const limit = clampInt(args.limit, 1, 20, 8);
+  // 이어 읽기(start): 앞 호출이 시간 한도로 다 못 읽은 장부터. 원문(ZIP)은 이미 시간 초과였으니 다시 받지 않는다.
+  // 같은 보고서가 이 작업자에서 방금 시간 초과였어도 바로 나눠 읽는다(낱말을 바꿔 여러 번 찾을 때 15초씩 버리지 않게)
+  const start = clampInt(args.start, 0, 500, 0);
+  if (start > 0) return dartViewerSearch(ctx, rcp, word, limit, '이어 읽기', start);
+  if (ZIP_SLOW.has(rcp) && Date.now() - ZIP_SLOW.get(rcp) < 6 * 3600000) return dartViewerSearch(ctx, rcp, word, limit, '방금 시간 초과(다시 받지 않음)');
   let bytes;
   try {
     const r = await ctx.fetch(`https://opendart.fss.or.kr/api/document.xml?crtfc_key=${encodeURIComponent(key)}&rcept_no=${rcp}`, { signal: signal(), headers: API_HEADERS });
     if (!r.ok) return dartViewerSearch(ctx, rcp, word, limit, `HTTP ${r.status}`);
     bytes = await readCapped(r, 30_000_000);
   } catch (e) {
+    if (e.name === 'TimeoutError') ZIP_SLOW.set(rcp, Date.now());
     return dartViewerSearch(ctx, rcp, word, limit, e.name === 'TimeoutError' ? '시간 초과' : e.message);
   }
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
@@ -578,7 +584,9 @@ const VIEWER_BATCH = 6;
 const VIEWER_BUDGET_MS = 35000;
 const VIEWER_PARENT_MAX = 1_500_000;   // 목차 범위 글자 수 — 이보다 큰 윗장은 아랫절로 나눠 받는다
 const VIEWER_CAP = 12_000_000;
-async function dartViewerSearch(ctx, rcp, word, limit, why) {
+const VIEWER_MIN_LEFT_MS = 5000;        // 남은 시간이 이보다 적으면 새 묶음을 시작하지 않는다(이어 읽기로 넘김)
+const ZIP_SLOW = new Map();             // 접수번호 → 원문(ZIP) 시간 초과 시각(이 작업자 메모리, 사라져도 무방)
+async function dartViewerSearch(ctx, rcp, word, limit, why, start = 0) {
   const main = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
   const headers = { 'User-Agent': sourceAgent(ctx, new URL(main)), Accept: 'text/html,application/xhtml+xml' };
   const fail = (what) => textResult(`OpenDART 원문 실패(${why}) · DART 누리집 ${what} — 원문 미확인. 정기보고서면 kr_signals(section=report)에 수집기가 뽑아 둔 대목이 있는지 본다`, true);
@@ -602,43 +610,50 @@ async function dartViewerSearch(ctx, rcp, word, limit, why) {
     return !parts.some((b, j) => j !== i && !big(b) && holds(b, a) && (!holds(a, b) || j < i));
   });
   const deadline = Date.now() + VIEWER_BUDGET_MS;
-  const out = [`DART 원문 검색: ${rcp} "${word}" · OpenDART 원문(ZIP) ${why} → DART 누리집 목차 ${listed}개 장${listed > parts.length ? `(범위가 겹치는 장 ${listed - parts.length}개 빼고 ${parts.length}개)` : ''}을 나눠 읽음`];
+  const from = Math.min(start, parts.length);
+  const out = [`DART 원문 검색: ${rcp} "${word}" · OpenDART 원문(ZIP) ${why} → DART 누리집 목차 ${listed}개 장${listed > parts.length ? `(범위가 겹치는 장 ${listed - parts.length}개 빼고 ${parts.length}개)` : ''}을 나눠 읽음`
+    + `${from ? ` · ${from + 1}번째 장부터` : ''}`];
   const seen = new Set();
   const missed = [];
   let found = 0;
   let read = 0;
-  let next = 0;
+  let next = from;
+  let slow = 0;
   while (next < parts.length && found < limit) {
-    if (Date.now() > deadline) break;
+    if (deadline - Date.now() < VIEWER_MIN_LEFT_MS) break;
     const batch = parts.slice(next, next + VIEWER_BATCH);
     next += batch.length;
     const texts = await Promise.all(batch.map(async (p) => {
       try {
-        const r = await ctx.fetch(p.viewer, { signal: AbortSignal.timeout(Math.max(3000, Math.min(TIMEOUT_MS, deadline - Date.now()))), headers: { ...headers, Referer: main } });
-        if (!r.ok) return null;
-        return htmlToText(decodeBytes(await readCapped(r, VIEWER_CAP), r.headers.get('Content-Type') ?? '').text);
-      } catch { return null; }
+        const r = await ctx.fetch(p.viewer, { signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, deadline - Date.now())), headers: { ...headers, Referer: main } });
+        if (!r.ok) return { why: `HTTP ${r.status}` };
+        return { text: htmlToText(decodeBytes(await readCapped(r, VIEWER_CAP), r.headers.get('Content-Type') ?? '').text) };
+      } catch (e) { if (e.name === 'TimeoutError') slow += 1; return { why: e.name === 'TimeoutError' ? '시간 초과' : String(e.message).slice(0, 40) }; }
     }));
-    for (const [j, text] of texts.entries()) {
+    for (const [j, got] of texts.entries()) {
       const p = batch[j];
-      if (text == null) { missed.push(p); continue; }
+      if (got.text == null) { missed.push({ ...p, why: got.why }); continue; }
+      const text = got.text;
       read += 1;
       const hits = [];
+      let total = 0;
       let i = text.indexOf(word);
-      while (i >= 0) { hits.push(i); i = text.indexOf(word, i + word.length); }
-      // 윗장(章)과 아랫절이 같은 글을 품기도 해 같은 대목은 한 번만 옮긴다
+      while (i >= 0) { total += 1; if (!hits.length || i - hits[hits.length - 1] > 200) hits.push(i); i = text.indexOf(word, i + word.length); }
+      // 가까운 곳(200자 안)은 한 대목으로, 윗장(章)과 아랫절이 같은 글을 품기도 해 같은 대목은 한 번만 옮긴다
       const fresh = hits.map((at) => text.slice(Math.max(0, at - 160), at + word.length + 160)).filter((x) => !seen.has(x.replace(/\s+/g, ' ')));
       if (!fresh.length) continue;
       const take = fresh.slice(0, Math.max(0, limit - found));
       const hash = await sha256Hex(text);
-      out.push(`\n■ ${p.text || `문서 ${p.dcmNo}/${p.eleId}`} · ${text.length}자 · ${hits.length}곳 · sha256:${hash} · ${p.viewer}`);
+      out.push(`\n■ ${p.text || `문서 ${p.dcmNo}/${p.eleId}`} · ${text.length}자 · ${total}곳 · sha256:${hash} · ${p.viewer}`);
       if (take.length) out.push(await issueEvidence(ctx, 'source', { url: main, hash, date: publicationDate('', main), excerpt: take.join('\n') }));
       for (const x of take) { seen.add(x.replace(/\s+/g, ' ')); out.push(`… ${x.replace(/\s+/g, ' ')} …`); found += 1; }
     }
   }
   const unread = parts.length - next;
-  out.push(`\n읽은 장 ${read}/${parts.length}${missed.length ? ` · 못 읽은 장 ${missed.length}개(${missed.slice(0, 6).map((p) => p.text || p.eleId).join(', ')}${missed.length > 6 ? ' 등' : ''}) — 그 안은 미확인` : ''}`
+  out.push(`\n읽은 장 ${read}/${parts.length - from}${from ? `(${from + 1}번째부터)` : ''}${missed.length ? ` · 못 읽은 장 ${missed.length}개(${missed.slice(0, 6).map((p) => `${p.text || p.eleId}: ${p.why}`).join(', ')}${missed.length > 6 ? ' 등' : ''}) — 그 안은 미확인` : ''}`
     + `${unread ? ` · ${found >= limit ? `찾은 곳이 한도(${limit})에 닿아` : '시간 한도로'} 나머지 ${unread}개 장은 안 읽음` : ''}`);
+  if (unread && found < limit) out.push(`이어 읽기: dart_find_text(rcp_no=${rcp}, word="${word}", start=${next}) — ${next + 1}번째 장(${parts[next].text || parts[next].eleId})부터`);
+  if (slow) out.push(`장 ${slow}개가 시간 초과 — 같은 start로 다시 부르면 다시 받는다`);
   out.push(`원문 링크: ${main}`);
   if (!found) out.push(`이 낱말은 읽은 장에서 찾지 못함${missed.length || unread ? '(못 읽은 장은 미확인)' : ''}(표 이미지·첨부 PDF 안의 글자는 못 봄).`);
   return textResult(out.join('\n'));
