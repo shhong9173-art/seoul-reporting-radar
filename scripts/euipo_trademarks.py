@@ -251,7 +251,7 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             if fid in old:
                 f = old[fid]
                 f.update(status=it.get("status") or f.get("status"), classes=classes or f.get("classes"), **({"basis": it["bases"]} if it.get("bases") else {}),
-                         **_madrid(it))
+                         **({"goods": it["goods"]} if it.get("goods") else {}), **_madrid(it))
                 continue
             late_first = mode == "list" and list_first and bool(day) and day < old_cut
             is_new = new and not first_read and not late_first
@@ -263,6 +263,7 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
                  "url": meta["url"].format(no=no),
                  **({"via": "signa"} if via == "signa" else {}),
                  **({"basis": it["bases"]} if it.get("bases") else {}),      # 미국 출원 근거(출원 때 적은 것): intent_to_use = 아직 안 쓰는 이름
+                 **({"goods": it["goods"]} if it.get("goods") else {}),      # 지정상품 글(Signa, 11-17) — 원문은 상표청에서 확인
                  **_madrid(it),
                  **({"route": "마드리드 지정"} if str(it.get("filingRoute") or "").startswith("madrid") else {})}
             old[fid] = f

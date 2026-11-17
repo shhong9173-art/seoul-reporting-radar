@@ -59,7 +59,10 @@ def _row(x):
             # 2019-06-24 국제등록이었다. 미국 줄은 비어 있었다). 기초출원(relationships)은 상세 조회에도 비어 있었다 — 국제등록 줄의 origin·priority로만 짐작 가능
             "office": x.get("office_code"), "irNumber": x.get("ir_number"), "registrationDate": x.get("registration_date"),
             "status": _status(st, raw),
-            "filingRoute": x.get("filing_route")}
+            "filingRoute": x.get("filing_route"),
+            # 11-17 탐침: 목록 줄에도 classifications[].goods_services_text(지정상품 글)가 온다 — 상세 조회(1크레딧) 없이 첫 줄을 화면에
+            "goods": [{"class": c.get("nice_class"), "text": str(c.get("goods_services_text") or "")[:400]}
+                      for c in (x.get("classifications") or [])[:6] if isinstance(c, dict) and c.get("goods_services_text")]}
 
 
 def _left(r):

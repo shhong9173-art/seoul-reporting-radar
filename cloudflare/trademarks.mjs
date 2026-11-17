@@ -84,6 +84,15 @@ export const irNote = (f) => {
   return ` · 국제등록${ir.registered ? ` ${ir.registered}` : '일 미확인'}${ir.number ? `(IR ${ir.number})` : ''}${gap !== null && gap > 365 ? ' — 예전 국제등록에 이 관청을 나중에 지정한 것(새 이름이 아닐 수 있음)' : ''}`;
 };
 export const basisNote = (f) => ((f.basis ?? []).length ? ` · 출원 근거 ${f.basis.map((b) => BASIS_KO[b] ?? b).join('·')}` : '');
+// 11-17 기자 결정('전부 추천대로'): 지정상품 첫 줄(Signa 목록 줄의 goods_services_text — 업종 핵심 상품류 먼저). 원문은 상표청에서 확인
+export const goodsNote = (f) => {
+  const goods = (f.goods ?? []).filter((g) => g && g.text);
+  if (!goods.length) return '';
+  const core = new Set((f.coreClasses ?? []).map(Number));
+  const g = goods.find((x) => core.has(Number(x.class))) ?? goods[0];
+  const text = String(g.text).replace(/\s+/g, ' ').trim();
+  return ` · 지정상품(${String(g.class).padStart(2, '0')}류) ${text.length > 140 ? `${text.slice(0, 139)}…` : text}`;
+};
 const kstShort = (t) => (Number.isFinite(Date.parse(t)) ? `${new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} KST` : String(t));
 function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = Date.now() }) {
   if (!eu) return [];
@@ -120,7 +129,7 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = 
   out.push(`[${all ? `저장된 ${T.short} 출원` : `새로 본 ${T.short} 출원`}] ${rows.length}건`);
   for (const f of rows.slice(0, limit)) {
     out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
-      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${irNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
+      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${irNote(f)}${goodsNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
   }
   if (!rows.length) out.push((eu.blocked && eu.provider !== 'signa') || bad.length || waitingEu.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
   out.push(`검증 상태: ${T.verify}(자동 수집${eu.provider === 'signa' ? ', Signa 2차 자료 — 불완전·부정확할 수 있음' : ''}). ${T.how}`);

@@ -2336,6 +2336,15 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     assert.match(us2, /조회 방식: 출원인 id를 모은 회사 2곳은 목록 한 번 조회\(평일 매일\) — 이번 1쪽 26줄\(2026-10-23 이후 Signa가 넣거나 고친 줄만\) · Signa가 USPTO 자료를 마지막으로 맞춘 때 10-25 22:14 KST\n/);
     assert.match(us2, /(?:일련번호|출원번호) 50141613[^\n]* · 상태 NEW_APPLICATION · 출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · Signa/);
     assert.match((await call('radar_today', { include_minor: true }, opts)).text, /출원인 HYUNDAI MOTOR COMPANY\) · 출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · Signa 2차 자료/);
+    // 11-17: 목록 줄의 지정상품 글 — 업종 핵심 상품류를 먼저, 140자에서 자른다
+    s.us.filings[0].goods = [{ class: 9, text: 'Downloadable software' }, { class: 28, text: 'Toy vehicles;   ride-on toys' }];
+    s.us.filings[0].coreClasses = [28];
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
+    assert.match((await call('trademarks', {}, opts)).text, /출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · 지정상품\(28류\) Toy vehicles; ride-on toys · Signa/);
+    s.us.filings[0].goods = [{ class: 12, text: 'x'.repeat(300) }];
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
+    assert.match((await call('trademarks', {}, opts)).text, / · 지정상품\(12류\) x{139}… · Signa/);
+    delete s.us.filings[0].goods; delete s.us.filings[0].coreClasses;
     // 맞춘 지 이틀이 넘었으면 그 뒤 출원은 미확인이라고 적는다
     s.us.providerSyncedAt = '2026-10-22T13:14:40.468Z';
     await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
