@@ -5716,4 +5716,10 @@ test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄�
   const h = (await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T04:40:00Z') })).text;
   assert.match(h, /\n\[기자 전용\] ⚠ 기자 컴퓨터 수집\(Aside 예약 작업[^\n]*: 결과 없음 — 미확인\n/);
   assert.match(h, /\n\[기자 전용\] ⚠ 단독 후보 즉시 알림\([^\n]*예약 1번 기록 없음\(12:43\)/);
+  // 수집이 정상이면 어느 예정 수집까지 올라왔는지 적는다(09:00 수집은 09:45까지 기다린다)
+  const rows = [{ mgt: '1', cells: ['제2026-1호', '고시', '과', '2026-11-16'] }];
+  await call('local_notice_submit', { via: 'aside', cities: ['인천 부평구', '구미시', '청주시', '순천시', '함평군'].map((city) => ({ city, rows })),
+    labor: [{ commission: '중앙노동위원회', error: '시험' }], pages: [{ id: 'au-trn', error: '시험' }] }, { ...opts, now: new Date('2026-11-17T00:04:00Z') });
+  assert.match((await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T00:40:00Z') })).text, /\n\[기자 전용\] · 기자 컴퓨터 수집: 가장 최근 예정 수집\(11-16 16:00\) 올라옴/);
+  assert.match((await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T01:00:00Z') })).text, /\n\[기자 전용\] · 기자 컴퓨터 수집: 가장 최근 예정 수집\(11-17 09:00\) 올라옴/);
 });

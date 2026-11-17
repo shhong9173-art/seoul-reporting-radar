@@ -3,7 +3,7 @@ import {
   TEAM_ORDER, clampInt, fetchJson, kstDate, kstStamp, matchesQuery, teamsFromParam, textResult,
 } from './common.mjs';
 import { alertHealth } from './alert_health.mjs';
-import { browserHealth } from './local_browser.mjs';
+import { browserHealth, lastBrowserSlot } from './local_browser.mjs';
 
 const COVERAGE_ORDER = { none_in_index: 0, not_compared: 1, index_unavailable: 1, similar_headlines: 2 };
 const SHORT_COVERAGE = {
@@ -138,7 +138,8 @@ export async function health(ctx) {
     const [bh, ah] = await Promise.all([
       browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`),
       alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`)]);
-    out.push(`[기자 전용] ${bh ? `⚠ ${bh}` : '· 기자 컴퓨터 수집: 예정 수집 올라옴'}`);
+    const slot = lastBrowserSlot(ctx.now.getTime());
+    out.push(`[기자 전용] ${bh ? `⚠ ${bh}` : `· 기자 컴퓨터 수집: 가장 최근 예정 수집${slot != null ? `(${kstStamp(new Date(slot)).slice(5, 16)})` : ''} 올라옴`}`);
     if (ah) out.push(`[기자 전용] ⚠ ${ah}`);
   }
   return textResult(out.join('\n'));
