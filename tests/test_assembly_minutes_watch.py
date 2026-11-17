@@ -112,9 +112,39 @@ class AssemblyMinutesTest(unittest.TestCase):
         for k in range(3):
             doc = w.run(NOW, doc, key="k", get=get, sleep=lambda s: None, extract=extract)
             self.assertEqual(doc["status"], "partial")
-            self.assertIn("회의록 57701:ValueError", doc["checks"][0]["error"])
+            self.assertIn("회의록 57701:ValueError(PDF 아님 HTTP 500)", doc["checks"][0]["error"])
         self.assertIn("57701", doc["seen"])          # 세 번째에 넘김
         self.assertNotIn("57701", doc.get("tries", {}))
+
+    def test_not_posted_file_waits_without_counting_as_failure(self):
+        # 11-18 첫 실행: 국정감사 회의록 12개가 파일 대신 '원본 회의록 파일이 등록되지 않았습니다' 알림을 돌려줬다
+        alert = "<script type='text/javascript'>alert('내려받을 원본 회의록 파일이 등록되지 않았습니다.');history.back();</script>".encode("utf-8")
+        def get(url, params=None, headers=None, timeout=None):
+            if url == w.API + w.COMMITTEE:
+                return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+            if url == w.API + w.AUDIT:
+                return Resp(AUDIT_ROWS)
+            if "id=57437" in url:
+                return Resp(content=alert)
+            return Resp(content=b"%PDF-1.4 57701")
+        prev = {"schema": w.SCHEMA, "tries": {"57437": 1}}
+        doc = w.run(NOW, prev, key="k", get=get, sleep=lambda s: None, extract=extract)
+        c = doc["checks"][0]
+        self.assertEqual((doc["status"], c["notPosted"], c["opened"], c["read"]), ("complete", 1, 1, 1))
+        self.assertNotIn("57437", doc["seen"])
+        self.assertNotIn("57437", doc.get("tries", {}))
+        self.assertNotIn("error", c)
+
+    def test_budget_counts_only_real_files(self):
+        old = w.DETAIL_BUDGET
+        try:
+            w.DETAIL_BUDGET = 1
+            urls = []
+            doc = w.run(NOW, None, key="k", get=fake_get(urls), sleep=lambda s: None, extract=extract)
+            c = doc["checks"][0]
+            self.assertEqual((c["opened"], c["pending"]), (1, 1))
+        finally:
+            w.DETAIL_BUDGET = old
 
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
