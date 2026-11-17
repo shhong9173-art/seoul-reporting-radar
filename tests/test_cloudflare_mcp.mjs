@@ -1,5 +1,6 @@
 import { irNote } from '../cloudflare/trademarks.mjs';
 import { alertGaps, alertRuns } from '../cloudflare/alert_health.mjs';
+import { chunkText } from '../cloudflare/dart_text.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
@@ -5781,4 +5782,37 @@ test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄�
     labor: [{ commission: '중앙노동위원회', error: '시험' }], pages: [{ id: 'au-trn', error: '시험' }] }, { ...opts, now: new Date('2026-11-17T00:04:00Z') });
   assert.match((await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T00:40:00Z') })).text, /\n\[기자 전용\] · 기자 컴퓨터 수집: 가장 최근 예정 수집\(11-16 16:00\) 올라옴/);
   assert.match((await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-17T01:00:00Z') })).text, /\n\[기자 전용\] · 기자 컴퓨터 수집: 가장 최근 예정 수집\(11-17 09:00\) 올라옴/);
+});
+
+test('정기보고서 원문 미리 넣기(11-17): /ingest/dart-text로 받은 글자를 dart_find_text가 원문(ZIP)·DART 누리집보다 먼저 한 번에 찾는다', async () => {
+  // 1.8MB씩 줄 단위로, 한 줄이 넘으면 글자 수로
+  assert.deepEqual(chunkText('가나\n다라\n마바', 10), ['가나', '다라', '마바']);
+  assert.deepEqual(chunkText('ab\ncd', 100), ['ab\ncd']);
+  assert.equal(chunkText('가'.repeat(30), 30).join(''), '가'.repeat(30));
+  const own = PRIVATE({ DART_API_KEY: 'k' });
+  const url = (q = '') => ORIGIN + '/ingest/dart-text' + q;
+  const auth = { Authorization: `Bearer ${TOKEN}` };
+  // 토큰이 없거나 틀리면 404(다른 감시와 같게 — 있는지도 알리지 않는다)
+  assert.equal((await worker.fetch(new Request(url('?rcp=20261116000765')), own.env, {})).status, 404);
+  assert.equal((await worker.fetch(new Request(url('?rcp=20261116000765'), { headers: { Authorization: 'Bearer ' + 'x'.repeat(43) } }), own.env, {})).status, 404);
+  assert.deepEqual(await (await worker.fetch(new Request(url('?rcp=20261116000765'), { headers: auth }), own.env, {})).json(), { have: false, chunks: 0, at: null });
+  const body = { schema: 'dart_text/v1', rcp: '20261116000765', files: [
+    { name: '20261116000765.xml', text: '분기보고서\n4분기는 여수공장 정기보수에 따른 기회손실이 예상\n개발담당 | NPG T/A를 위한 Direct HPNE 외주시양산 성공 |' },
+    { name: '20261116000765_00760.xml', text: '감사보고서 첨부\n여수 공장 부지' }] };
+  assert.equal((await worker.fetch(new Request(url(), { method: 'POST', headers: auth, body: JSON.stringify({ ...body, schema: 'x' }) }), own.env, {})).status, 400);
+  const put = await worker.fetch(new Request(url(), { method: 'POST', headers: auth, body: JSON.stringify(body) }), own.env, {});
+  assert.deepEqual(await put.json(), { saved: 2, chunks: 2 });
+  assert.equal((await (await worker.fetch(new Request(url('?rcp=20261116000765'), { headers: auth }), own.env, {})).json()).have, true);
+  // dart_find_text: 원문(ZIP)·DART 누리집을 부르지 않고 저장소에서 한 번에
+  const fetch = fakeFetch({ 'https://opendart.fss.or.kr/': () => { throw new Error('must not call'); }, 'https://dart.fss.or.kr/': () => { throw new Error('must not call'); } });
+  const r = await call('dart_find_text', { rcp_no: '20261116000765', word: '여수' }, { ...own, fetch });
+  assert.ok(!r.isError);
+  assert.match(r.text, /^DART 원문 검색: 20261116000765 "여수" · 레이더가 미리 받아 둔 원문\(OpenDART ZIP, \d\d-\d\d \d\d:\d\d 수집\) · 글자 \d+자 · 조각 2개를 다 읽음/);
+  assert.match(r.text, /■ 20261116000765\.xml · \d+자 · 1곳 · sha256:[0-9a-f]{64}\n검증 기록 ID: [^\n]+\n… 분기보고서 4분기는 여수공장 정기보수에 따른 기회손실이 예상/);
+  assert.match(r.text, /■ 20261116000765_00760\.xml · /);
+  assert.equal(fetch.calls.length, 0);
+  const none = await call('dart_find_text', { rcp_no: '20261116000765', word: '없는낱말' }, { ...own, fetch });
+  assert.match(none.text, /이 낱말은 원문 텍스트에서 찾지 못함/);
+  const one = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG', limit: 1 }, { ...own, fetch });
+  assert.match(one.text, /개발담당 \| NPG T\/A/);
 });

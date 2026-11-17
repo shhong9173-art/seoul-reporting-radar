@@ -41,6 +41,10 @@ const SCHEMA = [
   // idx -1은 목차(장 목록 JSON). 공개 공시 글이지만 기자가 무엇을 찾았는지는 남기지 않는다(낱말은 저장하지 않음).
   `CREATE TABLE IF NOT EXISTS dart_cache (rcp TEXT NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
      hash TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (rcp, idx))`,
+  // 출입처 정기보고서 원문 글자(11-17 '추천대로'): 정기보고서 감시(GitHub Actions)가 OpenDART 원문(ZIP)을 받아 글자로 바꿔 넣는다.
+  // dart_find_text가 이것부터 찾는다 — 작업자에서는 큰 보고서 ZIP이 15초 안에 안 오고, 나눠 읽기는 요청 50개 한도에 걸렸다. 100일·보고서 80건까지.
+  `CREATE TABLE IF NOT EXISTS dart_text (rcp TEXT NOT NULL, idx INTEGER NOT NULL, name TEXT NOT NULL, body TEXT NOT NULL,
+     hash TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (rcp, idx))`,
   // 홈페이지 로그인 실패 기록(아이피별·전체 1시간 잠금 계산용, 하루 지나면 지움)
   `CREATE TABLE IF NOT EXISTS login_fail (ip TEXT NOT NULL, at TEXT NOT NULL)`,
   // what a judged item was when it was judged (watch, kind, tier) — feeds roll over, the weekly review still needs it
@@ -50,6 +54,7 @@ const SCHEMA = [
 
 const DART_CACHE_MS = 24 * 3600000;
 const DART_CACHE_ROW_MAX = 1_900_000;
+const DART_TEXT_MS = 100 * 86400000;
 
 // Durable Object (fetch-style so it runs without the cloudflare:workers import).
 export class RadarStore {
@@ -155,6 +160,37 @@ export class RadarStore {
         const keep = this.all('SELECT rcp FROM dart_cache GROUP BY rcp ORDER BY MAX(created_at) DESC LIMIT 8').map((r) => r.rcp);
         if (keep.length) this.sql.exec(`DELETE FROM dart_cache WHERE rcp NOT IN (${keep.map(() => '?').join(',')})`, ...keep);
         return { saved };
+      }
+      case 'darttext.have': {
+        const rows = this.all('SELECT COUNT(*) AS n, MIN(created_at) AS at FROM dart_text WHERE rcp = ?', String(args.rcp));
+        return { have: rows[0].n > 0, chunks: rows[0].n, at: rows[0].at };
+      }
+      case 'darttext.put': {
+        const rcp = String(args.rcp);
+        this.sql.exec('DELETE FROM dart_text WHERE rcp = ?', rcp);
+        let saved = 0;
+        for (const [i, x] of (args.chunks ?? []).entries()) {
+          if (typeof x?.text !== 'string' || new TextEncoder().encode(x.text).length > DART_CACHE_ROW_MAX) continue;
+          this.sql.exec('INSERT INTO dart_text (rcp, idx, name, body, hash, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            rcp, i, String(x.name ?? '').slice(0, 120), x.text, String(x.hash ?? ''), at);
+          saved += 1;
+        }
+        this.sql.exec('DELETE FROM dart_text WHERE created_at < ?', new Date(Date.parse(at) - DART_TEXT_MS).toISOString());
+        const keep = this.all('SELECT rcp FROM dart_text GROUP BY rcp ORDER BY MAX(created_at) DESC LIMIT 80').map((r) => r.rcp);
+        if (keep.length) this.sql.exec(`DELETE FROM dart_text WHERE rcp NOT IN (${keep.map(() => '?').join(',')})`, ...keep);
+        return { saved };
+      }
+      // 미리 받아 둔 원문 글자에서 낱말 찾기 — 대목만 돌려준다(본문째 보내지 않는다)
+      case 'darttext.search': {
+        const rows = this.all('SELECT idx, name, body, hash, created_at FROM dart_text WHERE rcp = ? ORDER BY idx', String(args.rcp));
+        if (!rows.length) return { have: false };
+        const word = String(args.word ?? '');
+        const hits = [];
+        for (const r of rows) {
+          const h = wordHits(r.body, word, Number(args.max ?? 20));
+          if (h.total) hits.push({ idx: r.idx, name: r.name, chars: r.body.length, hash: r.hash, ...h });
+        }
+        return { have: true, chunks: rows.length, at: rows[0].created_at, chars: rows.reduce((n, r) => n + r.body.length, 0), hits };
       }
       case 'blobs.get':
         return { row: this.all('SELECT name, body, updated_at FROM blobs WHERE name = ?', args.name)[0] ?? null };
