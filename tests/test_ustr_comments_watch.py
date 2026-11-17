@@ -39,7 +39,7 @@ class Ustr(unittest.TestCase):
         self.assertEqual(w.companies_in("Korean steel producer POSCO received loans. POSCO International and LG Energy Solution are separate."), ["포스코"])   # 계열사는 출입처가 아니다
         self.assertEqual(w.companies_in("Hanwha Qcells and Hyundai Motor Group filed comments"), ["현대차", "한화솔루션"])
 
-    def collect(self, texts, previous=None, now=NOW, read_budget=50, fail=(), blocked=(), picky=()):
+    def collect(self, texts, previous=None, now=NOW, read_budget=50, fail=(), blocked=(), picky=(), burst=None):
         """texts: {commentId: (게시일, 제출자, 본문)}"""
         calls = []
         orig = w.pdf_text
@@ -67,7 +67,7 @@ class Ustr(unittest.TestCase):
             raise AssertionError(url)
 
         try:
-            return w.collect("k", now=now, previous=previous, get=get, sleep=lambda s: None, budget=w.uc.Budget(999), read_budget=read_budget), calls
+            return w.collect("k", now=now, previous=previous, get=get, sleep=lambda s: None, budget=w.uc.Budget(999), read_budget=read_budget, **({'burst': burst} if burst is not None else {})), calls
         finally:
             w.pdf_text = orig
 
@@ -127,6 +127,26 @@ class Ustr(unittest.TestCase):
         # 다음 실행: 첫 읽기가 여러 실행에 걸쳐도 기준선 기준(감시 시작일)은 같다
         nxt, _ = self.collect(texts, previous=doc, now=NOW + dt.timedelta(days=5), read_budget=10)
         self.assertEqual((nxt["summary"]["waiting"], len(nxt["items"]), all(x["baseline"] for x in nxt["items"])), (0, 5, True))
+
+    def test_burst_reads_a_mass_posting_and_counts_dropped_comments(self):
+        # 11-17 기자 결정: USMCA 같은 대량 게시는 그 실행만 한도를 올려 읽고, 목록에서 빠진 의견서는 '철회 추정'으로 센다
+        texts = {f"USTR-2026-0595-{i:04d}": ("2026-11-16", f"Group {i}", REBAR) for i in range(6)}
+        orig = w.READ_BUDGET
+        try:
+            w.READ_BUDGET = 2
+            doc, _ = self.collect(texts, read_budget=2)
+        finally:
+            w.READ_BUDGET = orig
+        doc2, _ = self.collect(texts, read_budget=2, burst=4)
+        self.assertEqual((doc2["summary"]["readNow"], doc2["summary"]["waiting"], doc2["summary"]["burst"]), (2, 4, 0))   # 기본 한도가 아니면 그대로
+        self.assertEqual((doc["summary"]["readNow"], doc["summary"]["waiting"], doc["summary"]["burst"]), (6, 0, 6))       # 밀린 6건 > 기본 2건 → 6건까지
+        gone = dict(texts)
+        gone.pop("USTR-2026-0595-0003")
+        nxt, _ = self.collect(gone, previous=doc, now=NOW + dt.timedelta(hours=8))
+        self.assertEqual(nxt["summary"]["dropped"], 1)
+        self.assertIn("gone", nxt["seen"]["USTR-2026-0595-0003"])
+        back, _ = self.collect(texts, previous=nxt, now=NOW + dt.timedelta(hours=16))
+        self.assertEqual(back["summary"]["dropped"], 0)                                                                  # 다시 보이면 지운다
 
 
 if __name__ == "__main__":
