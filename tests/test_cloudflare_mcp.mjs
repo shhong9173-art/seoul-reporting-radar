@@ -5816,3 +5816,31 @@ test('정기보고서 원문 미리 넣기(11-17): /ingest/dart-text로 받은 �
   const one = await call('dart_find_text', { rcp_no: '20261116000765', word: 'NPG', limit: 1 }, { ...own, fetch });
   assert.match(one.text, /개발담당 \| NPG T\/A/);
 });
+
+test('보고서 전체 새 낱말(11-17): /ingest/dart-text-scan이 저장소 안에서 이번·앞 보고서 줄을 비교해 앞 보고서에 없던 낱말 줄만 돌려준다', async () => {
+  const own = PRIVATE();
+  const auth = { Authorization: `Bearer ${TOKEN}` };
+  const put = (rcp, text) => worker.fetch(new Request(ORIGIN + '/ingest/dart-text', { method: 'POST', headers: auth,
+    body: JSON.stringify({ schema: 'dart_text/v1', rcp, files: [{ name: `${rcp}.xml`, text }] }) }), own.env, {});
+  const scan = (body, headers = auth) => worker.fetch(new Request(ORIGIN + '/ingest/dart-text-scan', { method: 'POST', headers, body: JSON.stringify(body) }), own.env, {});
+  const words = ['회생', '가동중단', '매각'];
+  assert.equal((await scan({ rcp: '20261116000765', base: '20260814000765', words }, {})).status, 404);   // 토큰 없으면 404
+  assert.deepEqual(await (await scan({ rcp: '20261116000765', base: '20260814000765', words })).json(), { status: 'missing', cur: false, base: false });
+  await put('20260814000765', ['당반기 중 매각예정자산으로 분류한 자산은 1,234백만원입니다', '대산 공장은 정상 가동 중입니다', '종속기업 매각 | 1,000 | 2,000'].join('\n'));
+  await put('20261116000765', ['당분기 중 매각예정자산으로 분류한 자산은 5,678백만원입니다',   // 금액·기간 낱말만 바뀐 줄 — 새 줄 아님
+    '여수 NPG 공정은 2026년 12월 가동중단 예정입니다', '협력사 A사가 회생절차 개시를 신청하였습니다', '종속기업 매각 | 3,000 | 4,000',   // 짧은 표 줄은 세지 않음
+    '대산 공장은 정상 가동 중입니다'].join('\n'));
+  const r = await (await scan({ rcp: '20261116000765', base: '20260814000765', words })).json();
+  assert.equal(r.status, 'ok');
+  assert.deepEqual(r.lines, [{ word: '가동중단', line: '여수 NPG 공정은 2026년 12월 가동중단 예정입니다' }, { word: '회생', line: '협력사 A사가 회생절차 개시를 신청하였습니다' }]);
+  // 정기보고서 감시 화면에 비교한 곳 수
+  const notes = { schema: 'kr_report_notes/v1', generatedAt: '2026-11-17T13:20:00+09:00', period: { year: 2026, report: '11014', label: '2026년 3분기' }, summary: { read: 2, companies: 2 }, checks: [],
+    companies: { LG화학: { status: 'ok', period: '202611014', rcept: '20261116000765', wordScan: { rcept: '20261116000765' } }, 현대차: { status: 'ok', period: '202611014', rcept: '20261116001437' } },
+    events: [{ id: 'rptword:20261116000765', kind: '보고서 전체 새 낱말', company: 'LG화학', tier: 'B', detectedAt: '2026-11-17T13:20:00+09:00', filed: '20261116', period: '2026년 3분기',
+      lines: ['〔가동중단〕 여수 NPG 공정은 2026년 12월 가동중단 예정입니다'], url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000765' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: auth, body: JSON.stringify(notes) }), own.env, {})).status, 200);
+  const t = (await call('kr_signals', { section: 'report', days: 3 }, { ...own, now: new Date('2026-11-17T05:00:00Z') })).text;
+  assert.match(t, /범위: 보고서 전체 새 낱말\([^)]*\) — 이번·앞 보고서 줄을 비교한 곳 1\/2곳/);
+  assert.match(t, /- \[신규\] B · 11-17 13:20 · LG화학 · 보고서 전체 새 낱말 · 접수 2026-11-16\n   새 줄: 〔가동중단〕 여수 NPG 공정은 2026년 12월 가동중단 예정입니다/);
+  assert.match((await call('radar_today', { hours: 24 }, { ...own, now: new Date('2026-11-17T05:00:00Z') })).text, /LG화학[^\n]*앞 보고서에 없던 보고서 전체 새 낱말 1줄/);
+});
