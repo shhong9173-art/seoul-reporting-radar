@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T13:53:29+09:00",
+  "generatedAt": "2026-11-17T17:35:22+09:00",
   "status": "official_date_triage",
   "windowStart": "2026-11-15",
   "windowEnd": "2026-11-17",
@@ -9,7 +9,7 @@
       "name": "recent_contracts",
       "status": "checked_source",
       "sourceAt": "2026-11-17T08:12:24+09:00",
-      "sourceAgeHours": 5.7,
+      "sourceAgeHours": 9.4,
       "records": 4,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -19,7 +19,7 @@
       "name": "overseas_official",
       "status": "checked_source",
       "sourceAt": "2026-11-17T08:12:22+09:00",
-      "sourceAgeHours": 5.7,
+      "sourceAgeHours": 9.4,
       "records": 8,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -27,9 +27,9 @@
     },
     {
       "name": "investigation_hunt",
-      "status": "snapshot_older_than_24h",
-      "sourceAt": "2026-11-16T12:14:45+09:00",
-      "sourceAgeHours": 25.6,
+      "status": "checked_source",
+      "sourceAt": "2026-11-17T14:16:51+09:00",
+      "sourceAgeHours": 3.3,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-11-17T13:52:19+09:00",
-      "sourceAgeHours": 0.0,
+      "sourceAt": "2026-11-17T16:54:08+09:00",
+      "sourceAgeHours": 0.7,
       "records": 23,
       "checkedQueries": null,
       "failedQueries": null,
@@ -48,8 +48,8 @@
     {
       "name": "nhtsa_official",
       "status": "partial_collection",
-      "sourceAt": "2026-11-17T05:24:25.216291+09:00",
-      "sourceAgeHours": 8.5,
+      "sourceAt": "2026-11-17T17:35:22.472270+09:00",
+      "sourceAgeHours": 0.0,
       "records": 80,
       "checkedQueries": 7,
       "failedQueries": 1,
@@ -68,7 +68,6 @@
     }
   ],
   "incompleteOrStaleFeeds": [
-    "investigation_hunt",
     "nhtsa_official",
     "dart_beat_monitor"
   ],
@@ -85,9 +84,9 @@
     "DART_FILING:20261027800235": "2026-10-27",
     "FOREIGN_NOTICE:US Federal Register:2026-22706": "2026-11-09",
     "FOREIGN_NOTICE:US Federal Register:2026-22630": "2026-11-06",
-    "DART_DELTA:20260814003228:변압기 철심공장": "2026-10-15",
-    "DART_DELTA:20260814003228:중저압차단기 자동화설비": "2026-10-15",
-    "DART_DELTA:20260814003228:청주 배전캠퍼스 신축(*)": "2026-10-15",
+    "DART_DELTA:20261116001028:변압기 철심공장": "2026-11-17",
+    "DART_DELTA:20261116001028:중저압차단기 자동화설비": "2026-11-17",
+    "DART_DELTA:20261116001028:청주 배전캠퍼스 신축(*)": "2026-11-17",
     "DART_METRIC:20261116002011:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS": "2026-11-17",
     "DART_METRIC:20261112000682:아시아": "2026-11-13",
     "DART_METRIC:20261113000671:생산설비": "2026-11-16",
@@ -141,6 +140,9 @@
     "NHTSA:11769489": "2026-10-30",
     "NHTSA:11761556": "2026-10-30",
     "NHTSA:11737171": "2026-11-05",
+    "DART_DELTA:20260814003228:변압기 철심공장": "2026-10-15",
+    "DART_DELTA:20260814003228:중저압차단기 자동화설비": "2026-10-15",
+    "DART_DELTA:20260814003228:청주 배전캠퍼스 신축(*)": "2026-10-15",
     "DART_METRIC:20260814003088:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS": "2026-10-15",
     "DART_METRIC:20260814003088:청주2/배전반, 초고압GIS, 변압기, 철도/SE등": "2026-10-15",
     "DART_METRIC:20260814003088:청주2/배전반, 초고압GIS, 변압기 철도/SE 등": "2026-10-28",
@@ -1051,12 +1053,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:청주2/배전반, 초고압GIS, 변압기 철도/SE 등",
@@ -1075,12 +1077,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS",
@@ -1099,12 +1101,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:하 역/서비스",
@@ -1123,12 +1125,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:운 송/서비스",
@@ -1147,12 +1149,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:용 역/서비스",
@@ -1171,12 +1173,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:부산물",
@@ -1195,12 +1197,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:제 품",
@@ -1219,12 +1221,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:전기전자 부문/변압기 外",
@@ -1243,12 +1245,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116000957:해외판매",
@@ -1267,12 +1269,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:인도/제품, 상품, 기타매출",
@@ -1291,12 +1293,12 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:기타/제품, 상품, 기타매출",
@@ -1315,12 +1317,84 @@
       "approvedForPitch": false,
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
+      "firstObservedThisRun": false,
+      "publicDocumentAgeDays": 1,
+      "officialDateInRecentWindow": true,
+      "editorialBucket": "published_background",
+      "freshArticleConfirmed": false,
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
+    },
+    {
+      "id": "DART_DELTA:20261116001028:청주 배전캠퍼스 신축(*)",
+      "source": "DART_DELTA",
+      "officialDate": "2026-11-16",
+      "headline": "HD현대일렉트릭 · 청주 배전캠퍼스 신축(*)",
+      "company": "HD현대일렉트릭",
+      "officialFact": "과거·최근 사업보고서상 투자 종료 예정월 항목 차이(실제 준공 지연 증명 아님)",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028",
+      "verification": "공개된 공시 간 예상 종료월의 차이·이후 완공 공시·기보도 확인(미공개 생산계획 질의 금지)",
+      "classification": "public_official_document_not_a_scoop",
+      "companyImpactVerified": false,
+      "contractTermsVerified": false,
+      "priorMediaCoverageVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "evidenceClass": "comparison_of_two_public_reports",
+      "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": true,
       "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T14:16:51+09:00"
+    },
+    {
+      "id": "DART_DELTA:20261116001028:중저압차단기 자동화설비",
+      "source": "DART_DELTA",
+      "officialDate": "2026-11-16",
+      "headline": "HD현대일렉트릭 · 중저압차단기 자동화설비",
+      "company": "HD현대일렉트릭",
+      "officialFact": "과거·최근 사업보고서상 투자 종료 예정월 항목 차이(실제 준공 지연 증명 아님)",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028",
+      "verification": "공개된 공시 간 예상 종료월의 차이·이후 완공 공시·기보도 확인(미공개 생산계획 질의 금지)",
+      "classification": "public_official_document_not_a_scoop",
+      "companyImpactVerified": false,
+      "contractTermsVerified": false,
+      "priorMediaCoverageVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "evidenceClass": "comparison_of_two_public_reports",
+      "firstObservedAt": "2026-11-17",
+      "firstObservedThisRun": true,
+      "publicDocumentAgeDays": 1,
+      "officialDateInRecentWindow": true,
+      "editorialBucket": "published_background",
+      "freshArticleConfirmed": false,
+      "sourceSnapshotAt": "2026-11-17T14:16:51+09:00"
+    },
+    {
+      "id": "DART_DELTA:20261116001028:변압기 철심공장",
+      "source": "DART_DELTA",
+      "officialDate": "2026-11-16",
+      "headline": "HD현대일렉트릭 · 변압기 철심공장",
+      "company": "HD현대일렉트릭",
+      "officialFact": "과거·최근 사업보고서상 투자 종료 예정월 항목 차이(실제 준공 지연 증명 아님)",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028",
+      "verification": "공개된 공시 간 예상 종료월의 차이·이후 완공 공시·기보도 확인(미공개 생산계획 질의 금지)",
+      "classification": "public_official_document_not_a_scoop",
+      "companyImpactVerified": false,
+      "contractTermsVerified": false,
+      "priorMediaCoverageVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "evidenceClass": "comparison_of_two_public_reports",
+      "firstObservedAt": "2026-11-17",
+      "firstObservedThisRun": true,
+      "publicDocumentAgeDays": 1,
+      "officialDateInRecentWindow": true,
+      "editorialBucket": "published_background",
+      "freshArticleConfirmed": false,
+      "sourceSnapshotAt": "2026-11-17T14:16:51+09:00"
     },
     {
       "id": "DART_METRIC:20261113001360:중공업/변압기, 차단기, 전동기, 감속기 등",
@@ -1344,7 +1418,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113001360:공통/임대 등",
@@ -1368,7 +1442,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113001360:건설/주상복합, 아파트, 오피스텔 등",
@@ -1392,7 +1466,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113000671:제조업[타이어부문]/제품",
@@ -1416,7 +1490,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113000671:생산설비",
@@ -1440,7 +1514,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113000671:기타/기타",
@@ -1464,7 +1538,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_METRIC:20261113000671:공임/차량정비 등",
@@ -1488,7 +1562,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-17T13:52:19+09:00"
+      "sourceSnapshotAt": "2026-11-17T16:54:08+09:00"
     },
     {
       "id": "DART_FILING:20261113001602",
@@ -1569,90 +1643,6 @@
       "freshArticleConfirmed": false,
       "correction": false,
       "firstObservedAt": "2026-11-13",
-      "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 4,
-      "officialDateInRecentWindow": false,
-      "editorialBucket": "published_background"
-    },
-    {
-      "id": "DART_FILING:20261113001258",
-      "source": "DART_FILING",
-      "officialDate": "2026-11-13",
-      "company": "포스코",
-      "headline": "포스코 · 정기·주요공시 · 분기보고서 (2026.09)",
-      "officialFact": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
-      "officialReceiptNo": "20261113001258",
-      "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
-      "classification": "public_official_document_not_a_scoop",
-      "evidenceClass": "beat_wide_official_receipt",
-      "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-17T13:52:30+09:00",
-      "originalDocumentFieldsVerified": false,
-      "companyImpactVerified": false,
-      "contractTermsVerified": false,
-      "priorMediaCoverageVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "freshArticleConfirmed": false,
-      "correction": false,
-      "firstObservedAt": "2026-11-13",
-      "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 4,
-      "officialDateInRecentWindow": false,
-      "editorialBucket": "published_background"
-    },
-    {
-      "id": "DART_FILING:20261113001247",
-      "source": "DART_FILING",
-      "officialDate": "2026-11-13",
-      "company": "영풍",
-      "headline": "영풍 · 정기·주요공시 · 분기보고서 (2026.09)",
-      "officialFact": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001247",
-      "officialReceiptNo": "20261113001247",
-      "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
-      "classification": "public_official_document_not_a_scoop",
-      "evidenceClass": "beat_wide_official_receipt",
-      "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-17T13:52:30+09:00",
-      "originalDocumentFieldsVerified": false,
-      "companyImpactVerified": false,
-      "contractTermsVerified": false,
-      "priorMediaCoverageVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "freshArticleConfirmed": false,
-      "correction": false,
-      "firstObservedAt": "2026-11-13",
-      "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 4,
-      "officialDateInRecentWindow": false,
-      "editorialBucket": "published_background"
-    },
-    {
-      "id": "DART_FILING:20261113001240",
-      "source": "DART_FILING",
-      "officialDate": "2026-11-13",
-      "company": "포스코인터내셔널",
-      "headline": "포스코인터내셔널 · 정기·주요공시 · 분기보고서 (2026.09)",
-      "officialFact": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001240",
-      "officialReceiptNo": "20261113001240",
-      "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
-      "classification": "public_official_document_not_a_scoop",
-      "evidenceClass": "beat_wide_official_receipt",
-      "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-17T13:52:30+09:00",
-      "originalDocumentFieldsVerified": false,
-      "companyImpactVerified": false,
-      "contractTermsVerified": false,
-      "priorMediaCoverageVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "freshArticleConfirmed": false,
-      "correction": false,
-      "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
       "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
@@ -1786,5 +1776,5 @@
   ],
   "beatWideDartExcluded": 7,
   "beatWideDartSourceAt": "2026-11-17T13:52:30+09:00",
-  "baseTriageGeneratedAt": "2026-11-17T13:53:29+09:00"
+  "baseTriageGeneratedAt": "2026-11-17T17:35:22+09:00"
 }
