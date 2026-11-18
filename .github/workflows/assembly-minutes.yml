@@ -1,6 +1,7 @@
 name: National Assembly Minutes Watch
 # 국회 회의록 — 열린국회정보 위원회 회의록(최근 21일)·국정감사 회의록에서 출입 업종 상임위 회의록 PDF를 읽어 출입처 이름 대목(발언자·쪽).
 # 매일 09:50 KST(Cloudflare 요청, GitHub 예약 09:55 대비용). 키는 국회 법안 감시와 같은 ASSEMBLY_API_KEY.
+# 국정감사 회의록 부록 '[서면질의·답변서]'(11-18)도 — 부록이 올라오면 한 실행 2개까지(한 개 150MB 안팎, 받기 7분 안팎).
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
 on:
   push:
@@ -20,7 +21,7 @@ concurrency:
 jobs:
   minutes:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +31,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3" "pdfminer.six==20240706"
+      # 국정감사 서면질의·답변서(1천 쪽 가까운 PDF)는 pdftotext로 읽는다(pdfminer는 느림)
+      - run: sudo apt-get install -y -qq poppler-utils
       - name: Test minutes parsing
         run: python -m unittest tests.test_assembly_minutes_watch tests.test_council_watch tests.test_private_store -v
       - name: Watch National Assembly minutes (counts-only log)

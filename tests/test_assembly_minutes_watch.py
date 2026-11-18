@@ -52,6 +52,8 @@ def fake_get(urls):
         assert "seoul-reporting-radar" in headers["User-Agent"]
         if url == w.API + w.COMMITTEE:
             return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+        if url == w.API + w.APPENDIX:
+            return Resp(NO)
         if url == w.API + w.AUDIT:
             assert params["ERACO"] == "제22대"
             return Resp(AUDIT_ROWS)
@@ -105,6 +107,8 @@ class AssemblyMinutesTest(unittest.TestCase):
         def get(url, params=None, headers=None, timeout=None):
             if url == w.API + w.COMMITTEE:
                 return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+            if url == w.API + w.APPENDIX:
+                return Resp(NO)
             if url == w.API + w.AUDIT:
                 return Resp(NO)
             return Resp(content=b"<html>error</html>", status=500)
@@ -122,6 +126,8 @@ class AssemblyMinutesTest(unittest.TestCase):
         def get(url, params=None, headers=None, timeout=None):
             if url == w.API + w.COMMITTEE:
                 return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+            if url == w.API + w.APPENDIX:
+                return Resp(NO)
             if url == w.API + w.AUDIT:
                 return Resp(AUDIT_ROWS)
             if "id=57437" in url:
@@ -186,6 +192,100 @@ class AssemblyMinutesTest(unittest.TestCase):
         urls2 = []
         w.run(NOW, doc, key="k", get=fake_get(urls2), sleep=lambda s: None, extract=extract)
         self.assertFalse(any("pdf.do" in u for u, _ in urls2))
+
+    def test_written_answers_appendix(self):
+        # 11-18 탐침: 국정감사 회의록마다 부록 '[서면질의·답변서]' PDF(2025 산자중기위 154MB·963쪽). 2026년 것은 아직 안 올라옴
+        apx_rows = {w.APPENDIX: [{"head": [{"list_total_count": 1}]}, {"row": [
+            {"CONF_KND": "국정감사", "ERACO": "제22대", "SESS": "제439회", "DGR": "개회식", "CONF_DT": "20261022        ", "CONF_ID": "N054585", "FILE_KND": "부록",
+             "FILE_CN": "[서면질의·답변서]", "DOWN_URL": "https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=150001", "CONFER_NUM": "57437"}]}]}
+        text = ("2026년도 국정감사 산업통상자원중소벤처기업위원회회의록 (부록) 【서면질의】 ◯강승규 위원 ····· 1\f"
+                "2026.10.22 산업통상부 국감 서면질의서 (박형수 의원) 01 철강 산업 지원 현황 E 현대제철 당진 전기로 가동 중단 이후 협력업체 대책은? "
+                "- 회사와 협의 중임\f" + "답 변 이하 생략. " * 300 +
+                "2026.10.22 산업통상부 국감 서면질의서 (김원이 의원) 포스코 수소환원제철 실증 일정은? - 2030년 상용화 목표" + " 이하." * 50)
+        calls, fetched = [], []
+        def get(url, params=None, headers=None, timeout=None, stream=None):
+            calls.append((url, dict(params or {})))
+            if url == w.API + w.COMMITTEE:
+                return Resp(NO)
+            if url == w.API + w.AUDIT:
+                return Resp(AUDIT_ROWS)
+            if url == w.API + w.APPENDIX:
+                return Resp(apx_rows if params["CONF_ID"] == "N054585" else NO)
+            if "pdf.do" in url:
+                return Resp(content=b"%PDF-1.4 57437")
+            raise AssertionError(url)
+        fetch = lambda u: fetched.append(u) or "tok"
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda tok: text)
+        c = doc["checks"][0]
+        self.assertEqual(doc["status"], "complete")
+        self.assertEqual(c["appendix"], {"meetings": 1, "asked": 1, "posted": 1, "new": 1, "read": 1, "pending": 0})   # 성평등가족위 국정감사는 묻지 않음
+        self.assertEqual(fetched, ["https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=150001"])
+        items = {x["id"]: x for x in doc["items"]}
+        steel = items["nap:150001:현대제철"]
+        self.assertEqual((steel["tier"], steel["kind"], steel["date"]), ("A", "국정감사 서면질의·답변서", "20261022"))   # 회의 27일 뒤라도 처음 공개 문서 — A
+        self.assertTrue(steel["snippets"][0].startswith("2쪽 · 박형수 의원 서면질의(산업통상부) · "))
+        posco = items["nap:150001:포스코"]
+        self.assertEqual(posco["tier"], "C")
+        self.assertIn("김원이 의원 서면질의(산업통상부)", posco["snippets"][0])
+        self.assertEqual([e["id"] for e in doc["events"]], ["nap:150001:현대제철"])
+        self.assertIn("서면질의는 의원 주장, 답변은 기관 설명", doc["events"][0]["text"])
+        # 다음 실행: 읽은 부록이 있는 회의는 부록 API를 다시 묻지 않고, 부록도 다시 받지 않는다
+        calls.clear(); fetched.clear()
+        doc2 = w.run(NOW + dt.timedelta(days=1), doc, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda tok: text)
+        self.assertFalse(any(u == w.API + w.APPENDIX for u, _ in calls))
+        self.assertEqual(fetched, [])
+        self.assertEqual(doc2["checks"][0]["appendix"]["posted"], 1)
+        self.assertIn("nap:150001:현대제철", {x["id"] for x in doc2["items"]})
+
+    def test_written_answers_budget_and_failures(self):
+        rows = [{"CONF_ID": f"N0546{i}", "ERACO": "제22대", "SESS": "제439회", "CONF_DT": "2026-10-2" + str(i), "CMIT_NM": "정무위원회",
+                 "DOWN_URL": f"https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=5760{i}"} for i in range(3)]
+        audit = {w.AUDIT: [{"head": [{"list_total_count": 3}]}, {"row": rows}]}
+        def get(url, params=None, headers=None, timeout=None, stream=None):
+            if url == w.API + w.COMMITTEE:
+                return Resp(NO)
+            if url == w.API + w.AUDIT:
+                return Resp(audit)
+            if url == w.API + w.APPENDIX:
+                i = params["CONF_ID"][-1]
+                return Resp({w.APPENDIX: [{"head": [{"list_total_count": 1}]}, {"row": [{"FILE_CN": "[서면질의·답변서]",
+                             "DOWN_URL": f"https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=16000{i}"}]}]})
+            return Resp(content=b"%PDF-1.4 x")
+        def fetch(u):
+            if u.endswith("160002"):     # 가장 최근 회의(먼저 받는다)
+                raise TimeoutError()
+            return u
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda u: "현대차 공장 증설 계획" * 300)
+        a = doc["checks"][0]["appendix"]
+        self.assertEqual((a["new"], a["read"], a["pending"]), (3, 1, 1))    # 실패 1 + 읽음 1 = 상한 2, 나머지 1은 다음 실행
+        self.assertEqual(doc["status"], "partial")
+        self.assertIn("부록 받기 160002:TimeoutError", doc["checks"][0]["error"])
+        self.assertEqual(set(doc["apxSeen"]), {"160001"})
+        self.assertEqual(doc["apxTries"], {"160002": 1})
+        self.assertEqual(doc["apxDone"], ["N05461"])
+
+    def test_apx_download_streams_to_file(self):
+        class Stream:
+            def __init__(self, body, status=200):
+                self.body, self.status_code = body, status
+            def iter_content(self, n):
+                for i in range(0, len(self.body), 7):
+                    yield self.body[i:i + 7]
+        path = w.apx_download("u", lambda url, headers=None, timeout=None, stream=None: Stream(b"%PDF-1.6 hello world"))
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), b"%PDF-1.6 hello world")
+        import os
+        os.unlink(path)
+        alert = "<script>alert('내려받을 원본 회의록 파일이 등록되지 않았습니다.');</script>".encode("utf-8")
+        with self.assertRaisesRegex(ValueError, "^아직$"):
+            w.apx_download("u", lambda url, headers=None, timeout=None, stream=None: Stream(alert))
+        old = w.APX_MAX
+        try:
+            w.APX_MAX = 10
+            with self.assertRaisesRegex(ValueError, "파일이 큼"):
+                w.apx_download("u", lambda url, headers=None, timeout=None, stream=None: Stream(b"%PDF-1.6 " + b"x" * 40))
+        finally:
+            w.APX_MAX = old
 
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
