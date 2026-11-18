@@ -408,7 +408,17 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
         apx_tries.pop(fid, None)
         title = tidy(x.get("FILE_CN")) or "[서면질의·답변서]"
         d = a["date"]
-        for comp, (snips, near) in per_company(text, apx_who).items():
+        found_c = per_company(text, apx_who)
+        # 부록이 올라온 날 레이더 B에 한 줄(11-18 기자 '추천대로' — 올해 국정감사 부록은 언제 올라올지 모른다. 대목이 C뿐이어도 올라온 것 자체를 보이게)
+        comps = list(found_c)
+        heavy = [c for c, (_sn, near) in found_c.items() if near]
+        events.append({"id": f"napdoc:{fid}", "tier": "B", "kind": "국정감사 서면질의·답변서 올라옴", "company": comps[0] if comps else "", "committee": a["committee"],
+                       "detectedAt": stamp, "url": x["DOWN_URL"],
+                       "text": (f"{a['committee']} 국정감사({d[:4]}-{d[4:6]}-{d[6:]}) 서면질의·답변서가 올라옴 — {text.count(chr(12)) + 1}쪽 · 출입처 대목 {len(comps)}곳"
+                                + (f"({'·'.join(comps[:8])}{' 외' if len(comps) > 8 else ''})" if comps else "")
+                                + (f" · 사건 낱말 가까이 {'·'.join(heavy[:5])}" if heavy else "")
+                                + " · 대목은 kr_official(section=assembly, show_all=true, company=회사) · 서면질의는 의원 주장, 답변은 기관 설명")})
+        for comp, (snips, near) in found_c.items():
             tier = "A" if near else "C"
             rid = f"nap:{fid}:{comp}"
             known[rid] = {"id": rid, "company": comp, "kind": "국정감사 서면질의·답변서", "committee": a["committee"], "meeting": f"{a['meeting']} 부록 {title}",

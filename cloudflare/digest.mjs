@@ -1237,7 +1237,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const word = /과징금|고발|수사|압수수색|담합|불법|위반/.test(t) ? '위반' : /사고|사망|산재|중대재해|화재|폭발/.test(t) ? '사고'
       : /폐쇄|철수|매각|감산|가동\s?중단|생산\s?중단|구조조정|희망퇴직/.test(t) ? '중단' : /리콜|결함/.test(t) ? '결함' : /증설|신설|이전/.test(t) ? '증설' : '국회';
     // 기사는 위원회 이름을 안 쓸 때가 많아 대조 필수 낱말로 넣지 않는다(지방의회는 의회 이름 필수)
-    push(e.tier === 'A' ? 'B' : 'C', W['assembly-minutes'], { kind: e.kind ?? '국회 회의록', id: e.id, date: e.detectedAt, company: e.company,
+    // B: 국정감사 서면질의·답변서가 올라온 날 한 줄(11-18) — 그대로 B
+    push(['A', 'B'].includes(e.tier) ? 'B' : 'C', W['assembly-minutes'], { kind: e.kind ?? '국회 회의록', id: e.id, date: e.detectedAt, company: e.company || undefined,
       fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word, '국회']) });
   }
 
