@@ -136,6 +136,8 @@ const ALT = {
   고발: ['고발', '고소', '가처분', '소송'],
   // 미국 주 상공위원회 안건(us-state-env): 세제 감면·인센티브
   감면: ['감면', '세제 혜택', '세금 혜택', '인센티브', '세액'],
+  // 미국 주 채권위원회 안건(us-state-env, 11-18): 항만·공공기관이 출입처 공장 자금으로 내는 채권
+  채권: ['채권', '채권 발행', '면세 채권', '수익채권', '자금 조달'],
   OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상', '끼임', '추락', '화재', '폭발', '중대재해', '산재'],   // 노조 성명(11-03)도 같은 묶음
     공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
@@ -933,10 +935,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
 
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
   // 미국 주 환경청 허가·공고: 신설·증설 낱말이 든 허가 신청 A, 나머지 허가 공고·제재 공고 B(첫 실행 기준선은 이벤트 없음)
+  // 주 상공위원회·채권위원회(루이지애나, 11-18) 안건 줄은 B — 심의 대상이고 금액은 상한·신청액
   for (const e of docs['us-state-env']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['us-state-env'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
-      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : /상공위원회/.test(e.kind ?? '') ? '감면' : '허가'], [e.state], [e.state]) });
+      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : /상공위원회/.test(e.kind ?? '') ? '감면' : /채권위원회/.test(e.kind ?? '') ? '채권' : '허가'], [e.state], [e.state]) });
   }
 
   for (const v of docs['us-epa']?.vehicles ?? []) {

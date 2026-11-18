@@ -57,13 +57,37 @@ LACI_PAGE_HTML = ('<a href="https://admin.opportunitylouisiana.gov/wp-content/up
                   '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2024/05/CI-RULES-AGENDA-MAY-3-2024.pdf">Rules</a>'
                   '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/04/CI-Board-Agenda-PUBVer-Apr-22-2026.pdf">Agenda</a>')
 
+# 11-18 탐침 15·16: 루이지애나 채권위원회 09-17 회의 게시 안건 글자(안건 줄 두 개는 실제 글자, 머리와 다른 줄은 모양만 맞춘 줄임)
+SBC_0917 = ("STATE BOND COMMISSION AGENDA September 17, 2026 10:00 a.m. LOCAL GOVERNMENTAL UNITS - ELECTIONS (APRIL 17, 2027) "
+            "3. L26-328 - Ascension Parish Council, Road Lighting District No. 7 - 5.0 mills tax, 10 years, 2027-2036, acquire, improve and equip "
+            "PORT, HARBOR AND/OR TERMINAL DISTRICTS 61. L26-302 - Port of South Louisiana (Hyundai Steel Project/FastSites Program) - Not exceeding "
+            "$400,000,000 Lease Revenue Bonds, approximately $385,000,000 not exceeding 9% fixed rate or 12% variable rate "
+            "PUBLIC TRUSTS - FINAL APPROVAL 65. S26-027 - Louisiana Public Facilities Authority (HYUNDAI-POSCO Louisiana Steel LLC Project) - Not exceeding "
+            "$900,000,000 Exempt Facility Revenue Bonds (Volume Cap), not exceeding 12%, not exceeding 40 years, acquiring, constructing, developing and "
+            "equipping of a recycled steel mill and related improvements, including equipment and other assets for the operations of the facility located in "
+            "Donaldsonville, funding a reserve fund, if necessary, and paying capitalized interest. 66. S26-031 - Louisiana Local Government Environmental "
+            "Facilities and Community Development Authority - Not exceeding $5,000,000 Revenue Bonds")
+SBC_DOA_HTML = ('<a href="MeetingNotices/422_09-17-2026 SBC Meeting Posted Agenda.pdf">View Notice</a>'
+                '<a href="MeetingNotices/422_10-30-2025 Special Meeting Notice Cancellation.pdf">View Notice</a>')
+SBC_TR = "https://22ee8665-1961-49e0-9ce1-092e2a0b49d3.usrfiles.com/ugd/"
+SBC_TR_HTML = (f'<a href="{SBC_TR}a_sep_pre.pdf"><span>Preliminary</span></a><a href="{SBC_TR}a_sep_post.pdf"><span>Posted</span></a>'
+               f'<a href="{SBC_TR}a_sep_min.pdf"><span>Minutes</span></a>'
+               f'<a href="{SBC_TR}a_oct_pre.pdf"><span>Preliminary</span></a><a href="{SBC_TR}a_oct_post.pdf"><span>Posted</span></a>')
+SBC_TEXTS = {f"{SBC_TR}a_sep_pre.pdf": SBC_0917, f"{SBC_TR}a_sep_post.pdf": SBC_0917,
+             f"{SBC_TR}a_oct_pre.pdf": SBC_0917.replace("September 17, 2026", "October 15, 2026").replace("61. L26-302 -", "61. L26-399 -"),
+             f"{SBC_TR}a_oct_post.pdf": SBC_0917.replace("September 17, 2026", "October 15, 2026").replace("61. L26-302 -", "61. L26-399 -")}
+
+
+def sbc_pdf_text(content):
+    return SBC_TEXTS.get(content.decode().split("lasbc:", 1)[1], "")
+
 
 class R:
     def __init__(self, status=200, text="", content=b"", ctype="text/html"):
         self.status_code, self.text, self.content, self.headers = status, text, content, {"content-type": ctype}
 
 
-def fake(pdfs, adem=ADEM_HTML, ldeq=LDEQ_HTML, fail=(), gap=None, laci_page=LACI_PAGE_HTML):
+def fake(pdfs, adem=ADEM_HTML, ldeq=LDEQ_HTML, fail=(), gap=None, laci_page=LACI_PAGE_HTML, sbc_doa=SBC_DOA_HTML, sbc_tr=SBC_TR_HTML):
     calls = []
     gap = gap or {"Hyundai": GAP_HYUNDAI, "Hanwha": GAP_HANWHA}
 
@@ -75,6 +99,12 @@ def fake(pdfs, adem=ADEM_HTML, ldeq=LDEQ_HTML, fail=(), gap=None, laci_page=LACI
             return R(200, gap.get(params["Name"], GAP_HEAD + "</table>"))
         if url == w.LACI_PAGE:
             return R(200, laci_page)
+        if url == w.LASBC_DOA:
+            return R(200, sbc_doa)
+        if url == w.LASBC_TREASURY:
+            return R(200, sbc_tr)
+        if "MeetingNotices/422_" in url or "usrfiles.com" in url:
+            return R(200, content=("%PDF-lasbc:" + url).encode(), ctype="application/pdf")
         if "admin.opportunitylouisiana.gov" in url:
             return R(200, content=("laci:" + url).encode(), ctype="application/pdf")
         if "epd.georgia.gov" in url:
@@ -113,7 +143,8 @@ class Run(unittest.TestCase):
     def setUp(self):
         self.texts = {"pa1026-1": GA_1026_1, "pa0126-1": GA_0126_1, "pa1126-1": GA_0126_1.replace("Week of January 5, 2026", "Week of November 2, 2026")}
         self.orig = w.pdf_text
-        w.pdf_text = lambda content: LACI_TEXT if content.startswith(b"laci:") else self.texts[content.decode()]
+        w.pdf_text = lambda content: LACI_TEXT if content.startswith(b"laci:") else sbc_pdf_text(content) if content.startswith(b"%PDF-lasbc:") \
+            else self.texts[content.decode()]
 
     def tearDown(self):
         w.pdf_text = self.orig
@@ -141,13 +172,13 @@ class Run(unittest.TestCase):
     def test_failures_are_unconfirmed_and_do_not_set_a_baseline(self):
         get, _ = fake({"pa1026-1"}, fail=("adem.alabama.gov", "deq.louisiana.gov"))
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
-        self.assertEqual([c["status"] for c in doc["checks"]], ["ok", "failed", "failed", "ok", "ok"])
+        self.assertEqual([c["status"] for c in doc["checks"]], ["ok", "failed", "failed", "ok", "ok", "ok"])
         self.assertEqual(doc["status"], "partial")
         self.assertNotIn("adem", doc["seen"])   # 실패한 실행은 기준선이 아니다 — 다음 성공 실행이 기준선
         get2, _ = fake({"pa1026-1"})
         doc2 = w.run(NOW + dt.timedelta(hours=1), doc, get=get2, sleep=lambda s: None)
         self.assertFalse([e for e in doc2["events"] if e["id"].startswith(("adem:", "ldeq:"))])
-        get3, _ = fake(set(), fail=("epd.georgia.gov", "adem.alabama.gov", "deq.louisiana.gov", "air.gaepd.org", "opportunitylouisiana.gov"))
+        get3, _ = fake(set(), fail=("epd.georgia.gov", "adem.alabama.gov", "deq.louisiana.gov", "air.gaepd.org", "opportunitylouisiana.gov", "doa.louisiana.gov", "treasury.la.gov"))
         self.assertEqual(w.run(NOW, None, get=get3, sleep=lambda s: None)["status"], "failed")
 
 
@@ -156,7 +187,7 @@ class PermitsAndIncentives(unittest.TestCase):
     def setUp(self):
         self.orig = w.pdf_text
         w.pdf_text = lambda content: (LACI_TEXT.replace("April 22, 2026", "December 10, 2026") if b"DEC-10" in content else LACI_TEXT) \
-            if content.startswith(b"laci:") else ""
+            if content.startswith(b"laci:") else sbc_pdf_text(content) if content.startswith(b"%PDF-lasbc:") else ""
 
     def tearDown(self):
         w.pdf_text = self.orig
@@ -212,6 +243,77 @@ class PermitsAndIncentives(unittest.TestCase):
         self.assertIn("심의 대상 — 승인·투자 확정 아님", lc["text"])
         self.assertEqual([c for c in calls2 if "admin.opportunitylouisiana" in c],
                          ["https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf"])   # 본 안건은 다시 안 받음
+
+
+class BondCommission(unittest.TestCase):
+    """루이지애나 채권위원회 안건(11-18 기자 '추천대로' — 해외 현지 공공문서)."""
+    def setUp(self):
+        self.orig = w.pdf_text
+        w.pdf_text = lambda content: sbc_pdf_text(content) if content.startswith(b"%PDF-lasbc:") else (LACI_TEXT if content.startswith(b"laci:") else "")
+
+    def tearDown(self):
+        w.pdf_text = self.orig
+
+    def test_sbc_rows_real_items_beat_names_and_cap(self):
+        rows = w.sbc_rows(SBC_0917, "u")
+        self.assertEqual([(r["itemNo"], r["company"], r["meeting"], r["amount"]) for r in rows],
+                         [("L26-302", "현대제철", "2026-09-17", "상한 $400,000,000"), ("S26-027", "현대제철", "2026-09-17", "상한 $900,000,000")])
+        self.assertTrue(rows[0]["row"].startswith("61. L26-302 - Port of South Louisiana (Hyundai Steel Project/FastSites Program)"))
+        self.assertNotIn("S26-027", rows[0]["row"])            # 다음 안건 번호 앞에서 자름
+        self.assertIn("Donaldsonville", rows[1]["row"])
+        # 11-18 탐침 17: 실제 PDF를 pypdf로 읽으면 'HYUNDAI- POSCO'처럼 줄바꿈이 끼어 포스코로 잡혔다 — 합작 법인은 현대제철
+        self.assertEqual(w.sbc_rows(SBC_0917.replace("HYUNDAI-POSCO", "HYUNDAI- POSCO"), "u")[1]["company"], "현대제철")
+        self.assertEqual(w.sbc_rows(SBC_0917.replace("September 17, 2026", ""), "u", "2026-09-17")[0]["meeting"], "2026-09-17")   # 머리에 날짜 없으면 파일 이름 날짜
+
+    def test_first_run_baseline_then_only_new_agenda_alerts(self):
+        now = dt.datetime(2026, 10, 10, 7, 0, tzinfo=KST)
+        get, calls = fake({"pa1026-1"}, sbc_tr=SBC_TR_HTML.split(f'<a href="{SBC_TR}a_oct_pre.pdf">')[0])
+        doc = w.run(now, None, get=get, sleep=lambda s: None)
+        sb = [x for x in doc["notices"] if x["source"] == "lasbc"]
+        self.assertTrue(sb and all(x.get("baseline") for x in sb))           # 첫 실행은 기준선 — 09-17 현대제철 안건은 목록에만
+        self.assertFalse([e for e in doc["events"] if e["id"].startswith("lasbc:")])
+        self.assertNotIn("Minutes", " ".join(c for c in calls if "usrfiles" in c))
+        # 한 실행 2개: 행정청 게시판(파일 이름 회의일이 늦은 것)부터, 그다음 재무부 화면 맨 아래(최근)
+        self.assertEqual([c for c in calls if "usrfiles" in c or "MeetingNotices/422_" in c],
+                         [w.LASBC_DOA.split("viewMeetingNotices")[0] + "MeetingNotices/422_09-17-2026%20SBC%20Meeting%20Posted%20Agenda.pdf", f"{SBC_TR}a_sep_post.pdf"])
+        self.assertIn("lasbc", doc["seen"])
+        # 다음 실행: 10-15 회의 예비 안건이 새로 올라옴 → 출입처 줄 B, 본 안건은 다시 안 받음
+        get2, calls2 = fake({"pa1026-1"})
+        doc2 = w.run(now + dt.timedelta(days=1), doc, get=get2, sleep=lambda s: None)
+        got = [c for c in calls2 if "usrfiles" in c or "MeetingNotices/422_" in c]
+        self.assertEqual(got, [f"{SBC_TR}a_oct_post.pdf", f"{SBC_TR}a_oct_pre.pdf"])
+        ev = {e["id"]: e for e in doc2["events"] if e["id"].startswith("lasbc:")}
+        self.assertEqual(sorted(ev), ["lasbc:L26-399:2026-10-15", "lasbc:S26-027:2026-10-15"])
+        e = ev["lasbc:L26-399:2026-10-15"]
+        self.assertEqual((e["tier"], e["kind"], e["company"], e["state"]), ("B", "주 채권위원회 안건", "현대제철", "루이지애나"))
+        self.assertIn("루이지애나 채권위원회 ", e["text"])
+        self.assertIn("(2026-10-15 회의) · L26-399 · 금액 상한 $400,000,000 · 안건 줄 「61. L26-399 - Port of South Louisiana (Hyundai Steel Project", e["text"])
+        self.assertIn("심의 대상 — 채권 승인·발행 확정 아님, 금액은 상한", e["text"])
+        # 셋째 실행: 새 링크 없음 → PDF 안 받음
+        get3, calls3 = fake({"pa1026-1"})
+        w.run(now + dt.timedelta(days=2), doc2, get=get3, sleep=lambda s: None)
+        self.assertFalse([c for c in calls3 if "usrfiles" in c or "MeetingNotices/422_" in c])
+
+    def test_old_meeting_agenda_is_list_only_and_old_doa_notice_not_downloaded(self):
+        now = dt.datetime(2026, 11, 18, 7, 0, tzinfo=KST)
+        prev = {"seen": {"lasbc": ["x"]}, "notices": [], "events": []}
+        get, calls = fake({"pa1026-1"}, sbc_tr=SBC_TR_HTML.split(f'<a href="{SBC_TR}a_oct_pre.pdf">')[0])
+        doc = w.run(now, prev, get=get, sleep=lambda s: None)
+        self.assertFalse([c for c in calls if "MeetingNotices/422_" in c])        # 09-17 회의 공고는 45일 넘어 받지 않음
+        self.assertFalse([e for e in doc["events"] if e["id"].startswith("lasbc:")])   # 09-17 안건(60일 전 회의)은 목록에만
+        self.assertTrue([x for x in doc["notices"] if x["id"] == "lasbc:S26-027:2026-09-17"])
+
+    def test_list_failures_are_unconfirmed(self):
+        get, _ = fake({"pa1026-1"}, fail=("doa.louisiana.gov", "treasury.la.gov"))
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        c = [x for x in doc["checks"] if x["source"] == "루이지애나 채권위원회 안건"][0]
+        self.assertEqual(c["status"], "failed")
+        self.assertNotIn("lasbc", doc["seen"])                                # 실패한 실행은 기준선이 아니다
+        get2, _ = fake({"pa1026-1"}, fail=("treasury.la.gov",))
+        c2 = [x for x in w.run(NOW, None, get=get2, sleep=lambda s: None)["checks"] if x["source"] == "루이지애나 채권위원회 안건"][0]
+        self.assertEqual(c2["status"], "partial")
+        self.assertTrue(c2["error"].startswith("재무부 화면:"))
+
 
 if __name__ == "__main__":
     unittest.main()
