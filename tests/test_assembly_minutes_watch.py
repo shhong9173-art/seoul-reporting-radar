@@ -227,8 +227,12 @@ class AssemblyMinutesTest(unittest.TestCase):
         posco = items["nap:150001:포스코"]
         self.assertEqual(posco["tier"], "C")
         self.assertIn("김원이 의원 서면질의(산업통상부)", posco["snippets"][0])
-        self.assertEqual([e["id"] for e in doc["events"]], ["nap:150001:현대제철"])
-        self.assertIn("서면질의는 의원 주장, 답변은 기관 설명", doc["events"][0]["text"])
+        self.assertEqual(sorted(e["id"] for e in doc["events"]), ["nap:150001:현대제철", "napdoc:150001"])
+        ev = {e["id"]: e for e in doc["events"]}
+        self.assertIn("서면질의는 의원 주장, 답변은 기관 설명", ev["nap:150001:현대제철"]["text"])
+        # 올라온 것 자체를 알리는 B 한 줄(대목이 C뿐이어도)
+        self.assertEqual(ev["napdoc:150001"]["tier"], "B")
+        self.assertRegex(ev["napdoc:150001"]["text"], r"^산업통상자원중소벤처기업위원회 국정감사\(2026-10-22\) 서면질의·답변서가 올라옴 — 3쪽 · 출입처 대목 2곳\((?:현대제철·포스코|포스코·현대제철)\) · 사건 낱말 가까이 현대제철")
         # 다음 실행: 읽은 부록이 있는 회의는 부록 API를 다시 묻지 않고, 부록도 다시 받지 않는다
         calls.clear(); fetched.clear()
         doc2 = w.run(NOW + dt.timedelta(days=1), doc, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda tok: text)

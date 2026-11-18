@@ -4219,11 +4219,14 @@ test('국회 회의록(assembly-minutes): 미설정은 0건 아님, A는 레이�
     items: [a, { ...a, id: 'nam:57437:포스코', company: '포스코', kind: '국정감사 회의록', date: '20261022', tier: 'C', old: true, snippets: ['3쪽 · 증인 홍길동 · 포스코 광양제철소 화재 사고'] },
       { ...a, id: 'nam:57701:현대차', company: '현대차', tier: 'C', snippets: ['2쪽 · 김정호 위원 · 현대자동차 그룹이 새만금에 9조 원'] }],
     events: [{ id: a.id, tier: 'A', kind: '국회 회의록', company: '현대제철', committee: a.committee, detectedAt: now, url: a.url,
-      text: '산업통상자원중소벤처기업위원회 위원회 회의록(2026-11-09) · 현대제철 대목 「62쪽 · 산업통상부장관 김정관 · 현대제철 당진 공장의 가동 중단 문제는 회사와 협의하고 있습니다.」 · 열린국회정보 회의록 PDF · 의원 질의는 주장 — 정부 답변·회사 확인' }] };
+      text: '산업통상자원중소벤처기업위원회 위원회 회의록(2026-11-09) · 현대제철 대목 「62쪽 · 산업통상부장관 김정관 · 현대제철 당진 공장의 가동 중단 문제는 회사와 협의하고 있습니다.」 · 열린국회정보 회의록 PDF · 의원 질의는 주장 — 정부 답변·회사 확인' },
+      { id: 'napdoc:150001', tier: 'B', kind: '국정감사 서면질의·답변서 올라옴', company: '포스코', committee: '정무위원회', detectedAt: now, url: 'https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=150001',
+        text: '정무위원회 국정감사(2026-10-21) 서면질의·답변서가 올라옴 — 963쪽 · 출입처 대목 2곳(포스코·현대차) · 대목은 kr_official(section=assembly, show_all=true, company=회사)' }] };
   assert.equal((await post(doc)).status, 200);
   const r = await call('radar_today', {}, opts);
   assert.doesNotMatch(r.text.split('[A · ')[1].split('[B · ')[0], /국회 회의록/);
   assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /국회 회의록 · 현대제철\n   산업통상자원중소벤처기업위원회 위원회 회의록\(2026-11-09\) · 현대제철 대목/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /국회 회의록 · 포스코\n   정무위원회 국정감사\(2026-10-21\) 서면질의·답변서가 올라옴 — 963쪽/);   // 11-18: 올라온 날 B 한 줄
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === a.id);
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['현대제철', ['중단', '국회'], undefined]);
