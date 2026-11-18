@@ -5813,6 +5813,9 @@ test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄�
   assert.deepEqual(alertGaps(at('2026-11-17T13:20:00+09:00'), runs).missed, []);
   // 16:40: 12:43도 15:43(조회 실패)도 빈 것
   assert.deepEqual(alertGaps(at('2026-11-17T16:40:00+09:00'), runs).missed, [at('2026-11-17T12:43:00+09:00'), at('2026-11-17T15:43:00+09:00')]);
+  // 11-18: 빈 시각 뒤에 다시 돈 기록이 있으면(다음 실행이 범위를 넓혀 다시 봄) 그 앞 빈 시각은 세지 않는다
+  assert.deepEqual(alertGaps(at('2026-11-17T16:40:00+09:00'), alertRuns('alert-20261117', '[단독 후보 알림 08:55] 1건\n[단독 후보 알림 15:44] 0건 · 직전 알림(12:43) 기록 없음 — 7시간 범위로 다시 봄')).missed, []);
+  assert.deepEqual(alertGaps(at('2026-11-17T19:40:00+09:00'), alertRuns('alert-20261117', '[단독 후보 알림 08:55] 1건\n[단독 후보 알림 15:44] 0건')).missed, [at('2026-11-17T18:43:00+09:00')]);
 
   const opts = PRIVATE();
   const line = async (iso) => ((await call('radar_today', { hours: 1 }, { ...opts, now: new Date(iso) })).text.match(/^- 단독 후보 즉시 알림.*$/m) ?? [null])[0];
