@@ -1456,6 +1456,8 @@ export async function assemblySection(ctx, q, days, limit, includeMinor = false)
   const comms = (c.committees ?? []).map((n) => String(n).replace(/위원회$/, '')).join('·');
   const out = [`\n[국회 회의록 · 열린국회정보 위원회·국정감사 회의록 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 처음 본 날 최근 ${days}일] ${rows.length}건`,
     `원천: ${c.source ?? '?'} ${c.status ?? '?'}(지켜보는 회의록 ${c.meetings ?? 0}, 새 ${c.returned ?? 0}, 읽음 ${c.read ?? 0}/${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending} — 다음 실행` : ''}${c.notPosted ? `, 파일 아직 안 올라옴 ${c.notPosted}(날마다 다시 — 0건 아님)` : ''}${c.error ? `, ${c.error}` : ''})${comms ? ` · 위원회 ${comms}(소위 포함)` : ''}`];
+  const ax = c.appendix;
+  if (ax) out.push(`국정감사 서면질의·답변서(회의록 부록): 지켜보는 국정감사 회의 ${ax.meetings ?? 0}곳 중 부록 올라옴 ${ax.posted ?? 0}${ax.read ? ` · 이번에 읽음 ${ax.read}` : ''}${ax.pending ? ` · 남은 ${ax.pending} — 다음 실행` : ''}${(ax.posted ?? 0) === 0 ? ' — 아직 안 올라옴(0건 아님)' : ''}`);
   for (const x of rows.slice(0, limit)) {
     const d = String(x.date ?? '');
     out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.committee} ${x.kind ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 읽음 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
@@ -1469,7 +1471,7 @@ export async function assemblySection(ctx, q, days, limit, includeMinor = false)
     out.push(`(사건 낱말 없거나 옛 회의인 언급 ${base.length - rows.length}건 접음${top ? ` — ${top}` : ''} · show_all=true, company로 회사 하나)`);
   }
   if (!rows.length) out.push('조건에 맞는 회의록 대목 없음(조회 실패면 미확인).');
-  out.push('   검증 상태: 국회 회의록 PDF(자동 글자 뽑기 — 줄바꿈 자리 띄어쓰기가 틀릴 수 있음). 의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개');
+  out.push('   검증 상태: 국회 회의록 PDF(자동 글자 뽑기 — 줄바꿈 자리 띄어쓰기가 틀릴 수 있음). 의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개. 서면질의·답변서는 의원 서면 질문(주장)과 피감기관 서면 답변(기관 설명) — 쪽 일부는 그림·흐린 글자 인식이라 이름을 놓칠 수 있다');
   return out;
 }
 
