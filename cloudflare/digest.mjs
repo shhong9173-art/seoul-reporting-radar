@@ -1178,6 +1178,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const filed = String(e.filed ?? '').replace(/^(\d{4})(\d{2})(\d{2})$/, '$2-$3');
     push('B', W['kr-report-notes'], { kind: `정기보고서 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       note: e.kind, noteLines: lines.length + (more ? NOTE_ALERT_MAX : 0), late: Boolean(e.late),
+      ...(e.kind === '보고서 전체 새 낱말' ? { heavy: [...new Set(lines.map((l) => (WORD_ALERT_RE.exec(l) ?? [])[1]).filter(Boolean))], heavyLines: lines.filter((l) => WORD_ALERT_RE.test(l)).length } : {}),
       // 기일만 더해진 진행 상황(앞 보고서에도 있던 사건의 바뀐 줄인데 끝에 판결·합의 같은 결과 낱말이 없음)뿐이면 알림을 걸지 않는다
       // 보고기간 후 사건 중 배당·사채·자사주·차입·지급보증만 있는 것(대개 따로 공시된다)도 알림을 걸지 않는다 — 매각·인수·양도·청산·중단·재협의 같은 낱말이 든 줄이 있어야 한다
       // 11-17 기자 결정: 작성기준일 이후 주요사항(OCI Alabama 매각이 여기 한 줄이었다)도 보고기간 후 사건과 같은 규칙으로 알림
@@ -1570,6 +1571,11 @@ const NOTE_WORDS = ['과징금', '과태료', '벌금', '추징', '시정명령'
   '손해배상', '가처분', '특허', '세무조사', '화학물질', '공정위', '국세청', '관세청', '고용노동부', '금감원', '금융위', '환경부', '검찰',
   '매각', '인수', '합병', '분할', '청산', '폐쇄', '중단', '양도', '유상증자', '출자', '사채', '차입', '설립'];
 export const NOTE_ALERT_MAX = 5;
+// 보고서 전체 새 낱말(kr_report_words.py) 가운데 즉시 알림을 거는 무거운 낱말(11-18 기자 '추천대로'): 회생·영업정지·가압류·압수수색·가처분과
+// 같은 갈래인 파산·조업정지. 매각·청산·과징금·철수 같은 낱말 줄은 화면(B)에만 둔다(11-17 첫 실행 22곳 대부분이 매각·청산 줄이었다).
+// 줄 앞에 〔출입처 외 ○○〕가 붙은 줄(계열사·자회사 일)은 세지 않는다.
+export const WORD_ALERT = ['회생', '파산', '영업정지', '조업정지', '가압류', '가처분', '압수수색'];
+const WORD_ALERT_RE = new RegExp(`^〔(${WORD_ALERT.join('|')})〕`);
 const NOTE_DEAL = /매각|처분|인수|취득|양도|양수|합병|분할|청산|해산|폐쇄|중단|철수|소송|제재|과징금|벌금|화재|폭발|사고|재협의|해지|파업|매입|출자/;
 const NOTE_OUTCOME = /판결|선고|승소|패소|기각|인용|화해|조정\s*성립|합의|취하|확정|종결|결정/;
 export function docAlert(x, verdict) {
@@ -1594,6 +1600,10 @@ export function docAlert(x, verdict) {
     // 정기보고서에 새로 적힌 보고기간 후 사건·제재·소송(11-15 감시와 함께 넣음 — 기자가 뺄 수 있다): 제때 읽었고 새 줄이 몇 줄뿐일 때만.
     // 보고기간 후 사건: 11-13 이데일리 단독(한화시마론 매각)이 11-12 분기보고서 연결 주석의 이 대목 한 문장이었다(probe 251).
     // 수십 줄이 한꺼번에 새로 보이면 서식 변경일 가능성이 커 화면에만 둔다. 기일만 더해진 소송 진행 상황, 매각예정·중단영업, 연결 범위도 화면에만.
+    // 보고서 전체 새 낱말(11-18 기자 '추천대로'): 무거운 낱말(WORD_ALERT) 줄이 출입처 자신의 일로 적혔고 제때 읽었을 때만
+    if (!covered && !x.late && x.note === '보고서 전체 새 낱말' && x.heavyLines > 0) {
+      return `문서 알림 — 정기보고서 전체에 새로 적힌 ${(x.heavy ?? []).join('·')} 줄 ${x.heavyLines}줄에 ${names.join('·')}(B여도 보냄 · 11-18 기자 결정 — 빼려면 말하면 됨)`;
+    }
     if (!covered && !x.late && !x.noteRoutine && ['보고기간 후 사건', '작성기준일 이후 주요사항', '제재', '소송'].includes(x.note) && x.noteLines <= NOTE_ALERT_MAX) {
       return `문서 알림 — 정기보고서에 새로 적힌 ${x.note} ${x.noteLines}줄에 ${names.join('·')}(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨)`;
     }
