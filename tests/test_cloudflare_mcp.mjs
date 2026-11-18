@@ -1157,7 +1157,9 @@ test('kr_official workforce: member counts ranked by monthly drop with year-ago,
   const kia = await call('kr_official', { section: 'workforce', company: '기아' }, opts);
   assert.doesNotMatch(kia.text, /포항1공장/);
   const today = await call('radar_today', {}, opts);
-  const a = today.text.split('[A · ')[1].split('[B · ')[0];
+  // 11-18: 국민연금은 취재 단서 — 수집기 A도 B로(단독 후보에서 내림 표시)
+  const a = today.text.split('[B · ')[1].split('[C · ')[0];
+  assert.doesNotMatch(today.text.split('[A · ')[1].split('[B · ')[0], /사업장 인력\(국민연금\)/);
   assert.match(a, /사업장 인력\(국민연금\)[\s\S]*국민연금 가입자 1,252→1,150명/);
   const b = today.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /기아 이름이 든 새 공사 3건/);
@@ -1215,7 +1217,9 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
   assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
   const today = (await call('radar_today', {}, opts)).text;
-  const a = today.split('[A · ')[1].split('[B · ')[0];
+  // 11-18: 굴뚝은 취재 단서 — A 신호도 B 칸에(단독 후보에서 내림 표시)
+  const a = today.split('[B · ')[1].split('[C · ')[0];
+  assert.doesNotMatch(today.split('[A · ')[1].split('[B · ')[0], /굴뚝 측정/);
   // 상태 글자 전환은 저장분이 B여도 레이더에서는 C(검증 전, 11-03)
   assert.doesNotMatch(today.split('[C · ')[0], /배출구 8개가 이번 측정에서 상태 글자/);
   assert.match(a, /굴뚝 측정\(공장 가동 신호\)[\s\S]*포항2공장: 평소 움직이던 배출구 2개 중 2개/);
@@ -1359,7 +1363,9 @@ test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 
   const idLine = (id) => r.split('\n').find((l) => l.includes(`id ${id}`) && l.includes('자세히:'));
   // 11-08: 시군까지만 맞는 겹침(공장 이름 없는 국민연금 순천)은 세지 않는다
   assert.doesNotMatch(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /즉시 알림 대상/);
-  assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
+  // 11-18 기자 결정: 굴뚝은 취재 단서 — 장기 가동중지도 즉시 알림 표시를 붙이지 않는다(stackAlert 판단 자체는 남겨 둠)
+  assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔취재 단서 — 감시 등급 A였지만 단독 후보에서 내림\(11-18\)〕$/);
+  assert.doesNotMatch(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /즉시 알림 대상/);
   assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
   assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
   // 겹친 신호를 킬하면 그 항목은 증거로 세지 않는다(include_judged로 볼 때도)
@@ -3350,7 +3356,7 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
     rules: ['사건명은 신청인 주장이다.'] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /노동위 회의\(조정·심판\) · 포스코\n   경북지방노동위원회 1차조정회의 2026-10-26 14:00 · 사건 2026조정88/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /노동위 회의\(조정·심판\) · 포스코\n   경북지방노동위원회 1차조정회의 2026-10-26 14:00 · 사건 2026조정88/);
   assert.match(r.text.split('[B · ')[1], /노동위 회의\(조정·심판\) · 현대차\n   경북지방노동위원회 심판회의/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === notices[0].id);
@@ -3413,7 +3419,7 @@ test('임원 명단 변화(kr-exec): radar_today A·B(사람 이름 필수 대�
     ev('count', 'C', '임원 수 변화', 'KG모빌리티 미등기 임원 31→33명', null)], rules: ["'새로 보임'은 두 기준일 사이 변화일 뿐 선임일·사유가 아니다 — 회사 확인."] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /임원 명단 변화\(정기보고서\) · KG모빌리티\n   KG모빌리티 2026년 3분기\(9-30 기준\) 임원 명단에 새로 보임 — 유경쟁 1974년생 상무\(미등기·상근\) · 경력 「현대자동차 글로벌KD사업실장」 · 2026년 반기\(6-30 기준\)에는 없음 〔표시: 경력에 다른 출입처 '현대자동차'〕 \(보고서 명단 비교 — 선임일·영입 경위·사유는 회사 확인\)/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /임원 명단 변화\(정기보고서\) · KG모빌리티\n   KG모빌리티 2026년 3분기\(9-30 기준\) 임원 명단에 새로 보임 — 유경쟁 1974년생 상무\(미등기·상근\) · 경력 「현대자동차 글로벌KD사업실장」 · 2026년 반기\(6-30 기준\)에는 없음 〔표시: 경력에 다른 출입처 '현대자동차'〕 \(보고서 명단 비교 — 선임일·영입 경위·사유는 회사 확인\)/);
   assert.doesNotMatch(r.text, /김보통/);
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'exec:00138242:202611014:새 임원|유경쟁|197405');
@@ -3472,7 +3478,7 @@ test('USTR 의견서 속 한국(ustr-comments): 새로 게시된 것만 radar_to
   assert.match((await call('us_comments', {}, PRIVATE())).text, /아직 수집 전|미 연방 의견서/);   // 저장본이 없으면 미확인
 });
 
-test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알림(제때 읽은 제재·소송 몇 줄만), kr_signals report 구역·생략 대목 미확인', async () => {
+test('정기보고서 숨은 대목(kr-report-notes): radar_today B(11-18 취재 단서 — 문서 알림 없음), kr_signals report 구역·생략 대목 미확인', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const now = new Date(NOW.getTime() - 3600000).toISOString();
@@ -3500,32 +3506,26 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match(b, /정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\) · 현대제철\n   현대제철 2026년 3분기\(9-30 기준\) 보고서\(접수 11-16\)에 앞 보고서에 없던 제재 1줄: 「2026\.09\.03 \| 고용노동부 포항지청 \| 당사 \| 과태료 1,500만원 \| 퇴직연금 최소적립금 미달」 \(자동 비교 — 서식이 바뀌면 옛 줄이 새 줄로 보일 수 있고, 사건 자체는 앞서 보도됐을 수 있다\. 시점·금액·사유는 원문·회사 확인\)/);
   const block = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
   const hs = b.split('\n- ').filter((x) => x.includes('한화솔루션 2026년 3분기'));
-  assert.match(block('현대제철'), /〔즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 제재 1줄에 현대제철\(B여도 보냄 · 11-15 정기보고서 감시와 함께 넣음 — 빼려면 말하면 됨\)〕/);
+  assert.doesNotMatch(b, /즉시 알림 대상/);   // 11-18 기자 결정: 정기보고서 숨은 대목은 취재 단서 — 제재·소송·보고기간 후 사건 줄도 알림 없음
+  assert.doesNotMatch(block('현대제철'), /즉시 알림 대상/);
   assert.match(block('포스코홀딩스'), /앞 보고서에 없던 소송 8줄\(그 밖 27줄 더\)/);
   assert.doesNotMatch(block('포스코홀딩스'), /즉시 알림 대상/);      // 수십 줄이 한꺼번에 — 서식 변경일 수 있어 화면에만
   assert.match(hs.find((x) => /소송 1줄/.test(x)), /접수 뒤 늦게 읽음\)/);
   assert.doesNotMatch(hs.find((x) => /소송 1줄/.test(x)), /즉시 알림 대상/);   // 늦게 읽은 것은 알림을 걸지 않는다
   assert.doesNotMatch(block('두산에너빌리티'), /즉시 알림 대상/);    // 연결 범위는 화면에만
   assert.doesNotMatch(block('롯데케미칼'), /즉시 알림 대상/);        // 기일만 더해진 진행 상황
-  assert.match(hs.find((x) => /보고기간 후 사건 1줄/.test(x)), /Hanwha Cimarron LLC \(지분율 100%\)의 지분 전부를 HANWHA DEFENSE USA,INC\.에 매각하였습니다\(매각대금 58,962백만원\)[^\n]+\n[^\n]+즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 보고기간 후 사건 1줄에 한화솔루션/);
+  assert.match(hs.find((x) => /보고기간 후 사건 1줄/.test(x)), /Hanwha Cimarron LLC \(지분율 100%\)의 지분 전부를 HANWHA DEFENSE USA,INC\.에 매각하였습니다\(매각대금 58,962백만원\)/);
   assert.doesNotMatch(hs.find((x) => /매각예정·중단영업 1줄/.test(x)), /즉시 알림 대상/);   // 매각예정·중단영업은 화면에만
   const items = b.split('\n- ');
   assert.doesNotMatch(items.find((x) => /포스코홀딩스 2026년 3분기[^\n]+보고기간 후 사건 1줄/.test(x)), /즉시 알림 대상/);   // 배당 결정뿐 — 따로 공시되는 일
-  assert.match(items.find((x) => /롯데케미칼 2026년 3분기[^\n]+보고기간 후 사건 2줄/.test(x)), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 보고기간 후 사건 2줄에 롯데케미칼/);   // 계약조건 재협의
-  assert.match(block('LG화학'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 소송 1줄에 LG화학/);   // 판결 선고가 적힘
+  assert.ok(items.find((x) => /롯데케미칼 2026년 3분기[^\n]+보고기간 후 사건 2줄/.test(x)));   // 계약조건 재협의 — 화면에는 남는다
+  assert.match(block('LG화학'), /1심 판결 선고/);
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'rptnote:00164779:202611014:sanction');
   assert.deepEqual([hit.check.who, hit.check.terms], ['현대제철', ['과태료', '퇴직연금', '고용노동부']]);   // 대조 낱말은 새 줄에 적힌 것
-  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '현대제철', note: '제재', noteLines: 2, late: false };
-  assert.match(docAlert(note, '미보도 후보'), /^문서 알림 — 정기보고서에 새로 적힌 제재 2줄에 현대제철/);
-  assert.equal(docAlert(note, '관련 보도 있음'), null);
-  assert.equal(docAlert({ ...note, late: true }, undefined), null);
-  assert.equal(docAlert({ ...note, noteLines: 6 }, undefined), null);
-  assert.equal(docAlert({ ...note, note: '소송', noteRoutine: true }, undefined), null);
-  assert.equal(docAlert({ ...note, note: '연결 범위' }, undefined), null);
-  assert.equal(docAlert({ ...note, note: '매각예정·중단영업' }, undefined), null);
-  assert.match(docAlert({ ...note, note: '보고기간 후 사건', noteLines: 1 }, undefined), /정기보고서에 새로 적힌 보고기간 후 사건 1줄에 현대제철/);
-  assert.equal(docAlert({ ...note, company: '포스코퓨처엠' }, undefined), null);                            // 계열사는 출입처가 아니다
+  assert.match((await call('scoop_desk', {}, opts)).text, /약한 유형: \d+건 — [^\n]*취재 단서\(단독 추천 안 함\) \d+/);   // 단독 데스크에서는 약한 유형
+  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '현대제철', note: '제재', noteLines: 2, late: false, lead: true };
+  for (const n of [note, { ...note, lead: undefined }, { ...note, note: '보고기간 후 사건', noteLines: 1 }, { ...note, note: '소송' }]) assert.equal(docAlert(n, '미보도 후보'), null);
   const k = await call('kr_signals', { section: 'report' }, opts);
   assert.match(k.text, /\[정기보고서 숨은 대목 · 2026년 3분기\(9-30 기준\) 보고서 ← 앞 보고서 · 확인 [^\]]+ · 최근 45일\] 새 줄이 있는 대목 10건/);
   assert.match(k.text, /원천: OpenDART 정기보고서 원문 · 읽음 2\/39곳 · 미제출 1곳\(기아\) — 0건이 아니라 아직 안 냄 · 원문 대기 1곳\(LG화학\) — 다음 실행/);
@@ -3542,7 +3542,7 @@ test('정기보고서 숨은 대목(kr-report-notes): radar_today B·문서 알�
   assert.match((await call('kr_signals', { section: 'report' }, none)).text, /\[정기보고서 숨은 대목\(보고기간 후 사건·제재·소송\)\] 아직 수집 전 — 미확인\(평일 06:40·13:10·18:10·19:40·21:10, 토 09:40\)/);
 });
 
-test('정기보고서 숨은 대목 11-17 넓힘: 보증·이해관계자 거래·수주는 화면(B)에만, 작성기준일 이후는 문서 알림, 표 줄 칸 이름 그대로', async () => {
+test('정기보고서 숨은 대목 11-17 넓힘: 보증·이해관계자 거래·수주·작성기준일 이후 모두 화면(B)에만(11-18 취재 단서), 표 줄 칸 이름 그대로', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const now = new Date(NOW.getTime() - 3600000).toISOString();
@@ -3560,20 +3560,17 @@ test('정기보고서 숨은 대목 11-17 넓힘: 보증·이해관계자 거래
   const b = (await call('radar_today', {}, opts)).text.split('[B · ')[1];
   const item = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`));
   assert.match(item('한화솔루션'), /앞 보고서에 없던 이행보증·자금보충 1줄: 「〔구분〕Hanwha Q CELLS America Inc\.의 모듈 매각 거래/);
-  for (const name of ['한화솔루션', '롯데케미칼']) assert.doesNotMatch(item(name), /즉시 알림 대상/);   // 보증·이해관계자 거래·수주는 화면에만
-  assert.match(item('OCI홀딩스'), /즉시 알림 대상: 문서 알림 — 정기보고서에 새로 적힌 작성기준일 이후 주요사항 1줄/);   // 11-17 기자 결정
-  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '한화솔루션', noteLines: 1, late: false };
-  for (const kind of ['이행보증·자금보충', '이해관계자 거래(출자·처분)', '수주']) assert.equal(docAlert({ ...note, note: kind }, undefined), null);
-  // 11-17 기자 결정: 작성기준일 이후 주요사항은 보고기간 후 사건과 같은 규칙으로 문서 알림(매각·양도 같은 낱말 줄이 있을 때)
-  assert.match(docAlert({ ...note, company: 'OCI홀딩스', note: '작성기준일 이후 주요사항' }, undefined), /문서 알림 — 정기보고서에 새로 적힌 작성기준일 이후 주요사항 1줄에 OCI홀딩스/);
-  assert.equal(docAlert({ ...note, company: 'OCI홀딩스', note: '작성기준일 이후 주요사항', noteRoutine: true }, undefined), null);
+  for (const name of ['한화솔루션', '롯데케미칼', 'OCI홀딩스']) assert.doesNotMatch(item(name), /즉시 알림 대상/);   // 11-18: 작성기준일 이후 주요사항도 취재 단서
+  assert.match(item('OCI홀딩스'), /OCI Alabama LLC가 매각됨에 따라/);
+  const note = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '한화솔루션', noteLines: 1, late: false, lead: true };
+  for (const kind of ['이행보증·자금보충', '이해관계자 거래(출자·처분)', '수주', '작성기준일 이후 주요사항']) assert.equal(docAlert({ ...note, note: kind }, undefined), null);
   const k = (await call('kr_signals', { section: 'report', company: '한화솔루션' }, opts)).text;
   assert.match(k, /한화솔루션 · 이행보증·자금보충 · 접수 2026-11-16\n   새 줄: 〔구분〕Hanwha Q CELLS America/);
   assert.match(k, /비교 못 한 곳\(이번 줄이 다음 비교의 기준\) 1곳: 한화솔루션\(수주\)/);
   assert.match(k, /표 줄의 〔칸 이름〕값은 보고서 표 머리글/);
 });
 
-test('보고서 전체 새 낱말 즉시 알림(11-18): 회생·영업정지·가압류·압수수색·가처분(+파산·조업정지) 줄이 출입처 자신의 일이고 제때 읽었을 때만', async () => {
+test('보고서 전체 새 낱말(11-18 취재 단서): 영업정지·가처분 같은 무거운 낱말 줄도 즉시 알림 없이 화면(B)에만', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const now = new Date(NOW.getTime() - 3600000).toISOString();
@@ -3589,14 +3586,13 @@ test('보고서 전체 새 낱말 즉시 알림(11-18): 회생·영업정지·�
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const b = (await call('radar_today', { limit: 30 }, opts)).text.split('[B · ')[1];
   const item = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`)) ?? '';
-  assert.match(item('OCI'), /즉시 알림 대상: 문서 알림 — 정기보고서 전체에 새로 적힌 영업정지 줄 1줄에 OCI\(B여도 보냄 · 11-18 기자 결정/);
-  assert.doesNotMatch(item('OCI홀딩스'), /즉시 알림 대상/);   // 가처분 줄이 출입처 외(자회사) 일
-  assert.doesNotMatch(item('한국타이어'), /즉시 알림 대상/);   // 매각 줄만
-  assert.doesNotMatch(item('포스코홀딩스'), /즉시 알림 대상/);   // 늦게 읽음
-  const w = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: 'OCI', note: '보고서 전체 새 낱말', heavy: ['영업정지'], heavyLines: 1, noteLines: 9, late: false };
-  assert.match(docAlert(w, undefined), /^문서 알림 — 정기보고서 전체에 새로 적힌 영업정지 줄 1줄에 OCI/);
-  assert.equal(docAlert(w, '관련 보도 있음'), null);
-  assert.equal(docAlert({ ...w, heavyLines: 0, heavy: [] }, undefined), null);
+  assert.match(item('OCI'), /〔영업정지〕 \(2\) 영업정지와 관련된 우발부채/);   // 화면(B)에는 남는다
+  for (const name of ['OCI', 'OCI홀딩스', '한국타이어', '포스코홀딩스']) assert.doesNotMatch(item(name), /즉시 알림 대상/);
+  assert.doesNotMatch(b, /즉시 알림 대상/);
+  const w = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: 'OCI', note: '보고서 전체 새 낱말', noteLines: 9, late: false, lead: true };
+  assert.equal(docAlert(w, undefined), null);
+  const d = (await call('scoop_desk', { include_weak: true }, opts)).text;   // 단독 데스크에서는 약한 유형(취재 단서)
+  assert.match(d, /약한 유형: \d+건 — [^\n]*취재 단서\(단독 추천 안 함\) \d+/);
 });
 
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {
@@ -3623,7 +3619,7 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
     rules: ['조회 실패·한도로 못 본 공시·회사는 0건이 아니라 미확인.'] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-market', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /수시 임원 공시·타사 임원 명단 · 현대차\n   현대차 주총 소집공고\(2026-02-25\) 이사 후보 — 이승조 1969년생 사내이사 〔표시: 부실기업 경영진 여부 칸/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /수시 임원 공시·타사 임원 명단 · 현대차\n   현대차 주총 소집공고\(2026-02-25\) 이사 후보 — 이승조 1969년생 사내이사 〔표시: 부실기업 경영진 여부 칸/);
   assert.match(r.text, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 독립이사 선임 신고/);
   assert.doesNotMatch(r.text, /박작은/);
   assert.doesNotMatch(r.text, /지난후보/);                       // 지난 소집공고 되짚기 항목은 오늘의 레이더에 안 올림
@@ -3843,14 +3839,15 @@ test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출
   assert.doesNotMatch(a, /애경산업/);
   assert.match(b, /수시 임원 공시·타사 임원 명단 · 애경산업\n   애경산업 2026년 3분기 등기임원 명단에 새로 보임 — 정인철/);
   assert.doesNotMatch(r, /박현식/);                               // 수집기 B는 한 단계 내려 화면(kr_signals)에만
-  assert.match(a, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 대표이사 변경/);   // 대표이사 변경·이사 후보·독립이사 신고는 그대로
+  assert.match(b, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 대표이사 변경/);   // 11-18: 임원 명단은 취재 단서(A→B)   // 대표이사 변경·이사 후보·독립이사 신고는 그대로
   assert.match(a, /해외 파트너 공시 · 두산에너빌리티\n   EDGAR X-Energy, Inc\.  \(XE\): 8-K EX-99\.1 · 본문 대목 「X-energy and Doosan Enerbility signed a reservation agreement for forgings/);
   assert.doesNotMatch(a, /GrowHub/);
   assert.match(b, /해외 파트너 공시 · 현대차\n   EDGAR GrowHub Ltd  \(TGHL\): F-1 F-1/);
   // 단독 데스크: 본문 대목이 붙은 파트너 공시는 약한 유형이 아니다(제목뿐인 것만 약한 유형)
   const d = (await call('scoop_desk', {}, opts)).text;
   assert.match(d, /- A · [^\n]*해외 파트너 공시 · 두산에너빌리티\n   EDGAR X-Energy/);
-  assert.match(d, /약한 유형: 2건 — (?=[^\n]*다른 회사 임원 명단 속 출입처 출신 1)(?=[^\n]*해외 파트너 공시\(제목뿐\) 1)/);
+  assert.match(d, /약한 유형: 3건 — (?=[^\n]*다른 회사 임원 명단 속 출입처 출신 1)(?=[^\n]*취재 단서\(단독 추천 안 함\) 1)(?=[^\n]*해외 파트너 공시\(제목뿐\) 1)/);   // 11-18: 부품사 대표이사 변경은 취재 단서
+  assert.doesNotMatch(d, /- [AB] · [^\n]*부품사 대표이사 변경/);
 });
 
 test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_signals exec 안 표시 있는 사람만', async () => {
@@ -3987,7 +3984,7 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
       text: '금속노조 보도자료/성명 「[보도자료] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 노조 발표(한쪽 주장) — 회사 입장·사실관계 확인' }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/union-notices', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /노조 성명·보도자료 · 금호타이어\n   금속노조 보도자료\/성명 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /노조 성명·보도자료 · 금호타이어\n   금속노조 보도자료\/성명 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === posts[0].id);
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.alts['사고'].includes('끼임')], ['금호타이어', ['사고'], true]);
@@ -4023,8 +4020,8 @@ test('노동위 ↔ 노조 같은 회사 7일 안 이어 보기: 조정 회의 �
   for (const [feed, doc] of [['kr-labor', labor], ['union-notices', union]]) {
     assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   }
-  const a = (await call('radar_today', {}, opts)).text.split('[A · ')[1].split('[B · ')[0];
-  const laborLine = a.split('\n').find((l) => l.includes('2026조정59') && l.includes('2차조정회의'));
+  const a = (await call('radar_today', {}, opts)).text.split('[B · ')[1].split('[C · ')[0];   // 11-18: 노동위·노조는 취재 단서(B)
+  const laborLine = a.split('\n').find((l) => l.includes('2026조정59') && l.includes('2차조정회의') && !l.includes('회의 지남'));   // B엔 결과 확인 줄도 있음
   assert.match(laborLine, /같은 사건 앞선 회의 10-28 · 노조 게시판 같은 회사 글\(7일 안\): 「\[성명\] LG화학 대산공장 교섭 결렬, 쟁의행위 찬반투표 돌입」\(화섬식품노조 보도자료\/성명 \d{2}-\d{2}\)$/);
   assert.doesNotMatch(laborLine, /공동 집회|임금체불/);   // 제목에 이름 없는 글, 9일 앞선 글은 안 붙는다
   const unionLine = a.split('\n').find((l) => l.includes('교섭 결렬') && l.startsWith('   화섬식품노조'));
