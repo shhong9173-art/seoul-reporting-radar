@@ -1458,6 +1458,8 @@ export async function assemblySection(ctx, q, days, limit, includeMinor = false)
     `원천: ${c.source ?? '?'} ${c.status ?? '?'}(지켜보는 회의록 ${c.meetings ?? 0}, 새 ${c.returned ?? 0}, 읽음 ${c.read ?? 0}/${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending} — 다음 실행` : ''}${c.notPosted ? `, 파일 아직 안 올라옴 ${c.notPosted}(날마다 다시 — 0건 아님)` : ''}${c.error ? `, ${c.error}` : ''})${comms ? ` · 위원회 ${comms}(소위 포함)` : ''}`];
   const ax = c.appendix;
   if (ax) out.push(`국정감사 서면질의·답변서(회의록 부록): 지켜보는 국정감사 회의 ${ax.meetings ?? 0}곳 중 부록 올라옴 ${ax.posted ?? 0}${ax.read ? ` · 이번에 읽음 ${ax.read}` : ''}${ax.pending ? ` · 남은 ${ax.pending} — 다음 실행` : ''}${(ax.posted ?? 0) === 0 ? ' — 아직 안 올라옴(0건 아님)' : ''}`);
+  const rp = c.reports;
+  if (rp) out.push(`국정감사 결과·처리결과보고서: 지켜보는 위원회 목록 ${rp.listed ?? 0}건${rp.baseline ? ` · 이번에 기준선 ${rp.baseline}` : ''} · 새 ${rp.new ?? 0}${rp.read ? ` · 읽음 ${rp.read}` : ''}${rp.waiting ? ` · 파일 아직 안 열림 ${rp.waiting}(날마다 다시)` : ''}${rp.pending ? ` · 남은 ${rp.pending} — 다음 실행` : ''}`);
   for (const x of rows.slice(0, limit)) {
     const d = String(x.date ?? '');
     out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.committee} ${x.kind ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 읽음 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);

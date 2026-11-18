@@ -60,6 +60,12 @@ NO_DATA = "INFO-200"
 RULES_V = 2   # 2(11-18): 줄바꿈을 붙여 이름 찾기 — 바뀌면 받은 회의록을 다시 읽는다
 APPENDIX = "VCONFATTAPPENDIXLIST"   # 회의록별 부록(필수 CONF_ID) — 국정감사 회의록마다 '[서면질의·답변서]' PDF
 APX_DAYS = 200
+# 국정감사 결과보고서·시정 및 처리요구 처리결과보고서(11-18 기자 '추천대로'): 위원회마다(결과) · 기관마다(처리결과) PDF 한 개(likms.assembly.go.kr).
+# 11-18 탐침: 결과 358건·처리결과 960건(2000년~), 2025년도 결과보고서는 2026년 3월 채택분이 올라와 있고 처리결과보고서는 기관마다 차례로 올라온다
+# (산자중기위 2025년도 처리결과는 아직 목록에 없음). 정무위 2025 결과보고서 1.2MB·217쪽. 처리결과 PDF 주소가 파일 대신 HTML(387바이트)을 주는 것도 있다.
+REPORT_LISTS = (("AUDITREPORTRESULT", "국정감사 결과보고서"), ("AUDITREPORTVISIBILITY", "국정감사 처리결과보고서"))
+REP_BUDGET = 4
+REP_WAIT_DAYS = 30
 APX_BUDGET = 2
 APX_MAX = 400 * 1024 * 1024
 APX_TIMEOUT = 900
@@ -303,7 +309,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
     for c, rx in TERMS:
         rx_of.setdefault(c, []).append(rx)
     known = {k: v for k, v in known.items() if any(rx.search(str(sn)) for rx in rx_of.get(v.get("company"), []) for sn in v.get("snippets") or [])}
-    events = [e for e in prev.get("events") or [] if isinstance(e, dict) and (e.get("id") in known or not str(e.get("id", "")).startswith(("nam:", "nap:")))]
+    events = [e for e in prev.get("events") or [] if isinstance(e, dict) and (e.get("id") in known or not str(e.get("id", "")).startswith(("nam:", "nap:", "nar:")))]
     found, errors, audits = meetings(get, key, now, sleep)
     fresh = [m for m in found if m["pid"] not in seen]
     opened, read_ok = 0, 0
@@ -431,24 +437,110 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
         fids = [fid for b, fid, _x in queue if b is a]
         if fids and all(fid in apx_seen for fid in fids):
             apx_done.add(a["cid"])
+    # 국정감사 결과보고서·처리결과보고서: 첫 실행은 지금 목록을 기준선으로(받지 않음), 그 뒤 지켜보는 위원회의 새 보고서만 받는다
+    rep_seen = dict(prev.get("repSeen") or {})
+    rep_wait = dict(prev.get("repWait") or {})
+    rep_base = bool(prev.get("repBase"))
+    rep = {"listed": 0, "baseline": 0, "new": 0, "read": 0, "waiting": 0, "pending": 0}
+    rep_queue, rep_ok = [], True
+    for code, label in REPORT_LISTS:
+        page, got = 1, []
+        while True:
+            rows, total, err = call(get, key, code, pIndex=page)
+            sleep(PAUSE)
+            if err:
+                errors.append(f"보고서 {label}:{err}")
+                got, rep_ok = None, False
+                break
+            got += rows
+            if page * 100 >= total or not rows or page >= 20:
+                break
+            page += 1
+        for x in got or []:
+            m = re.search(r"/(\d{6,})\.PDF$", str(x.get("PDF_DWLD_URL") or ""), re.I)
+            if not m or not watched(x.get("CMIT_NM")):
+                continue
+            did = m.group(1)
+            rep["listed"] += 1
+            if did in rep_seen:
+                continue
+            if not rep_base:
+                rep_seen[did] = str(x.get("RPT_YR") or "")
+                rep["baseline"] += 1
+                continue
+            rep_queue.append((did, label, x))
+    if rep_ok:
+        rep_base = True
+    rep["new"] = len(rep_queue)
+    tried = 0
+    for did, label, x in rep_queue:
+        if tried >= REP_BUDGET:
+            rep["pending"] += 1
+            continue
+        tried += 1
+        ttl = tidy(x.get("RPT_TTL"))
+        org = (re.search(r"\(([^()]+)\)\s*$", ttl) or [None, ""])[1]
+        short = f"{'처리결과보고서' if '처리결과' in label else '결과보고서'}{f'({org})' if org else ''}"
+        try:
+            text = apx_extract(fetch(x["PDF_DWLD_URL"]))
+            if len(text or "") < 1000:
+                raise ValueError("글자 없음")
+        except ValueError as e:
+            if str(e) == "아직" or str(e).startswith("PDF 아님"):   # 목록에는 있는데 파일 대신 HTML — 날마다 다시, 30일 지나면 넘김
+                first = rep_wait.setdefault(did, stamp[:10])
+                if (now.date() - dt.date.fromisoformat(first)).days >= REP_WAIT_DAYS:
+                    rep_seen[did] = str(x.get("RPT_YR") or "")
+                    rep_wait.pop(did, None)
+                    errors.append(f"보고서 받기 {did}:파일이 {REP_WAIT_DAYS}일 넘게 안 열림(넘김)")
+                else:
+                    rep["waiting"] += 1
+                continue
+            errors.append(f"보고서 받기 {did}:ValueError({str(e)[:24]})")
+            continue
+        except Exception as e:  # noqa: BLE001 — 다음 실행
+            errors.append(f"보고서 받기 {did}:{type(e).__name__}")
+            continue
+        rep["read"] += 1
+        rep_seen[did] = str(x.get("RPT_YR") or "")
+        rep_wait.pop(did, None)
+        found_r = per_company(text, lambda _t, _p, _s=short: (_s, -1, -1))
+        comps = list(found_r)
+        today = stamp[:10].replace("-", "")
+        events.append({"id": f"nardoc:{did}", "tier": "B", "kind": f"{label} 올라옴", "company": comps[0] if comps else "", "committee": tidy(x.get("CMIT_NM")),
+                       "detectedAt": stamp, "url": x["PDF_DWLD_URL"],
+                       "text": (f"{tidy(x.get('CMIT_NM'))} {ttl} 올라옴 — {text.count(chr(12)) + 1}쪽 · 출입처 대목 {len(comps)}곳"
+                                + (f"({'·'.join(comps[:8])}{' 외' if len(comps) > 8 else ''})" if comps else "")
+                                + " · 대목은 kr_official(section=assembly, show_all=true, company=회사) · 국회가 채택한 보고서(결과)·기관이 낸 조치 결과(처리결과) — 원문·회사 확인")})
+        for comp, (snips, near) in found_r.items():
+            rid = f"nar:{did}:{comp}"
+            tier = "A" if near else "C"
+            known[rid] = {"id": rid, "company": comp, "kind": label, "committee": tidy(x.get("CMIT_NM")), "meeting": ttl, "date": today, "agenda": "",
+                          "snippets": [sn[:420] for sn in snips], "tier": tier, "rep": did, "url": x["PDF_DWLD_URL"], "firstSeen": stamp}
+            if tier == "A":
+                events.append({"id": rid, "tier": "A", "kind": label, "company": comp, "committee": tidy(x.get("CMIT_NM")), "detectedAt": stamp, "url": x["PDF_DWLD_URL"],
+                               "text": (f"{tidy(x.get('CMIT_NM'))} {ttl} · {comp} 대목 「{snips[0][:260]}」"
+                                        " · 국회 의안정보시스템 PDF · 결과보고서는 위원회 지적·요구, 처리결과보고서는 기관 설명 — 원문·회사 확인")})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
-    api_failed = sum(1 for e in errors if not e.startswith(("회의록 ", "부록 ")))
+    api_failed = sum(1 for e in errors if not e.startswith(("회의록 ", "부록 ", "보고서 ")))
     status = "failed" if api_failed >= LOOKBACK_DAYS else "partial" if errors else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "rulesV": RULES_V,
             "checks": [{"source": "열린국회정보 회의록(위원회·국정감사)", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "meetings": len(found), "returned": len(fresh), "opened": opened, "read": read_ok, **({"pending": pending} if pending else {}),
                         **({"notPosted": waiting} if waiting else {}),
                         "appendix": apx,
+                        "reports": rep,
                         "committees": list(WATCH), **({"error": "; ".join(errors[:4]) + (f" 외 {len(errors) - 4}" if len(errors) > 4 else "")} if errors else {})}],
             "seen": dict(sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:3000]),
             **({"tries": tries} if tries else {}),
             "apxSeen": apx_seen, **({"apxTries": apx_tries} if apx_tries else {}), "apxDone": sorted(apx_done)[-500:],
+            "repSeen": rep_seen, "repBase": rep_base, **({"repWait": rep_wait} if rep_wait else {}),
             "items": sorted((x for x in known.values() if str(x.get("firstSeen")) >= keep), key=lambda x: (str(x.get("date")), x.get("tier") == "A"), reverse=True)[:500],
             "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
             "rules": ["열린국회정보 위원회 회의록(최근 21일 회의일)·국정감사 회의록 중 출입 업종 상임위(산자중기위·기후에너지환경노동위·국토위·재경위·정무위, 소위 포함)의 새 회의록 PDF에서 출입처 이름 대목(앞뒤 150자, 발언자·쪽).",
                       f"회사 이름 앞뒤 60자 안에 불법·과징금·고발·수사·담합·오염·사고·사망·산재·폐쇄·철수·매각·감산·가동 중단·구조조정·하청·리콜·결함·증설·이전 낱말이 있고 회의일이 {RECENT_DAYS}일 안이면 A, 아니면 C.",
                       "의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개(회의일과 공개일이 다르다). PDF 글자 뽑기에서 줄바꿈 자리 띄어쓰기가 틀릴 수 있다(대목에 '현대제 철'처럼 보임) — 회사 이름은 줄바꿈을 붙여 찾는다(포스코이앤씨 같은 계열사 거르기 포함).",
                       f"국정감사 서면질의·답변서(회의록 부록): 지켜보는 위원회 국정감사(최근 {APX_DAYS}일)마다 부록이 올라왔는지 묻고, 새 부록 PDF는 한 실행 {APX_BUDGET}개까지 받아 출입처 이름 대목을 서면질의 의원·기관과 함께 남긴다. 회의 뒤 처음 공개되는 문서라 사건 낱말이 있으면 A. 쪽 일부는 그림·흐린 글자 인식이라 이름을 놓칠 수 있다.",
+                      f"국정감사 결과보고서·처리결과보고서: 첫 실행 목록은 기준선(받지 않음), 그 뒤 지켜보는 위원회의 새 보고서 PDF를 한 실행 {REP_BUDGET}개까지 받아 출입처 이름 대목. 파일 대신 HTML이면 날마다 다시({REP_WAIT_DAYS}일 지나면 넘김).",
                       "조회 실패·PDF 받기 실패는 미확인(0건 아님). 원본 파일이 아직 안 올라온 회의록은 날마다 다시 본다(위원회 회의록은 회의일 21일, 국정감사는 75일 안). 한 실행 30개 — 넘으면 다음 실행."]}
 
 
@@ -470,6 +562,9 @@ def main():
     print(f"::notice title=assembly-minutes::상태 {doc['status']} · 지켜보는 회의록 {c.get('meetings', 0)} · 새 {c.get('returned', 0)} · 읽음 {c.get('read', 0)}/{c.get('opened', 0)}"
           f" · 남음 {c.get('pending', 0)} · 이번 A {len(new)}")
     ax = c.get("appendix") or {}
+    rp = c.get("reports") or {}
+    print(f"::notice title=assembly-minutes-reports::국정감사 결과·처리결과보고서 — 지켜보는 위원회 목록 {rp.get('listed', 0)} · 기준선 {rp.get('baseline', 0)} · 새 {rp.get('new', 0)}"
+          f" · 읽음 {rp.get('read', 0)} · 파일 아직 {rp.get('waiting', 0)} · 다음 실행으로 {rp.get('pending', 0)}")
     print(f"::notice title=assembly-minutes-appendix::국정감사 서면질의·답변서 — 국정감사 회의 {ax.get('meetings', 0)} · 부록 올라옴 {ax.get('posted', 0)}"
           f" · 새 부록 {ax.get('new', 0)} · 읽음 {ax.get('read', 0)} · 다음 실행으로 {ax.get('pending', 0)}")
     if not token:

@@ -52,6 +52,8 @@ def fake_get(urls):
         assert "seoul-reporting-radar" in headers["User-Agent"]
         if url == w.API + w.COMMITTEE:
             return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+        if url.startswith(w.API + "AUDITREPORT"):
+            return Resp(NO)
         if url == w.API + w.APPENDIX:
             return Resp(NO)
         if url == w.API + w.AUDIT:
@@ -107,6 +109,8 @@ class AssemblyMinutesTest(unittest.TestCase):
         def get(url, params=None, headers=None, timeout=None):
             if url == w.API + w.COMMITTEE:
                 return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+            if url.startswith(w.API + "AUDITREPORT"):
+                return Resp(NO)
             if url == w.API + w.APPENDIX:
                 return Resp(NO)
             if url == w.API + w.AUDIT:
@@ -126,6 +130,8 @@ class AssemblyMinutesTest(unittest.TestCase):
         def get(url, params=None, headers=None, timeout=None):
             if url == w.API + w.COMMITTEE:
                 return Resp(committee_rows(params["CONF_DATE"], ROWS_1109) if params["CONF_DATE"] == "2026-11-09" else NO)
+            if url.startswith(w.API + "AUDITREPORT"):
+                return Resp(NO)
             if url == w.API + w.APPENDIX:
                 return Resp(NO)
             if url == w.API + w.AUDIT:
@@ -209,6 +215,8 @@ class AssemblyMinutesTest(unittest.TestCase):
                 return Resp(NO)
             if url == w.API + w.AUDIT:
                 return Resp(AUDIT_ROWS)
+            if url.startswith(w.API + "AUDITREPORT"):
+                return Resp(NO)
             if url == w.API + w.APPENDIX:
                 return Resp(apx_rows if params["CONF_ID"] == "N054585" else NO)
             if "pdf.do" in url:
@@ -250,6 +258,8 @@ class AssemblyMinutesTest(unittest.TestCase):
                 return Resp(NO)
             if url == w.API + w.AUDIT:
                 return Resp(audit)
+            if url.startswith(w.API + "AUDITREPORT"):
+                return Resp(NO)
             if url == w.API + w.APPENDIX:
                 i = params["CONF_ID"][-1]
                 return Resp({w.APPENDIX: [{"head": [{"list_total_count": 1}]}, {"row": [{"FILE_CN": "[서면질의·답변서]",
@@ -298,6 +308,60 @@ class AssemblyMinutesTest(unittest.TestCase):
         self.assertEqual(w.apx_who(text, text.index("현대차"))[0], "박형수 의원 서면질의(중소벤처기업부)")
         text = "◯김 위원장 ◯강승규 위원 현대차"
         self.assertEqual(w.apx_who(text, text.index("현대차"))[0], "강승규 의원 서면질의")
+
+    def test_audit_result_reports_baseline_then_new(self):
+        # 11-18 탐침: 결과보고서 358건·처리결과보고서 960건, 칸 RPT_YR·CMIT_NM·RPT_TTL·PDF_DWLD_URL·HWP_DWLD_URL
+        base = "https://likms.assembly.go.kr/inspection/result/2025/pdf/"
+        res = [{"RPT_YR": "2025", "CMIT_NM": "정무위원회", "RPT_TTL": "2025년도 국정감사 결과보고서()", "PDF_DWLD_URL": base + "000631588.PDF"},
+               {"RPT_YR": "2025", "CMIT_NM": "행정안전위원회", "RPT_TTL": "2025년도 국정감사 결과보고서()", "PDF_DWLD_URL": base + "000631589.PDF"}]
+        vis = [{"RPT_YR": "2025", "CMIT_NM": "정무위원회", "RPT_TTL": "2025년도 국정감사결과 시정 및 처리요구사항에 대한 처리결과보고서(금융위원회)", "PDF_DWLD_URL": base + "000631622.PDF"}]
+        lists = {"AUDITREPORTRESULT": res, "AUDITREPORTVISIBILITY": vis}
+        def get(url, params=None, headers=None, timeout=None, stream=None):
+            for code, rows in lists.items():
+                if url == w.API + code:
+                    return Resp({code: [{"head": [{"list_total_count": len(rows)}]}, {"row": rows}]})
+            if url in (w.API + w.COMMITTEE, w.API + w.AUDIT, w.API + w.APPENDIX):
+                return Resp(NO)
+            raise AssertionError(url)
+        fetched = []
+        def fetch(u):
+            fetched.append(u)
+            if u.endswith("000640001.PDF"):
+                raise ValueError("PDF 아님 HTTP 200")   # 목록에는 있는데 파일 대신 HTML
+            return u
+        text = "Ⅲ. 처리결과 1. 산업통상부 현대제철 당진 전기로 가동 중단에 따른 협력업체 지원 대책 마련 요구 — 처리결과: 지원 방안 검토 중" + " 이하 생략." * 200
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda u: text)
+        r = doc["checks"][0]["reports"]
+        self.assertEqual((r["listed"], r["baseline"], r["new"]), (2, 2, 0))     # 첫 실행은 기준선 — 행정안전위는 안 봄
+        self.assertEqual(fetched, [])
+        self.assertTrue(doc["repBase"])
+        # 이튿날: 산자중기위 처리결과보고서(산업통상부)가 새로 올라옴 + 파일이 아직 안 열리는 것 하나
+        vis.append({"RPT_YR": "2025", "CMIT_NM": "산업통상자원중소벤처기업위원회", "RPT_TTL": "2025년도 국정감사결과 시정 및 처리요구사항에 대한 처리결과보고서(산업통상부)", "PDF_DWLD_URL": base + "000640000.PDF"})
+        vis.append({"RPT_YR": "2025", "CMIT_NM": "국토교통위원회", "RPT_TTL": "2025년도 국정감사결과 시정 및 처리요구사항에 대한 처리결과보고서(국토교통부)", "PDF_DWLD_URL": base + "000640001.PDF"})
+        doc2 = w.run(NOW + dt.timedelta(days=1), doc, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda u: text)
+        r2 = doc2["checks"][0]["reports"]
+        self.assertEqual((r2["new"], r2["read"], r2["waiting"]), (2, 1, 1))
+        self.assertEqual(doc2["status"], "complete")
+        item = {x["id"]: x for x in doc2["items"]}["nar:000640000:현대제철"]
+        self.assertEqual((item["tier"], item["kind"]), ("A", "국정감사 처리결과보고서"))
+        self.assertTrue(item["snippets"][0].startswith("1쪽 · 처리결과보고서(산업통상부) · "))
+        ev = {e["id"]: e for e in doc2["events"]}
+        self.assertEqual(ev["nardoc:000640000"]["tier"], "B")
+        self.assertIn("2025년도 국정감사결과 시정 및 처리요구사항에 대한 처리결과보고서(산업통상부) 올라옴 — 1쪽 · 출입처 대목 1곳(현대제철)", ev["nardoc:000640000"]["text"])
+        self.assertEqual(doc2["repWait"], {"000640001": "2026-11-19"})
+        # 30일 지나도 안 열리면 넘긴다
+        later = w.run(NOW + dt.timedelta(days=31), doc2, key="k", get=get, sleep=lambda s: None, extract=extract, apx_fetch=fetch, apx_extract=lambda u: text)
+        self.assertIn("000640001", later["repSeen"])
+        self.assertIn("보고서 받기 000640001:파일이 30일 넘게 안 열림(넘김)", later["checks"][0]["error"])
+
+    def test_audit_reports_list_failure_keeps_baseline_pending(self):
+        def get(url, params=None, headers=None, timeout=None, stream=None):
+            if url.startswith(w.API + "AUDITREPORT"):
+                raise TimeoutError()
+            return Resp(NO)
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None, extract=extract)
+        self.assertFalse(doc["repBase"])          # 목록을 못 읽었으면 기준선을 아직 잡지 않는다(다음 실행이 기준선)
+        self.assertEqual(doc["status"], "partial")
 
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
