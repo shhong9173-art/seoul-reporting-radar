@@ -73,7 +73,13 @@ export const DESK_TYPES = [
     test: (x) => x.watch === W.official && /^(?:관보 입법예고|법제처 )/.test(x.kind ?? '') },
   { key: 'quota', strength: 'weak', label: 'EU 쿼터 소진', why: '기자: 일반 통상 통계 발제는 패스(여러 번)', test: (x) => x.watch === W.remedy && /^EU 쿼터/.test(x.kind ?? '') },
 ];
+// 취재 단서(11-18 기자 결정 '추천대로'): 정기보고서 숨은 대목·임원 명단·굴뚝·노조 성명·노동위·지방의회·국회 회의록·국민연금(digest.mjs LEAD_FEEDS) —
+// 감시 등급과 상관없이 단독 추천 유형으로 올리지 않는다. 최근 30일 판정 85건 중 킬 80, 그중 59건이 정기보고서 숨은 대목·굴뚝·임원 명단이었다.
+// 이미 약한 유형(굴뚝·지방의회·국민연금 등)에 맞으면 그 유형 이름과 킬 근거를 그대로 쓰고, 아니면 '취재 단서' 한 유형으로 묶는다(강한·보통 유형으로는 안 감)
+export const LEAD_TYPE = { key: 'lead', strength: 'weak', label: '취재 단서(단독 추천 안 함)', why: '11-18 기자 결정 — 최근 30일 판정 85건 중 씀 1·킬 80(킬 59건이 정기보고서 숨은 대목·굴뚝·임원 명단)' };
+
 export function deskType(x) {
+  if (x.lead) return DESK_TYPES.find((t) => t.strength === 'weak' && t.test(x)) ?? LEAD_TYPE;
   return DESK_TYPES.find((t) => t.test(x)) ?? { key: 'other', strength: 'normal', label: x.watch, why: '' };
 }
 
