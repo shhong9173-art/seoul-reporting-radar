@@ -28,7 +28,7 @@ export function alertRuns(name, body) {
   return out;
 }
 
-// 지금(여유를 뺀 시각)까지 지난 예약 시각 중 기록이 없는 것. 기록은 그 예약 시각부터 다음 예약 시각 전까지 적힌 것을 센다
+// 지금(여유를 뺀 시각)까지 지난 예약 시각 중 기록이 없는 것(마지막으로 돈 기록 뒤만). 기록은 그 예약 시각부터 다음 예약 시각 전까지 적힌 것을 센다
 // (대화에서 늦게 대신 보낸 것 포함). '조회 실패' 줄은 돈 것으로 치지 않는다.
 export function alertGaps(nowMs, runs, { since = ALERT_RECORD_SINCE } = {}) {
   const ok = runs.filter((r) => !r.failed).map((r) => r.at);
@@ -38,8 +38,11 @@ export function alertGaps(nowMs, runs, { since = ALERT_RECORD_SINCE } = {}) {
   const slots = [];
   for (let d = 2; d >= 0; d--) for (const [h, mi] of ALERT_SLOTS) slots.push(day0 - d * 86400000 + (h * 60 + mi) * 60000);
   const missed = [];
+  // 11-18: 08:43이 빈 뒤 12:43·15:43이 돌았는데도 08:43 '기록 없음'이 36시간 동안 떴다. 알림 작업은 0단계에서 마지막 기록부터 범위를 넓혀
+  // 다시 보므로, 마지막으로 돈 기록보다 앞선 빈 시각은 이미 다시 본 것이다 — 마지막 기록 뒤의 빈 시각만 센다.
+  const lastOk = ok.length ? Math.max(...ok) : -Infinity;
   slots.forEach((s, i) => {
-    if (s < from || s > until) return;
+    if (s < from || s > until || s < lastOk - EARLY_MIN * 60000) return;
     const next = slots[i + 1] ?? s + 24 * 3600000;
     if (!ok.some((t) => t >= s - EARLY_MIN * 60000 && t < next)) missed.push(s);
   });
