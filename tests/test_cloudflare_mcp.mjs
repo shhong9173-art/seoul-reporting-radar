@@ -1,5 +1,5 @@
 import { irNote } from '../cloudflare/trademarks.mjs';
-import { alertGaps, alertRuns } from '../cloudflare/alert_health.mjs';
+import { DAILY_TASKS, alertGaps, alertRuns, taskGap } from '../cloudflare/alert_health.mjs';
 import { chunkText } from '../cloudflare/dart_text.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -5773,6 +5773,34 @@ test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(
   }
 });
 
+test('아침 발제·오후 체크 예약 작업 저장본(11-18): 저장본 없음·진행 중 멈춤을 radar_today·radar_health(기자 전용) 맨 위에 띄운다', async () => {
+  const at = (iso) => Date.parse(iso);
+  const [morning, afternoon] = DAILY_TASKS;
+  // 11-18(수) 09:16 — 08:57+30분 전이라 아직 묻지 않는다 · 09:30부터 저장본 없음
+  assert.equal(taskGap(at('2026-11-18T09:16:00+09:00'), morning, null), null);
+  assert.equal(taskGap(at('2026-11-18T09:30:00+09:00'), morning, null), '아침 발제 초안(Claude 앱 예약 작업, 평일 08:57): ⚠ 오늘(11-18) 저장본 없음'
+    + ' — 시작 표시도 없어 실행이 첫 조회 전에 끝났을 수 있다(사용 한도·커넥터 연결 등). 오늘 아침 발제 초안 내용은 미확인 — 대화에서 다시 요청하거나 Claude 앱 예약 작업 실행 기록 확인');
+  // 토요일 아침 발제는 묻지 않고, 오후 체크는 매일
+  assert.equal(taskGap(at('2026-11-21T10:00:00+09:00'), morning, null), null);
+  assert.match(taskGap(at('2026-11-21T15:10:00+09:00'), afternoon, null), /^오후 출입처 공시 체크\(Claude 앱 예약 작업, 매일 14:20\): ⚠ 오늘\(11-21\) 저장본 없음 — 실행이 실패했을 수 있다/);
+  // '진행 중' 표시: 여유+60분 전에는 기다리고, 그 뒤에는 끊긴 것으로 본다 · 완성본은 문제 없음
+  const stuck = { title: '아침 발제 초안 11-18 · 진행 중(후보 고름 09:03)', updated_at: '2026-11-18T00:03:00.000Z' };
+  assert.equal(taskGap(at('2026-11-18T10:00:00+09:00'), morning, stuck), null);
+  assert.equal(taskGap(at('2026-11-18T10:30:00+09:00'), morning, stuck), "아침 발제 초안(Claude 앱 예약 작업, 평일 08:57): ⚠ 오늘(11-18) '진행 중' 표시 그대로(마지막 저장 09:03) — 실행이 중간에 끊겼다. 남은 본문까지만 확인됨");
+  assert.equal(taskGap(at('2026-11-18T10:30:00+09:00'), morning, { title: '아침 발제 초안 11-18 · 일반 2건·단독 후보 0건' }), null);
+
+  const opts = PRIVATE();
+  const now = new Date('2026-11-18T00:40:00Z');   // 09:40 KST 수요일
+  const top = async () => ((await call('radar_today', { hours: 1 }, { ...opts, now })).text.split('[먼저 볼 것: 수집 상태]\n')[1] ?? '').split('\n')[0];
+  assert.match(await top(), /^- 아침 발제 초안\(Claude 앱 예약 작업, 평일 08:57\): ⚠ 오늘\(11-18\) 저장본 없음/);
+  const fetch = fakeFetch();
+  assert.match((await call('radar_health', {}, { ...opts, fetch, now })).text, /\n\[기자 전용\] ⚠ 아침 발제 초안\(Claude 앱 예약 작업, 평일 08:57\): ⚠ 오늘\(11-18\) 저장본 없음/);
+  assert.doesNotMatch((await call('radar_health', {}, { fetch, now })).text, /아침 발제 초안/);   // 공개 연결에는 없음
+  await call('package_save', { name: 'morning-20261118', state: '미발제·확인 필요', title: '아침 발제 초안 11-18 · 일반 1건·단독 후보 0건', body: '…' }, opts);
+  assert.doesNotMatch(await top(), /아침 발제 초안/);
+  assert.doesNotMatch((await call('radar_health', {}, { ...opts, fetch, now })).text, /아침 발제 초안/);
+});
+
 test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄이 빈 곳을 radar_today·radar_health(기자 전용) 수집 상태에 띄운다', async () => {
   const at = (iso) => Date.parse(iso);
   // 기록 줄 읽기: 패키지 날짜(KST) + HH:MM, '조회 실패'는 돈 것으로 치지 않는다
@@ -5798,8 +5826,8 @@ test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄�
   // 이튿날 09:40: 어제 패키지까지 함께 본다 — 12:47 뒤로 15:43·18:43·21:43·23:43·08:43 다섯 번 기록 없음
   // 수집 상태 맨 위 줄 — 단독 알림 화면(scoop_desk alerts)은 수집 상태를 4줄까지만 옮긴다
   const top = (await call('radar_today', { hours: 1 }, { ...opts, now: new Date('2026-11-18T00:40:00Z') })).text.split('[먼저 볼 것: 수집 상태]\n')[1] ?? '';
-  assert.match(top, /^- (단독 후보 즉시 알림|기자 컴퓨터 수집)/);
-  assert.match((await call('scoop_desk', { alerts: true }, { ...opts, now: new Date('2026-11-18T00:40:00Z') })).text, /\[수집 상태[^\n]*\]\n- (단독 후보 즉시 알림|기자 컴퓨터 수집)[^\n]*\n- (단독 후보 즉시 알림|기자 컴퓨터 수집)/);
+  assert.match(top, /^- (단독 후보 즉시 알림|기자 컴퓨터 수집|아침 발제 초안)/);
+  assert.match((await call('scoop_desk', { alerts: true }, { ...opts, now: new Date('2026-11-18T00:40:00Z') })).text, /\[수집 상태[^\n]*\]\n(?:- 아침 발제 초안[^\n]*\n)?- (단독 후보 즉시 알림|기자 컴퓨터 수집)[^\n]*\n- (단독 후보 즉시 알림|기자 컴퓨터 수집)/);
   assert.match(await line('2026-11-18T00:40:00Z'), /⚠ 예약 5번 기록 없음\(11-17 15:43·11-17 18:43·11-17 21:43·11-17 23:43·08:43\) · 마지막 기록 11-17 12:47 KST — .* 여러 번 빠졌으니 Claude 앱 예약 작업의 실행 기록을 확인$/);
 
   // radar_health: 공개 연결은 그대로, 기자 전용 연결에만 기자 컴퓨터 수집·알림 기록 줄

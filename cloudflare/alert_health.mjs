@@ -60,3 +60,49 @@ export async function alertHealth(ctx) {
     + ` · 마지막 기록 ${last ? kstStamp(last) : '없음'} — 실행이 실패했을 수 있다(사용 한도 등). 그 사이 알림 대상은 미확인 — 다음 실행이 범위를 넓혀 다시 본다.`
     + `${missed.length >= 2 ? ' 여러 번 빠졌으니 Claude 앱 예약 작업의 실행 기록을 확인' : ''}`;
 }
+
+// 아침 발제 초안·오후 출입처 공시 체크(Claude 앱 예약 작업)가 오늘 저장본(morning-·afternoon-YYYYMMDD)을 남겼는지 — 11-18 기자 '다음 업데이트'.
+// 11-18 08:57 아침 발제가 28초 만에 끝나 시작 표시(지시문 0단계)조차 없이 빈 날이 됐고, 같은 날 08:43 알림도 25초 만에 끝났다.
+// 알림은 위 alertHealth가 다음 날 기록 줄로 잡지만 아침 발제는 아무 화면에도 안 보였다(11-13 등 평일 저장본 없는 날이 이미 여러 번).
+// 아침 발제는 0단계에서 '진행 중(시작 HH:MM)'을 먼저 저장한다 — 저장본이 아예 없으면 첫 도구 호출 전에 끝난 것, '진행 중'이 남아 있으면 중간에 끊긴 것.
+// 오후 체크는 끝에서 한 번만 저장한다. 공휴일은 따로 보지 않는다(평일 공휴일에 아침 발제가 쉬면 이 줄이 뜬다).
+export const DAILY_TASKS = [
+  { label: '아침 발제 초안', prefix: 'morning', at: [8, 57], weekdays: true, graceMin: 30, sched: '평일 08:57', start: true },
+  { label: '오후 출입처 공시 체크', prefix: 'afternoon', at: [14, 20], weekdays: false, graceMin: 40, sched: '매일 14:20', start: false },
+];
+const STALL_MIN = 60;
+
+const kstMinutes = (k) => k.getUTCHours() * 60 + k.getUTCMinutes();
+const dueAt = (task) => task.at[0] * 60 + task.at[1] + task.graceMin;
+// 오늘 그 작업을 물을 때인가(평일만 도는 작업의 주말, 예약 시각+여유 전은 묻지 않는다)
+export function taskDue(nowMs, task) {
+  const k = new Date(nowMs + KST_MS);
+  const wd = k.getUTCDay();
+  return !(task.weekdays && (wd === 0 || wd === 6)) && kstMinutes(k) >= dueAt(task);
+}
+
+// 오늘 그 작업의 저장본(row: packages 줄 또는 null)을 보고 문제 줄(없으면 null)
+export function taskGap(nowMs, task, row) {
+  if (!taskDue(nowMs, task)) return null;
+  const k = new Date(nowMs + KST_MS);
+  const minutes = kstMinutes(k);
+  const due = dueAt(task);
+  const head = `${task.label}(Claude 앱 예약 작업, ${task.sched}): ⚠ 오늘(${k.toISOString().slice(5, 10)})`;
+  if (!row) {
+    return `${head} 저장본 없음${task.start ? ' — 시작 표시도 없어 실행이 첫 조회 전에 끝났을 수 있다(사용 한도·커넥터 연결 등)' : ' — 실행이 실패했을 수 있다(사용 한도 등)'}.`
+      + ` 오늘 ${task.label} 내용은 미확인 — 대화에서 다시 요청하거나 Claude 앱 예약 작업 실행 기록 확인`;
+  }
+  if (/진행 중/.test(String(row.title ?? '')) && minutes >= due + STALL_MIN) {
+    const at = Date.parse(row.updated_at);
+    return `${head} '진행 중' 표시 그대로${Number.isFinite(at) ? `(마지막 저장 ${kstStamp(at).slice(6, 11)})` : ''} — 실행이 중간에 끊겼다. 남은 본문까지만 확인됨`;
+  }
+  return null;
+}
+
+export async function taskHealth(ctx) {
+  const nowMs = ctx.now.getTime();
+  const day = kstDay(nowMs);
+  const due = DAILY_TASKS.filter((t) => taskDue(nowMs, t));
+  const rows = await Promise.all(due.map((t) => storeOp(ctx, 'packages.get', { name: `${t.prefix}-${day}` })));
+  return due.map((t, i) => taskGap(nowMs, t, rows[i]?.row ?? null)).filter(Boolean);
+}
