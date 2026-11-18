@@ -3573,6 +3573,32 @@ test('정기보고서 숨은 대목 11-17 넓힘: 보증·이해관계자 거래
   assert.match(k, /표 줄의 〔칸 이름〕값은 보고서 표 머리글/);
 });
 
+test('보고서 전체 새 낱말 즉시 알림(11-18): 회생·영업정지·가압류·압수수색·가처분(+파산·조업정지) 줄이 출입처 자신의 일이고 제때 읽었을 때만', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const ev = (code, company, lines, late = false) => ({ id: `rptword:2026111300${code}`, kind: '보고서 전체 새 낱말', company, tier: 'B', url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026111300${code}`,
+    detectedAt: now, filed: '20261113', period: '2026년 3분기(9-30 기준)', lines, ...(late ? { late: true } : {}), text: `${company} 보고서 전체 새 줄` });
+  const doc = { schema: 'kr_report_notes/v1', generatedAt: now, status: 'complete', period: { year: 2026, report: '11014', label: '2026년 3분기(9-30 기준)' },
+    checks: [{ source: 'OCI', status: 'ok', returned: 1 }], companies: {}, summary: { companies: 39, read: 3 },
+    events: [
+      ev('0552', 'OCI', ['〔영업정지〕 (2) 영업정지와 관련된 우발부채당분기말 현재 지배회사는 TDI 제조 및 판매 사업을 중단하기로 결정하였습니다.', '〔매각〕 계열회사(OCI TRS)에 대한 자산매각 계획 보고']),
+      ev('0606', 'OCI홀딩스', ['〔출입처 외 OCI스페셜티〕 〔가처분〕 종속기업인 OCI스페셜티(주)에 대한 가처분 신청', '〔매각〕 당분기 중 종속회사 La Salle Solar LLC를 매각하였습니다.']),
+      ev('0671', '한국타이어', ['〔매각〕 당분기 중 매각으로 연결대상에서 제외하였습니다.']),
+      ev('1097', '포스코홀딩스', ['〔영업정지〕 2026년 10월 2일 국토교통부로부터 영업정지 8개월의 행정처분 사전통지서를 수령하였습니다.'], true)] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-report-notes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const b = (await call('radar_today', { limit: 30 }, opts)).text.split('[B · ')[1];
+  const item = (name) => b.split('\n- ').find((x) => x.includes(`${name} 2026년 3분기`)) ?? '';
+  assert.match(item('OCI'), /즉시 알림 대상: 문서 알림 — 정기보고서 전체에 새로 적힌 영업정지 줄 1줄에 OCI\(B여도 보냄 · 11-18 기자 결정/);
+  assert.doesNotMatch(item('OCI홀딩스'), /즉시 알림 대상/);   // 가처분 줄이 출입처 외(자회사) 일
+  assert.doesNotMatch(item('한국타이어'), /즉시 알림 대상/);   // 매각 줄만
+  assert.doesNotMatch(item('포스코홀딩스'), /즉시 알림 대상/);   // 늦게 읽음
+  const w = { tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: 'OCI', note: '보고서 전체 새 낱말', heavy: ['영업정지'], heavyLines: 1, noteLines: 9, late: false };
+  assert.match(docAlert(w, undefined), /^문서 알림 — 정기보고서 전체에 새로 적힌 영업정지 줄 1줄에 OCI/);
+  assert.equal(docAlert(w, '관련 보도 있음'), null);
+  assert.equal(docAlert({ ...w, heavyLines: 0, heavy: [] }, undefined), null);
+});
+
 test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A·B, kr_signals exec 아래 붙음', async () => {
   const opts = PRIVATE();
   const env = opts.env;
