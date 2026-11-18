@@ -50,6 +50,7 @@ WIDTH = 150
 NEAR = 60
 PAUSE = 0.5
 NO_DATA = "INFO-200"
+RULES_V = 2   # 2(11-18): 줄바꿈을 붙여 이름 찾기 — 바뀌면 받은 회의록을 다시 읽는다
 NOT_POSTED = "등록되지 않았습니다"   # 회의록 PDF 주소가 파일 대신 돌려주는 알림(원본 파일 아직 안 올라옴)
 # 출입처 이름: 지방의회 회의록과 같은 규칙 + 국회에서 흔한 '현대차·기아'
 # HL만도: 지방의회 규칙의 '만도' 홀로 쓰기는 국회 회의록에서 조사 '~만도'(11-18 첫 실행 'AIDC만도 18.4GW')를 잡았다 —
@@ -146,20 +147,44 @@ def speaker_at(text, pos):
     return (tidy(m.group(1))[:24], k, m.end()) if m else (None, k, k + 1)
 
 
+def name_spans(text, rx, cap=80):
+    """회사 이름 자리 [(시작, 끝)] — 회의록 PDF는 줄 끝에서 낱말 가운데를 끊는다('포스코이\n앤씨', '현대제\n철', 11-18 첫 실행).
+    그래서 줄바꿈을 붙인 글자에서도 찾고, 찾은 자리마다 줄바꿈을 붙인 글자에서 다시 맞춰 본다 —
+    '포스코이\n앤씨'(계열사 포스코이앤씨)는 빠지고 '현대제\n철'은 잡힌다."""
+    keep = [i for i, ch in enumerate(text) if ch != "\n"]
+    flat = "".join(text[i] for i in keep)
+    fidx, n = [], 0
+    for ch in text:
+        fidx.append(n)
+        n += ch != "\n"
+    starts = {m.start() for m in rx.finditer(text)} | {keep[m.start()] for m in rx.finditer(flat)}
+    out, last = [], -1
+    for st in sorted(starts):
+        if st < last:
+            continue
+        f0 = fidx[st]
+        mm = rx.match(flat[f0: f0 + 60])
+        if not mm or not mm.end():
+            continue
+        last = keep[f0 + mm.end() - 1] + 1
+        out.append((st, last))
+        if len(out) >= cap:
+            break
+    return out
+
+
 def hits(text, rx, n=SNIPS):
     """회사 이름 대목 n곳 [(대목, 사건 낱말 여부)] — 사건 낱말 있는 대목 먼저. 대목은 '쪽 · 발언자 · 글'."""
     near_a, plain = [], []
-    for k, m in enumerate(rx.finditer(text)):
-        if k >= 80:
-            break
-        who, at, label_end = speaker_at(text, m.start())
-        start = max(0, m.start() - WIDTH)
+    for a, b in name_spans(text, rx):
+        who, at, label_end = speaker_at(text, a)
+        start = max(0, a - WIDTH)
         if at >= start:   # 앞 발언자의 말은 자르고 이 발언자 말부터
             start = label_end
-        body = tidy(text[start: m.end() + WIDTH])
-        page = text.count("\f", 0, m.start()) + 1
+        body = tidy(text[start: b + WIDTH])
+        page = text.count("\f", 0, a) + 1
         s = f"{page}쪽 · {who or '발언자 미상'} · {body}"
-        (near_a if A_WORDS.search(text[max(0, m.start() - NEAR): m.end() + NEAR]) else plain).append((s, body))
+        (near_a if A_WORDS.search(re.sub(r"\n", "", text[max(0, a - NEAR): b + NEAR])) else plain).append((s, body))
     out, keys = [], []
     for s, body in near_a + plain:
         key = re.sub(r"\s", "", body)[:50]
@@ -184,6 +209,10 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
                 "checks": [{"source": "열린국회정보 회의록", "status": "unset", "error": "ASSEMBLY_API_KEY 미설정"}],
                 "items": prev.get("items") or [], "events": prev.get("events") or []}
     seen = dict(prev.get("seen") or {})
+    rebuild = prev.get("rulesV") != RULES_V
+    if rebuild:   # 이름 찾기 규칙이 바뀌면 받은 회의록을 한 번 다시 읽는다(한 실행 30개씩)
+        seen = {}
+        prev = {**prev, "items": [], "events": []}
     tries = {k: v for k, v in (prev.get("tries") or {}).items() if isinstance(v, int)}
     known = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id")}
     # 이름 규칙을 고치면 앞서 남긴 대목도 지금 규칙으로 다시 본다(대목에 회사 이름이 안 맞으면 뺀다 — 11-18 HL만도)
@@ -260,7 +289,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     api_failed = sum(1 for e in errors if not e.startswith("회의록 "))
     status = "failed" if api_failed >= LOOKBACK_DAYS else "partial" if errors else "complete"
-    return {"schema": SCHEMA, "generatedAt": stamp, "status": status,
+    return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "rulesV": RULES_V,
             "checks": [{"source": "열린국회정보 회의록(위원회·국정감사)", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "meetings": len(found), "returned": len(fresh), "opened": opened, "read": read_ok, **({"pending": pending} if pending else {}),
                         **({"notPosted": waiting} if waiting else {}),
@@ -271,7 +300,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, extract=pdf
             "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
             "rules": ["열린국회정보 위원회 회의록(최근 21일 회의일)·국정감사 회의록 중 출입 업종 상임위(산자중기위·기후에너지환경노동위·국토위·재경위·정무위, 소위 포함)의 새 회의록 PDF에서 출입처 이름 대목(앞뒤 150자, 발언자·쪽).",
                       f"회사 이름 앞뒤 60자 안에 불법·과징금·고발·수사·담합·오염·사고·사망·산재·폐쇄·철수·매각·감산·가동 중단·구조조정·하청·리콜·결함·증설·이전 낱말이 있고 회의일이 {RECENT_DAYS}일 안이면 A, 아니면 C.",
-                      "의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개(회의일과 공개일이 다르다). PDF 글자 뽑기에서 줄바꿈 자리 띄어쓰기가 틀릴 수 있다.",
+                      "의원 질의는 주장 — 정부 답변·회사 확인. 회의록은 회의 며칠 뒤 공개(회의일과 공개일이 다르다). PDF 글자 뽑기에서 줄바꿈 자리 띄어쓰기가 틀릴 수 있다(대목에 '현대제 철'처럼 보임) — 회사 이름은 줄바꿈을 붙여 찾는다(포스코이앤씨 같은 계열사 거르기 포함).",
                       "조회 실패·PDF 받기 실패는 미확인(0건 아님). 원본 파일이 아직 안 올라온 회의록은 날마다 다시 본다(위원회 회의록은 회의일 21일, 국정감사는 75일 안). 한 실행 30개 — 넘으면 다음 실행."]}
 
 

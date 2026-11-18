@@ -154,13 +154,38 @@ class AssemblyMinutesTest(unittest.TestCase):
         self.assertTrue(rx.search("만도 평택공장에서"))
         bad = {"id": "nam:57378:HL만도", "company": "HL만도", "snippets": ["51쪽 · 어기구 위원 · AIDC만도 18.4GW"], "tier": "C", "firstSeen": "2026-11-18T01:56:00+09:00"}
         ok = {"id": "nam:57375:HL만도", "company": "HL만도", "snippets": ["102쪽 · 서왕진 위원 · HL만도 평택공장 하청노동자"], "tier": "C", "firstSeen": "2026-11-18T01:56:00+09:00"}
-        prev = {"schema": w.SCHEMA, "items": [bad, ok], "events": [{"id": "nam:57378:HL만도", "tier": "A", "detectedAt": "2026-11-18T01:56:00+09:00"}],
+        prev = {"schema": w.SCHEMA, "rulesV": w.RULES_V, "items": [bad, ok], "events": [{"id": "nam:57378:HL만도", "tier": "A", "detectedAt": "2026-11-18T01:56:00+09:00"}],
                 "seen": {"57701": "20261109", "57437": "20261022"}}
         doc = w.run(NOW, prev, key="k", get=fake_get([]), sleep=lambda s: None, extract=extract)
         ids = {x["id"] for x in doc["items"]}
         self.assertNotIn("nam:57378:HL만도", ids)
         self.assertIn("nam:57375:HL만도", ids)
         self.assertEqual(doc["events"], [])
+
+    def test_line_breaks_inside_names(self):
+        # 11-18 첫 실행: PDF 줄 끝에서 낱말 가운데가 끊겨 '포스코이\n앤씨'(계열사)가 포스코로 잡혔다
+        rx = dict((c, r) for c, r in w.TERMS)
+        text = "◯정일영 위원 왜 포스코이\n앤씨가 문제가 되냐면 산재가 600명입니다. ◯산업통상부장관 김정관 현대제\n철 당진 공장의 가동\n중단 문제는 협의하고 있습니다. 포스코는 수소환원제철을"
+        self.assertEqual([text[a:b] for a, b in w.name_spans(text, rx["포스코"])], ["포스코"])     # 끝의 '포스코는'만
+        spans = w.name_spans(text, rx["현대제철"])
+        self.assertEqual([text[a:b] for a, b in spans], ["현대제\n철"])
+        snips, near = w.hits(text, rx["현대제철"])
+        self.assertTrue(near)                       # '가동\n중단'도 사건 낱말
+        self.assertIn("산업통상부장관 김정관 · 현대제 철 당진", snips[0])
+
+    def test_rules_change_rereads_seen_minutes_once(self):
+        urls = []
+        prev = {"schema": w.SCHEMA, "seen": {"57701": "20261109", "57437": "20261022"},
+                "items": [{"id": "nam:57437:포스코", "company": "포스코", "snippets": ["11쪽 · 정일영 위원 · 포스코이 앤씨가"], "firstSeen": "2026-11-18T01:56:00+09:00"}]}
+        doc = w.run(NOW, prev, key="k", get=fake_get(urls), sleep=lambda s: None, extract=extract)   # 앞 판(rulesV 없음)
+        self.assertEqual(doc["rulesV"], w.RULES_V)
+        self.assertEqual(sum(1 for u, _ in urls if "pdf.do" in u), 2)
+        posco = next(x for x in doc["items"] if x["id"] == "nam:57437:포스코")
+        self.assertNotIn("앤씨", posco["snippets"][0])        # 앞 판 대목은 버리고 다시 읽은 대목
+        self.assertIn("광양제철소 화재", posco["snippets"][0])
+        urls2 = []
+        w.run(NOW, doc, key="k", get=fake_get(urls2), sleep=lambda s: None, extract=extract)
+        self.assertFalse(any("pdf.do" in u for u, _ in urls2))
 
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
