@@ -3310,8 +3310,14 @@ test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신�
         docs: [{ label: 'Narrative', url: 'https://air.gaepd.org/Permits/View/ON-31000' }], url: 'https://air.gaepd.org/Permits/View/OP-31000', firstSeen: now },
       { id: 'laci:20240515-A-ITE:2026-12-10', source: 'laci', state: '루이지애나', company: '롯데케미칼', facility: 'Lotte Chemical Louisiana LLC Calcasieu', appNo: '20240515-A-ITE',
         meeting: '2026-12-10', amount: '$3,902,899', noticeType: '상공위원회 안건(세제 감면·고용 인센티브)', reason: '20240515-A-ITE Lotte Chemical Louisiana LLC Calcasieu $3,902,899 $95,000 12',
-        url: 'https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf', firstSeen: now }],
+        url: 'https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf', firstSeen: now },
+      { id: 'lasbc:L26-302:2026-11-19', source: 'lasbc', state: '루이지애나', company: '현대제철', facility: 'Port of South Louisiana (Hyundai Steel Project/FastSites Program)', appNo: 'L26-302',
+        meeting: '2026-11-19', amount: '상한 $400,000,000', agenda: '예비 안건', noticeType: '채권위원회 안건(채권 발행 심의)',
+        reason: '61. L26-302 - Port of South Louisiana (Hyundai Steel Project/FastSites Program) - Not exceeding $400,000,000 Lease Revenue Bonds',
+        url: 'https://22ee8665-1961-49e0-9ce1-092e2a0b49d3.usrfiles.com/ugd/x.pdf', firstSeen: now }],
     events: [
+      { id: 'lasbc:L26-302:2026-11-19', kind: '주 채권위원회 안건', tier: 'B', company: '현대제철', state: '루이지애나', detectedAt: now, url: 'https://22ee8665-1961-49e0-9ce1-092e2a0b49d3.usrfiles.com/ugd/x.pdf',
+        text: '루이지애나 채권위원회 예비 안건(2026-11-19 회의) · L26-302 · 금액 상한 $400,000,000 · 안건 줄 「61. L26-302 - Port of South Louisiana (Hyundai Steel Project/FastSites Program) - Not exceeding $400,000,000 Lease Revenue Bonds」 · 주 채권위원회 공개 안건(심의 대상 — 채권 승인·발행 확정 아님, 금액은 상한, 발행 주체는 주·항만 등 공공기관)' },
       { id: 'ga:29866:pa1126-1', kind: '주 환경청 허가·공고', tier: 'A', company: '현대차', state: '조지아', detectedAt: now, url: 'https://epd.georgia.gov/document/document/pa1126-1/download',
         text: '조지아 주간 공고 pa1126-1 · Hyundai Motor Group Metaplant America LLC(Bryan County) · Proposed Permit · 신청 29866 · 이유 「Construction of a second paint shop」 — 신설·증설 낱말이 있는 신청(회사 확인) · 주 정부 공개 공고(허가 신청≠착공·투자 확정)' },
       { id: 'adem:11-26hpt.html', kind: '주 환경청 제재 공고', tier: 'B', company: 'HD현대일렉트릭', state: '앨라배마', detectedAt: now, url: 'https://adem.alabama.gov/sites/default/files/2026-11/11-26hpt.html',
@@ -3320,18 +3326,23 @@ test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신�
   const r = await call('radar_today', { include_minor: true }, opts);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /미국 주 환경 허가·공고 · 현대차\n   조지아 주간 공고 pa1126-1 · Hyundai Motor Group Metaplant/);
   assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /미국 주 환경 허가·공고 · HD현대일렉트릭\n   앨라배마 공고 · Hyundai Power Transformers USA, Inc\. · 동의명령\(제재\)/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /미국 주 환경 허가·공고 · 현대제철\n   루이지애나 채권위원회 예비 안건\(2026-11-19 회의\) · L26-302 · 금액 상한 \$400,000,000/);   // 11-18 채권위 — B
   assert.doesNotMatch(r.text, /Hanwha Q Cells/);   // 기준선은 레이더 새 항목이 아니다
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'ga:29866:pa1126-1');
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['현대차', ['조지아', '허가'], ['조지아']]);
+  const bond = items.items.find((x) => x.id === 'lasbc:L26-302:2026-11-19');
+  assert.deepEqual([bond.check.who, bond.check.terms, bond.check.alts.채권[0]], ['현대제철', ['루이지애나', '채권'], '채권']);
   const u = await call('us_litigation', {}, opts);
-  assert.match(u.text, /\[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 [^\]]+\] 4건 · 원천 조지아 EPD 주간 공고 ok · 앨라배마 ADEM 공고 ok · 루이지애나 LDEQ 공고 ok/);
+  assert.match(u.text, /\[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 [^\]]+\] 5건 · 원천 조지아 EPD 주간 공고 ok · 앨라배마 ADEM 공고 ok · 루이지애나 LDEQ 공고 ok/);
   assert.match(u.text, /- \[기준선\] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc\.\(Bartow County · 100 Qcells Pkwy, White, 30184\) · Permit Application · 신청 30376 · 공고 주 2026-10-05 · 의견 마감 2026-11-06/);
   assert.match(u.text, /- \[신규\] 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC/);
   assert.match(u.text, /신청 이유: 「The addition of a rotary concentrator/);
   assert.match(u.text, /- 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC · 대기 허가 발급\(PSD\/NSR\) · 허가 3711-029-0015-P-02-0\(시설 029-00015\) · 발급 2026-10-20\n   원문: https:\/\/air\.gaepd\.org\/Permits\/View\/OP-31000\n   문서: Narrative https:\/\/air\.gaepd\.org\/Permits\/View\/ON-31000/);
   assert.match(u.text, /- 루이지애나 · 롯데케미칼 · Lotte Chemical Louisiana LLC Calcasieu · 상공위원회 안건\(세제 감면·고용 인센티브\) · 신청 20240515-A-ITE · 회의 2026-12-10 · 금액 칸 첫 값 \$3,902,899\n   안건 줄: 「20240515-A-ITE Lotte/);
-  assert.match(u.text, /\] 4건 · 원천/);
+  assert.match(u.text, /- \[신규\] 루이지애나 · 현대제철 · Port of South Louisiana \(Hyundai Steel Project\/FastSites Program\) · 채권위원회 안건\(채권 발행 심의\) · 안건 L26-302 · 예비 안건 · 회의 2026-11-19 · 금액 상한 \$400,000,000\n   안건 줄: 「61\. L26-302/);
+  assert.match(u.text, /상공위·채권위 안건은 심의 대상\(승인·발행 아님, 채권 금액은 상한\)/);
+  assert.match(u.text, /\] 5건 · 원천/);
 });
 
 test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·해고 B, kr_official labor 구역에 상한·사건, 보도 대조 낱말', async () => {

@@ -43,7 +43,7 @@ RULES = [("현대차", r"HYUNDAI MOTOR (?:MANUFACTURING|GROUP METAPLANT|AMERICA)
          ("HL만도", r"\bHL MANDO\b|\bMANDO (?:AMERICA|CORP|GEORGIA|ALABAMA)|HL KLEMOVE"),
          ("한국타이어", r"HANKOOK TIRE"), ("넥센타이어", r"NEXEN TIRE"), ("금호타이어", r"KUMHO TIRE"),
          # 현대제철·포스코 루이지애나 합작 법인(현대제철 최대주주) — 포스코 규칙보다 먼저(11-03 루이지애나 상공위 안건 'HYUNDAI-POSCO Louisiana Steel LLC')
-         ("현대제철", r"HYUNDAI[- ]POSCO"),
+         ("현대제철", r"HYUNDAI\s*[- ]\s*POSCO"),   # 11-18: PDF 글자에서 'HYUNDAI- POSCO'처럼 줄바꿈이 끼어도
          ("포스코", r"\bPOSCO\b(?! ?(?:INTERNATIONAL|FUTURE))"), ("현대제철", r"HYUNDAI STEEL"),
          ("세아제강", r"SEAH STEEL|\bSEAH (?:USA|AMERICA)"), ("동국제강·동국씨엠", r"DONGKUK"), ("고려아연", r"KOREA ZINC"),
          ("HD현대일렉트릭", r"HYUNDAI POWER TRANSFORMERS|HD HYUNDAI ELECTRIC"), ("LS일렉트릭", r"\bLS ELECTRIC"),
