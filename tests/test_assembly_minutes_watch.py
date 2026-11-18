@@ -287,6 +287,14 @@ class AssemblyMinutesTest(unittest.TestCase):
         finally:
             w.APX_MAX = old
 
+    def test_apx_who_skips_committee_names(self):
+        text = "【피감기관】 ◯최저임금위원회 ◯중앙노동위원회 ·········· 36쪽 현대차 협력사 납품"
+        self.assertEqual(w.apx_who(text, text.index("현대차"))[0], "서면질의(의원 미상)")
+        text = "◯강승규 위원 ····· 2025.10.29 중소벤처기업부 국감 서면질의서 (박형수 의원) 현대차"
+        self.assertEqual(w.apx_who(text, text.index("현대차"))[0], "박형수 의원 서면질의(중소벤처기업부)")
+        text = "◯김 위원장 ◯강승규 위원 현대차"
+        self.assertEqual(w.apx_who(text, text.index("현대차"))[0], "강승규 의원 서면질의")
+
     def test_api_down_is_failed_not_zero(self):
         doc = w.run(NOW, None, key="k", get=lambda *a, **k: (_ for _ in ()).throw(TimeoutError()), sleep=lambda s: None, extract=extract)
         self.assertEqual(doc["status"], "failed")
