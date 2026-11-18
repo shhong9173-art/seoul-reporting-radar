@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T17:00:47.002995+09:00",
+  "generatedAt": "2026-11-19T03:50:03.969051+09:00",
   "feeds": [
     {
       "name": "DART",
@@ -28,8 +28,8 @@
     {
       "name": "NHTSA",
       "status": "partial",
-      "rows": 80,
-      "generatedAt": "2026-11-18T17:00:46.954966+09:00",
+      "rows": 81,
+      "generatedAt": "2026-11-19T03:50:03.925953+09:00",
       "checkedQueries": 7,
       "failedQueries": 1
     },
@@ -37,7 +37,7 @@
       "name": "DART_METRIC",
       "status": "ready",
       "rows": 23,
-      "generatedAt": "2026-11-18T16:26:37+09:00",
+      "generatedAt": "2026-11-19T01:23:39+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -45,7 +45,7 @@
       "name": "CUSTOMS_FIVE",
       "status": "ready",
       "rows": 5,
-      "generatedAt": "2026-11-16T19:00:27+09:00",
+      "generatedAt": "2026-11-18T19:29:08+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -142,6 +142,13 @@
     },
     {
       "source": "NHTSA",
+      "headline": "Hyundai IONIQ 5 11778333",
+      "fact": "이미 공개된 미국 complaints",
+      "url": "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=Hyundai&model=IONIQ+5&modelYear=2026",
+      "verification": "한국 판매차 관련성 및 당국 조사 별도 검증"
+    },
+    {
+      "source": "NHTSA",
       "headline": "Hyundai IONIQ 5 11775844",
       "fact": "이미 공개된 미국 complaints",
       "url": "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=Hyundai&model=IONIQ+5&modelYear=2026",
@@ -220,13 +227,6 @@
     {
       "source": "NHTSA",
       "headline": "Hyundai IONIQ 5 11750575",
-      "fact": "이미 공개된 미국 complaints",
-      "url": "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=Hyundai&model=IONIQ+5&modelYear=2026",
-      "verification": "한국 판매차 관련성 및 당국 조사 별도 검증"
-    },
-    {
-      "source": "NHTSA",
-      "headline": "Hyundai IONIQ 5 11746191",
       "fact": "이미 공개된 미국 complaints",
       "url": "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=Hyundai&model=IONIQ+5&modelYear=2026",
       "verification": "한국 판매차 관련성 및 당국 조사 별도 검증"
