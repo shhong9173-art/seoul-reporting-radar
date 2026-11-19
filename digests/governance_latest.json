@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-19T07:41:01+09:00",
- "windowStart": "2026-10-20",
+ "generatedAt": "2026-11-20T07:44:33+09:00",
+ "windowStart": "2026-10-21",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -157,8 +157,8 @@
    "company": "넥센타이어",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 6,
-   "rowsInWindow": 0
+   "rowsReturned": 7,
+   "rowsInWindow": 1
   },
   {
    "company": "넥센타이어",
@@ -227,8 +227,8 @@
    "company": "현대제철",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 16,
-   "rowsInWindow": 0
+   "rowsReturned": 17,
+   "rowsInWindow": 1
   },
   {
    "company": "현대제철",
@@ -726,8 +726,45 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 41,
+ "count": 43,
  "items": [
+  {
+   "company": "넥센타이어",
+   "team": "자동차",
+   "kind": "대량보유(5%)",
+   "date": "2026-11-19",
+   "receiptNo": "20261119000138",
+   "reporter": "넥센",
+   "reportType": "일반",
+   "shares": 67378185.0,
+   "sharesChange": 1351336.0,
+   "ratio": 68.99,
+   "ratioChange": 1.39,
+   "reason": "단순 추가 취득",
+   "tags": [
+    "[지분율 +1.39%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261119000138"
+  },
+  {
+   "company": "현대제철",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-11-19",
+   "receiptNo": "20261119000277",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 13348206.0,
+   "sharesChange": 13348206.0,
+   "ratio": 10.0,
+   "ratioChange": 10.0,
+   "tags": [
+    "[지분율 +10.00%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261119000277"
+  },
   {
    "company": "금호석유화학",
    "team": "화학·소재",
