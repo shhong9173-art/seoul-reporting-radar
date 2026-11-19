@@ -114,6 +114,10 @@ class Thai(unittest.TestCase):
         get3, calls3 = fake(listing(B1212.replace("11 พ.ย. 2569", "20 พ.ย. 2569"), B1044), pages2)
         self.assertEqual(len(w.run(NOW + dt.timedelta(hours=8), doc2, get=get3, sleep=lambda s: None)["events"]), 1)
         self.assertEqual(calls3, [w.LIST])
+        # 품목 한국어 이름은 다시 안 읽어도 새 규칙으로 고친다(운영 11-19: 스테인리스 냉연이 '냉연강판'으로 저장됨)
+        doc2["cases"][0]["productKo"] = "냉연강판"
+        get4, _ = fake(listing(B1212.replace("11 พ.ย. 2569", "20 พ.ย. 2569"), B1044), pages2)
+        self.assertEqual(next(c for c in w.run(NOW + dt.timedelta(hours=9), doc2, get=get4, sleep=lambda s: None)["cases"] if c["code"] == "AD1212")["productKo"], "석도강판")
 
     def test_new_case_on_list_is_event_even_when_deferred(self):
         get, _ = fake(listing(B1044, B1212), {"AD1044": case_page([("C1", BOND)]), "AD1212": case_page([("T1", BOND)])})
@@ -171,6 +175,7 @@ class Thai(unittest.TestCase):
         self.assertEqual(w.th_date("วันที่ : 07 เม.ย. 2563"), "2020-04-07")
         self.assertEqual(w.th_date("31 ธ.ค. 2569"), "2026-12-31")
         self.assertEqual(w.product_ko(CHROME)[0], "크롬도금강판")
+        self.assertEqual(w.product_ko("เหล็กกล้าไร้สนิมรีดเย็น ชนิดม้วน แผ่น และแผ่นแถบ")[0], "스테인리스강")   # AD1004(운영 11-19)
         self.assertEqual(w.product_ko("ฟีโนลิกเรซิน"), (None, []))
 
 
