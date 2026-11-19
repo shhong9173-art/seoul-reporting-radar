@@ -15,6 +15,7 @@ export const FEEDS = {
   'ustr-comments': { blob: 'ustr_comments', schema: 'ustr_comments/v1', list: 'items' },
   // 영국 정부 무역구제 고시(uk_trade_notices_watch.py, 11-19): gov.uk 모음의 한국산 고시 — 국무장관 결정·업체별 세율
   'uk-trade-notices': { blob: 'uk_trade_notices', schema: 'uk_trade_notices/v1', list: 'notices' },
+  'th-trade-remedy': { blob: 'th_trade_remedy', schema: 'th_trade_remedy/v1', list: 'cases' },
   // EU 관보 무역구제(eu_trade_defence_watch.py, 11-19): 한국산 규정·공고와 출입처 해외 법인이 수출자로 나온 확정·잠정 관세 규정
   'eu-trade-defence': { blob: 'eu_trade_defence', schema: 'eu_trade_defence/v1', list: 'records' },
   'page-watch': { blob: 'page_watch', schema: 'page_watch/v1', list: 'pages' },

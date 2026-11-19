@@ -39,6 +39,9 @@ export const WATCHES = [
   // EU 관보 무역구제(eu_trade_defence_watch.py, 11-19 기자 "다음발전해"): 출판청 목록의 반덤핑·상계관세·세이프가드 규정·공고 — 한국산 출입 업종 품목과,
   // 제목에 한국이 없어도 본문에 출입처(해외 법인 포함)가 수출자로 나온 확정·잠정 관세(11-13 냉연 2026/2547의 포스코 베트남 16.0% — 파이낸셜뉴스 11-17)
   { feed: 'eu-trade-defence', label: 'EU 관보 무역구제', tool: 'trade_remedies', schedule: '매일 17:50·21:10·07:00', staleHours: 30 },
+  // 태국 무역구제 공고(th_trade_remedy_watch.py, 11-19 기자 "단독을 위해서 더 노력해봐"): 11-15 다른 매체 단독 'TCC스틸·KG스틸, 태국 반덤핑 재심 대상'
+  // (11-11 관보 — 석도강판 AD1212·크롬도금강판 AD1044 재심 중 담보 요구, 공고 PDF에 KG Steel)을 레이더가 못 봤다. 태국 오후(한국 12~19시) 공고
+  { feed: 'th-trade-remedy', label: '태국 무역구제 공고', tool: 'trade_remedies', schedule: '평일 12:10·14:50·17:00·21:20' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
@@ -1332,6 +1335,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(e.tier === 'A' ? 'A' : 'B', W['uk-trade-notices'], { kind: e.kind ?? '영국 정부 무역구제 고시', id: e.id, date: e.date || e.detectedAt,
       company: e.company || '영국', fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['영국', word], [], pk?.words ?? [], [], pk?.words ?? []) : undefined });
+  }
+  // 태국 무역구제 공고(11-19): 등급은 수집기(출입처 이름 + 개시·재심 개시·담보 요구·부과·종료, 한국산 출입 업종 품목의 개시·부과·종료 A, 업종 밖 C).
+  // 보도 대조는 회사 + 태국 + 반덤핑 + 품목(석도·크롬도금 등), 회사 이름이 없으면 품목 + 태국 + 한국
+  for (const e of docs['th-trade-remedy']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const words = e.productWords ?? [];
+    const word = /^CVD/.test(e.code ?? '') ? '상계관세' : /^SG/.test(e.code ?? '') ? '세이프가드' : '반덤핑';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['th-trade-remedy'], { kind: e.kind ?? '태국 무역구제', id: e.id, date: e.date || e.detectedAt,
+      company: e.company || (e.korea ? '한국산' : '태국'), fact: e.text, url: e.url,
+      check: (e.companies ?? []).length ? hint(e.companies[0], ['태국', word], [], words, [], words)
+        : words.length ? hint(String(e.product ?? '').replace(/\(.*?\)/g, ''), ['태국', word], [], e.korea ? ['한국'] : [], [], []) : undefined });
   }
   // EU 관보 무역구제(11-19): 등급은 수집기(출입처 이름 + 확정·잠정·개시·종료, 한국산 출입 업종 품목의 확정·잠정·개시 A). 회사 이름이 없으면 품목으로 대조
   for (const e of docs['eu-trade-defence']?.events ?? []) {
