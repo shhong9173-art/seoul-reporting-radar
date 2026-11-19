@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-11-19T17:47:00+09:00",
+  "generatedAt": "2026-11-20T02:43:25+09:00",
   "status": "official_date_triage",
-  "windowStart": "2026-11-17",
-  "windowEnd": "2026-11-19",
+  "windowStart": "2026-11-18",
+  "windowEnd": "2026-11-20",
   "firstRunBaseline": false,
   "feedHealth": [
     {
       "name": "recent_contracts",
       "status": "checked_source",
       "sourceAt": "2026-11-19T08:12:34+09:00",
-      "sourceAgeHours": 9.6,
+      "sourceAgeHours": 18.5,
       "records": 2,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -19,7 +19,7 @@
       "name": "overseas_official",
       "status": "checked_source",
       "sourceAt": "2026-11-19T08:12:33+09:00",
-      "sourceAgeHours": 9.6,
+      "sourceAgeHours": 18.5,
       "records": 7,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -29,7 +29,7 @@
       "name": "investigation_hunt",
       "status": "checked_source",
       "sourceAt": "2026-11-19T13:35:15+09:00",
-      "sourceAgeHours": 4.2,
+      "sourceAgeHours": 13.1,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-11-19T16:23:53+09:00",
-      "sourceAgeHours": 1.4,
+      "sourceAt": "2026-11-20T01:30:53+09:00",
+      "sourceAgeHours": 1.2,
       "records": 23,
       "checkedQueries": null,
       "failedQueries": null,
@@ -49,7 +49,7 @@
       "name": "nhtsa_official",
       "status": "partial_collection",
       "sourceAt": "2026-11-19T17:01:44.279668+09:00",
-      "sourceAgeHours": 0.8,
+      "sourceAgeHours": 9.7,
       "records": 81,
       "checkedQueries": 7,
       "failedQueries": 1,
@@ -58,8 +58,8 @@
     {
       "name": "dart_beat_monitor",
       "status": "partial_issuer_coverage",
-      "sourceAt": "2026-11-19T17:46:02+09:00",
-      "records": 120,
+      "sourceAt": "2026-11-20T02:42:35+09:00",
+      "records": 117,
       "scopeCompanies": 54,
       "checkedCompanies": 51,
       "unresolvedCompanies": 3,
@@ -73,7 +73,7 @@
   ],
   "sourceCompletenessVerified": false,
   "freshOfficialReviewCount": 2,
-  "backgroundReferenceCount": 171,
+  "backgroundReferenceCount": 168,
   "excluded": {
     "correction_without_original": 2,
     "unverified_foreign_search_hit": 5,
@@ -349,7 +349,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_table_filing_fields_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": true,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -359,8 +359,8 @@
       "freshArticleConfirmed": false,
       "correction": false,
       "firstObservedAt": "2026-11-19",
-      "firstObservedThisRun": true,
-      "publicDocumentAgeDays": 0,
+      "firstObservedThisRun": false,
+      "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review"
     },
@@ -377,7 +377,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_table_filing_fields_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": true,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -388,7 +388,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-19",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 0,
+      "publicDocumentAgeDays": 1,
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review"
     }
@@ -412,11 +412,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:청주2/배전반, 초고압GIS, 변압기 철도/SE 등",
@@ -436,11 +436,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS",
@@ -460,11 +460,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:하 역/서비스",
@@ -484,11 +484,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:운 송/서비스",
@@ -508,11 +508,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:용 역/서비스",
@@ -532,11 +532,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:부산물",
@@ -556,11 +556,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:제 품",
@@ -580,11 +580,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:전기전자 부문/변압기 外",
@@ -604,11 +604,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116000957:해외판매",
@@ -628,11 +628,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:인도/제품, 상품, 기타매출",
@@ -652,11 +652,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:기타/제품, 상품, 기타매출",
@@ -676,11 +676,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-19T16:23:53+09:00"
+      "sourceSnapshotAt": "2026-11-20T01:30:53+09:00"
     },
     {
       "id": "DART_FILING:20261116800835",
@@ -695,7 +695,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_table_filing_fields_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": true,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -706,7 +706,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -723,7 +723,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -734,7 +734,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -751,7 +751,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -762,7 +762,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -779,7 +779,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -790,7 +790,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -807,7 +807,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -818,7 +818,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -835,7 +835,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -846,7 +846,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -863,7 +863,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -874,7 +874,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -891,7 +891,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -902,7 +902,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -919,7 +919,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -930,7 +930,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -947,7 +947,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -958,7 +958,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -975,7 +975,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -986,7 +986,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -1003,7 +1003,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -1014,7 +1014,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -1031,7 +1031,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-19T17:46:02+09:00",
+      "sourceSnapshotAt": "2026-11-20T02:42:35+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -1042,21 +1042,18 @@
       "correction": false,
       "firstObservedAt": "2026-11-16",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     }
   ],
-  "truncatedBackgroundReference": 146,
+  "truncatedBackgroundReference": 143,
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공개 원문 확인 후 기보도·해당 회사 실제 영향·직접 답변 검증 필요. 단독 미확정. 지난 데이터 수집시각은 공시/고시 발생일과 다름; 원천 미수집/부분수집을 0건으로 해석하지 말 것.",
-  "beatWideDartAdded": 115,
+  "beatWideDartAdded": 112,
   "beatMergeAlreadyApplied": true,
   "beatAttachedReceiptIds": [
-    "DART_FILING:20261021800151",
-    "DART_FILING:20261021800303",
-    "DART_FILING:20261021800308",
     "DART_FILING:20261027800037",
     "DART_FILING:20261027800226",
     "DART_FILING:20261027800235",
@@ -1171,6 +1168,6 @@
     "DART_FILING:20261119800214"
   ],
   "beatWideDartExcluded": 5,
-  "beatWideDartSourceAt": "2026-11-19T17:46:02+09:00",
-  "baseTriageGeneratedAt": "2026-11-19T17:47:00+09:00"
+  "beatWideDartSourceAt": "2026-11-20T02:42:35+09:00",
+  "baseTriageGeneratedAt": "2026-11-20T02:43:25+09:00"
 }
