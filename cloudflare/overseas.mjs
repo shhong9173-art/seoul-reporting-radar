@@ -6,6 +6,7 @@ import { storeOp } from './store.mjs';
 import { kstMD, maintenanceMemo } from './stack_memo.mjs';
 import { clampInt, textResult, uniqueList } from './common.mjs';
 import { lastBrowserSlot } from './local_browser.mjs';
+import { AHEAD_NOTE, aheadLine, euProceedingLines, foreignAhead } from './ahead.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -340,6 +341,9 @@ export const MEMO_GLOSS = [
 export const memoGloss = (t) => (MEMO_GLOSS.find(([rx]) => rx.test(String(t ?? ''))) ?? [])[1] ?? null;
 
 export const PRODUCT_KO = [
+  // 11-19: EU 세이프가드(원산지 구분 없음) — 하이브리드차 조사 개시(2026-10-30)·합금철 재심(11-13)
+  [/hybrid (?:electric )?vehicles?/i, '하이브리드차', ['하이브리드']],
+  [/ferro-?alloy/i, '합금철', ['합금철']],
   [/oil country tubular|\bOCTG\b/i, '유정용 강관', ['유정용', '강관']],
   [/line pipe|pipe|tubular|tube/i, '강관', ['강관']],
   [/tin mill|tinplate/i, '석도강판', ['석도강판', '석도']],
@@ -792,13 +796,28 @@ export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au', 'ahead'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
   const onlyNew = args.only_new === true || args.only_new === 'true';
   const showAll = args.show_all === true || args.show_all === 'true';
   const checks = doc.checks ?? [];
+  // 11-19: 다가오는 해외 판정 일정만(기본 90일, days로 1~400일) — 단독 데스크 2-2구역의 전체판(출입 업종 밖 EU 사건도)
+  if (section === 'ahead') {
+    const eu = await readFeed(ctx, 'eu-trade-defence');
+    const span = clampInt(args.days, 1, 400, 90);
+    const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu }, ctx.now.getTime(), { days: span })
+      .filter((a) => matches(q, a.title, a.what, (a.who ?? []).join(' '), a.country));
+    const out = [`다가오는 해외 판정 일정 — 앞으로 ${span}일 · 무역구제 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`
+      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한). 미국·영국·인도는 아직 일정 계산 안 함 — 미확인.`];
+    out.push(`\n[날짜순] ${items.length}건`);
+    for (const a of items.slice(0, Math.max(limit, 30))) out.push(...aheadLine(a).map((l, i) => (i === 0 && !a.beat ? `${l} (출입 업종 품목 아님)` : l)));
+    if (!items.length) out.push('없음(수집을 못 읽었으면 미확인)');
+    out.push(AHEAD_NOTE);
+    out.push(...euProceedingLines(eu, new Date(ctx.now.getTime() + 9 * 3600000).toISOString().slice(0, 10), q, matches));
+    return textResult(out.join('\n'));
+  }
   const out = [`무역구제 감시(해외·국내 무역위원회) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.error ? `, ${c.error}` : ''})`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];

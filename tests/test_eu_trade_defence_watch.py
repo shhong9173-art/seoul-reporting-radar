@@ -141,5 +141,109 @@ class Eu(unittest.TestCase):
         self.assertEqual(w.number_of(T2547, "32026R2547"), "2026/2547")
 
 
+# 탐침 22(11-19, 470일 목록)의 실제 제목
+TPTA_I = "Notice of initiation of an anti-dumping proceeding concerning imports of terephthalic acid, originating in the Republic of Korea and Mexico"
+TPTA_P = ("Commission Implementing Regulation (EU) 2026/801 of 9 April 2026 imposing provisional anti-dumping duties on imports of terephthalic acid originating "
+          "in the Republic of Korea and the United Mexican States")
+TPTA_D = ("Commission Implementing Regulation (EU) 2026/1904 of 7 August 2026 imposing a definitive anti-dumping duty and definitively collecting the provisional "
+          "duty imposed on imports of terephthalic acid originating in the Republic of Korea and the United Mexican States")
+TTP_I = ("Notice of initiation of an expiry review of the anti-dumping measures applicable to imports of certain heavyweight thermal paper originating in the "
+         "Republic of Korea")
+TPVC_I = ("Notice of initiation of an anti-dumping proceeding concerning imports of certain Polyvinyl chloride (PVC) originating in the People’s Republic of "
+          "China, Republic of Korea, Mexico and Taiwan")
+TCE_I = "Notice of initiation of an anti-dumping proceeding concerning imports of certain cellulose ethers originating in the People’s Republic of China and the Republic of Korea"
+THYB_I = "Notice of initiation of a safeguard investigation concerning imports of certain new hybrid vehicles for the transport of persons"
+TSI_A = "Notice amending the notice of initiation of an interim review of the anti-dumping measures applicable to imports of silicon originating in the People’s Republic of China"
+HIST = [("52025XC04539", "2025-08-13", TPTA_I), ("32026R0801", "2026-04-09", TPTA_P), ("32026R1904", "2026-08-07", TPTA_D),
+        ("52025XC05537", "2025-10-17", TTP_I), ("32026R2311", "2026-10-19", T2311), ("52026XC04912", "2026-09-23", TPVC_I),
+        ("52026XC04924", "2026-09-24", TCE_I), ("52026XC05780", "2026-10-30", THYB_I), ("52026XC06003", "2026-11-16", TSI_A)]
+BODY_PVC = ("<p>8. SCHEDULE OF THE INVESTIGATION</p><p>The investigation will be concluded, pursuant to Article 6(9) of the basic Regulation within 13 months, "
+            "but not later than 14 months of the date of the publication of this Notice. In accordance with Article 7(1) of the basic Regulation, provisional "
+            "duties may be imposed normally not later than 7 months, but in any event not later than 8 months from the publication of this Notice. "
+            "Interested parties are invited to submit comments.</p>")
+BODY_HYB = ("<p>8. SCHEDULE OF THE INVESTIGATION</p><p>If the Commission determines that measures are necessary, the Commission shall take the necessary decisions "
+            "in accordance with Chapter V of Regulations (EU) 2015/478 and (EU) 2015/755 respectively, no later than nine months from the date of initiation, unless "
+            "exceptional circumstances exist, in which case that time limit may be extended by a maximum period of two months. If critical circumstances so require, "
+            "the Commission may impose provisional measures. The duration of such measures shall not exceed 200 days.</p>")
+
+
+class Proceedings(unittest.TestCase):
+    def test_calendar_from_initiations_with_stages_and_deadlines(self):
+        get, calls = fake(BASE + HIST, bodies={"52026XC04912": BODY_PVC, "52026XC05780": BODY_HYB})
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        self.assertEqual(calls.count("SPARQL"), 2)                           # 21일 목록 + 하루 한 번 긴 목록
+        p = {x["celex"]: x for x in doc["proceedings"]}
+        self.assertNotIn("52025XC04539", p)                                  # 테레프탈산: 08-07 확정(60일 넘음) — 끝난 사건
+        self.assertNotIn("52026XC06003", p)                                  # 개시 공고 변경 공고는 사건이 아니다
+        self.assertNotIn("52026XC06025", p)                                  # 중국산(제목에 한국 없음) 재심
+        tp = p["52025XC05537"]
+        self.assertEqual((tp["type"], tp["stage"], tp["deadlines"], tp["steps"][-1]["number"], tp["steps"][-1]["kind"]),
+                         ("er", "done", [], "2026/2311", "확정 관세 연장(종료재심 결과)"))
+        pvc = p["52026XC04912"]
+        self.assertEqual((pvc["type"], pvc["typeKo"], pvc["stage"], pvc["korea"], pvc["beat"], pvc["product"]),
+                         ("ad", "반덤핑 조사", "open", True, True, "Polyvinyl chloride (PVC)"))
+        self.assertEqual([x["kind"] for x in pvc["steps"]], ["수입 등록"])
+        self.assertEqual([(x["key"], x["date"]) for x in pvc["deadlines"]],
+                         [("pre", "2027-03-26"), ("prov", "2027-04-23"), ("provMax", "2027-05-23"), ("final", "2027-11-23")])
+        self.assertEqual(len(pvc["schedule"]), 2)
+        self.assertTrue(pvc["schedule"][1].startswith("In accordance with Article 7(1) of the basic Regulation, provisional duties may be imposed normally not later than 7 months"))
+        ce = p["52026XC04924"]
+        self.assertEqual((ce["korea"], ce["beat"], ce["stage"], [x["kind"] for x in ce["steps"]]), (True, False, "open", ["수입 등록"]))
+        hy = p["52026XC05780"]
+        self.assertEqual((hy["type"], hy["korea"], hy["beat"], hy["product"]), ("sg", False, True, "new hybrid vehicles for the transport of persons"))
+        self.assertEqual([(x["key"], x["date"]) for x in hy["deadlines"]], [("final", "2027-07-30"), ("finalMax", "2027-09-30")])
+        self.assertIsNone(hy["schedule"])                                    # 일정 문장 읽기는 한 실행 2건 — 세 번째는 다음 실행
+        self.assertEqual(ce["schedule"], [])                                 # 읽었지만 일정 문장 없음(다시 안 읽음)
+        # 다음 실행(3시간 뒤): 긴 목록은 다시 안 받고, 남은 일정 문장을 읽고, 새 21일 목록의 잠정 관세 규정을 바로 반영한다
+        tprov = ("Commission Implementing Regulation (EU) 2027/50 of 18 November 2026 imposing a provisional anti-dumping duty on imports of certain polyvinyl "
+                 "chloride (PVC) originating in the People’s Republic of China, Republic of Korea, Mexico and Taiwan")
+        get2, calls2 = fake(BASE + [("32027R0050", "2026-11-18", tprov)], bodies={"52026XC05780": BODY_HYB})
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual(calls2.count("SPARQL"), 1)
+        p2 = {x["celex"]: x for x in doc2["proceedings"]}
+        self.assertEqual((p2["52026XC04912"]["stage"], [x["key"] for x in p2["52026XC04912"]["deadlines"]]), ("provisional", ["final"]))
+        self.assertEqual(p2["52026XC04912"]["schedule"], pvc["schedule"])    # 읽어 둔 문장은 그대로
+        self.assertTrue(any("no later than nine months from the date of initiation" in t for t in p2["52026XC05780"]["schedule"]))
+        self.assertTrue(any("200 days" in t for t in p2["52026XC05780"]["schedule"]))
+
+    def test_history_failure_keeps_previous_calendar(self):
+        get, _ = fake(BASE + HIST)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        n = len(doc["proceedings"])
+        calls = {"n": 0}
+
+        def get2(url, params=None, headers=None, timeout=None):
+            if url == w.SPARQL:
+                calls["n"] += 1
+                return R(200, rows(*BASE)) if calls["n"] == 1 else R(503)
+            return R(200, text="<p>nothing</p>")
+        doc2 = w.run(NOW + dt.timedelta(hours=25), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual(len(doc2["proceedings"]), n)
+        self.assertEqual(doc2["historyAt"], doc["historyAt"])
+        self.assertEqual(doc2["status"], "partial")
+        self.assertIn("판정 일정 목록 HTTP 503 — 직전 목록", doc2["checks"][0]["error"])
+
+    def test_safeguard_initiation_on_beat_product_is_a_event(self):
+        get, _ = fake(BASE)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        get2, calls2 = fake(BASE + [("52026XC05780", "2026-11-18", THYB_I)], bodies={"52026XC05780": BODY_HYB})
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        self.assertIn(w.CELLAR + "52026XC05780", calls2)
+        e = doc2["events"][0]
+        self.assertEqual((e["tier"], e["kind"], e["korea"], e["safeguard"]), ("A", "EU 관보 무역구제(세이프가드 조사 개시)", False, True))
+        self.assertIn("세이프가드 — 원산지 구분 없이 모든 수입(한국산 포함) 대상", e["text"])
+        self.assertEqual(w.kind_of("Notice of initiation concerning the review of the safeguard measures applicable to imports of certain ferro-alloying elements")[0], "세이프가드 재심 개시")
+        self.assertEqual(w.kind_of("Commission Implementing Regulation (EU) 2027/1 imposing provisional safeguard measures on imports of certain new hybrid vehicles")[0], "세이프가드 잠정 조치")
+        # 업종 밖 품목 세이프가드는 본문을 받지 않는다
+        get3, calls3 = fake(BASE + [("52026XC09999", "2026-11-18", "Notice of initiation of a safeguard investigation concerning imports of certain frozen fish fillets")])
+        w.run(NOW + dt.timedelta(hours=3), doc, get=get3, sleep=lambda s: None)
+        self.assertNotIn(w.CELLAR + "52026XC09999", calls3)
+
+    def test_add_months_clamps_month_end(self):
+        self.assertEqual(w.add_months(dt.date(2026, 8, 31), 6), dt.date(2027, 2, 28))
+        self.assertEqual(w.add_months(dt.date(2026, 10, 30), 9), dt.date(2027, 7, 30))
+        self.assertEqual(w.add_months(dt.date(2026, 12, 15), 1), dt.date(2027, 1, 15))
+
+
 if __name__ == "__main__":
     unittest.main()

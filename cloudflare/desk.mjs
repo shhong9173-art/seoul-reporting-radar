@@ -9,6 +9,7 @@
 import { clampInt, textResult } from './common.mjs';
 import { clipAt, kstStamp, ledgerMark, pressLines, radarTodayData } from './digest.mjs';
 import { EXCLUDING, companiesIn, entryLabel } from './handled.mjs';
+import { AHEAD_NOTE, aheadLine, foreignAhead } from './ahead.mjs';
 
 const W = { screen: '단독 후보 심사', official: '공장등록·관보', signals: '공정위·한전·원자재', stats: '월간 통계(물가·생산·수입차·완성차 판매)', remedy: '무역구제',
   court: '미국 소송·ITC', partner: '해외 파트너 공시', comments: '미 연방 의견서', page: '해외 공식 페이지', tm: '상표 출원', epo: '해외 특허 공개(EP·WO)',
@@ -214,6 +215,15 @@ export async function scoopDesk(ctx, args) {
     out.push(`\n[2. 다가오는 일정 — 출입처가 신청인인 무역위 사건, 앞으로 21일] ${ahead.length}건`);
     for (const a of ahead) out.push(`- ${a.date} ${a.step} · ${a.no ?? ''} ${clipAt(a.title, 60)} · 신청인 출입처 ${a.beat.join('·')}${a.review ? '(재심 건 — 그 보도자료 때 신청인)' : ''} · 원문: ${a.url}`);
     out.push('   진행일정의 날짜는 누리집 표기다 — 판정일인지 시한인지는 무역위·회사 확인. 결과는 회의 뒤 보도자료 전에는 미확인.');
+  }
+  // 11-19('단독을 위해서 더 노력해봐'): 해외 판정도 나오기 전에 — 한국산·출입처 사건의 결론 예정일·규정상 시한(EU는 출입 업종 품목만)
+  const abroad = foreignAhead(d.docs, nowMs, { days: 45 }).filter((a) => a.beat)
+    .filter((a) => qWords.every((w) => `${a.title} ${a.what} ${(a.who ?? []).join(' ')} ${a.country}`.toLowerCase().includes(w)));
+  if (abroad.length) {
+    out.push(`\n[2-2. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일(호주는 기한 지난 장관 결정 대기 포함)] ${abroad.length}건`);
+    for (const a of abroad.slice(0, 10)) out.push(...aheadLine(a));
+    if (abroad.length > 10) out.push(`… 남은 ${abroad.length - 10}건(trade_remedies section=ahead)`);
+    out.push(AHEAD_NOTE);
   }
 
   if (prior.length) {

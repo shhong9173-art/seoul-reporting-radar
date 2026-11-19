@@ -1341,7 +1341,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(e.tier === 'A' ? 'A' : 'B', W['eu-trade-defence'], { kind: e.kind ?? 'EU 관보 무역구제', id: e.id, date: e.date || e.detectedAt,
       company: e.company || (e.korea ? '한국산' : 'EU'), fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['EU', word], [], pk?.words ?? [], [], pk?.words ?? [])
-        : e.korea && pk ? hint(pk.ko.replace(/\(.*?\)/g, ''), ['EU', word], [], ['한국'], [], []) : undefined });
+        : e.korea && pk ? hint(pk.ko.replace(/\(.*?\)/g, ''), ['EU', word], [], ['한국'], [], [])
+          : e.safeguard && pk ? hint(pk.ko.replace(/\(.*?\)/g, ''), ['EU', word]) : undefined });
   }
   for (const x of docs['ustr-comments']?.items ?? []) {
     if (x.baseline || !recent(x.firstSeen)) continue;
