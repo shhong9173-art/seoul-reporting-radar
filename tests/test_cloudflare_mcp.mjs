@@ -464,7 +464,8 @@ test('source_document only opens allowlisted hosts and returns a content hash', 
   assert.ok(allowedUrl('https://www.motie.go.kr/a'));
   // 11-14: 감시 중인 해외 무역구제 기관(정부 도메인)
   for (const u of ['https://www.dgtr.gov.in/en/anti-dumping-cases/x', 'https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/menu-eng.html', 'https://www.trade-remedies.service.gov.uk/public/cases/',
-    'https://kadi.kemendag.go.id/', 'https://www.trav.gov.vn/']) assert.ok(allowedUrl(u), u);
+    'https://kadi.kemendag.go.id/', 'https://www.trav.gov.vn/', 'https://thaitr.dft.go.th/th/search/AD1004']) assert.ok(allowedUrl(u), u);
+  assert.equal(allowedUrl('https://www.mfa.go.th/x'), null);   // 태국은 무역구제과 누리집만
   assert.equal(allowedUrl('https://dgtr.gov.in.evil.example/x'), null);
   assert.equal(allowedUrl('https://evilgov.in/x'), null);
   const refused = await call('source_document', { url: 'https://evil.example/x' });

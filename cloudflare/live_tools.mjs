@@ -323,6 +323,8 @@ const ALLOWED_SUFFIXES = [
   // 인도네시아 KADI(.go.id), 베트남 TRAV(.gov.vn). 11-14 운영: 흄드실리카 판정문 사건 페이지를 이 도구로 열지 못했다('.gov'는 미국만 맞는다).
   // 호주(industry.gov.au)는 이 서버 접속을 막아(HTTP 520) 넣지 않는다 — 기자 컴퓨터 브라우저로만 읽는다.
   '.gov.in', '.gc.ca', '.gov.uk', '.go.id', '.gov.vn',
+  // 11-19: 태국 무역구제과(th-trade-remedy 감시 원천)만 — '.go.th' 전체는 열지 않는다
+  'thaitr.dft.go.th',
   // direct-beat company and IR sites
   'hyundai.com', 'kia.com', 'mobis.com', 'hyundai-wia.com', 'hlmando.com', 'gm-korea.co.kr', 'kg-mobility.com',
   'renault.co.kr', 'mercedes-benz.co.kr', 'bmw.co.kr', 'volkswagen.co.kr', 'audi.co.kr', 'honda.co.kr',
