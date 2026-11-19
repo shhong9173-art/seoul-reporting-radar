@@ -69,8 +69,9 @@ export async function alertHealth(ctx) {
 // 알림은 위 alertHealth가 다음 날 기록 줄로 잡지만 아침 발제는 아무 화면에도 안 보였다(11-13 등 평일 저장본 없는 날이 이미 여러 번).
 // 아침 발제는 0단계에서 '진행 중(시작 HH:MM)'을 먼저 저장한다 — 저장본이 아예 없으면 첫 도구 호출 전에 끝난 것, '진행 중'이 남아 있으면 중간에 끊긴 것.
 // 오후 체크는 끝에서 한 번만 저장한다. 공휴일은 따로 보지 않는다(평일 공휴일에 아침 발제가 쉬면 이 줄이 뜬다).
+// 11-19 기자가 아침 발제 초안 예약 작업을 직접 지웠다("필요없어서") — 그 뒤 '저장본 없음'이 이틀 떴다. 목록에서 뺀다
+// (taskGap의 '진행 중' 처리(start)는 그대로 둔다 — 다시 시작 표시를 남기는 작업이 생기면 쓴다).
 export const DAILY_TASKS = [
-  { label: '아침 발제 초안', prefix: 'morning', at: [8, 57], weekdays: true, graceMin: 30, sched: '평일 08:57', start: true },
   { label: '오후 출입처 공시 체크', prefix: 'afternoon', at: [14, 20], weekdays: false, graceMin: 40, sched: '매일 14:20', start: false },
 ];
 const STALL_MIN = 60;

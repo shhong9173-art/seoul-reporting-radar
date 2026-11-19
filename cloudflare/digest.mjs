@@ -1884,7 +1884,7 @@ export async function radarTodayData(ctx, args) {
   const ah = await alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
   if (ah) h.unshift(`- ${ah}`);
   // 아침 발제·오후 체크(11-18): 오늘 저장본이 없거나 '진행 중'에서 멈춘 예약 작업 — 11-18 08:57 아침 발제가 28초 만에 끝났는데 어디에도 안 보였다
-  const th = await taskHealth(ctx).catch((e) => [`아침 발제·오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`]);
+  const th = await taskHealth(ctx).catch((e) => [`오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`]);
   h.unshift(...th.map((x) => `- ${x}`));
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
