@@ -158,6 +158,18 @@ class Thai(unittest.TestCase):
         pn.assert_called_once_with(mock.ANY, "https://thaitr.dft.go.th/storage/steps/R21.pdf")
         self.assertEqual([(e["kind"], e["tier"], e["url"]) for e in evs], [("태국 무역구제(재심 개시)", "A", "https://thaitr.dft.go.th/storage/steps/R21.pdf")])
 
+    def test_old_parser_cases_are_reread_once_without_events(self):
+        get, _ = fake(listing(B1044), {"AD1044": case_page([("C1", BOND)])})
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        doc["cases"][0].pop("parser")
+        doc["cases"][0].pop("koreaRate")
+        get2, calls2 = fake(listing(B1044), {"AD1044": case_page([("C1", BOND)])})
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual((calls2, doc2["events"], doc2["cases"][0]["koreaRate"], doc2["cases"][0]["parser"]), ([w.LIST, w.CASE + "AD1044"], [], "0-22.67", w.PARSER))
+        get3, calls3 = fake(listing(B1044), {})
+        w.run(NOW + dt.timedelta(hours=6), doc2, get=get3, sleep=lambda s: None)
+        self.assertEqual(calls3, [w.LIST])
+
     def test_list_failure_keeps_previous(self):
         get, _ = fake(listing(B1044), {"AD1044": case_page([("C1", BOND)])})
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
