@@ -5893,9 +5893,13 @@ test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(
   }
 });
 
-test('아침 발제·오후 체크 예약 작업 저장본(11-18): 저장본 없음·진행 중 멈춤을 radar_today·radar_health(기자 전용) 맨 위에 띄운다', async () => {
+test('예약 작업 저장본(11-18): 저장본 없음·진행 중 멈춤을 radar_today·radar_health(기자 전용) 맨 위에 — 11-19 아침 발제는 기자가 지워 목록에서 뺌', async () => {
   const at = (iso) => Date.parse(iso);
-  const [morning, afternoon] = DAILY_TASKS;
+  // 11-19 기자: 아침 발제 초안 예약 작업은 직접 지웠다("필요없어서") — 지켜보는 작업은 오후 체크 하나
+  assert.deepEqual(DAILY_TASKS.map((t) => t.label), ['오후 출입처 공시 체크']);
+  const [afternoon] = DAILY_TASKS;
+  // taskGap 규칙(시작 표시를 남기는 작업)은 그대로 — 예전 아침 발제 설정으로 확인
+  const morning = { label: '아침 발제 초안', prefix: 'morning', at: [8, 57], weekdays: true, graceMin: 30, sched: '평일 08:57', start: true };
   // 11-18(수) 09:16 — 08:57+30분 전이라 아직 묻지 않는다 · 09:30부터 저장본 없음
   assert.equal(taskGap(at('2026-11-18T09:16:00+09:00'), morning, null), null);
   assert.equal(taskGap(at('2026-11-18T09:30:00+09:00'), morning, null), '아침 발제 초안(Claude 앱 예약 작업, 평일 08:57): ⚠ 오늘(11-18) 저장본 없음'
@@ -5910,15 +5914,18 @@ test('아침 발제·오후 체크 예약 작업 저장본(11-18): 저장본 없
   assert.equal(taskGap(at('2026-11-18T10:30:00+09:00'), morning, { title: '아침 발제 초안 11-18 · 일반 2건·단독 후보 0건' }), null);
 
   const opts = PRIVATE();
-  const now = new Date('2026-11-18T00:40:00Z');   // 09:40 KST 수요일
-  const top = async () => ((await call('radar_today', { hours: 1 }, { ...opts, now })).text.split('[먼저 볼 것: 수집 상태]\n')[1] ?? '').split('\n')[0];
-  assert.match(await top(), /^- 아침 발제 초안\(Claude 앱 예약 작업, 평일 08:57\): ⚠ 오늘\(11-18\) 저장본 없음/);
-  const fetch = fakeFetch();
-  assert.match((await call('radar_health', {}, { ...opts, fetch, now })).text, /\n\[기자 전용\] ⚠ 아침 발제 초안\(Claude 앱 예약 작업, 평일 08:57\): ⚠ 오늘\(11-18\) 저장본 없음/);
-  assert.doesNotMatch((await call('radar_health', {}, { fetch, now })).text, /아침 발제 초안/);   // 공개 연결에는 없음
-  await call('package_save', { name: 'morning-20261118', state: '미발제·확인 필요', title: '아침 발제 초안 11-18 · 일반 1건·단독 후보 0건', body: '…' }, opts);
+  const now = new Date('2026-11-18T00:40:00Z');   // 09:40 KST 수요일 — 아침 발제 저장본이 없어도 이제 안 뜬다
+  const top = async (when = now) => ((await call('radar_today', { hours: 1 }, { ...opts, now: when })).text.split('[먼저 볼 것: 수집 상태]\n')[1] ?? '').split('\n')[0];
   assert.doesNotMatch(await top(), /아침 발제 초안/);
+  const fetch = fakeFetch();
   assert.doesNotMatch((await call('radar_health', {}, { ...opts, fetch, now })).text, /아침 발제 초안/);
+  // 오후 체크는 그대로: 15:10 저장본 없으면 맨 위, 기자 전용 radar_health에도
+  const later = new Date('2026-11-18T06:10:00Z');
+  assert.match(await top(later), /^- 오후 출입처 공시 체크\(Claude 앱 예약 작업, 매일 14:20\): ⚠ 오늘\(11-18\) 저장본 없음/);
+  assert.match((await call('radar_health', {}, { ...opts, fetch, now: later })).text, /\n\[기자 전용\] ⚠ 오후 출입처 공시 체크/);
+  assert.doesNotMatch((await call('radar_health', {}, { fetch, now: later })).text, /오후 출입처 공시 체크/);   // 공개 연결에는 없음
+  await call('package_save', { name: 'afternoon-20261118', state: '미발제·확인 필요', title: '오후 출입처 체크 11-18 · 주목 공시 0건', body: '…' }, opts);
+  assert.doesNotMatch(await top(later), /오후 출입처 공시 체크/);
 });
 
 test('단독 알림 예약 실행 기록(11-17): 예약 시각마다 남는 줄이 빈 곳을 radar_today·radar_health(기자 전용) 수집 상태에 띄운다', async () => {

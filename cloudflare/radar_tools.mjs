@@ -138,7 +138,7 @@ export async function health(ctx) {
     const [bh, ah, th] = await Promise.all([
       browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`),
       alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`),
-      taskHealth(ctx).catch((e) => [`아침 발제·오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`])]);
+      taskHealth(ctx).catch((e) => [`오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`])]);
     const slot = lastBrowserSlot(ctx.now.getTime());
     out.push(`[기자 전용] ${bh ? `⚠ ${bh}` : `· 기자 컴퓨터 수집: 가장 최근 예정 수집${slot != null ? `(${kstStamp(new Date(slot)).slice(5, 16)})` : ''} 올라옴`}`);
     if (ah) out.push(`[기자 전용] ⚠ ${ah}`);
