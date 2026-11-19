@@ -54,7 +54,9 @@ TH_PRODUCT = [
     (r"พีวีซี|โพลิไวนิล|โพลีไวนิล", "PVC", ["PVC"]), (r"ยางรถ|ยางนอก", "타이어", ["타이어"]), (r"สายไฟ|สายเคเบิล", "전선", ["전선"]),
     (r"เหล็ก", "철강재", ["철강"]),
 ]
-STRONG = ("조사 개시", "재심 개시", "담보 요구", "관세 부과", "조사 종료")
+STRONG = ("조사 개시", "재심 개시", "담보 요구", "관세 부과", "조사 종료", "예비 결과 공개", "재심 결과")
+# 한국산 출입 업종 품목이면 출입처 이름이 없어도 A — 11-19 AD1004(스테인리스 냉연, 한국 50.99%) 재심 '예비 결과 공개'(11-06, 의견 11-23까지)를 보도 없이 찾음
+BEAT_A = ("조사 개시", "관세 부과", "조사 종료", "예비 결과 공개", "재심 결과")
 
 
 def now_kst():
@@ -86,8 +88,12 @@ def product_ko(th):
 def kind_of(title):
     """공고 제목(태국어) → 한국어 종류. 순서가 중요하다: 담보 요구 공고 제목에도 '…อากรตอบโต้การทุ่มตลาด'(반덤핑 관세)·'ทบทวน'(재심)이 들어간다."""
     t = title or ""
+    if re.search(r"ร่างผล", t):
+        return "예비 결과 공개"          # 'รายละเอียดข้อมูลและข้อเท็จจริงที่ใช้เป็นพื้นฐานในการพิจารณาร่างผลการทบทวน'(최종 전 사실 공개·의견 수렴)
     if re.search(r"หลักประกัน", t):
         return "담보 요구"
+    if re.search(r"ผลการ(?:พิจารณา)?ทบทวน", t):
+        return "재심 결과"
     if re.search(r"เปิด(?:การ)?(?:ไต่สวน|ทบทวน)", t):
         return "재심 개시" if re.search(r"ทบทวน", t) else "조사 개시"
     if re.search(r"ยุติ", t):
@@ -132,7 +138,8 @@ def parse_case(raw):
     out = {"announcements": [], "steps": []}
     seg = text[text.find("อากรที่เรียกเก็บ"):] if "อากรที่เรียกเก็บ" in text else ""
     seg = seg[: seg.find("รายละเอียดตามประกาศ")] if "รายละเอียดตามประกาศ" in seg else seg[:600]
-    m = re.search(KOREA_TH + r"\s+ร้อยละ\s+([\d.]+(?:\s*-\s*[\d.]+)?)", seg)
+    # 'สาธารณรัฐเกาหลี ร้อยละ 0 - 22.67'(AD1212) · '3. สาธารณรัฐเกาหลี เรียกเก็บในอัตราร้อยละ 50.99'(AD1004)
+    m = re.search(KOREA_TH + r"\s+(?:เรียกเก็บใน)?(?:อัตรา)?ร้อยละ\s+([\d.]+(?:\s*-\s*[\d.]+)?)", seg)
     if m:
         out["koreaRate"] = re.sub(r"\s+", "", m.group(1))
     out["dutyFrom"] = sorted({th_date(x) for x in re.findall(r"วันที่เริ่มต้นเรียกเก็บอากร\s+(\d{1,2}\s+\S+\s+\d{4})", text)} - {""})
@@ -177,7 +184,7 @@ def pdf_names(get, url):
 def tier_of(kind, names, beat):
     if names and kind in STRONG:
         return "A"
-    if beat and kind in ("조사 개시", "관세 부과", "조사 종료"):
+    if beat and kind in BEAT_A:
         return "A"
     return "B" if beat or names else "C"
 

@@ -6139,7 +6139,11 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
     cases: [{ code: 'AD1044', product: 'สินค้าเหล็กแผ่นชุบหรือเคลือบด้วยโครเมียมทั้งชนิดเป็นม้วนและไม่เป็นม้วน', productKo: '크롬도금강판', countries: `สาธารณรัฐประชาชนจีน, ${KR}, และ สหภาพยุโรป`,
       status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-11-11', read: true, koreaRate: '0-17.06', dutyFrom: ['2026-11-11', '2026-11-13'], dutyTo: '2027-11-12',
       latest: bond, steps: [{ no: '2.1', label: 'ประกาศกรมการค้าต่างประเทศ เรื่อง เปิดการทบทวนการเรียกเก็บอากรตอบโต้การทุ่มตลาดต่อไป', dates: ['2026-11-11'] }], url: 'https://thaitr.dft.go.th/th/search/AD1044' },
-    { code: 'AD1004', product: 'เหล็กแผ่นรีดเย็น', productKo: '냉연강판', countries: KR, status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-03-09', read: false }],
+    { code: 'AD1004', product: 'เหล็กแผ่นรีดเย็น', productKo: '냉연강판', countries: KR, status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-03-09', read: false },
+    { code: 'AD1009', product: 'เหล็กกล้าไร้สนิมรีดเย็น', productKo: '스테인리스강', countries: KR, status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-11-06', read: true,
+      koreaRate: '50.99', dutyFrom: ['2026-02-18'], dutyTo: '2027-02-17', url: 'https://thaitr.dft.go.th/th/search/AD1009',
+      steps: [{ no: '8.1.2', label: 'ประกาศคณะกรรมการ ทตอ. เรียกหลักประกันการชำระอากรฯ ในระหว่างทบทวน', dates: ['2026-02-18', '2027-02-17', '2026-02-09'] },
+        { no: '8.2.1', label: 'รายละเอียดข้อมูลและข้อเท็จจริงที่ใช้เป็นพื้นฐานในการพิจารณาร่างผลการทบทวนฯ (ฉบับเปิดเผย)', dates: ['2026-11-06', '2026-11-23'] }] }],
     events: [{ id: 'thtr:AD1044:C1.pdf', kind: '태국 무역구제(담보 요구)', tier: 'A', code: 'AD1044', company: 'KG스틸', companies: ['KG스틸'], product: '크롬도금강판', productWords: ['크롬도금', 'TFS'],
       date: '2026-11-11', korea: true, url: ann, caseUrl: 'https://thaitr.dft.go.th/th/search/AD1044', detectedAt: recent,
       text: `태국 무역구제 공고 AD1044 — 담보 요구: 「${bond}」 · 품목 สินค้าเหล็กแผ่นชุบ(크롬도금강판) · 한국 세율 0-17.06%(CIF 기준, 사건 쪽 표) · 공고 본문(PDF)에 출입처 KG스틸` }] })).status, 200);
@@ -6151,13 +6155,17 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
   assert.match((await call('scoop_desk', {}, opts)).text, /- A · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · KG스틸\n   태국 무역구제 공고 AD1044/);
 
   const t = (await call('trade_remedies', { section: 'th' }, opts)).text;
-  assert.match(t, /\[태국 무역구제 공고 · 한국산\(태국이 거는 조치\)·출입 업종 세이프가드 · 확인 [^\]]+\] 사건 2건 · 원천 태국 무역구제과\(thaitr\.dft\.go\.th\) ok\(목록 50건 중 한국·세이프가드 4\)\n/);
+  assert.match(t, /\[태국 무역구제 공고 · 한국산\(태국이 거는 조치\)·출입 업종 세이프가드 · 확인 [^\]]+\] 사건 3건 · 원천 태국 무역구제과\(thaitr\.dft\.go\.th\) ok\(목록 50건 중 한국·세이프가드 4\)\n/);
   assert.match(t, /- AD1044 · 크롬도금강판 「สินค้าเหล็กแผ่นชุบ[^」]*」 · 상태 「ใช้มาตรการและอยู่ระหว่างการทบทวน」 · 목록 날짜 2026-11-11\n   한국 세율 0-17\.06%\(CIF 기준\) · 징수·담보 2026-11-11, 2026-11-13~2027-11-12\n   가장 최근 공고\(태국어\): 「ประกาศ/);
   assert.match(t, /   최근 단계: 2\.1 2026-11-11 「ประกาศกรมการค้าต่างประเทศ/);
   assert.match(t, /- AD1004 · 냉연강판 「เหล็กแผ่นรีดเย็น」 · [^\n]* · 사건 쪽 아직 못 읽음\n/);
   assert.match(t, /새 공고\(감지일 기준\): 1건\n- A · [^\n]* · 태국 무역구제 공고 AD1044 — 담보 요구[^\n]*\n   원문: https:\/\/thaitr\.dft\.go\.th\/storage\/announcements\/C1\.pdf/);
   assert.doesNotMatch(t, /\[EU 관보 무역구제/);
   assert.match((await call('trade_remedies', {}, opts)).text, /\[태국 무역구제 공고 · /);
+  // 단계 표의 끝 날짜(재심 예비 결과 의견 마감)는 45일 안이면 단독 데스크 2-2구역에. 8.1.2(2월 시작)는 60일 밖이라 안 올린다
+  const dk = (await call('scoop_desk', {}, opts)).text;
+  assert.match(dk, /- 2026-11-23 · 태국 반덤핑위 · 단계 표 끝 날짜 — 8\.2\.1 「รายละเอียดข้อมูล[^」]*」\(2026-11-06 시작\) · AD1009 스테인리스강 · 한국 세율 50\.99%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 조사 단계 표/);
+  assert.doesNotMatch(dk, /8\.1\.2/);
   const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(a, /- 2027-11-12 · 태국 반덤핑위 · 재심 중 담보 기간 끝\(최종 결정이 먼저 나오면 앞당겨짐\) · AD1044 크롬도금강판 · 한국 세율 0-17\.06%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 징수 끝 날짜 · 원문: https:\/\/thaitr\.dft\.go\.th\/th\/search\/AD1044/);
 });
