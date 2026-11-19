@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-19T08:32:35+09:00",
-  "workflowRunId": "44421336108",
+  "generatedAt": "2026-11-19T11:43:52+09:00",
+  "workflowRunId": "44446244497",
   "workflowAttempt": "1",
-  "workflowEvent": "workflow_dispatch",
+  "workflowEvent": "schedule",
   "steps": {
     "checks": "success",
     "source": "success",
@@ -28,34 +28,34 @@
     "deep": {
       "path": "digests/patent_deep_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:16+09:00",
+      "generatedAt": "2026-11-19T11:43:39+09:00",
       "consistent": true
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:19+09:00",
+      "generatedAt": "2026-11-19T11:43:41+09:00",
       "consistent": true,
       "leads": 164,
-      "coverageQueries": 285
+      "coverageQueries": 320
     },
     "quality": {
       "path": "digests/patent_quality_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:31+09:00",
+      "generatedAt": "2026-11-19T11:43:49+09:00",
       "consistent": true,
       "humanReviewedCurrentCandidates": 0
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:31+09:00",
+      "generatedAt": "2026-11-19T11:43:49+09:00",
       "consistent": true
     },
     "desk": {
       "path": "digests/patent_desk_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:32+09:00",
+      "generatedAt": "2026-11-19T11:43:50+09:00",
       "consistent": true,
       "shortlistCount": 5,
       "publicationReady": 0
@@ -63,14 +63,14 @@
     "cross": {
       "path": "digests/patent_cross_evidence_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:35+09:00",
+      "generatedAt": "2026-11-19T11:43:52+09:00",
       "consistent": true,
       "technicalMatches": 0
     },
     "triage": {
       "path": "digests/patent_reporting_triage_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-19T08:32:35+09:00",
+      "generatedAt": "2026-11-19T11:43:52+09:00",
       "consistent": true,
       "humanFinalSample": 0
     }
