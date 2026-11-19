@@ -119,6 +119,9 @@ export const SLOTS = [
   { at: '18:20', workflow: 'uk-trade-notices.yml', daily: true }, { at: '20:20', workflow: 'uk-trade-notices.yml', daily: true },
   { at: '22:20', workflow: 'uk-trade-notices.yml', daily: true }, { at: '23:20', workflow: 'uk-trade-notices.yml', daily: true },
   { at: '01:40', workflow: 'uk-trade-notices.yml', daily: true }, { at: '05:50', workflow: 'uk-trade-notices.yml', daily: true },
+  // EU 관보 무역구제(11-19): 관보는 브뤼셀 오전(한국 16~18시)에 나오고 출판청 목록에 곧 오른다 — 18:43·21:43 알림 전, 그리고 아침 08:43 알림 전
+  { at: '17:50', workflow: 'eu-trade-defence.yml', daily: true }, { at: '21:10', workflow: 'eu-trade-defence.yml', daily: true },
+  { at: '07:00', workflow: 'eu-trade-defence.yml', daily: true },
   { at: '08:30', workflow: 'kr-signals.yml' },
   // KIPRIS 특허 공보: GitHub 예약 06:30이 10-29에 10시까지 오지 않아 22 재조회(08:25 이후)가 밀렸다. 늦은 예약 실행은 워크플로가 건너뛴다.
   { at: '08:30', workflow: 'kipris-patent-hunt.yml' },

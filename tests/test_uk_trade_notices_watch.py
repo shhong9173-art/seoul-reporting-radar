@@ -15,13 +15,15 @@ A32 = HR + "/trade-remedies-notice-202632-definitive-anti-dumping-measure-on-hot
 A17 = HR + "/trade-remedies-notice-202617-rejection-of-the-tras-recommendation-to-apply-a-provisional-anti-dumping-measure"
 A16 = HR + "/trade-remedies-notice-202514-registration-of-imports-of-hot-rolled-steel-plates-originating-from-south-korea"
 APVC = PVC + "/trade-remedies-notice-202630-s-pvc"
-# 탐침 18에서 읽은 2026/32 본문 표 글자(세율 줄은 실제), 앞뒤 문장은 모양만 맞춘 글
-BODY32 = ("<p>This notice sets out the definitive anti-dumping measure. The measure applies for 5 years from 19 November 2026.</p>"
+# 탐침 18·19에서 읽은 2026/32 본문(권고·결정·기간 문단과 세율 줄은 실제 글, 표 머리는 모양만 맞춤)
+BODY32 = ("<h2>The TRA’s recommendation</h2><p>The Trade Remedies Authority (TRA) has made a recommendation to the Secretary of State in relation to imports of hot-rolled steel plate originating from South Korea.</p>"
+          "<p>The TRA recommended imposing a definitive anti-dumping measure on South Korean hot-rolled plate imports in scope of the investigation (“the concerned goods”) with duties of 5.98% to 25.71%, depending on the exporter. However, it also assessed that applying a measure to the full scope would not be in the UK’s economic interest.</p>"
+          "<h2>The Secretary of State’s decision on the TRA’s recommendation</h2><p>The Secretary of State has decided under paragraph 20(1)(a) of Schedule 4 to the Taxation (Cross-border Trade) Act 2018 to reject the TRA’s recommendation to apply a definitive anti-dumping measure to the full scope of the concerned goods.</p>"
+          "<p>The definitive measure will apply for a period of 5 years from the day after publication of this public notice.</p>"
           "<h2>Anti-dumping duty rates for overseas exporters</h2><table><tr><th>Overseas exporter/producer</th><th>Dumping margin</th><th>Additional code</th></tr>"
           "<tr><td>Hyundai Steel</td><td>7.04%</td><td>8A78</td></tr><tr><td>POSCO</td><td>12.19%</td><td>8A79</td></tr>"
           "<tr><td>All other overseas exporters/producers</td><td>23.07%</td><td>8A80</td></tr>"
-          "<tr><td>Hot-rolled steel plates with a width exceeding 2100mm</td><td>0%</td><td>8A81</td></tr></table>"
-          "<p>The Secretary of State has decided not to accept the TRA recommendation in full for products with a width over 2100mm.</p>")
+          "<tr><td>Hot-rolled steel plate greater than 2,100mm in width</td><td>0%</td><td>8A81</td></tr></table>")
 
 
 class R:
@@ -96,9 +98,11 @@ class Notices(unittest.TestCase):
         self.assertEqual((e["tier"], e["kind"], e["number"], e["date"]), ("A", "영국 정부 무역구제 고시(확정 조치)", "2026/32", "2026-11-18"))
         self.assertEqual(e["companies"], ["포스코", "현대제철"] if e["companies"][0] == "포스코" else ["현대제철", "포스코"])
         self.assertIn("영국 정부 무역구제 고시 2026/32 — 확정 조치: 「Trade remedies notice 2026/32: definitive anti-dumping measure on hot-rolled steel plate", e["text"])
-        self.assertIn("업체별 세율 Hyundai Steel 7.04%(8A78) · POSCO 12.19%(8A79) · 그 밖 수출자·생산자 23.07%(8A80) · Hot-rolled steel plates with a width exceeding 2100mm 0.00%(8A81)", e["text"])
-        self.assertIn("권고 대목 「The Secretary of State has decided not to accept the TRA recommendation", e["text"])
-        self.assertIn("기간 대목 「The measure applies for 5 years from 19 November 2026.」", e["text"])
+        self.assertIn("업체별 세율 Hyundai Steel 7.04%(8A78) · POSCO 12.19%(8A79) · 그 밖 수출자·생산자 23.07%(8A80) · Hot-rolled steel plate greater than 2,100mm in width 0.00%(8A81)", e["text"])
+        # 11-19 2판: 권고 세율 범위 ↔ 확정 범위, 결정(거부)
+        self.assertIn(" · TRA 권고 5.98~25.71% → 국무장관 확정 7.04~23.07%(권고 거부·다르게 결정) · 권고 대목 「The TRA recommended imposing a definitive anti-dumping measure", e["text"])
+        self.assertIn("결정 대목 「The Secretary of State has decided under paragraph 20(1)(a)", e["text"])
+        self.assertIn("기간 대목 「The definitive measure will apply for a period of 5 years", e["text"])
         self.assertEqual(e["url"], w.SITE + A32)
         self.assertEqual(e["product"], "hot-rolled steel plates")
         # 다음 실행: 바뀐 것 없음 → 모음만 읽음, 이벤트 그대로
@@ -144,6 +148,22 @@ class Notices(unittest.TestCase):
         self.assertEqual(doc2["events"], [])
         get3, _ = fake(with32=True)
         self.assertEqual([e["number"] for e in w.run(NOW + dt.timedelta(hours=4), doc2, get=get3, sleep=lambda s: None)["events"]], ["2026/32"])
+
+    def test_parser_upgrade_rereads_stored_notices_without_events(self):
+        get, _ = fake(with32=True)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        for n in doc["notices"]:                       # 1판으로 읽은 저장본(권고 범위·결정 칸 없음)
+            n.pop("parser", None); n.pop("recRange", None); n.pop("verdict", None); n.pop("decision", None)
+        get2, calls2 = fake(with32=True)
+        doc2 = w.run(NOW + dt.timedelta(hours=2), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual(doc2["events"], [])
+        n32 = next(n for n in doc2["notices"] if n["number"] == "2026/32")
+        self.assertEqual((n32["recRange"], n32["finalRange"], n32["verdict"], n32["parser"]), ([5.98, 25.71], [7.04, 23.07], "권고 거부·다르게 결정", w.PARSER))
+        self.assertTrue(n32["baseline"])                                    # 기준선 표시는 그대로
+        self.assertIn(w.API + A32, calls2)
+        get3, calls3 = fake(with32=True)
+        w.run(NOW + dt.timedelta(hours=4), doc2, get=get3, sleep=lambda s: None)
+        self.assertEqual(calls3, [w.COLLECTION])                            # 한 번 다시 읽으면 끝
 
     def test_kind_and_product_parsing(self):
         self.assertEqual(w.kind_of("Trade remedies notice 2025/16: registration of imports of hot-rolled steel plates"), ("수입 등록", "B"))

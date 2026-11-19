@@ -36,6 +36,9 @@ export const WATCHES = [
   // 영국 정부 무역구제 고시(uk_trade_notices_watch.py, 11-19 기자 "이거 고쳐"): gov.uk 'Trade remedies notices' 모음의 한국산 고시 — 국무장관의
   // 확정·잠정 조치·권고 거부 A, 수입 등록 B. 고시는 영국 오후(한국 20~01시)에 올라온다 — 밤 즉시 알림(21:43·23:43) 전에 잡도록 저녁·밤 여러 번
   { feed: 'uk-trade-notices', label: '영국 무역구제 고시', tool: 'trade_remedies', schedule: '매일 18:20·20:20·22:20·23:20·01:40·05:50', staleHours: 30 },
+  // EU 관보 무역구제(eu_trade_defence_watch.py, 11-19 기자 "다음발전해"): 출판청 목록의 반덤핑·상계관세·세이프가드 규정·공고 — 한국산 출입 업종 품목과,
+  // 제목에 한국이 없어도 본문에 출입처(해외 법인 포함)가 수출자로 나온 확정·잠정 관세(11-13 냉연 2026/2547의 포스코 베트남 16.0% — 파이낸셜뉴스 11-17)
+  { feed: 'eu-trade-defence', label: 'EU 관보 무역구제', tool: 'trade_remedies', schedule: '매일 17:50·21:10·07:00', staleHours: 30 },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
@@ -1329,6 +1332,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(e.tier === 'A' ? 'A' : 'B', W['uk-trade-notices'], { kind: e.kind ?? '영국 정부 무역구제 고시', id: e.id, date: e.date || e.detectedAt,
       company: e.company || '영국', fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['영국', word], [], pk?.words ?? [], [], pk?.words ?? []) : undefined });
+  }
+  // EU 관보 무역구제(11-19): 등급은 수집기(출입처 이름 + 확정·잠정·개시·종료, 한국산 출입 업종 품목의 확정·잠정·개시 A). 회사 이름이 없으면 품목으로 대조
+  for (const e of docs['eu-trade-defence']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const pk = productKo(e.product);
+    const word = /countervail|anti-subsidy/i.test(e.text ?? '') ? '상계관세' : /safeguard/i.test(e.text ?? '') ? '세이프가드' : '반덤핑';
+    push(e.tier === 'A' ? 'A' : 'B', W['eu-trade-defence'], { kind: e.kind ?? 'EU 관보 무역구제', id: e.id, date: e.date || e.detectedAt,
+      company: e.company || (e.korea ? '한국산' : 'EU'), fact: e.text, url: e.url,
+      check: (e.companies ?? []).length ? hint(e.companies[0], ['EU', word], [], pk?.words ?? [], [], pk?.words ?? [])
+        : e.korea && pk ? hint(pk.ko.replace(/\(.*?\)/g, ''), ['EU', word], [], ['한국'], [], []) : undefined });
   }
   for (const x of docs['ustr-comments']?.items ?? []) {
     if (x.baseline || !recent(x.firstSeen)) continue;
