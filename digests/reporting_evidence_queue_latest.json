@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T17:36:56+09:00",
+  "generatedAt": "2026-11-19T17:46:58+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-19T12:55:28+09:00",
-      "rows": 119,
+      "generatedAt": "2026-11-19T17:46:02+09:00",
+      "rows": 120,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 1,
+    "new_official_receipt_review": 2,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 23,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-17",
     "through": "2026-11-19"
   },
-  "checkedOfficialRecentCandidates": 1,
+  "checkedOfficialRecentCandidates": 2,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
+  "todayOnlyCount": 2,
   "historicalResearchCount": 28,
   "unlinkedHistoryTextMatchCount": 0,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 29,
+  "totalRows": 30,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -120,6 +120,45 @@
         "supply_region": "미국",
         "contract_start": "2026-11-18",
         "contract_end": "2028-04-14"
+      },
+      "inGroupCounterpartyPerIssuerFiling": false,
+      "externalNewCustomerVerified": false,
+      "actualShipmentsVerified": false,
+      "pressIndexNoHitsIsNotNoCoverage": true,
+      "editorialPriority": "new_official_filing_manual_review"
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261119800214",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "일진전기",
+      "title": "일진전기 · SUPPLY AND INSTALLATION OF 230KV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC453) (공시 원문)",
+      "officialDocumentDate": "2026-11-19",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 원문 표 확인: SUPPLY AND INSTALLATION OF 230KV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC453) · 계약금액 112,513,604,983원 · 상대 싱가포르 전력청(SPGroup). 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261119800214"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+        "공시 표상 계약상대·관계·금액·기간 확인",
+        "공개된 최종 고객 자료와 발행법인 구분",
+        "내부 공급망 변경·장래 매출은 추정하지 않음"
+      ],
+      "officialTableTermsRetrieved": true,
+      "verifiedOfficialTableFields": {
+        "contract_subject": "SUPPLY AND INSTALLATION OF 230KV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC453)",
+        "contract_amount": "112,513,604,983",
+        "counterparty": "싱가포르 전력청(SPGroup)",
+        "supply_region": "싱가포르",
+        "contract_start": "2026-11-18",
+        "contract_end": "2030-12-30"
       },
       "inGroupCounterpartyPerIssuerFiling": false,
       "externalNewCustomerVerified": false,
