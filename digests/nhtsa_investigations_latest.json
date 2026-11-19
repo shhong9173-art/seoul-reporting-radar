@@ -1,6 +1,55 @@
 {
-  "scannedRecords": 154502,
+  "scannedRecords": 154503,
   "items": [
+    {
+      "actionNumber": "DP26013",
+      "make": "HYUNDAI",
+      "model": "PALISADE",
+      "modelYear": "2020",
+      "component": "VISIBILITY:DEFROSTER/DEFOGGER/HVAC SYSTEM:COMPRESSOR",
+      "manufacturer": "Hyundai Motor America",
+      "openedDate": "20261116",
+      "closedDate": "",
+      "recallCampaign": "",
+      "subject": "A/C Compressor Pulley Failure",
+      "summary": "The Office of Defects Investigation (ODI) received a petition on September 17, 2026, requesting a defect investigation into potential visibility and other safety concerns related to model year 2020 Hyundai Palisade vehicles. The petition alleges, among other things, that the vehicles lack adequate windshield defogging due to the air conditioning (A/C) compressor pulley and hub assembly failure. This defect petition is being opened to evaluate the issue and determine whether to grant or deny the petition. The petition can be reviewed at NHTSA.gov under ODI number 11764892.",
+      "coveredIssuerRelation": "현대차",
+      "sourceUrl": "https://www.nhtsa.gov/nhtsa-datasets-and-apis",
+      "sourceDataset": "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip",
+      "recallLinked": false,
+      "longRunningOpenReferenceOnly": false,
+      "publicationDateForSourceChangeVerified": false,
+      "discoveryType": "official_us_investigation_opened",
+      "officialEventDate": "20261116",
+      "caution": "미국 NHTSA 조사 기록. 종결은 결함 없음 판정이 아니며 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님",
+      "vehicles": [
+        {
+          "make": "HYUNDAI",
+          "model": "PALISADE",
+          "modelYear": "2020",
+          "manufacturer": "Hyundai Motor America",
+          "component": "VISIBILITY:DEFROSTER/DEFOGGER/HVAC SYSTEM:COMPRESSOR"
+        }
+      ],
+      "officialEventDates": [
+        {
+          "openedDate": "20261116",
+          "closedDate": ""
+        }
+      ],
+      "recallCampaigns": [],
+      "eventDateConflict": false,
+      "sourceFingerprintVersion": 1,
+      "sourceFingerprint": "ba193c8a855360eccbc6a4eebd72f9c39be4de1d1c1122faa15aa2772ecd2c39",
+      "firstSeenInRadar": "2026-11-19T16:14:08+09:00",
+      "observationState": "first_observed_in_this_radar",
+      "sourceContentChanged": null,
+      "changeComparisonStatus": "baseline_required",
+      "changeIsNewPublicationVerified": false,
+      "changeVerifiedFromTwoOfficialSnapshots": false,
+      "changeEvidenceIsNotNewPublicAnnouncement": true,
+      "substantiveChangeDetails": null
+    },
     {
       "actionNumber": "EA26007",
       "make": "HONDA",
@@ -5520,7 +5569,7 @@
       "substantiveChangeDetails": null
     }
   ],
-  "generatedAt": "2026-11-18T16:12:43+09:00",
+  "generatedAt": "2026-11-19T16:14:08+09:00",
   "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip",
   "scope": "US ODI formal opened investigations among matched marques, not recalls or complaint allegation totals",
   "lookbackDays": 100,
@@ -5528,7 +5577,7 @@
   "domesticModelApplicabilityVerified": false,
   "verifiedPublicationDateForSourceUpdates": false,
   "historicalOpenFirstSeenIsNotNewInvestigation": true,
-  "newlyObserved": 0,
+  "newlyObserved": 1,
   "changedObserved": 0,
   "longRunningOpenBackgroundCount": 11,
   "historicalOpenSubstantiveDeltaCount": 0,
