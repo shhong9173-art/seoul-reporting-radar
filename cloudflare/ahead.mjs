@@ -77,6 +77,16 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       title: `${x.code} ${x.productKo ?? String(x.product ?? '').slice(0, 40)}`, who: [], whoNote: x.koreaRate ? `한국 세율 ${x.koreaRate}%(CIF)` : '',
       basis: '태국 무역구제과 사건 쪽 징수 끝 날짜', url: x.url ?? '' });
   }
+  // 태국 — 조사 단계 표에서 최근 60일 안에 시작해 끝 날짜가 앞으로인 줄(예: 재심 예비 결과 공개 11-06 → 의견 마감 11-23)
+  for (const x of docs?.['th-trade-remedy']?.cases ?? []) {
+    for (const st of x?.steps ?? []) {
+      const [from, to] = st.dates ?? [];
+      if (!from || !to || to <= from || from < addDays(today, -past) || !inWin(to)) continue;
+      out.push({ date: to, country: '태국', agency: '반덤핑위', what: `단계 표 끝 날짜 — ${st.no} 「${String(st.label).slice(0, 60)}」(${from} 시작)`, src: 'th', beat: Boolean(x.productKo),
+        title: `${x.code} ${x.productKo ?? String(x.product ?? '').slice(0, 40)}`, who: [], whoNote: x.koreaRate ? `한국 세율 ${x.koreaRate}%(CIF)` : '',
+        basis: '태국 무역구제과 사건 쪽 조사 단계 표(태국어 단계 이름 — 무엇의 마감인지는 원문)', url: x.url ?? '' });
+    }
+  }
   // EU — 개시 공고에서 규정으로 계산한 시한(진행 사건만)
   for (const p of docs?.['eu-trade-defence']?.proceedings ?? []) {
     if (!p || p.stage === 'done') continue;

@@ -172,6 +172,13 @@ class Thai(unittest.TestCase):
         self.assertEqual(w.kind_of(REVIEW), "재심 개시")
         self.assertEqual(w.kind_of(INIT), "조사 개시")
         self.assertEqual(w.kind_of("ประกาศ เรื่อง ยุติการไต่สวน"), "조사 종료")
+        # AD1004 단계 표(운영 11-19)
+        self.assertEqual(w.kind_of("รายละเอียดข้อมูลและข้อเท็จจริงที่ใช้เป็นพื้นฐานในการพิจารณาร่างผลการทบทวนฯ (ฉบับเปิดเผย)"), "예비 결과 공개")
+        self.assertEqual(w.kind_of("ประกาศคณะกรรมการ ทตอ. เรื่อง ผลการทบทวนความจำเป็นในการใช้มาตรการตอบโต้การทุ่มตลาดสินค้าเหล็กกล้าไร้สนิมรีดเย็น"), "재심 결과")
+        self.assertEqual(w.kind_of("ประกาศกรมการค้าต่างประเทศ เปิดการทบทวน"), "재심 개시")
+        seg = ("<td>อากรที่เรียกเก็บ</td><td>1. ประเทศญี่ปุ่น 1.1 JFE Steel Corporation เรียกเก็บในอัตราร้อยละ 19.82 ของราคา ซี ไอ เอฟ "
+               "3. สาธารณรัฐเกาหลี เรียกเก็บในอัตราร้อยละ 50.99 ของราคา ซี ไอ เอฟ</td><td>อากรร้อยละ 0</td>")
+        self.assertEqual(w.parse_case(seg)["koreaRate"], "50.99")
         self.assertEqual(w.th_date("วันที่ : 07 เม.ย. 2563"), "2020-04-07")
         self.assertEqual(w.th_date("31 ธ.ค. 2569"), "2026-12-31")
         self.assertEqual(w.product_ko(CHROME)[0], "크롬도금강판")
