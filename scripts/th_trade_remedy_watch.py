@@ -54,6 +54,7 @@ TH_PRODUCT = [
     (r"พีวีซี|โพลิไวนิล|โพลีไวนิล", "PVC", ["PVC"]), (r"ยางรถ|ยางนอก", "타이어", ["타이어"]), (r"สายไฟ|สายเคเบิล", "전선", ["전선"]),
     (r"เหล็ก", "철강재", ["철강"]),
 ]
+PARSER = 2               # 11-19 2판: 나라 단일 세율 꼴('เรียกเก็บในอัตราร้อยละ 50.99'). 옛 판으로 읽은 사건은 목록 날짜가 그대로여도 한 번 다시 읽는다
 STRONG = ("조사 개시", "재심 개시", "담보 요구", "관세 부과", "조사 종료", "예비 결과 공개", "재심 결과")
 # 한국산 출입 업종 품목이면 출입처 이름이 없어도 A — 11-19 AD1004(스테인리스 냉연, 한국 50.99%) 재심 '예비 결과 공개'(11-06, 의견 11-23까지)를 보도 없이 찾음
 BEAT_A = ("조사 개시", "관세 부과", "조사 종료", "예비 결과 공개", "재심 결과")
@@ -233,7 +234,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     prev_listed = set(prev.get("listed") or [])
     for c in sorted(want, key=lambda x: x["date"], reverse=True):
         old = cases.get(c["code"])
-        if old and old.get("date") == c["date"] and old.get("read"):
+        if old and old.get("date") == c["date"] and old.get("read") and old.get("parser", 1) >= PARSER:
             old.update({k: c[k] for k in ("product", "countries", "status")}, productKo=product_ko(c["product"])[0])
             continue
         # 기준선: 첫 실행, 또는 처음 읽는 사건 중 직전 목록에도 있던 것. 목록에 새로 올라온 사건(한도로 미뤄졌어도)은 공고를 이벤트로
@@ -262,7 +263,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             continue
         seen = set((old or {}).get("seen") or [])
         seen_steps = set((old or {}).get("seenSteps") or [])
-        rec = {**c, **page, "steps": page["steps"][-12:], "read": True, "readAt": stamp, "url": CASE + c["code"],
+        rec = {**c, **page, "steps": page["steps"][-12:], "read": True, "readAt": stamp, "url": CASE + c["code"], "parser": PARSER,
                "seen": sorted(seen | {a["url"] for a in page["announcements"]}), "seenSteps": sorted(seen_steps | {step_key(x) for x in page["steps"]})}
         rec.pop("newCase", None)
         rec["productKo"] = product_ko(c["product"])[0]
