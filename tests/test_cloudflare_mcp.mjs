@@ -6039,3 +6039,80 @@ test('보고서 전체 새 낱말(11-17): /ingest/dart-text-scan이 저장소 �
   assert.match(t, /- \[신규\] B · 11-17 13:20 · LG화학 · 보고서 전체 새 낱말 · 접수 2026-11-16\n   새 줄: 〔가동중단〕 여수 NPG 공정은 2026년 12월 가동중단 예정입니다/);
   assert.match((await call('radar_today', { hours: 24 }, { ...own, now: new Date('2026-11-17T05:00:00Z') })).text, /LG화학[^\n]*앞 보고서에 없던 보고서 전체 새 낱말 1줄/);
 });
+
+test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기한과 장관 결정 대기·EU 규정상 시한을 단독 데스크 2-2구역과 trade_remedies section=ahead에', async () => {
+  const at = new Date('2026-11-19T01:00:00Z');   // 10:00 KST
+  const opts = { ...PRIVATE(), now: at };
+  const recent = new Date(at.getTime() - 3600000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  const lp2 = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-se-eng.html';
+  assert.equal((await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [{ source: '캐나다 CBSA 사건 문서·시행 중 조치', status: 'ok' }],
+    cbsa: { checkedAt: recent, lists: {
+      'ar-ra': { status: 'ok', cases: {
+        lp22026: { title: 'Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concludes on December 14, 2026', state: 'Concludes', stateDate: '2026-12-14',
+          docs: [{ date: '2026-06-26', title: 'Notice of initiation of administrative review', url: 'https://x/ni' }, { date: '2026-10-06', title: 'Administrative review schedule', url: lp2 }] },
+        cpf2026: { title: 'Copper pipe fittings: Dumping (China, South Korea and United States)—Concludes on ( TBD )', state: 'Concludes', stateDate: '' } } },
+      'er-rre': { status: 'ok', cases: { spt2026: { title: 'Small Power Transformers: Dumping (Chinese Taipei and South Korea)—Concludes on February 26, 2027', state: 'Concludes', stateDate: '2027-02-26', docs: [] } } } },
+    measures: { 'https://www.cbsa-asfc.gc.ca/sima-lmsi/mif-mev/lp2-eng.html': { code: 'LP2', product: 'Line pipe 2', companies: ['세아제강'], exporters: [] } } },
+    citt: { url: 'https://www.citt-tcce.gc.ca/en/dumping-and-subsidizing/ongoing', cases: { 'RR-2026-007': { title: 'Certain Small Power Transformers: dumping (Chinese Taipei and Korea)', group: 'expiry reviews',
+      rows: [{ doc: 'Notice of expiry review of finding', when: 'October 1, 2026', date: '2026-10-01', url: 'https://x/notice' }, { doc: 'Order and reasons', when: 'August 5, 2027', date: '2027-08-05', url: '' }] } } },
+    auEpr: { cases: {
+      698: { title: '698 - Aluminium zinc coated steel (≥600mm) from Korea, Vietnam', kind: 'Continuation', milestone: 'Final Report', companies: ['KG스틸'],
+        dates: { 'Initiation Date': '10 February 2026', 'SEF no later than': '24 September 2026', 'Final recommendation due no later than': '16 November 2026' }, url: 'https://www.industry.gov.au/epr/698' },
+      706: { title: '706 - Zinc coated (galvanised) steel from Korea, Vietnam', kind: 'Investigation', milestone: 'SEF', companies: ['동국씨엠', '포스코'],
+        dates: { 'PAD earliest date': '18 August 2026', 'SEF* no later than': '5 March 2027', 'Final recommendation due no later than': '19 April 2027' }, url: 'https://www.industry.gov.au/epr/706' },
+      688: { title: '688 - Certain flat rolled steel', archived: true, dates: { 'Final recommendation due no later than': '1 November 2026' } } } } })).status, 200);
+  const eurl = 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:';
+  assert.equal((await post('eu-trade-defence', { schema: 'eu_trade_defence/v1', generatedAt: recent, status: 'ok', checks: [{ source: 'EU 관보(Cellar SPARQL)', status: 'ok', returned: 20 }],
+    records: [], historyAt: recent,
+    events: [{ id: 'euoj:52026XC05780', kind: 'EU 관보 무역구제(세이프가드 조사 개시)', tier: 'A', company: '', companies: [], product: 'new hybrid vehicles for the transport of persons', number: '52026XC05780',
+      date: '2026-10-30', korea: false, safeguard: true, url: `${eurl}52026XC05780`, detectedAt: recent,
+      text: 'EU 관보 무역구제 — 세이프가드 조사 개시: 52026XC05780 「Notice of initiation of a safeguard investigation concerning imports of certain new hybrid vehicles for the transport of persons」(2026-10-30) · 세이프가드 — 원산지 구분 없이 모든 수입(한국산 포함) 대상, 나라별 예외·쿼터는 원문' }],
+    proceedings: [
+      { id: 'euproc:52026XC04912', celex: '52026XC04912', date: '2026-09-23', product: 'Polyvinyl chloride (PVC)', type: 'ad', typeKo: '반덤핑 조사', korea: true, beat: true, stage: 'open',
+        title: 'Notice of initiation of an anti-dumping proceeding concerning imports of certain Polyvinyl chloride (PVC) originating in …', url: `${eurl}52026XC04912`,
+        steps: [{ date: '2026-10-23', kind: '수입 등록', number: '2026/2345', step: 'registration' }],
+        deadlines: [{ key: 'pre', label: '잠정 관세 사전 공개(보통 시점 — 잠정 관세 4주 전 당사자에게)', date: '2027-03-26', basis: '기본규정 제19a조(4주)·제7조 1항(보통 7개월)' },
+          { key: 'prov', label: '잠정 관세 보통 시한(7개월)', date: '2027-04-23', basis: '기본규정 제7조 1항' }],
+        schedule: ['In accordance with Article 7(1) of the basic Regulation, provisional duties may be imposed normally not later than 7 months'] },
+      { id: 'euproc:x1', celex: '52026XC01111', date: '2026-05-20', product: 'stainless steel cold-rolled flat products', type: 'ad', typeKo: '반덤핑 조사', korea: true, beat: true, stage: 'open', title: 't', url: `${eurl}52026XC01111`,
+        steps: [], deadlines: [{ key: 'prov', label: '잠정 관세 보통 시한(7개월)', date: '2026-12-20', basis: '기본규정 제7조 1항' }] },
+      { id: 'euproc:x2', celex: '52026XC02222', date: '2026-05-21', product: 'cellulose ethers', type: 'ad', typeKo: '반덤핑 조사', korea: true, beat: false, stage: 'open', title: 't', url: `${eurl}52026XC02222`,
+        steps: [], deadlines: [{ key: 'prov', label: '잠정 관세 보통 시한(7개월)', date: '2026-12-21', basis: '기본규정 제7조 1항' }] },
+      { id: 'euproc:52026XC05780', celex: '52026XC05780', date: '2026-10-30', product: 'new hybrid vehicles for the transport of persons', type: 'sg', typeKo: '세이프가드 조사', korea: false, beat: true, stage: 'open', title: 't', url: `${eurl}52026XC05780`,
+        steps: [], deadlines: [{ key: 'final', label: '조치 결정 시한(9개월)', date: '2027-07-30', basis: '개시 공고 8항(예외 때 최대 2개월 연장 — 연장하면 관보 공고)' }] },
+      { id: 'euproc:done', celex: '52025XC05537', date: '2025-10-17', product: 'heavyweight thermal paper', type: 'er', typeKo: '종료재심', korea: true, beat: false, stage: 'done', title: 't', url: `${eurl}52025XC05537`,
+        steps: [{ date: '2026-10-19', kind: '확정 관세 연장(종료재심 결과)', number: '2026/2311' }], deadlines: [] }] })).status, 200);
+
+  // 세이프가드 새 항목: 업체·한국 표시가 없어도 품목 이름으로 보도 대조를 건다
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const sg = items.items.find((x) => x.id === 'euoj:52026XC05780');
+  assert.deepEqual([sg.tier, sg.company, sg.check.who, sg.check.terms], ['A', 'EU', '하이브리드차', ['EU', '세이프가드']]);
+  const d = (await call('scoop_desk', {}, opts)).text;
+  const block = d.slice(d.indexOf('[2-2.'), d.indexOf('\n[', d.indexOf('[2-2.') + 5) > 0 ? d.indexOf('\n[', d.indexOf('[2-2.') + 5) : undefined);
+  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 3건\n/);
+  assert.match(block, new RegExp(`- 2026-12-14 · 캐나다 CBSA · 행정재심 결론 예정 · Carbon and alloy steel line pipe 2: Dumping \\(South Korea\\) · 출입처 세아제강\\(시행 중 조치 LP2 한국 수출자 표\\)\\n   근거: CBSA 사건 목록에 적힌 결론 예정일 · 원문: ${lp2.replace(/[.?]/g, '\\$&')}\\n`));
+  assert.match(block, /- ~2026-12-16 · 호주 ATRC · 종료재심 장관 결정 시한\(추정 — 최종 권고 기한\+30일\) · 사건 698 · 698 - Aluminium zinc coated steel \(≥600mm\) from Korea, Vietnam · 출입처 KG스틸\(문서 제목에 나온 출입처 이름\) · 최종 권고 기한 2026-11-16 지남 · 진행 목록에 남아 있음\(다음 단계 Final Report\) — 결정 공고\(ADN\) 전\n   근거: 호주 관세법\(2011 개정[^\n]*30일 안에 결정[^\n]*종료재심은 조치 만료일 전 · 원문: https:\/\/www\.industry\.gov\.au\/epr\/698\n/);
+  assert.match(block, /- 2026-12-20 · EU 집행위 · 반덤핑 조사 잠정 관세 보통 시한\(7개월\) · stainless steel cold-rolled flat products\(개시 2026-05-20\) · 제목에 한국\n   근거: 규정상 시한 — 기본규정 제7조 1항/);
+  assert.doesNotMatch(block, /cellulose|2027-|사건 688|Copper pipe/);   // 업종 밖 EU 사건·45일 밖·보관 사건·날짜 미정은 안 올린다
+  assert.match(block, /날짜는 누리집 표기이거나 규정상 시한이다 — 발표 예정일이 아니다[^\n]*EU는 잠정 관세 4주 전 당사자\(수출자\)에게/);
+  // 회사로 좁히면 그 회사 줄만
+  const ds = (await call('scoop_desk', { company: '세아제강' }, opts)).text;
+  assert.match(ds, /\[2-2\.[^\n]*\] 1건\n- 2026-12-14 · 캐나다 CBSA/);
+  assert.doesNotMatch((await call('scoop_desk', { company: '현대제철' }, opts)).text, /\[2-2\./);
+
+  const t = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
+  assert.match(t, /^다가오는 해외 판정 일정 — 앞으로 400일 · /);
+  assert.match(t, /미국·영국·인도는 아직 일정 계산 안 함 — 미확인/);
+  const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers',
+    '2027-03-05 · 호주 ATRC · 조사 필수사실 보고서(SEF) 공개 기한 · 사건 706', '2027-03-26 · EU 집행위 · 반덤핑 조사 잠정 관세 사전 공개', '2027-04-19 · 호주 ATRC · 조사 최종 권고(장관 보고) 기한',
+    '2027-04-23 · EU', '2027-07-30 · EU 집행위 · 세이프가드 조사 조치 결정 시한(9개월) · new hybrid vehicles for the transport of persons(개시 2026-10-30) · 세이프가드 — 모든 나라산(한국 포함)',
+    '2027-08-05 · 캐나다 CITT · Order and reasons(피해·조치 연장 결정) · RR-2026-007'];
+  let pos = 0;
+  for (const s of order) { const i = t.indexOf(`- ${s}`, pos); assert.ok(i >= pos, s); pos = i; }
+  assert.match(t, /- 2026-12-21 · EU 집행위 · 반덤핑 조사 잠정 관세 보통 시한\(7개월\) · cellulose ethers\(개시 2026-05-21\) · 제목에 한국 \(출입 업종 품목 아님\)/);
+  assert.doesNotMatch(t, /2026-10-01 · 캐나다 CITT/);   // 이미 나온 문서는 일정이 아니다
+  assert.match(t, /\[EU 진행 사건 — [^\n]*\] 5건\n- 2026-09-23 개시 · 반덤핑 조사 · Polyvinyl chloride \(PVC\) · 진행\(잠정 관세 전\) · 지난 단계 2026-10-23 수입 등록 2026\/2345 · 다음 시한 2027-03-26 잠정 관세 사전 공개[^\n]*\n   개시 공고의 일정 문장: "In accordance with Article 7\(1\)/);
+  assert.match(t, /- 2025-10-17 개시 · 종료재심 · heavyweight thermal paper \(출입 업종 품목 아님\) · 끝남\(최근 60일\) · 지난 단계 2026-10-19 확정 관세 연장\(종료재심 결과\) 2026\/2311\n/);
+  assert.match((await call('trade_remedies', { section: 'ahead', company: 'hybrid' }, opts)).text, /\[날짜순\] 0건/);   // 기본 90일 — 하이브리드 시한(2027-07-30)은 밖
+});
