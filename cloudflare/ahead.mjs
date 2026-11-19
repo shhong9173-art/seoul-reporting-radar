@@ -70,6 +70,13 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
         note: `최종 권고 기한 ${fr} 지남 · 진행 목록에 남아 있음(다음 단계 ${c.milestone || '?'}) — 결정 공고(ADN) 전`, basis: AU_MINISTER });
     }
   }
+  // 태국 — 재심 중 담보(징수) 끝 날짜(사건 쪽 표기). 11-15 다른 매체 단독(석도·크롬도금 재심, KG스틸)이 '최장 2027-11-12까지'로 쓴 날짜
+  for (const x of docs?.['th-trade-remedy']?.cases ?? []) {
+    if (!x?.read || !inWin(x.dutyTo) || !/ทบทวน/.test(x.status ?? '')) continue;
+    out.push({ date: x.dutyTo, country: '태국', agency: '반덤핑위', what: '재심 중 담보 기간 끝(최종 결정이 먼저 나오면 앞당겨짐)', src: 'th', beat: Boolean(x.productKo),
+      title: `${x.code} ${x.productKo ?? String(x.product ?? '').slice(0, 40)}`, who: [], whoNote: x.koreaRate ? `한국 세율 ${x.koreaRate}%(CIF)` : '',
+      basis: '태국 무역구제과 사건 쪽 징수 끝 날짜', url: x.url ?? '' });
+  }
   // EU — 개시 공고에서 규정으로 계산한 시한(진행 사건만)
   for (const p of docs?.['eu-trade-defence']?.proceedings ?? []) {
     if (!p || p.stage === 'done') continue;

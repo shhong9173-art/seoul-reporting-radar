@@ -1,0 +1,73 @@
+name: Thailand Trade Remedies (Korea)
+# 태국 상무부 대외무역국 무역구제과 누리집(thaitr.dft.go.th)의 한국산 사건 새 공고(11-19 기자 "단독을 위해서 더 노력해봐":
+# 11-15 다른 매체 단독 'TCC스틸·KG스틸, 태국 반덤핑 재심 대상'을 레이더가 못 봤다). 평일 12:10·14:50·17:00·21:20 KST(Cloudflare 요청)
+# + GitHub 예약 평일 21:50 KST(대비용, 3시간 안 정시 요청 성공이면 건너뜀). 결과는 기자 전용 저장소(th-trade-remedy)에만 — 공개 로그에는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/th_trade_remedy_watch.py'
+      - 'tests/test_th_trade_remedy_watch.py'
+      - '.github/workflows/th-trade-remedy.yml'
+  schedule:
+    - cron: '50 12 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 건수만'
+        required: false
+        default: 'true'
+permissions:
+  contents: read
+concurrency:
+  group: th-trade-remedy
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: th-trade-remedy.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::3시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  notices:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6"
+      - name: Test announcement reading
+        run: python -m unittest discover -s tests -p 'test_th_trade_remedy_watch.py' -v
+      - name: Read Thai trade remedy announcements (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'false' }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/th_trade_remedy_watch.py
+          else
+            python scripts/th_trade_remedy_watch.py --dry-run
+          fi

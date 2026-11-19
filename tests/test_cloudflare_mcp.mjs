@@ -2041,7 +2041,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 40개/);
+  assert.match(r.text, /기자 전용 감시 41개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2368,7 +2368,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 40개/);
+  assert.match(r.text, /기자 전용 감시 41개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2454,7 +2454,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 40개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 41개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -6122,4 +6122,41 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /\[EU 진행 사건 — [^\n]*\] 6건\n- 2026-09-23 개시 · 반덤핑 조사 · Polyvinyl chloride \(PVC\) · 진행\(잠정 관세 전\) · 지난 단계 2026-10-23 수입 등록 2026\/2345 · 다음 시한 2027-03-26 잠정 관세 사전 공개[^\n]*\n   개시 공고의 일정 문장: "In accordance with Article 7\(1\)/);
   assert.match(t, /- 2025-10-17 개시 · 종료재심 · heavyweight thermal paper \(출입 업종 품목 아님\) · 끝남\(최근 60일\) · 지난 단계 2026-10-19 확정 관세 연장\(종료재심 결과\) 2026\/2311\n/);
   assert.match((await call('trade_remedies', { section: 'ahead', company: 'hybrid' }, opts)).text, /\[날짜순\] 0건/);   // 기본 90일 — 하이브리드 시한(2027-07-30)은 밖
+});
+
+test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 공고는 A·해외 문서 유형, section=th 사건 줄, 재심 담보 끝 날짜는 해외 판정 일정에', async () => {
+  const at = new Date('2026-11-19T03:30:00Z');   // 12:30 KST
+  const opts = { ...PRIVATE(), now: at };
+  const recent = new Date(at.getTime() - 20 * 60000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [] });
+  const KR = 'สาธารณรัฐเกาหลี';
+  const bond = 'ประกาศคณะกรรมการพิจารณาการทุ่มตลาดและการอุดหนุน เรื่อง ให้เรียกหลักประกันการชำระอากรตอบโต้การทุ่มตลาดในระหว่างการพิจารณาทบทวน กรณีสินค้าเหล็กแผ่นชุบหรือเคลือบด้วยโครเมียม';
+  const ann = 'https://thaitr.dft.go.th/storage/announcements/C1.pdf';
+  assert.equal((await post('th-trade-remedy', { schema: 'th_trade_remedy/v1', generatedAt: recent, status: 'ok',
+    checks: [{ source: '태국 무역구제과(thaitr.dft.go.th)', status: 'ok', returned: 50, korea: 4 }],
+    cases: [{ code: 'AD1044', product: 'สินค้าเหล็กแผ่นชุบหรือเคลือบด้วยโครเมียมทั้งชนิดเป็นม้วนและไม่เป็นม้วน', productKo: '크롬도금강판', countries: `สาธารณรัฐประชาชนจีน, ${KR}, และ สหภาพยุโรป`,
+      status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-11-11', read: true, koreaRate: '0-17.06', dutyFrom: ['2026-11-11', '2026-11-13'], dutyTo: '2027-11-12',
+      latest: bond, steps: [{ no: '2.1', label: 'ประกาศกรมการค้าต่างประเทศ เรื่อง เปิดการทบทวนการเรียกเก็บอากรตอบโต้การทุ่มตลาดต่อไป', dates: ['2026-11-11'] }], url: 'https://thaitr.dft.go.th/th/search/AD1044' },
+    { code: 'AD1004', product: 'เหล็กแผ่นรีดเย็น', productKo: '냉연강판', countries: KR, status: 'ใช้มาตรการและอยู่ระหว่างการทบทวน', type: 'AD', applies: true, date: '2026-03-09', read: false }],
+    events: [{ id: 'thtr:AD1044:C1.pdf', kind: '태국 무역구제(담보 요구)', tier: 'A', code: 'AD1044', company: 'KG스틸', companies: ['KG스틸'], product: '크롬도금강판', productWords: ['크롬도금', 'TFS'],
+      date: '2026-11-11', korea: true, url: ann, caseUrl: 'https://thaitr.dft.go.th/th/search/AD1044', detectedAt: recent,
+      text: `태국 무역구제 공고 AD1044 — 담보 요구: 「${bond}」 · 품목 สินค้าเหล็กแผ่นชุบ(크롬도금강판) · 한국 세율 0-17.06%(CIF 기준, 사건 쪽 표) · 공고 본문(PDF)에 출입처 KG스틸` }] })).status, 200);
+
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const it = items.items.find((x) => x.id === 'thtr:AD1044:C1.pdf');
+  assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms, it.check.must], ['A', 'KG스틸', 'KG스틸', ['태국', '반덤핑'], ['크롬도금', 'TFS']]);
+  assert.match((await call('radar_today', {}, opts)).text, /태국 무역구제 공고 · KG스틸\n   태국 무역구제 공고 AD1044 — 담보 요구: /);
+  assert.match((await call('scoop_desk', {}, opts)).text, /- A · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · KG스틸\n   태국 무역구제 공고 AD1044/);
+
+  const t = (await call('trade_remedies', { section: 'th' }, opts)).text;
+  assert.match(t, /\[태국 무역구제 공고 · 한국산\(태국이 거는 조치\)·출입 업종 세이프가드 · 확인 [^\]]+\] 사건 2건 · 원천 태국 무역구제과\(thaitr\.dft\.go\.th\) ok\(목록 50건 중 한국·세이프가드 4\)\n/);
+  assert.match(t, /- AD1044 · 크롬도금강판 「สินค้าเหล็กแผ่นชุบ[^」]*」 · 상태 「ใช้มาตรการและอยู่ระหว่างการทบทวน」 · 목록 날짜 2026-11-11\n   한국 세율 0-17\.06%\(CIF 기준\) · 징수·담보 2026-11-11, 2026-11-13~2027-11-12\n   가장 최근 공고\(태국어\): 「ประกาศ/);
+  assert.match(t, /   최근 단계: 2\.1 2026-11-11 「ประกาศกรมการค้าต่างประเทศ/);
+  assert.match(t, /- AD1004 · 냉연강판 「เหล็กแผ่นรีดเย็น」 · [^\n]* · 사건 쪽 아직 못 읽음\n/);
+  assert.match(t, /새 공고\(감지일 기준\): 1건\n- A · [^\n]* · 태국 무역구제 공고 AD1044 — 담보 요구[^\n]*\n   원문: https:\/\/thaitr\.dft\.go\.th\/storage\/announcements\/C1\.pdf/);
+  assert.doesNotMatch(t, /\[EU 관보 무역구제/);
+  assert.match((await call('trade_remedies', {}, opts)).text, /\[태국 무역구제 공고 · /);
+  const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
+  assert.match(a, /- 2027-11-12 · 태국 반덤핑위 · 재심 중 담보 기간 끝\(최종 결정이 먼저 나오면 앞당겨짐\) · AD1044 크롬도금강판 · 한국 세율 0-17\.06%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 징수 끝 날짜 · 원문: https:\/\/thaitr\.dft\.go\.th\/th\/search\/AD1044/);
 });

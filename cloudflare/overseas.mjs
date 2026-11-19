@@ -553,6 +553,33 @@ export function ukNoticeSection(doc, q = '', limit = 6, ctx = null) {
   return out;
 }
 
+// 태국 무역구제 공고(th-trade-remedy feed, 11-19): 무역구제과 누리집의 한국산 사건(태국이 거는 조치)·출입 업종 세이프가드.
+// 공고 PDF는 태국어라 출입처 영문 이름만 자동으로 찾는다 — 세율·대상 업체는 원문.
+export function thSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
+  if (!doc) return ['\n[태국 무역구제 공고(thaitr.dft.go.th)] 아직 수집 전 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const cases = (doc.cases ?? []).filter((x) => matches(q, x.code, x.product, x.productKo ?? '', x.latest ?? '', x.countries ?? ''));
+  const out = [`\n[태국 무역구제 공고 · 한국산(태국이 거는 조치)·출입 업종 세이프가드 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] 사건 ${cases.length}건`
+    + ` · 원천 ${c.source ?? '태국 무역구제과'} ${c.status ?? '?'}(목록 ${c.returned ?? 0}건 중 한국·세이프가드 ${c.korea ?? 0}${c.pending ? ` · 사건 쪽 못 읽은 ${c.pending}건` : ''}${c.error ? `, ${c.error}` : ''})${doc.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''}`];
+  for (const x of cases.slice(0, limit)) {
+    out.push(`- ${x.code} · ${x.productKo ?? '출입 업종 밖'} 「${String(x.product ?? '').slice(0, 70)}」 · 상태 「${x.status ?? '?'}」 · 목록 날짜 ${x.date || '?'}${x.read ? '' : ' · 사건 쪽 아직 못 읽음'}`);
+    const duty = [x.koreaRate && `한국 세율 ${x.koreaRate}%(CIF 기준)`, (x.dutyFrom ?? []).length && `징수·담보 ${x.dutyFrom.join(', ')}~${x.dutyTo || '?'}`].filter(Boolean);
+    if (duty.length) out.push(`   ${duty.join(' · ')}`);
+    if (x.latest) out.push(`   가장 최근 공고(태국어): 「${String(x.latest).slice(0, 160)}」`);
+    if ((x.steps ?? []).length) out.push(`   최근 단계: ${x.steps.slice(-2).map((s) => `${s.no} ${(s.dates ?? []).join('·')} 「${String(s.label).slice(0, 70)}」`).join(' / ')}`);
+    out.push(`   원문: ${x.url ?? `https://thaitr.dft.go.th/th/search/${x.code}`}`);
+  }
+  if (cases.length > limit) out.push(`… 남은 ${cases.length - limit}건`);
+  const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= String(fromIso) && matches(q, e.text, e.code, e.product));
+  out.push(`새 공고(감지일 기준): ${ev.length}건`);
+  for (const e of ev.slice(-limit).reverse()) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.text}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  out.push('   검증 상태: 태국 무역구제과 누리집 목록·사건 쪽(자동). 공고 PDF는 태국어라 출입처 영문 이름만 찾았다 — 공고 종류는 제목 낱말로 가른 것. 세율은 사건 쪽 나라별 범위(CIF), 업체별 세율·내용은 원문 공고. 회사 입장은 회사 확인');
+  return out;
+}
+
 // EU 관보 무역구제(eu-trade-defence feed, 11-19): 집행위원회 시행규정·공고. 출입처 해외 법인이 수출자로 나온 규정은 그 나라산 조치다.
 export function euOjSection(doc, q = '', limit = 5, ctx = null) {
   if (!doc) return ['\n[EU 관보 무역구제] 아직 수집 전 — 미확인'];
@@ -796,7 +823,7 @@ export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au', 'ahead'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au', 'th', 'ahead'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -807,10 +834,10 @@ export async function tradeRemedies(ctx, args) {
   if (section === 'ahead') {
     const eu = await readFeed(ctx, 'eu-trade-defence');
     const span = clampInt(args.days, 1, 400, 90);
-    const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu }, ctx.now.getTime(), { days: span })
+    const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu, 'th-trade-remedy': await readFeed(ctx, 'th-trade-remedy') }, ctx.now.getTime(), { days: span })
       .filter((a) => matches(q, a.title, a.what, (a.who ?? []).join(' '), a.country));
     const out = [`다가오는 해외 판정 일정 — 앞으로 ${span}일 · 무역구제 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`
-      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한). 미국·영국·인도는 아직 일정 계산 안 함 — 미확인.`];
+      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한), 태국 사건 쪽 징수·담보 끝 날짜. 미국·영국·인도는 아직 일정 계산 안 함 — 미확인.`];
     out.push(`\n[날짜순] ${items.length}건`);
     for (const a of items.slice(0, Math.max(limit, 30))) out.push(...aheadLine(a).map((l, i) => (i === 0 && !a.beat ? `${l} (출입 업종 품목 아님)` : l)));
     if (!items.length) out.push('없음(수집을 못 읽었으면 미확인)');
@@ -865,6 +892,8 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'tra') out.push(...ukNoticeSection(await readFeed(ctx, 'uk-trade-notices'), q, section === 'tra' ? limit : Math.min(limit, 4), ctx));
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
+  if (!section || section === 'th') out.push(...thSection(await readFeed(ctx, 'th-trade-remedy'), q, section === 'th' ? limit : Math.min(limit, 4), ctx,
+    new Date(ctx.now.getTime() - (section === 'th' && !args.days ? 60 : days) * 86400000).toISOString()));
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
   if (!section || section === 'cbsa') out.push(...cittSection(doc.citt, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 3), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
