@@ -351,6 +351,7 @@ export const PRODUCT_KO = [
   [/stainless/i, '스테인리스강', ['스테인리스']],
   [/cut-to-length|\bplate\b/i, '후판', ['후판']],
   [/reinforcing bar|rebar/i, '철근', ['철근']],
+  [/polyvinyl chloride|\bS-?PVC\b|\bPVC\b/i, 'PVC', ['PVC']],
   [/wire rod/i, '선재', ['선재']],
   [/structural steel|steel beam|H-beam/i, '형강', ['형강']],
   [/transformer/i, '변압기', ['변압기']],
@@ -534,7 +535,10 @@ export function ukNoticeSection(doc, q = '', limit = 6, ctx = null) {
     out.push(`- ${n.tier}${n.isNew ? ' [신규]' : n.baseline ? ' [기준선]' : ''} · 게시 ${n.published || '날짜 없음'} · ${n.kind}${n.number ? ` · 고시 ${n.number}` : ''} · 「${n.title}」`);
     if ((n.rates ?? []).length) out.push(`   업체별 세율(본문 표): ${n.rates.map((r) => `${r.name} ${Number(r.rate).toFixed(2)}%${r.code ? `(${r.code})` : ''}`).join(' · ')}`);
     if ((n.companies ?? []).length) out.push(`   출입처: ${n.companies.join('·')}`);
+    const rng = (r) => (r ? (r[0] === r[1] ? `${Number(r[0]).toFixed(2)}%` : `${Number(r[0]).toFixed(2)}~${Number(r[1]).toFixed(2)}%`) : '?');
+    if (n.recRange || n.verdict) out.push(`   TRA 권고 ${rng(n.recRange)} → 국무장관 확정 ${rng(n.finalRange)}${n.verdict ? `(${n.verdict})` : ''}`);
     if ((n.recommendation ?? []).length) out.push(`   권고 대목: "${n.recommendation[0]}"`);
+    if ((n.decision ?? []).length) out.push(`   결정 대목: "${n.decision[0]}"`);
     if ((n.term ?? []).length) out.push(`   기간 대목: ${n.term.map((t) => `"${t}"`).join(' / ')}`);
     if (n.note) out.push(`   ${n.note}`);
     out.push(`   원문: ${n.url}`);
@@ -542,6 +546,26 @@ export function ukNoticeSection(doc, q = '', limit = 6, ctx = null) {
   if (all.length > limit) out.push(`… 남은 ${all.length - limit}건`);
   if (!all.length) out.push('한국산 고시 없음(조회 실패는 위 원천 상태 — 미확인).');
   out.push('   검증 상태: gov.uk 고시 본문(자동). 국무장관이 TRA 권고를 받아 정한 조치다 — 세율은 본문 표에서 자동으로 읽은 값이라 기사 전 원문 표 대조. 권고와 다른지는 TRA 권고 문서(아래 공개기록)와 견준다');
+  return out;
+}
+
+// EU 관보 무역구제(eu-trade-defence feed, 11-19): 집행위원회 시행규정·공고. 출입처 해외 법인이 수출자로 나온 규정은 그 나라산 조치다.
+export function euOjSection(doc, q = '', limit = 5, ctx = null) {
+  if (!doc) return ['\n[EU 관보 무역구제] 아직 수집 전 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const all = (doc.records ?? []).filter((r) => matches(q, r.title, r.product, r.number, (r.companies ?? []).join(' ')));
+  const out = [`\n[EU 관보 무역구제 · 한국산 출입 업종 품목·출입처가 수출자로 나온 규정 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] ${all.length}건 · 원천 ${c.source ?? 'EU 관보'} ${c.status ?? '?'}(최근 21일 무역구제 문서 ${c.returned ?? 0}건${c.error ? `, ${c.error}` : ''})${doc.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''}`];
+  for (const r of all.slice(0, limit)) {
+    out.push(`- ${r.tier}${r.isNew ? ' [신규]' : r.baseline ? ' [기준선]' : ''} · ${r.date} · ${r.kind} · ${r.number}${r.korea ? ' · 한국산' : ''} · 「${String(r.title).slice(0, 220)}」`);
+    if ((r.companies ?? []).length) out.push(`   본문에 출입처: ${r.companies.join('·')}${r.korea ? '' : ' — 제목에 한국 없음(출입처 해외 법인이 수출자일 수 있다)'}`);
+    if ((r.rates ?? []).length) out.push(`   제1조 세율: ${r.rates.map((x) => `${x.exporter} ${x.rate}${x.code ? `(${x.code})` : ''}`).join(' · ')}`);
+    for (const t of (r.snippets ?? []).slice(0, 2)) out.push(`   본문 대목: "${t}"`);
+    if (r.note) out.push(`   ${r.note}`);
+    out.push(`   원문: ${r.url}`);
+  }
+  if (all.length > limit) out.push(`… 남은 ${all.length - limit}건`);
+  if (!all.length) out.push('해당 규정·공고 없음(조회 실패는 위 원천 상태 — 미확인).');
+  out.push('   검증 상태: EU 관보 본문(자동). 세율은 제1조 표에서 출입처 이름 뒤 첫 값을 읽은 것 — 기사 전 원문 표 대조. 해외 법인(포스코 베트남 등) 이름은 그 나라산 조치라는 뜻');
   return out;
 }
 
@@ -768,7 +792,7 @@ export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -816,6 +840,7 @@ export async function tradeRemedies(ctx, args) {
     out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율은 관보 원문 표에서 자동으로 읽은 값(예비 판정은 확정 아님 — 최종에서 바뀔 수 있음, 기사 전 원문 표 대조). \'비선정 업체 세율\'은 개별 조사를 받지 않은 업체에 매긴 세율. 직전 판정은 같은 사건 번호(docket)의 최근 최종(·예비) 판정. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인. 결정문 목차는 쟁점 제목일 뿐 결론이 아니다(\'흔치 않은\'은 자주 나오는 보조금 낱말이 없다는 뜻)');
   }
 
+  if (!section || section === 'eu') out.push(...euOjSection(await readFeed(ctx, 'eu-trade-defence'), q, section === 'eu' ? limit : Math.min(limit, 5), ctx));
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
   if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));

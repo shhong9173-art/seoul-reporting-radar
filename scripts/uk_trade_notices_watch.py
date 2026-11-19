@@ -38,6 +38,8 @@ KOREA = re.compile(r"\bKorea\b", re.I)
 PUB_BUDGET = 6          # 한 실행에 다시 읽는 게시물 수
 ATT_BUDGET = 10         # 한 실행에 읽는 HTML 첨부(고시 본문) 수
 PAUSE = 1.0
+PARSER = 2              # 11-19 2판: 권고 세율 범위 ↔ 국무장관 결정(거부·수용)·확정 세율 범위. 옛 판으로 읽은 고시는 다시 읽는다(이벤트 없음)
+REPARSE_BUDGET = 4
 KEEP_DAYS = 550        # 한 사건의 수입 등록 → 잠정 → 확정이 1년 넘게 걸린다(한국산 열연 후판 2025-07 등록 → 2026-11 확정)
 EVENT_DAYS = 60
 MAX_NOTICES = 80
@@ -142,9 +144,29 @@ def read_notice(get, att, pub, stamp):
     rec["chars"] = len(body)
     rec["companies"] = companies_in(body + " " + title)
     rec["rates"] = rates_in(body)
-    rec["recommendation"] = sentences(lines, r"recommend", 1)
+    # 권고 대목: 세율이 적힌 권고 문장 먼저('The TRA recommended imposing … with duties of 5.98% to 25.71%'), 없으면 권고 문장
+    rec["recommendation"] = sentences(lines, r"recommend[^.]*\d+(?:\.\d+)?\s?%", 1) or sentences(lines, r"recommend", 1)
+    rec["decision"] = sentences(lines, r"Secretary of State has decided|decided[^.]{0,80}\b(?:reject|accept)", 1)
     rec["term"] = sentences(lines, r"\b\d+\s+years?\b|come into force|comes into force|expire|until \d", 2)
+    rec["parser"] = PARSER
+    m = re.search(r"(\d+(?:\.\d+)?)\s?%\s*(?:to|-|–)\s*(\d+(?:\.\d+)?)\s?%", rec["recommendation"][0] if rec["recommendation"] else "")
+    if m:
+        rec["recRange"] = [float(m.group(1)), float(m.group(2))]
+    named = [r["rate"] for r in rec["rates"] if r["rate"] > 0]
+    if named:
+        rec["finalRange"] = [min(named), max(named)]
+    dec = " ".join(rec["decision"])
+    rec["verdict"] = "권고 거부·다르게 결정" if re.search(r"\breject", dec, re.I) else "권고 수용" if re.search(r"\baccept", dec, re.I) else None
     return rec
+
+
+def compare_text(rec):
+    """'TRA 권고 5.98~25.71% → 국무장관 7.04~23.07%(권고 거부·다르게 결정)' — 범위를 못 읽으면 ''"""
+    rr, fr = rec.get("recRange"), rec.get("finalRange")
+    if not rr and not rec.get("verdict"):
+        return ""
+    rng = lambda r: f"{r[0]:.2f}~{r[1]:.2f}%" if r and r[0] != r[1] else f"{r[0]:.2f}%" if r else "?"
+    return f"TRA 권고 {rng(rr)} → 국무장관 확정 {rng(fr)}" + (f"({rec['verdict']})" if rec.get("verdict") else "")
 
 
 def event_of(rec, stamp):
@@ -153,7 +175,9 @@ def event_of(rec, stamp):
     num = f" {rec['number']}" if rec.get("number") else ""
     text = (f"영국 정부 무역구제 고시{num} — {rec['kind']}: 「{rec['title']}」(게시 {rec.get('published') or '날짜 없음'})"
             + (f" · 업체별 세율 {' · '.join(rate_text(r) for r in rec['rates'][:5])}" if rec.get("rates") else "")
+            + (f" · {compare_text(rec)}" if compare_text(rec) else "")
             + (f" · 권고 대목 「{rec['recommendation'][0]}」" if rec.get("recommendation") else "")
+            + (f" · 결정 대목 「{rec['decision'][0]}」" if rec.get("decision") else "")
             + (f" · 기간 대목 「{rec['term'][0]}」" if rec.get("term") else "")
             + (f" · {rec['note']}" if rec.get("note") else "")
             + " (영국 기업통상부 국무장관 고시 — TRA 권고를 받아 정한 조치. 세율·기간은 원문 표로)")
@@ -225,6 +249,16 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             pubs_seen[d["base_path"]] = d.get("public_updated_at")
     if len(todo) > PUB_BUDGET:
         errors.append(f"게시물 {len(todo) - PUB_BUDGET}개는 다음 실행(한도)")
+    # 읽는 규칙이 바뀌면(PARSER) 저장된 고시를 다시 읽어 칸을 채운다 — 새 고시가 아니므로 이벤트는 내지 않는다
+    stale = [n for n in notices.values() if (n.get("parser") or 1) < PARSER and n.get("url", "").startswith(SITE) and not n.get("note")]
+    for n in sorted(stale, key=lambda n: n.get("published") or "", reverse=True)[:REPARSE_BUDGET]:
+        sleep(PAUSE)
+        try:
+            again = read_notice(get, {"url": n["url"][len(SITE):], "title": n["title"]}, {"title": n.get("pubTitle"), "base_path": n.get("pubUrl", SITE)[len(SITE):]}, n.get("firstSeen") or stamp)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"다시 읽기 {str(e)[:30] or type(e).__name__}")
+            continue
+        notices[n["id"]] = {**n, **{k: v for k, v in again.items() if k not in ("firstSeen", "id")}}
     if errors:
         check.update(status="partial", error="; ".join(errors[:3]))
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()

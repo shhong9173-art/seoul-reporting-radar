@@ -2041,7 +2041,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 39개/);
+  assert.match(r.text, /기자 전용 감시 40개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2368,7 +2368,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 39개/);
+  assert.match(r.text, /기자 전용 감시 40개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2454,7 +2454,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 39개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 40개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -3871,6 +3871,44 @@ test('영국 정부 무역구제 고시(11-19 기자 "이거 고쳐"): gov.uk �
   // 수집 전이면 미확인, 수집 상태에도 뜬다
   const none = PRIVATE();
   assert.match((await call('trade_remedies', { section: 'tra' }, none)).text, /\[영국 정부 무역구제 고시\(gov\.uk\)\] 아직 수집 전 — 미확인|무역구제 감시/);
+});
+
+test('EU 관보 무역구제(11-19 기자 "다음발전해"): 포스코 베트남이 수출자로 나온 냉연 확정 규정이 A·실적 유형, trade_remedies section=eu, 영국 고시는 권고↔확정 비교', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const title = 'Commission Implementing Regulation (EU) 2026/2547 of 13 November 2026 imposing a definitive anti-dumping duty on imports of certain cold-rolled flat steel products originating in India, Japan, Taiwan, Türkiye and Vietnam';
+  const url = 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32026R2547';
+  await post('eu-trade-defence', { schema: 'eu_trade_defence/v1', generatedAt: now, status: 'ok', checks: [{ source: 'EU 관보(Cellar SPARQL)', status: 'ok', returned: 18 }],
+    records: [{ id: 'euoj:32026R2547', celex: '32026R2547', number: '2026/2547', date: '2026-11-13', title, product: 'cold-rolled flat steel products', kind: '확정 관세', korea: false, companies: ['포스코'],
+      rates: [{ company: '포스코', exporter: 'POSCO VIETNAM CO., LTD', rate: '16.0%', code: '88GO' }], snippets: ['(11) POSCO VIETNAM Co., Ltd, Ho Chi Minh City (‘POSVIET’) and Tatmetal … alleged that the evidence of PMS included in the complaint with respect to Vietnam was insufficient.'],
+      url, tier: 'A', firstSeen: now, isNew: true, baseline: false },
+    { id: 'euoj:32026R2345', celex: '32026R2345', number: '2026/2345', date: '2026-10-23', title: 'Commission Implementing Regulation (EU) 2026/2345 of 23 October 2026 making imports of certain Polyvinyl chloride (PVC) originating in the People’s Republic of China, Republic of Korea, Mexico and Taiwan subject to registration',
+      product: 'Polyvinyl chloride (PVC)', kind: '수입 등록', korea: true, companies: [], rates: [], snippets: [], url: 'https://eur-lex.europa.eu/x', tier: 'B', firstSeen: now, isNew: false, baseline: true }],
+    events: [{ id: 'euoj:32026R2547', kind: 'EU 관보 무역구제(확정 관세)', tier: 'A', company: '포스코', companies: ['포스코'], product: 'cold-rolled flat steel products', number: '2026/2547', date: '2026-11-13', korea: false, url,
+      text: `EU 관보 무역구제 — 확정 관세: 2026/2547 「${title}」(2026-11-13) · 본문에 출입처 포스코 · 제1조 세율 POSCO VIETNAM CO., LTD 16.0%(88GO) (EU 집행위원회 시행규정·공고 — 세율·대상 업체는 본문 제1조 표로. 출입처 해외 법인이 수출자로 나온 것은 그 나라산 조치)`, detectedAt: now }] });
+  await post('uk-trade-notices', { schema: 'uk_trade_notices/v1', generatedAt: now, status: 'ok', checks: [{ source: 'gov.uk 무역구제 고시 모음', status: 'ok', returned: 60, korea: 3 }],
+    notices: [{ id: 'ukn:x32', url: 'https://www.gov.uk/x32', title: 'Trade remedies notice 2026/32: definitive anti-dumping measure on hot-rolled steel plate originating from South Korea', product: 'hot-rolled steel plates', number: '2026/32',
+      kind: '확정 조치', tier: 'A', published: '2026-11-18', companies: ['포스코', '현대제철'], rates: [{ name: 'Hyundai Steel', rate: 7.04, code: '8A78' }], recRange: [5.98, 25.71], finalRange: [7.04, 23.07], verdict: '권고 거부·다르게 결정',
+      recommendation: ['The TRA recommended imposing a definitive anti-dumping measure on South Korean hot-rolled plate imports … with duties of 5.98% to 25.71%, depending on the exporter.'],
+      decision: ['The Secretary of State has decided under paragraph 20(1)(a) of Schedule 4 … to reject the TRA’s recommendation to apply a definitive anti-dumping measure to the full scope of the concerned goods.'], firstSeen: now, baseline: true }], events: [] });
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: now, quotas: [], notices: [], checks: [], events: [] });
+  const r = (await call('radar_today', {}, opts)).text;
+  const a = r.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /EU 관보 무역구제 · 포스코\n   EU 관보 무역구제 — 확정 관세: 2026\/2547 「Commission Implementing Regulation \(EU\) 2026\/2547[^\n]* · 본문에 출입처 포스코 · 제1조 세율 POSCO VIETNAM CO\., LTD 16\.0%\(88GO\)/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const ck = items.items.find((x) => x.id === 'euoj:32026R2547').check;
+  assert.deepEqual([ck.who, ck.terms, ck.must], ['포스코', ['EU', '반덤핑'], ['냉연']]);
+  assert.match((await call('scoop_desk', {}, opts)).text, /- A · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · 포스코\n   EU 관보 무역구제 — 확정 관세: 2026\/2547/);
+  const t = (await call('trade_remedies', { section: 'eu' }, opts)).text;
+  assert.match(t, /\[EU 관보 무역구제 · 한국산 출입 업종 품목·출입처가 수출자로 나온 규정 · 확인 [^\]]+\] 2건 · 원천 EU 관보\(Cellar SPARQL\) ok\(최근 21일 무역구제 문서 18건\)\n- A \[신규\] · 2026-11-13 · 확정 관세 · 2026\/2547 · 「Commission Implementing Regulation[^\n]*」\n   본문에 출입처: 포스코 — 제목에 한국 없음\(출입처 해외 법인이 수출자일 수 있다\)\n   제1조 세율: POSCO VIETNAM CO\., LTD 16\.0%\(88GO\)\n   본문 대목: "\(11\) POSCO VIETNAM/);
+  assert.match(t, /- B \[기준선\] · 2026-10-23 · 수입 등록 · 2026\/2345 · 한국산 · 「/);
+  assert.doesNotMatch(t, /\[영국 정부 무역구제 고시/);                                       // section=eu에는 EU만
+  assert.match((await call('trade_remedies', {}, opts)).text, /\[EU 관보 무역구제 · /);       // 전체 보기에도
+  // 영국 고시: TRA 권고 범위 ↔ 국무장관 확정 범위, 결정 대목
+  const uk = (await call('trade_remedies', { section: 'tra' }, opts)).text;
+  assert.match(uk, /   TRA 권고 5\.98~25\.71% → 국무장관 확정 7\.04~23\.07%\(권고 거부·다르게 결정\)\n   권고 대목: "The TRA recommended[^\n]*"\n   결정 대목: "The Secretary of State has decided[^\n]*reject the TRA/);
 });
 
 test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출신은 한 단계 내리고, 해외 파트너 공시는 본문 대목을 붙이며 대목 없는 것은 A를 주지 않는다', async () => {
