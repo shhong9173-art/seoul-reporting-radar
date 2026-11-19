@@ -347,6 +347,7 @@ def schedule_quote(text):
     out = []
     for sent in re.split(r"(?<=[.;])\s+(?=[A-Z(])", part):
         if re.search(r"\b(?:\d+|nine|seven|eight|twelve|thirteen|fourteen|fifteen) months?\b|\b(?:4|four|3|three) weeks\b|\b200 days", sent, re.I) and 30 <= len(sent) <= 900:
+            sent = sent.strip()
             out.append(sent[:420] + (" …" if len(sent) > 420 else ""))
         if len(out) >= 3:
             break

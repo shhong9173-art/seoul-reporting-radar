@@ -244,6 +244,11 @@ class Proceedings(unittest.TestCase):
         self.assertEqual(w.add_months(dt.date(2026, 10, 30), 9), dt.date(2027, 7, 30))
         self.assertEqual(w.add_months(dt.date(2026, 12, 15), 1), dt.date(2027, 1, 15))
 
+    def test_schedule_quote_is_trimmed(self):
+        # 운영 11-19: 절 제목 뒤 공백이 따옴표 안에 남았다(" If the Commission …")
+        self.assertEqual(w.schedule_quote("8. SCHEDULE OF THE INVESTIGATION  If the Commission determines that measures are necessary, no later than nine months from the date of initiation. Other."),
+                         ["If the Commission determines that measures are necessary, no later than nine months from the date of initiation."])
+
 
 if __name__ == "__main__":
     unittest.main()

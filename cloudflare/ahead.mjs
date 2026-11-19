@@ -36,7 +36,9 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
   for (const [list, v] of Object.entries(tr.cbsa?.lists ?? {})) {
     for (const [key, c] of Object.entries(v?.cases ?? {})) {
       if (c?.state !== 'Concludes' || !inWin(c.stateDate)) continue;
-      const code = String(key).replace(/\d{4}$/, '').toUpperCase();
+      // 사건 열쇠는 'ar-ra/lp22026/lp2202601'(cbsa_cases.case_key) — 가운데 폴더에서 연도를 떼면 조치 코드(LP2)
+      const folder = String(key).split('/')[1] ?? String(key);
+      const code = folder.replace(/\d{4}$/, '').toUpperCase();
       const m = measures.find((x) => String(x.code ?? '').toUpperCase() === code);
       const last = [...(c.docs ?? [])].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')))[0];
       out.push({ date: c.stateDate, country: '캐나다', agency: 'CBSA', what: `${CBSA_KIND[list] ?? list} 결론 예정`, src: 'cbsa', beat: true,
@@ -74,7 +76,7 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
     for (const x of p.deadlines ?? []) {
       if (!inWin(x.date)) continue;
       out.push({ date: x.date, country: 'EU', agency: '집행위', what: `${p.typeKo} ${x.label}`, src: 'eu', beat: Boolean(p.beat), safeguard: ['sg', 'sgr'].includes(p.type),
-        title: `${p.product || p.title}(개시 ${p.date}${p.stage === 'provisional' ? ' · 잠정 관세 나옴' : ''})`, who: [],
+        title: `${p.product || p.title}(개시 ${p.date}${p.stage === 'provisional' ? ` · ${['sg', 'sgr'].includes(p.type) ? '잠정 조치' : '잠정 관세'} 나옴` : ''})`, who: [],
         whoNote: ['sg', 'sgr'].includes(p.type) ? '세이프가드 — 모든 나라산(한국 포함)' : p.korea ? '제목에 한국' : '', basis: `규정상 시한 — ${x.basis}`, url: p.url });
     }
   }
@@ -95,13 +97,15 @@ export function euProceedingLines(eu, todayIso, q = '', matches = () => true) {
   const procs = (eu?.proceedings ?? []).filter((p) => matches(q, p.title, p.product, p.typeKo));
   if (!eu) return ['\n[EU 진행 사건] 아직 수집 전 — 미확인'];
   const out = [`\n[EU 진행 사건 — 제목에 한국이 든 개시 공고·출입 업종 품목 세이프가드, 최근 470일 · 목록 ${String(eu.historyAt ?? '?').slice(0, 16)}] ${procs.length}건`];
-  const stageKo = { open: '진행(잠정 관세 전)', provisional: '잠정 관세 나옴', done: '끝남(최근 60일)' };
+  const sg = (p) => ['sg', 'sgr'].includes(p.type);
+  const stageKo = (p) => ({ open: ['ad', 'as'].includes(p.type) ? '진행(잠정 관세 전)' : sg(p) && p.type === 'sg' ? '진행(잠정 조치 전)' : '진행',
+    provisional: sg(p) ? '잠정 조치 나옴' : '잠정 관세 나옴', done: '끝남(최근 60일)' })[p.stage] ?? p.stage;
   for (const p of procs) {
     const next = (p.deadlines ?? []).find((x) => x.date >= todayIso);
-    out.push(`- ${p.date} 개시 · ${p.typeKo} · ${p.product || p.title}${p.beat ? '' : ' (출입 업종 품목 아님)'}${p.korea ? '' : ' · 제목에 나라 없음(세이프가드)'} · ${stageKo[p.stage] ?? p.stage}`
+    out.push(`- ${p.date} 개시 · ${p.typeKo} · ${p.product || p.title}${p.beat ? '' : ' (출입 업종 품목 아님)'}${p.korea ? '' : ' · 제목에 나라 없음(세이프가드)'} · ${stageKo(p)}`
       + `${(p.steps ?? []).length ? ` · 지난 단계 ${p.steps.map((s) => `${s.date} ${s.kind} ${s.number}`).join(' / ')}` : ''}`
       + `${next ? ` · 다음 시한 ${next.date} ${next.label}` : ''}`);
-    if ((p.schedule ?? []).length) out.push(`   개시 공고의 일정 문장: ${p.schedule.slice(0, 2).map((t) => `"${t}"`).join(' / ')}`);
+    if ((p.schedule ?? []).length) out.push(`   개시 공고의 일정 문장: ${p.schedule.slice(0, 2).map((t) => `"${String(t).trim()}"`).join(' / ')}`);
     else if (p.scheduleError) out.push(`   개시 공고 본문 못 읽음(${p.scheduleError.error}) — 일정 문장 미확인`);
     out.push(`   원문: ${p.url}`);
   }
