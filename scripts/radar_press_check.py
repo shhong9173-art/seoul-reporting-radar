@@ -67,6 +67,7 @@ def candidates(items, *, now, limit=MAX_ITEMS):
                      "strict": x.get("watch") not in LOOSE_WATCHES,
                      "generic": GENERIC + [str(p) for p in hint.get("places") or [] if str(p).strip() and str(p) not in GENERIC],
                      "must": [str(m) for m in hint.get("must") or [] if str(m).strip()],
+                     "either": [str(m) for m in hint.get("either") or [] if str(m).strip()],
                      "names": [str(n) for n in hint.get("names") or [] if str(n).strip()],
                      "title": x.get("fact") or "", "date": str(x.get("date") or ""),
                      # check.after: 그날부터만 센다(노동위 조정 결과 확인 — 회의 전 분쟁 기사는 결과 보도가 아니다)

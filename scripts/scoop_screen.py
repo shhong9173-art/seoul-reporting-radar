@@ -614,6 +614,10 @@ def queries(c):
     must = [m for m in c.get("must") or [] if m]
     if must and not any(must[0] in q for q in qs):
         qs.append(f"{a} {must[0]} {t[0]}")
+    # 같은 품목의 다른 이름(11-19: 영국 'hot-rolled steel plate'를 기자는 '후판', 글로벌이코노믹은 '열연강판'으로 썼다) — 이름마다 질의
+    for e in [x for x in c.get("either") or [] if x][:2]:
+        if not any(e in q for q in qs):
+            qs.append(f"{a} {e} {t[0]}")
     return qs
 
 
@@ -922,6 +926,25 @@ def title_numbers(title, c):
     return {"numbers": {"article": art, "found": found}}
 
 
+def merge_channel(rs):
+    """질의 여러 개의 한 채널 결과를 하나로(상태는 하나라도 실패면 실패, 글은 주소로 겹침 뺌)."""
+    if len(rs) == 1:
+        return rs[0]
+    out = dict(rs[-1])
+    seen, items = set(), []
+    for r in rs:
+        for a in r.get("items") or []:
+            k = a.get("url") or a.get("link") or a.get("title")
+            if k not in seen:
+                seen.add(k)
+                items.append(a)
+    out["items"] = items
+    bad = [r for r in rs if r.get("status") != "ok"]
+    if bad:
+        out["status"], out["error"] = bad[0].get("status"), bad[0].get("error")
+    return out
+
+
 def screen(cands, *, now, get=None, sleep=time.sleep):
     out = []
     for c in cands:
@@ -938,9 +961,12 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
                                        else "not_configured" if "not_configured" in n_status else "failed")
         if via:
             channels["naver"]["via"] = via
-        channels["bing"] = bing(qs[-1], get=get, sleep=sleep)
+        # 빙·구글은 마지막 질의만 — 같은 품목 다른 이름이 둘이면 그 두 질의 모두(11-19)
+        web = [q for q in qs if any(e in q for e in (c.get("either") or [])[:2])][-2:] if len(c.get("either") or []) > 1 else []
+        web = web if len(web) > 1 else qs[-1:]
+        channels["bing"] = merge_channel([bing(q, get=get, sleep=sleep) for q in web])
         sleep(0.3)
-        channels["google"] = google(qs[-1], get=get)
+        channels["google"] = merge_channel([google(q, get=get) for q in web])
         sleep(0.3)
         verdict, evidence = judge(c, channels, now=now)
         out.append({**c, "queries": qs, "verdict": verdict, "evidence": evidence,

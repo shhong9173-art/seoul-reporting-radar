@@ -1,0 +1,73 @@
+name: UK Trade Remedies Notices (Korea)
+# gov.uk 'Trade remedies notices' 모음의 한국산 고시 — 영국 국무장관의 확정·잠정 조치·TRA 권고 거부·수입 등록(11-19 기자 "이거 고쳐":
+# 11-18 22:00 한국산 열연 후판 확정 고시를 레이더가 못 봤다). 매일 18:20·20:20·22:20·23:20·01:40·05:50 KST(Cloudflare 요청)
+# + GitHub 예약 22:40 KST(대비용, 3시간 안 정시 요청 성공이면 건너뜀). 결과는 기자 전용 저장소(uk-trade-notices)에만 — 공개 로그에는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/uk_trade_notices_watch.py'
+      - 'tests/test_uk_trade_notices_watch.py'
+      - '.github/workflows/uk-trade-notices.yml'
+  schedule:
+    - cron: '40 13 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 건수만'
+        required: false
+        default: 'true'
+permissions:
+  contents: read
+concurrency:
+  group: uk-trade-notices
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: uk-trade-notices.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::3시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  notices:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test notice reading
+        run: python -m unittest discover -s tests -p 'test_uk_trade_notices_watch.py' -v
+      - name: Read gov.uk notices (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'false' }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/uk_trade_notices_watch.py
+          else
+            python scripts/uk_trade_notices_watch.py --dry-run
+          fi
