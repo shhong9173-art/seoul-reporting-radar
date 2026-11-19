@@ -114,6 +114,11 @@ export const SLOTS = [
   { at: '08:20', workflow: 'us-comments.yml' },
   // 11-15: USTR 의견서 속 한국·출입 업종 — 미국 업무시간(한국 밤)에 게시된 것을 아침 알림(08:43)·발제(08:57) 전에, 밤 것은 23:43 알림 전에. 금요일 밤 게시분은 토요일 아침.
   { at: '07:20', workflow: 'us-ustr.yml' }, { at: '23:20', workflow: 'us-ustr.yml' }, { at: '09:20', workflow: 'us-ustr.yml', days: [6] },
+  // 영국 정부 무역구제 고시(11-19): gov.uk 고시는 영국 업무시간(한국 18~03시)에 올라온다 — 11-18 22:00 한국산 열연 후판 확정 고시를 글로벌이코노믹이
+  // 11-19 06:58에 썼다. 즉시 알림(21:43·23:43·08:43) 전에 끝나게. 모음 API 한 번이면 끝나는 가벼운 실행
+  { at: '18:20', workflow: 'uk-trade-notices.yml', daily: true }, { at: '20:20', workflow: 'uk-trade-notices.yml', daily: true },
+  { at: '22:20', workflow: 'uk-trade-notices.yml', daily: true }, { at: '23:20', workflow: 'uk-trade-notices.yml', daily: true },
+  { at: '01:40', workflow: 'uk-trade-notices.yml', daily: true }, { at: '05:50', workflow: 'uk-trade-notices.yml', daily: true },
   { at: '08:30', workflow: 'kr-signals.yml' },
   // KIPRIS 특허 공보: GitHub 예약 06:30이 10-29에 10시까지 오지 않아 22 재조회(08:25 이후)가 밀렸다. 늦은 예약 실행은 워크플로가 건너뛴다.
   { at: '08:30', workflow: 'kipris-patent-hunt.yml' },

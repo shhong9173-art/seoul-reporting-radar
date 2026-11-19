@@ -344,7 +344,9 @@ export const PRODUCT_KO = [
   [/line pipe|pipe|tubular|tube/i, '강관', ['강관']],
   [/tin mill|tinplate/i, '석도강판', ['석도강판', '석도']],
   [/corrosion-resistant|galvaniz|coated/i, '도금강판', ['도금강판', '도금']],
-  [/hot-rolled/i, '열연강판', ['열연']],
+  // 11-19: 영국 'hot-rolled steel plate'(AD0071)를 기자는 '후판', 글로벌이코노믹은 '열연강판'으로 썼다 — 두 이름 모두로 대조
+  [/hot[\s-]rolled[\w\s,-]{0,20}\bplates?\b|heavy plate|\bquarto\b/i, '열연강판(후판)', ['열연', '후판']],
+  [/hot[\s-]rolled/i, '열연강판', ['열연']],
   [/cold-rolled/i, '냉연강판', ['냉연']],
   [/stainless/i, '스테인리스강', ['스테인리스']],
   [/cut-to-length|\bplate\b/i, '후판', ['후판']],
@@ -521,6 +523,28 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
 
 // 영국 무역구제청(TRA) 공개기록(tra_file_watch.py, 11-13): 한국산 조사에 당사자들이 낸 문서. 기자의 英 S-PVC 단독(11-10)이 나온 곳.
 // 사건마다 출입처·한국 정부가 당사자인지, 새 문서(A·B)는 낸 곳·제목·파일 이름·본문 대목.
+// 영국 정부 무역구제 고시(uk-trade-notices feed, 11-19): TRA 공개기록은 조사기관 문서(권고까지)다 — 최종 조치·세율은 국무장관이 gov.uk 고시로 정한다.
+// 11-18 22:00 한국산 열연 후판 확정 고시(현대제철 7.04%·포스코 12.19%, 권고와 다르게)를 레이더가 못 보고 글로벌이코노믹이 11-19 06:58에 썼다.
+export function ukNoticeSection(doc, q = '', limit = 6, ctx = null) {
+  if (!doc) return ['\n[영국 정부 무역구제 고시(gov.uk)] 아직 수집 전 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const all = (doc.notices ?? []).filter((n) => matches(q, n.title, n.pubTitle, n.product, (n.companies ?? []).join(' '), n.number ?? ''));
+  const out = [`\n[영국 정부 무역구제 고시(gov.uk) · 한국산 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] 고시 ${all.length}건 · 원천 ${c.source ?? 'gov.uk'} ${c.status ?? '?'}(${c.returned ?? 0}건 중 한국 게시물 ${c.korea ?? 0}${c.error ? `, ${c.error}` : ''})${doc.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''}`];
+  for (const n of all.slice(0, limit)) {
+    out.push(`- ${n.tier}${n.isNew ? ' [신규]' : n.baseline ? ' [기준선]' : ''} · 게시 ${n.published || '날짜 없음'} · ${n.kind}${n.number ? ` · 고시 ${n.number}` : ''} · 「${n.title}」`);
+    if ((n.rates ?? []).length) out.push(`   업체별 세율(본문 표): ${n.rates.map((r) => `${r.name} ${Number(r.rate).toFixed(2)}%${r.code ? `(${r.code})` : ''}`).join(' · ')}`);
+    if ((n.companies ?? []).length) out.push(`   출입처: ${n.companies.join('·')}`);
+    if ((n.recommendation ?? []).length) out.push(`   권고 대목: "${n.recommendation[0]}"`);
+    if ((n.term ?? []).length) out.push(`   기간 대목: ${n.term.map((t) => `"${t}"`).join(' / ')}`);
+    if (n.note) out.push(`   ${n.note}`);
+    out.push(`   원문: ${n.url}`);
+  }
+  if (all.length > limit) out.push(`… 남은 ${all.length - limit}건`);
+  if (!all.length) out.push('한국산 고시 없음(조회 실패는 위 원천 상태 — 미확인).');
+  out.push('   검증 상태: gov.uk 고시 본문(자동). 국무장관이 TRA 권고를 받아 정한 조치다 — 세율은 본문 표에서 자동으로 읽은 값이라 기사 전 원문 표 대조. 권고와 다른지는 TRA 권고 문서(아래 공개기록)와 견준다');
+  return out;
+}
+
 export function traSection(tra, q = '', limit = 15, showAll = false, fromIso = '') {
   if (!tra) return ['\n[영국 TRA 공개기록] 아직 수집 전 — 미확인'];
   const rank = { A: 0, B: 1, C: 2 };
@@ -795,6 +819,7 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
   if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
+  if (!section || section === 'tra') out.push(...ukNoticeSection(await readFeed(ctx, 'uk-trade-notices'), q, section === 'tra' ? limit : Math.min(limit, 4), ctx));
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 

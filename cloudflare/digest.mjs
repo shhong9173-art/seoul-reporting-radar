@@ -33,6 +33,9 @@ export const WATCHES = [
   { feed: 'kr-signals', label: '공정위·한전·원자재', tool: 'kr_signals', schedule: '평일 08:30·15:20' },
   { feed: 'kr-stats', label: '월간 통계(물가·생산·수입차·완성차 판매)', tool: 'kr_stats', schedule: '평일 07:30' },
   { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40·23:00, 토 09:30' },
+  // 영국 정부 무역구제 고시(uk_trade_notices_watch.py, 11-19 기자 "이거 고쳐"): gov.uk 'Trade remedies notices' 모음의 한국산 고시 — 국무장관의
+  // 확정·잠정 조치·권고 거부 A, 수입 등록 B. 고시는 영국 오후(한국 20~01시)에 올라온다 — 밤 즉시 알림(21:43·23:43) 전에 잡도록 저녁·밤 여러 번
+  { feed: 'uk-trade-notices', label: '영국 무역구제 고시', tool: 'trade_remedies', schedule: '매일 18:20·20:20·22:20·23:20·01:40·05:50', staleHours: 30 },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
@@ -260,15 +263,17 @@ export function ktcHint(e) {
   return word ? hint(p, [word, '무역위원회']) : undefined;
 }
 
-export function hint(who, terms, places = [], must = [], names = []) {
+// either: 같은 품목의 다른 이름(11-19 '열연'·'후판') — 보도 대조가 이름마다 따로 찾는다(scoop_screen.queries). 기사 제목에는 must 중 하나만 있으면 된다
+export function hint(who, terms, places = [], must = [], names = [], either = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
   if (!subject || !t.length) return undefined;
   const p = [...new Set(places.filter(Boolean).map(String))].filter((w) => t.includes(w));
   const m = [...new Set(must.filter(Boolean).map(String))];
   const n = [...new Set(names.filter(Boolean).map(String))];
+  const e = [...new Set(either.filter(Boolean).map(String))];
   return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])),
-    ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}), ...(n.length ? { names: n } : {}) };
+    ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}), ...(n.length ? { names: n } : {}), ...(e.length > 1 ? { either: e } : {}) };
 }
 // 법 이름 → 기사 제목이 쓰는 줄임말. 정식 이름으로만 찾으면 '산업기술보호법 개정안' 기사를 못 찾는다(10-31 운영: '산업기술의 유출방지 및
 // 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보). 질의는 첫 줄임말, 기사 대조는 줄임말·정식 이름 어느 것이든.
@@ -682,9 +687,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (e.pageId === 'trafile') {
       // 영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관의 판단·쟁점 문서(A), 절차 문서·출입처 이름이 나온 다른 당사자 문서(B). 등급은 수집기.
       const firms = e.companies ?? [];
+      // 보도 대조에 품목 낱말까지(11-19: 'AD0071 Hot-rolled steel plate' 최종 권고를 '포스코 영국 반덤핑'으로만 찾아 EU 베트남 냉연 기사가
+      // '관련 보도 있음'으로 붙었다). 영문 품목 → 한국어 이름 둘('열연'·'후판')이면 둘 다 찾는다
+      const pk = productKo(e.label);
       push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '영국 TRA 공개기록 문서', named: /다른 당사자 문서에 출입처 이름/.test(e.why ?? ''), id: e.id, date: e.detectedAt,
         company: firms.join('·') || '영국', fact: `${e.label}: ${e.text} — ${e.why ?? ''}(당사자 주장 — 조사기관 판단 아님)`, url: e.url,
-        check: firms.length ? hint(firms[0], ['영국', '반덤핑']) : undefined });
+        check: firms.length ? hint(firms[0], ['영국', '반덤핑'], [], pk?.words ?? [], [], pk?.words ?? []) : undefined });
       continue;
     }
     if (e.pageId === 'cbsa') {
@@ -791,7 +799,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `미국 관보${aheadOf(x)} ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — ${x.namedVia ?? '본문'}에 ${names.join('·')}` : ''}${rates}${memo}${x.correction?.quote ? ` · 정정 문장(원문): "${String(x.correction.quote).slice(0, 260)}"` : ''}`, url: x.url,
       ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? { ...tradeReady(x), point: tradePoint(x) || undefined } : {}),
       // 보도 대조는 품목 낱말까지(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다) — 품목이 없는 기사는 약한 근거로만 남는다
-      check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정'], [], productKo(x.title)?.words ?? []) });
+      check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정'], [], productKo(x.title)?.words ?? [], [], productKo(x.title)?.words ?? []) });
   }
 
   const lit = docs['us-litigation'];
@@ -1313,6 +1321,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
 
   // USTR 의견서 속 한국·출입 업종(ustr-comments, 11-15): 감시 시작 전 게시분(baseline)은 올리지 않는다(us_comments 화면에는 보인다).
   // named(본문에 출입처 이름)는 문서 알림 판단에 쓴다 — 영국 TRA '다른 당사자 문서 본문'과 같은 갈래.
+  // 영국 정부 무역구제 고시(11-19): 국무장관 결정(확정·잠정·권고 거부·종료·변경) A, 수입 등록 B — 등급은 수집기. 보도 대조는 회사 + 영국 + 조치 낱말 + 품목(두 이름이면 둘 다)
+  for (const e of docs['uk-trade-notices']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const pk = productKo(e.product);
+    const word = /countervail/i.test(e.text ?? '') ? '상계관세' : /safeguard/i.test(e.text ?? '') ? '세이프가드' : '반덤핑';
+    push(e.tier === 'A' ? 'A' : 'B', W['uk-trade-notices'], { kind: e.kind ?? '영국 정부 무역구제 고시', id: e.id, date: e.date || e.detectedAt,
+      company: e.company || '영국', fact: e.text, url: e.url,
+      check: (e.companies ?? []).length ? hint(e.companies[0], ['영국', word], [], pk?.words ?? [], [], pk?.words ?? []) : undefined });
+  }
   for (const x of docs['ustr-comments']?.items ?? []) {
     if (x.baseline || !recent(x.firstSeen)) continue;
     const names = (x.companies ?? []).filter(Boolean);

@@ -191,6 +191,32 @@ class Run(unittest.TestCase):
         self.assertEqual(prelim["numbers"], {"article": ["4.19%"], "found": []})               # 예비 숫자는 항목의 '직전·예비' 괄호라 안 셈
         self.assertNotIn("numbers", next(e for e in ev if e["title"] == "현대제철 강관 반덤핑 관세 확정 소식"))   # 제목에 숫자 없음
 
+    def test_same_product_two_korean_names_are_both_searched(self):
+        # 11-19: 영국 'AD0071 Hot-rolled steel plate' 최종 권고를 '포스코 영국 반덤핑'으로만 찾아 EU 베트남 냉연 기사가 '관련 보도 있음'으로 붙었고,
+        # 실제 보도는 「영국 정부, 한국산 열연강판 반덤핑 관세 확정…현대제철 7.04%·포스코 12.19%」(기자 기록 이름은 '후판')
+        tra = {"tier": "A", "watch": "무역구제", "id": "trafile:AD0071:1272", "date": "2026-11-19T07:40:00+09:00", "company": "포스코·현대제철",
+               "fact": "영국 TRA 공개기록 · AD0071 Hot-rolled steel plate: Trade Remedies Authority 제출 「AD0071 Final Recommendation」",
+               "check": {"who": "포스코", "terms": ["영국", "반덤핑"], "must": ["열연", "후판"], "either": ["열연", "후판"], "alts": {}}}
+        self.assertEqual(rpc.candidates([tra], now=NOW)[0]["either"], ["열연", "후판"])
+        seen, web = [], []
+        news = {"열연": [article("영국 정부, 한국산 열연강판 반덤핑 관세 확정…현대제철 7.04%·포스코 12.19%", "2026-11-19")],
+                "영국": [article("EU, 베트남산 냉연강판에 16% 반덤핑 관세 부과…포스코도 포함", "2026-11-17")]}
+        base = channels(news, seen)
+
+        def get(url, params=None, headers=None, timeout=None):
+            if "bing.com" in url or "news.google.com" in url:
+                web.append(url)
+            return base(url, params=params, headers=headers, timeout=timeout)
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run([tra], now=dt.datetime(2026, 11, 19, 8, 50, tzinfo=NOW.tzinfo), get=get, sleep=lambda s: None)
+        row = doc["items"][0]
+        self.assertEqual(row["queries"], ["포스코 영국", "포스코 영국 반덤핑", "포스코 열연 영국", "포스코 후판 영국"])
+        self.assertTrue(any("%ED%9B%84%ED%8C%90" in u for u in web) and any("%EC%97%B4%EC%97%B0" in u for u in web))   # 빙·구글도 두 이름 다
+        self.assertEqual(row["verdict"], "관련 보도 있음")
+        self.assertEqual(row["evidence"][0]["title"], "영국 정부, 한국산 열연강판 반덤핑 관세 확정…현대제철 7.04%·포스코 12.19%")
+        vn = next(e for e in row["evidence"] if "베트남산 냉연" in e["title"])
+        self.assertIn("열연·후판 없음 — 다른 사업장·다른 건 기사일 수 있음", vn["why"])                    # 품목이 다른 기사는 약한 근거로만
+
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
                  "check": {"who": "현대제철", "terms": ["관세", "판정"]}} for i in range(12)]

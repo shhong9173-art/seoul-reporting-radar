@@ -1812,9 +1812,11 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:10 council-minutes\.yml\)부터 요청/);
   assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
-  assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-30 22:30 worker-smoke.yml');  // Fri 22:15 KST → 22:30 운영 점검(11-14, 매일 일곱 번)
+  assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-30 22:20 uk-trade-notices.yml');  // Fri 22:15 KST → 22:20 영국 정부 무역구제 고시(11-19, 23:43 알림 전)
+  assert.equal(nextSlot(new Date('2026-10-30T13:25:00Z')), '10-30 22:30 worker-smoke.yml');  // Fri 22:25 KST → 22:30 운영 점검(11-14, 매일 일곱 번)
+  for (const t of ['09:20', '11:20', '13:20', '14:20', '16:40', '20:50']) assert.ok(dueAt(new Date(`2026-11-21T${t}:00Z`)).includes('uk-trade-notices.yml'), t);  // 토·일도(매일) 18:20·20:20·22:20·23:20·01:40·05:50 KST
   assert.equal(nextSlot(new Date('2026-10-30T13:35:00Z')), '10-30 23:00 trade-remedy.yml');  // Fri 22:35 KST → 23:00 무역구제 저녁 칸(11-15, 미국 관보 사전 공개 직후)
-  assert.equal(nextSlot(new Date('2026-10-30T14:05:00Z')), '10-30 23:20 us-ustr.yml');  // Fri 23:05 KST → 23:20(11-15: USTR 의견서 밤 실행)
+  assert.equal(nextSlot(new Date('2026-10-30T14:05:00Z')), '10-30 23:20 us-ustr.yml,uk-trade-notices.yml');  // Fri 23:05 KST → 23:20(11-15: USTR 의견서 밤 실행)
   assert.ok(dueAt(new Date('2026-11-16T14:20:00Z')).includes('us-ustr.yml'));               // Mon 23:20 KST — 23:43 알림 전
   assert.ok(dueAt(new Date('2026-11-21T00:20:00Z')).includes('us-ustr.yml'));               // Sat 09:20 KST — 금요일 밤(미국 금요일) 게시분
   assert.ok(!dueAt(new Date('2026-11-21T14:20:00Z')).includes('us-ustr.yml'));              // Sat 23:20 KST는 아니다
@@ -1824,7 +1826,8 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(['01:30', '04:30', '09:00', '13:40', '16:40', '19:30', '22:30'].every((t) => dueAt(new Date(`2026-10-28T${t}:00+09:00`)).includes('worker-smoke.yml')), true);
   assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 19:30 worker-smoke.yml');  // Sun 18:30 KST → 19:30 운영 점검(11-14)
   assert.equal(nextSlot(new Date('2026-11-01T10:35:00Z')), '11-01 19:40 my-articles.yml');  // Sun 19:35 KST → 19:40 기자 기사 대조(매일, 11-03 추가)
-  assert.equal(nextSlot(new Date('2026-11-01T10:45:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 19:45 KST → 20:40 DART 재시도 칸
+  assert.equal(nextSlot(new Date('2026-11-01T10:45:00Z')), '11-01 20:20 uk-trade-notices.yml');  // Sun 19:45 KST → 20:20 영국 정부 무역구제 고시(11-19, 매일)
+  assert.equal(nextSlot(new Date('2026-11-01T11:25:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 20:25 KST → 20:40 DART 재시도 칸
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -2038,7 +2041,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 38개/);
+  assert.match(r.text, /기자 전용 감시 39개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2365,7 +2368,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 38개/);
+  assert.match(r.text, /기자 전용 감시 39개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2451,7 +2454,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 38개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 39개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -3826,6 +3829,48 @@ test('영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 
   // 수집 전이면 미확인
   await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ ...doc, tra: undefined, events: [] }) }), env, {});
   assert.match((await call('trade_remedies', { section: 'tra' }, opts)).text, /\[영국 TRA 공개기록\] 아직 수집 전 — 미확인/);
+});
+
+test('영국 정부 무역구제 고시(11-19 기자 "이거 고쳐"): gov.uk 한국산 확정 고시가 radar_today A·단독 데스크 실적 유형·trade_remedies tra 맨 위, 보도 대조는 열연·후판 둘 다', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const url = 'https://www.gov.uk/government/publications/trade-remedies-notice-hot-rolled-steel-plates-originating-from-south-korea-anti-dumping/trade-remedies-notice-202632-definitive-anti-dumping-measure-on-hot-rolled-steel-plate-originating-from-south-korea';
+  const rates = [{ name: 'Hyundai Steel', rate: 7.04, code: '8A78' }, { name: 'POSCO', rate: 12.19, code: '8A79' }, { name: '그 밖 수출자·생산자', rate: 23.07, code: '8A80' }];
+  const title = 'Trade remedies notice 2026/32: definitive anti-dumping measure on hot-rolled steel plate originating from South Korea';
+  await post('uk-trade-notices', { schema: 'uk_trade_notices/v1', generatedAt: now, status: 'ok', checks: [{ source: 'gov.uk 무역구제 고시 모음', status: 'ok', returned: 60, korea: 3 }],
+    notices: [{ id: 'ukn:x32', url, title, pubTitle: 'Trade remedies notice: hot-rolled steel plates originating from South Korea (anti-dumping)', product: 'hot-rolled steel plates', number: '2026/32',
+      kind: '확정 조치', tier: 'A', published: '2026-11-18', companies: ['포스코', '현대제철'], rates, term: ['The measure applies for 5 years from 19 November 2026.'], firstSeen: now, isNew: true, baseline: false },
+    { id: 'ukn:x16', url: 'https://www.gov.uk/x16', title: 'Trade remedies notice 2025/16: registration of imports of hot-rolled steel plates originating from South Korea', product: 'hot-rolled steel plates', number: '2025/16',
+      kind: '수입 등록', tier: 'B', published: '2025-07-23', companies: [], rates: [], firstSeen: now, isNew: false, baseline: true }],
+    events: [{ id: 'ukn:x32', kind: '영국 정부 무역구제 고시(확정 조치)', tier: 'A', company: '포스코·현대제철', companies: ['포스코', '현대제철'], product: 'hot-rolled steel plates', number: '2026/32', date: '2026-11-18', url,
+      text: `영국 정부 무역구제 고시 2026/32 — 확정 조치: 「${title}」(게시 2026-11-18) · 업체별 세율 Hyundai Steel 7.04%(8A78) · POSCO 12.19%(8A79) · 그 밖 수출자·생산자 23.07%(8A80) (영국 기업통상부 국무장관 고시 — TRA 권고를 받아 정한 조치. 세율·기간은 원문 표로)`, detectedAt: now }] });
+  // 같은 사건의 TRA 최종 권고(공개기록) — 11-19 보도 대조가 '포스코 영국 반덤핑'으로만 찾아 EU 베트남 냉연 기사가 붙었다
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: now, quotas: [], notices: [], checks: [],
+    events: [{ id: 'trafile:AD0071:1272', pageId: 'trafile', country: '영국', caseId: 'AD0071', label: '영국 TRA 공개기록 · AD0071 Hot-rolled steel plate', text: 'Trade Remedies Authority 제출 「AD0071 Final Recommendation」(게시 2026-11-18)',
+      url: 'https://public-file.trade-remedies.service.gov.uk/case/ad0071/submission/1272', detectedAt: now, tier: 'A', why: '조사기관의 판단·쟁점 문서', companies: ['포스코', '현대제철'], party: 'Trade Remedies Authority', published: '2026-11-18' }] });
+  const r = (await call('radar_today', {}, opts)).text;
+  const a = r.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /영국 무역구제 고시 · 포스코·현대제철\n   영국 정부 무역구제 고시 2026\/32 — 확정 조치: 「Trade remedies notice 2026\/32: definitive anti-dumping measure on hot-rolled steel plate[^\n]* · 업체별 세율 Hyundai Steel 7\.04%\(8A78\) · POSCO 12\.19%\(8A79\)/);
+  // 보도 대조 낱말: 회사 + 영국 + 반덤핑, 기사 제목엔 열연·후판 중 하나, 두 이름 모두로 찾음
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const ukn = items.items.find((x) => x.id === 'ukn:x32').check;
+  assert.deepEqual([ukn.who, ukn.terms, ukn.must, ukn.either], ['포스코', ['영국', '반덤핑'], ['열연', '후판'], ['열연', '후판']]);
+  const tra = items.items.find((x) => x.id === 'trafile:AD0071:1272').check;
+  assert.deepEqual([tra.who, tra.terms, tra.must, tra.either], ['포스코', ['영국', '반덤핑'], ['열연', '후판'], ['열연', '후판']]);
+  // 단독 데스크: 해외 무역구제·규제 문서(실적 있는 유형)
+  assert.match((await call('scoop_desk', {}, opts)).text, /〈실적 있는 유형〉\n(?:[^\n]*\n)*?- A · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · 포스코·현대제철\n   영국 정부 무역구제 고시 2026\/32/);
+  // trade_remedies section=tra: 맨 위에 정부 고시(세율·기간), 그 아래 TRA 공개기록
+  const t = (await call('trade_remedies', { section: 'tra' }, opts)).text;
+  assert.match(t, /\[영국 정부 무역구제 고시\(gov\.uk\) · 한국산 · 확인 [^\]]+\] 고시 2건 · 원천 gov\.uk 무역구제 고시 모음 ok\(60건 중 한국 게시물 3\)\n- A \[신규\] · 게시 2026-11-18 · 확정 조치 · 고시 2026\/32 · 「Trade remedies notice 2026\/32[^\n]*」\n   업체별 세율\(본문 표\): Hyundai Steel 7\.04%\(8A78\) · POSCO 12\.19%\(8A79\) · 그 밖 수출자·생산자 23\.07%\(8A80\)\n   출입처: 포스코·현대제철\n   기간 대목: "The measure applies for 5 years from 19 November 2026\."\n   원문: https:\/\/www\.gov\.uk\//);
+  assert.match(t, /- B \[기준선\] · 게시 2025-07-23 · 수입 등록 · 고시 2025\/16/);
+  assert.ok(t.indexOf('[영국 정부 무역구제 고시') < t.indexOf('[영국 TRA 공개기록'));
+  assert.match(t, /국무장관이 TRA 권고를 받아 정한 조치다 — 세율은 본문 표에서 자동으로 읽은 값/);
+  assert.doesNotMatch(r.split('[A · ')[0], /영국 무역구제 고시/);                 // 수집 상태 경고 없음(정상 수집)
+  // 수집 전이면 미확인, 수집 상태에도 뜬다
+  const none = PRIVATE();
+  assert.match((await call('trade_remedies', { section: 'tra' }, none)).text, /\[영국 정부 무역구제 고시\(gov\.uk\)\] 아직 수집 전 — 미확인|무역구제 감시/);
 });
 
 test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출신은 한 단계 내리고, 해외 파트너 공시는 본문 대목을 붙이며 대목 없는 것은 A를 주지 않는다', async () => {
