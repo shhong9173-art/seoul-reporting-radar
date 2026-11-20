@@ -441,7 +441,9 @@ export function ktcSection(k, q = '', limit = 15) {
   const sorted = [...active].sort((a, b) => Number(Boolean(b.beat)) - Number(Boolean(a.beat)) || key(b).localeCompare(key(a)));
   for (const c of sorted.slice(0, limit)) {
     const ls = lastStep(c);
-    out.push(`- ${c.no} · ${c.title} · ${c.country || '대상국 미기재'} · ${c.kind ?? '유형 미상'}${c.review ? `/${c.review}` : ''} · 개시 ${c.opened ?? '?'}`
+    // 11-20: 상세 페이지 관리정보 칸이 원문부터 빈 사건(23-2026-10호)은 목록 제목의 '○○산'에서 나라를 채운다(수집기 countryFromTitle)
+    const country = c.country || (c.countryFromTitle ? `${c.countryFromTitle}(목록 제목에서 — 상세 칸 비어 있음)` : '대상국 미기재');
+    out.push(`- ${c.no} · ${c.title} · ${country} · ${c.kind ?? (c.checkedAt ? '유형 칸 비어 있음(원문)' : '유형 미상')}${c.review ? `/${c.review}` : ''} · 개시 ${c.opened ?? '?'}`
       + `${ls ? ` · 최근 ${ls[0]} ${ls[1]}` : ''}${(c.pending ?? []).length ? ` · 남은 단계 ${c.pending.join('·')}` : ''}${c.beat ? ' · 출입 업종 품목' : ''}`
       + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}${applicantNote(c.applicant, c.review === '재심' || /재심/.test(c.title ?? ''))}`);
     out.push(`   원문: ${c.url}`);

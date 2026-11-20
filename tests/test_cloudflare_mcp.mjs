@@ -6055,6 +6055,9 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
         url: 'https://www.federalregister.gov/d/2026-22343', named: ['HD현대일렉트릭', 'LS일렉트릭'], beat: true },
       { case: 'A-580-917', kind: 'hearing', date: '2026-12-29', how: '관보 명시', pub: '2026-11-18', quote: 'Hearing.-- The Commission will hold a hearing … beginning at 9:30 a.m. on December 29, 2026.',
         title: 'Certain Steel Wheels From the Republic of Korea; Scheduling of the Final Phase of Antidumping Duty Investigation', url: 'https://www.federalregister.gov/d/2026-9', named: [], beat: true },
+      { case: 'A-580-881:2024-2025', kind: 'final', date: '2027-04-07', first: '2026-12-08', extended: true, statutory: true, pub: '2026-08-10',
+        how: '법정 120일(2026-12-08) 지나고 10일 넘게 판정 고시 없음 → 연장 추정(법정 최대 180일)', quote: 'q',
+        title: 'Certain Steel Nails From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025', url: 'https://www.federalregister.gov/d/2026-7', named: [], beat: true },
       { case: 't:thermal paper:2024-2025', kind: 'final', date: '2026-12-30', how: '관보 명시', pub: '2026-11-01', quote: 'q', title: 'Thermal Paper From the Republic of Korea: Extension of Time Limit; 2024-2025',
         url: 'https://www.federalregister.gov/d/2026-8', named: [], beat: false }],
     cbsa: { checkedAt: recent, lists: {
@@ -6124,6 +6127,7 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\)\. 영국·인도는 아직 일정 계산 안 함 — 미확인/);
   assert.match(t, /- 2027-03-02 · 미국 상무부 · 최종 판정·결과 시한\(법정 — 연장 최대 180일\) · Large Power Transformers From the Republic of Korea \(2024-2025\) · Preliminary Results of Antidumping Duty Administrative Review\(관보 2026-11-02\) · 출입처 HD현대일렉트릭·LS일렉트릭\(관보 본문 속 출입처 이름\)\n   근거: 법정 시한\(게재일\+120일, 연장 최대 180일\) — "19 U\.S\.C\. 1675\(a\)\(3\)\(A\)/);
   assert.match(t, /- 2026-12-30 · 미국 상무부 · 최종 판정·결과 시한 · Thermal Paper[^\n]* \(출입 업종 품목 아님\)/);
+  assert.match(t, /- 2027-04-07 · 미국 상무부 · 최종 판정·결과 시한\(연장 추정 — 법정 120일 2026-12-08 지나도록 판정 고시 없음, 법정 최대 180일\) · Certain Steel Nails From the Republic of Korea \(2024-2025\)/);
   const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers: Dumping (Chinese Taipei and South Korea) · 출입처 HD현대일렉트릭·일진전기(시행 중 조치 SPT 한국 수출자 표)',
     '2027-03-05 · 호주 ATRC · 조사 필수사실 보고서(SEF) 공개 기한 · 사건 706', '2027-03-26 · EU 집행위 · 반덤핑 조사 잠정 관세 사전 공개', '2027-04-19 · 호주 ATRC · 조사 최종 권고(장관 보고) 기한',
     '2027-04-23 · EU', '2027-07-30 · EU 집행위 · 세이프가드 조사 조치 결정 시한(9개월) · new hybrid vehicles for the transport of persons(개시 2026-10-30) · 세이프가드 — 모든 나라산(한국 포함)',
@@ -6182,4 +6186,20 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
   assert.doesNotMatch(dk, /8\.1\.2/);
   const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(a, /- 2027-11-12 · 태국 반덤핑위 · 재심 중 담보 기간 끝\(최종 결정이 먼저 나오면 앞당겨짐\) · AD1044 크롬도금강판 · 한국 세율 0-17\.06%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 징수 끝 날짜 · 원문: https:\/\/thaitr\.dft\.go\.th\/th\/search\/AD1044/);
+});
+
+test('무역위 사건 상세 칸이 원문부터 빈 사건(11-20): 목록 제목의 나라·유형 칸 비어 있음 표시', async () => {
+  const opts = PRIVATE();
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const res = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [{ source: '무역위원회', status: 'ok', returned: 1 }],
+      ktc: { checkedAt: recent, cases: [
+        { id: '00000873', no: '구제23-2026-10호', title: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실', product: '아크릴산 2-에틸헥실', opened: '2026-10-05', stage: '조사실행',
+          beat: true, country: null, kind: null, review: null, countryFromTitle: '중국·미국·말레이시아', checkedAt: recent,
+          timeline: [['조사개시', '2026-10-05']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?873' },
+        { id: '00000874', no: '구제23-2026-11호', title: '중국산 테스트 품목', product: '테스트 품목', opened: '2026-10-06', stage: '조사실행', beat: false, url: 'https://www.ktc.go.kr/v?874' }] } }) }), opts.env, {});
+  assert.equal(res.status, 200);
+  const t = (await call('trade_remedies', { section: 'ktc' }, opts)).text;
+  assert.match(t, /- 구제23-2026-10호 · 중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 · 중국·미국·말레이시아\(목록 제목에서 — 상세 칸 비어 있음\) · 유형 칸 비어 있음\(원문\) · 개시 2026-10-05/);
+  assert.match(t, /- 구제23-2026-11호 · 중국산 테스트 품목 · 대상국 미기재 · 유형 미상 · 개시 2026-10-06/);   // 상세를 아직 못 읽은 사건은 그대로
 });

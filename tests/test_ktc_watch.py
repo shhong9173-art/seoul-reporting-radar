@@ -195,6 +195,14 @@ class KtcTest(unittest.TestCase):
         news = k.parse_news("<table>" + NEWS_ROW.format(n=1, i="00002113", t="중국산 아연 표면처리 냉연제품에 잠정 덤핑방지관세 부과 건의 의결 <span>새글</span>") + "</table>")
         self.assertEqual(news, [{"id": "00002113", "title": "중국산 아연 표면처리 냉연제품에 잠정 덤핑방지관세 부과 건의 의결"}])
 
+    def test_title_countries_11_20(self):
+        self.assertEqual(k.title_countries("중국, 미국, 말레이시아산 아크릴산 2-에틸헥실"), ["중국", "미국", "말레이시아"])
+        self.assertEqual(k.title_countries("대만, 태국, 아랍에미리트연합산 PET 필름 종료재심사(2차)"), ["대만", "태국", "아랍에미리트연합"])
+        self.assertEqual(k.title_countries("중국 및 대만산 고체 수산화나트륨"), ["중국", "대만"])
+        self.assertEqual(k.title_countries("독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지"), [])    # 띄어쓰기 없는 꼴은 확신 없음 — 비워 둔다
+        self.assertEqual(k.title_countries("유럽 4개국산 PVC 페이스트 수지"), [])
+        self.assertEqual(k.title_countries("자동차용 배터리팩 특허권 침해"), [])
+
     def test_applicants_from_press_pdf_11_11(self):
         self.assertEqual(k.applicants_in(BUTYL), [{"product": "중국산 부틸 아크릴레이트", "names": ["엘지화학"], "beat": ["LG화학"], "how": "문장"}])
         self.assertEqual(k.applicants_in(NAOH), [{"product": "중국 및 대만산 고체수산화나트륨", "names": ["영진"], "beat": [], "how": "표"}])

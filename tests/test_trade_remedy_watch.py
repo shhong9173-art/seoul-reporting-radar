@@ -1060,6 +1060,20 @@ class UsSchedule(unittest.TestCase):
         # 지난 날짜(3일 넘게)는 뺀다
         self.assertEqual(w.us_ahead([], a2, dt.date(2027, 5, 4)), [])
 
+    def test_statutory_deadline_passed_without_final_becomes_extension_guess(self):
+        it = [{"case": "A-580-867:2024-2025", "kind": "final", "date": "2027-03-02", "how": "법정 시한(게재일+120일, 연장 최대 180일)", "statutory": True,
+               "pub": "2026-11-02", "quote": "q", "title": "t", "url": "u", "named": [], "beat": True}]
+        self.assertEqual(w.us_ahead([], it, dt.date(2027, 3, 10))[0]["date"], "2027-03-02")      # 게재 지연 10일 안 — 그대로
+        g = w.us_ahead([], it, dt.date(2027, 3, 13))
+        self.assertEqual((g[0]["date"], g[0]["first"], g[0]["extended"]), ("2027-05-01", "2027-03-02", True))
+        self.assertIn("연장 추정(법정 최대 180일)", g[0]["how"])
+        self.assertEqual(w.us_ahead([], g, dt.date(2027, 4, 1))[0]["date"], "2027-05-01")       # 다시 돌려도 한 번만 늦춘다
+        self.assertEqual(w.us_ahead([], g, dt.date(2027, 5, 12)), [])                             # 180일+10일 지나면 뺀다
+        # 120일 안에 최종 결과가 게재되면 연장 추정 없이 빠진다
+        fin = {"koreaInTitle": True, "id": "fr:9", "date": "2027-03-09", "dockets": ["A-580-867"], "url": "u",
+               "title": "Large Power Transformers From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2024-2025"}
+        self.assertEqual(w.us_ahead([fin], it, dt.date(2027, 3, 13)), [])
+
     def test_federal_register_reads_schedule_once(self):
         fr = {"results": [{"title": "Polytetramethylene Ether Glycol From the Republic of Korea: Preliminary Affirmative Determination of Sales at Less Than Fair "
                                     "Value, Postponement of Final Determination, and Extension of Provisional Measures",
