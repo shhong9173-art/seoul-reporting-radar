@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T07:42:45+09:00",
+  "generatedAt": "2026-11-20T12:49:27+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20261022",
   "windowEnd": "20261120",
@@ -8,10 +8,10 @@
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 117,
+  "relevantFilings": 118,
   "detailBound": 12,
-  "detailsAttempted": 0,
-  "valueupOfficialDocumentAttempts": 0,
+  "detailsAttempted": 1,
+  "valueupOfficialDocumentAttempts": 1,
   "shareCancellationDocumentAttempts": 0,
   "businessCessationDocumentAttempts": 0,
   "businessCessationDocumentReads": 0,
@@ -20,9 +20,9 @@
   "possibleParentSubsidiaryCessationOverlapReviews": [],
   "shareCancellationDocumentReads": 4,
   "shareCancellationDocumentUnavailable": 0,
-  "valueupOfficialDocumentReads": 1,
+  "valueupOfficialDocumentReads": 2,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 1,
   "detailNotAttemptedThisRun": 0,
   "unsupportedOriginalDetailTypes": 99,
   "uninspectedListedDetails": 99,
@@ -390,7 +390,7 @@
       "company": "한국전력공사",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 6,
+      "officialRows": 8,
       "relevantRows": 2,
       "pagesRead": 1
     },
@@ -414,8 +414,8 @@
       "company": "LG화학",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 9,
-      "relevantRows": 5,
+      "officialRows": 10,
+      "relevantRows": 6,
       "pagesRead": 1
     },
     {
@@ -460,6 +460,45 @@
     }
   ],
   "records": [
+    {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "corpCode": "00356361",
+      "receiptNo": "20261120800332",
+      "published": "20261120",
+      "report": "기업가치제고계획(자율공시)              (2026년 이행현황)",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261120800332",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_valueup_document_review",
+      "sourceError": false,
+      "valueupPrimarySource": {
+        "status": "official_original_text_checked_no_inference",
+        "targetExcerpts": {},
+        "documentTextSha256": [
+          "db1cda3ef0c67f28a6cd77bb6e58cb7706c081d30db75ade091dc8e8ec27e74f"
+        ],
+        "documentsExamined": 1,
+        "officialXmlOrHtmlBodyRetrieved": true,
+        "officialAttachmentPdfReviewed": false,
+        "targetAchievementVerified": false,
+        "crossYearPlanPeriodMatched": false,
+        "priorPressCoverageFulltextReviewed": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "notMatchedDoesNotMeanIssuerHasNoTarget": true
+      },
+      "firstObservedAt": "2026-11-20T12:49:27+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_valueup_document_review",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
     {
       "company": "일진전기",
       "beat": "전력기기·전선",
@@ -3943,7 +3982,8 @@
     "20261116802608": "2026-11-17T03:54:59+09:00",
     "20261116002191": "2026-11-17T03:54:59+09:00",
     "20261119800079": "2026-11-19T12:55:28+09:00",
-    "20261119800214": "2026-11-19T17:46:02+09:00"
+    "20261119800214": "2026-11-19T17:46:02+09:00",
+    "20261120800332": "2026-11-20T12:49:27+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
