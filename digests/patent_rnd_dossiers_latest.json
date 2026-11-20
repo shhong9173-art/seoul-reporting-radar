@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-11-20T03:38:32+09:00",
-  "deskGeneratedAt": "2026-11-19T11:43:50+09:00",
-  "crossGeneratedAt": "2026-11-20T03:25:08+09:00",
-  "triageGeneratedAt": "2026-11-20T03:25:08+09:00",
+  "generatedAt": "2026-11-20T12:39:18+09:00",
+  "deskGeneratedAt": "2026-11-20T08:33:14+09:00",
+  "crossGeneratedAt": "2026-11-20T12:03:14+09:00",
+  "triageGeneratedAt": "2026-11-20T12:03:14+09:00",
   "status": "research_only",
-  "totalCurrentCandidates": 164,
+  "totalCurrentCandidates": 176,
   "dossiersDisplayed": 15,
   "mediaCompleteInDisplayed": 15,
-  "freshPublicationsInDisplayed": 0,
+  "freshPublicationsInDisplayed": 10,
   "sourceStatus": {
     "kipris": "validated_existing_snapshot",
     "dart": "partial_official_reference_snapshot",
@@ -21,21 +21,22 @@
   },
   "dossiers": [
     {
-      "publicationNumber": "1020260160104",
-      "title": "축류형 냉각홴과 이의 설계 방법",
+      "publicationNumber": "1020260164986",
+      "title": "연료전지용 촉매 복합체의 제조방법 및 이에 따라 제조된 촉매 복합체",
       "companies": [
-        "현대위아"
+        "기아",
+        "현대자동차"
       ],
       "outsideCoApplicants": [
         "인하대학교 산학협력단"
       ],
-      "publicationDate": "2026-11-05",
-      "daysSincePublication": 15,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": true,
-      "claim1Excerpt": "1. 허브; 및내측단이 상기 허브에 연결된 상태에서 외측단의 팁으로 연장되며, 상기 허브의 회전방향을 따라 전곡된 후 후곡되는 형상으로 연장되거나 또는 상기 허브의 회전 반대방향을 따라 후곡된 후 전곡되도록",
-      "olderSameTitleSearchState": "searched_same_title_only",
-      "olderSameTitleSearchComplete": true,
+      "publicationDate": "2026-11-19",
+      "daysSincePublication": 1,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
       "earlierPublicationsWithin35Days": [],
       "olderSameTitlePublications": [],
       "officialClaim1Comparisons": [],
@@ -46,7 +47,26 @@
       "pressEarlierCoverageProven": false,
       "candidateStage": "source_review_company_call",
       "eligibleForResearchQueue": true,
-      "dartDocuments": [],
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
       "dartRecentDocuments": 0,
       "ntisResearchQueries": [],
       "ntisProjectApiStatus": "not_connected",
@@ -59,8 +79,461 @@
       "exclusiveVerified": false,
       "publicationApproved": false,
       "cautions": [
-        "old_patent_publication_not_new_event",
-        "no_dart_related_source_coverage"
+        "dart_evidence_is_historical_context"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260164544",
+      "title": "연속 라인에서 이동하는 금속 스트립의 액체와의 접촉을 통해 급속 냉각을 제어하기 위한 방법",
+      "companies": [
+        "포스코"
+      ],
+      "outsideCoApplicants": [
+        "파이브스 스탕"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "searched_same_title_only",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001258",
+          "filingDate": "2026-11-13",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260164310",
+      "title": "고압수소가스 환경 인장 시험과 정합성이 우수한 전기화학적 수소주입 대체 수소취성 평가 방법",
+      "companies": [
+        "현대제철"
+      ],
+      "outsideCoApplicants": [
+        "서울과학기술대학교 산학협력단"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "searched_same_title_only",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001807",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260165275",
+      "title": "차량용 액세서리 체결 장치 및 그를 포함하는 차량",
+      "companies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideCoApplicants": [
+        "파이오락스(주)"
+      ],
+      "publicationDate": "2026-11-19",
+      "daysSincePublication": 1,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260163673",
+      "title": "가상 영상 실사화 방법 및 장치",
+      "companies": [
+        "현대모비스"
+      ],
+      "outsideCoApplicants": [
+        "한국과학기술원"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "searched_same_title_only",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "indexed_articles_need_review",
+      "pressIndexArticlesForManualReview": [
+        {
+          "headline": "\"발명 DNA로 AI·바이오·반도체 미래 열었다\"... 제61회 발명의 날, 대한민국 혁신영웅 85인 빛났다 - 특허뉴스",
+          "url": "https://news.google.com/rss/articles/CBMiSEFVX3lxTFBBeHAtby1UMUpmN1dlQjh2MFY5Q0p5RHF2NXEwSjh5eVNHQ0pMMU5ybEtkeTRreE9ULVE3NVF6S2JuWUdsd3NYMw?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "완전 자율주행 센서 개발 DGIST 학생이 창업캠프 대상 수상 - 영남일보",
+          "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTE5leERDdjlNUlRYZGk2alMxOGZmMEZfRjkxYy1IMGhBdFhIdGM5VXJMc2dXV3poMFRlcVcxcm1FZXh4RjUtQ0NlWGlkekhldW1qQVBlTDF2bTB1Nk1OWllGbGJGZ1B0bUlzcEgw?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "DGIST 티아팀 `2023년 스마트 모빌리티 창업캠프` 최우수 선정 - 매일신문",
+          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE4wQ3VQN1cyZWxSSnJ5SGJPTDZBNGpsMXRfb3V3NkFTWVBMQXQ4V0xTNldkZTVOYzBqdkNtemtGYWU5bWQ0S3VYS1JFbjZ2M0NRbkhlZ1NCSGhROUd2VkJWUkl3?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        }
+      ],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "filingDate": "2026-08-14",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context",
+        "indexed_news_needs_full_article_review"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260163702",
+      "title": "충전 포트 커버 어셈블리 및 차량",
+      "companies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideCoApplicants": [
+        "주식회사 경신"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "indexed_articles_need_review",
+      "pressIndexArticlesForManualReview": [
+        {
+          "headline": "현대차·기아, 美 1월 판매 '역대 최고' 경신…SUV·하이브리드가 견인 - 더구루",
+          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTFBDZm9LZUJndXFlUkRuck5Qblhwa3VWUG1sNXlUUU1zTGN4TW90MDRQdVZlQ3FKbFBtT3UweTVSU0doRGtoUFJiZ0R0VjZkeWdTS3BxU1lXT05kNVR6Qm9fX2NB?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "\"기본이 중요…회사와 함께 성장하는 사람 뽑는다\" - 전자신문",
+          "url": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE54MVNDMTBmQm1YaVBSeEkyVjJVa1FjMUxFSzlSLUhvVmJGaUtNajk4RkV0MVRDZ2t4RUlDeElLSHh4VmJTMC1sVkQ3Yw?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        }
+      ],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context",
+        "indexed_news_needs_full_article_review"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260165211",
+      "title": "차량용 주행 조작장치",
+      "companies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideCoApplicants": [
+        "엘에스오토모티브테크놀로지스 주식회사"
+      ],
+      "publicationDate": "2026-11-19",
+      "daysSincePublication": 1,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [
+        {
+          "publicationNumber": "1020260159406",
+          "publicationDate": "20261104",
+          "title": "차량용 주행 조작장치",
+          "similarity": 1.0,
+          "samePatentOrClaimProven": false
+        },
+        {
+          "publicationNumber": "1020260159394",
+          "publicationDate": "20261104",
+          "title": "차량용 주행 조작장치 및 동작방법",
+          "similarity": 0.783,
+          "samePatentOrClaimProven": false
+        }
+      ],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "indexed_articles_need_review",
+      "pressIndexArticlesForManualReview": [
+        {
+          "headline": "[단독] 자율주행 켜지면 현대차·기아 '운전 손잡이' 숨는다…韓美 특허 공개 - 파이낸셜뉴스",
+          "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5Fa1Z4NVk2aGU2WTBVc1Vxa0FVV285eWM1LVZKZjNSOHRuNDkweU1QN0FlQU44VHJ5dHhiMXdvY1p1dlAwWm5mcVMxbk9UQ3RxMmJxb2hJUkswUQ?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "현대차·기아, 자율주행 때 ‘핸들’ 숨긴다… 테슬라·웨이모와 어떻게 다른가 - 녹색경제신문",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBCNDBtTDBzUmFsZmNnUWxiczNxWEtoc0thdFlaMnhHcE1GTkxZZ2VxMEFYWEVSei16R2ZLa1VlaU1Ob19INk1hMFh2aC1tZlJEZThmWjRadWJxVEt2Qm1paEdYTHJvY0Rv?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "현대차·기아 5월 중국 특허 170건 확보…한온시스템·ZKW 등 전방위 '기술 동맹' - 더구루",
+          "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9oWjhQRi1OeDk0TjQwVEZnMkZkd2Z1WWE3Rm5VcjVVVGxqeFhVWFJqUDZNT3Y3YVVhR0FSYUZmbVlxRUlXTGlvcXVHMW1jWnZEbkZ3cXpDbUQySW80VFE?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        }
+      ],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context",
+        "earlier_patent_titles_need_claim_and_family_comparison",
+        "indexed_news_needs_full_article_review"
       ],
       "questions": [
         "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
@@ -141,6 +614,56 @@
       ]
     },
     {
+      "publicationNumber": "1020260160104",
+      "title": "축류형 냉각홴과 이의 설계 방법",
+      "companies": [
+        "현대위아"
+      ],
+      "outsideCoApplicants": [
+        "인하대학교 산학협력단"
+      ],
+      "publicationDate": "2026-11-05",
+      "daysSincePublication": 15,
+      "recentPatentWithin3Days": false,
+      "claim1OfficiallyRetrieved": true,
+      "claim1Excerpt": "1. 허브; 및내측단이 상기 허브에 연결된 상태에서 외측단의 팁으로 연장되며, 상기 허브의 회전방향을 따라 전곡된 후 후곡되는 형상으로 연장되거나 또는 상기 허브의 회전 반대방향을 따라 후곡된 후 전곡되도록",
+      "olderSameTitleSearchState": "searched_same_title_only",
+      "olderSameTitleSearchComplete": true,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "old_patent_publication_not_new_event",
+        "no_dart_related_source_coverage"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
       "publicationNumber": "1020260151469",
       "title": "자율 주행을 위한 환경 적응형 이종 센서의 융합 시스템 및 방법",
       "companies": [
@@ -211,31 +734,92 @@
       ]
     },
     {
-      "publicationNumber": "1020260163234",
-      "title": "주행 조작장치 및 이를 구비한 차량",
+      "publicationNumber": "1020260164238",
+      "title": "스테이터의 헤어핀 정렬을 위한 어댑터 플레이트",
       "companies": [
         "기아",
         "현대자동차"
       ],
       "outsideCoApplicants": [
-        "엘에스오토모티브테크놀로지스 주식회사"
+        "아마다웰드테크코리아 주식회사"
       ],
-      "publicationDate": "2026-11-16",
-      "daysSincePublication": 4,
-      "recentPatentWithin3Days": false,
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
       "claim1OfficiallyRetrieved": false,
       "claim1Excerpt": "",
       "olderSameTitleSearchState": "not_checked",
       "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
         {
-          "publicationNumber": "1020260159404",
-          "publicationDate": "20261104",
-          "title": "주행 조작장치 및 이를 구비한 차량",
-          "similarity": 1.0,
-          "samePatentOrClaimProven": false
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
         }
       ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260163545",
+      "title": "차량 탑승자 케어를 위한 사운드 제어 장치 및 방법",
+      "companies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideCoApplicants": [
+        "이화여자대학교 산학협력단"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [],
       "olderSameTitlePublications": [],
       "officialClaim1Comparisons": [],
       "patentNoveltyOrTechnicalSuperiorityProven": false,
@@ -243,20 +827,20 @@
       "pressRisk": "indexed_articles_need_review",
       "pressIndexArticlesForManualReview": [
         {
-          "headline": "현대차·기아 5월 중국 특허 170건 확보…한온시스템·ZKW 등 전방위 '기술 동맹' - 더구루",
-          "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9oWjhQRi1OeDk0TjQwVEZnMkZkd2Z1WWE3Rm5VcjVVVGxqeFhVWFJqUDZNT3Y3YVVhR0FSYUZmbVlxRUlXTGlvcXVHMW1jWnZEbkZ3cXpDbUQySW80VFE?oc=5",
+          "headline": "델핀 아르노 디올 CEO, 이화여대 명예박사 수여…정의선·신동빈·이부진 등 재계 총수 총출동 - CBC뉴스",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE9PWUZ2UERtN08xVnNIYjczRENuc1hfa1Mwdnd2SUZfaTB5Y05jZXNGakFXNlFlclV4YXNsZkU4X3pEVWlXUi03eW1QRkhRR0VlR040aWVyRUFKdUZYdmRFSnQ4UDRoeHNM?oc=5",
           "headlineRelation": "weak_or_generic_index_hit",
           "samePatentConfirmed": false
         },
         {
-          "headline": "[단독] 자율주행 켜지면 현대차·기아 '운전 손잡이' 숨는다…韓美 특허 공개 - 파이낸셜뉴스",
-          "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5Fa1Z4NVk2aGU2WTBVc1Vxa0FVV285eWM1LVZKZjNSOHRuNDkweU1QN0FlQU44VHJ5dHhiMXdvY1p1dlAwWm5mcVMxbk9UQ3RxMmJxb2hJUkswUQ?oc=5",
+          "headline": "조현범 한국타이어 회장, 한국타이어 등기임원 재선임 철회 '소송 리스크' - PRESS9",
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTFAwSVFvc19NaW42QndGYXcyUjhvekNvZjgyLVkyOUZBS2NYeXpRVHMxc2psMFBGSFR6TXM0T1Z4MlBiYTRIVEo4ZmhVN0QyODJQdmFMa0R3RWs0Q1pEZThFcExCYW5iUQ?oc=5",
           "headlineRelation": "weak_or_generic_index_hit",
           "samePatentConfirmed": false
         },
         {
-          "headline": "현대차·기아, 자율주행 때 ‘핸들’ 숨긴다… 테슬라·웨이모와 어떻게 다른가 - 녹색경제신문",
-          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBCNDBtTDBzUmFsZmNnUWxiczNxWEtoc0thdFlaMnhHcE1GTkxZZ2VxMEFYWEVSei16R2ZLa1VlaU1Ob19INk1hMFh2aC1tZlJEZThmWjRadWJxVEt2Qm1paEdYTHJvY0Rv?oc=5",
+          "headline": "광주여대 제약향장학과 황주미씨 - 남도일보",
+          "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5tY2VlZjFuNDhXUnB4NElISmtoVUFMQkFwTDZaRVcwcmY4b3Itb05xclFBMUxKN0VDSHZQaENIQzdzcWdjTWk4VWJfNmt1TEM1ejRXamJHNjFKVFJIaHZkNzFIQXQ1VGhmVnpYZtIBcEFVX3lxTFBLeHpKQTJSR0tfb2dYVWVMYXhoeXBoTk1EYkJRbmxYaDRITHZHNFFHNUZ5OXAtZDk5ZlhGbzJPeE9qT0JFYzhyN3RBRDRSamNPMk93MXphZHRxRXZyVnFheV9QZGJBRmxPUEJHek1EUmg?oc=5",
           "headlineRelation": "weak_or_generic_index_hit",
           "samePatentConfirmed": false
         }
@@ -296,7 +880,103 @@
       "exclusiveVerified": false,
       "publicationApproved": false,
       "cautions": [
-        "old_patent_publication_not_new_event",
+        "dart_evidence_is_historical_context",
+        "indexed_news_needs_full_article_review"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260164372",
+      "title": "차량용 히트펌프 시스템",
+      "companies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideCoApplicants": [
+        "서울대학교산학협력단"
+      ],
+      "publicationDate": "2026-11-17",
+      "daysSincePublication": 3,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "not_checked",
+      "olderSameTitleSearchComplete": false,
+      "earlierPublicationsWithin35Days": [
+        {
+          "publicationNumber": "1020260159871",
+          "publicationDate": "20261105",
+          "title": "차량용 히트펌프 시스템",
+          "similarity": 1.0,
+          "samePatentOrClaimProven": false
+        }
+      ],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "indexed_articles_need_review",
+      "pressIndexArticlesForManualReview": [
+        {
+          "headline": "“햇빛 아래 차량 과열, 필름 한 장으로 잡는다”... 전기 없이 6.1℃ 낮춘 ‘투명 복사냉각’ 기술 - 특허뉴스",
+          "url": "https://news.google.com/rss/articles/CBMiSEFVX3lxTE5YRmRZV2c3VFlwRDFkY09FT1BtcDFOUlNKWmVORUpKNS04WkVoaENoenpxZEZNOEx3UGxGOHhVYVlHZWt2RWNXWQ?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "현대차, 전고체 배터리 기술 혁신 가속… ‘구리’ 활용 특허 공개 - 다나와 자동차",
+          "url": "https://news.google.com/rss/articles/CBMixAJBVV95cUxQb1BraklzUjB3OG1aLUs5NEVCZ0hJU0RSTnhTanRubHNnRWFqNmMxSzBBN1JWWl9ablV1S3g3MWlDS1dhb2FHd2hyWDJuZ0MtZ3oyOGwzYnhiUEpWSjhmbXgxaHRuRUZiOWhOMEQ4Y092V0hxMXVlSm1iZHZLNUNJYjZWNFJ1OHJhWHJGb3RXVV9BN2JqRGlYTFNQaHVRTTJNenRlSk5UNG01Rmd0VkdBMVlQaGFzN3Nlak9KTDI3ZXdTUDUyaXYzcE1tNVZxbW13ZFZ3amhoYW9yRGZMZmtzSTRhd3J6TXdHb0NRRjdqNXIxdjlldDRzR1J6MEQ2NWthWjUyTFg1U0ZReHVWeTJBWUwyOVE5SVc3OGRWWFdmN3ZRcDRTV0FZMGotblNTdXN5S3JGWnpEWXlpVW80cmowcHlhT3g?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        },
+        {
+          "headline": "현대차그룹, 구리 기반 전고체 배터리 특허 출원…비용·효율 문제 돌파구 마련 - 블로그",
+          "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE5YVW1lX1A2NnFSWUprUzJ3MDNxTllzVFVnemZJcVdJNVF1bXZzV0lrZ0FlMEZCSUxQTS1CUVFzaXptTE4zTUVDM285WU4xUXRVSTdYNjhyM1B4V0Q3eHNmY2oxZGg?oc=5",
+          "headlineRelation": "weak_or_generic_index_hit",
+          "samePatentConfirmed": false
+        }
+      ],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        },
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
+          "filingDate": "2026-11-16",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
         "dart_evidence_is_historical_context",
         "earlier_patent_titles_need_claim_and_family_comparison",
         "indexed_news_needs_full_article_review"
@@ -341,10 +1021,10 @@
           "samePatentOrClaimProven": false
         },
         {
-          "publicationNumber": "1020260150493",
-          "publicationDate": "20261015",
-          "title": "리튬 이차 전지용 양극 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 0.955,
+          "publicationNumber": "1020260150913",
+          "publicationDate": "20261016",
+          "title": "리튬 금속 전지용 전해액 및 이를 포함하는 리튬 금속 전지",
+          "similarity": 0.711,
           "samePatentOrClaimProven": false
         }
       ],
@@ -433,645 +1113,6 @@
       "cautions": [
         "old_patent_publication_not_new_event",
         "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260160503",
-      "title": "패널 및 이를 포함하는 리튬이차전지용 배터리 팩",
-      "companies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideCoApplicants": [
-        "광성기업 주식회사"
-      ],
-      "publicationDate": "2026-11-06",
-      "daysSincePublication": 14,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
-          "filingDate": "2026-11-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        },
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
-          "filingDate": "2026-11-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260159679",
-      "title": "리튬 금속 전지 및 상기 리튬 금속 전지 내 음극에 사용되는 리튬 금속 제조방법",
-      "companies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideCoApplicants": [
-        "한양대학교 산학협력단"
-      ],
-      "publicationDate": "2026-11-05",
-      "daysSincePublication": 15,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001437",
-          "filingDate": "2026-11-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        },
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001529",
-          "filingDate": "2026-11-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260159695",
-      "title": "리그노셀룰로오스를 포함하는 친환경 윤활제 조성물",
-      "companies": [
-        "현대모비스"
-      ],
-      "outsideCoApplicants": [
-        "장암칼스 주식회사"
-      ],
-      "publicationDate": "2026-11-05",
-      "daysSincePublication": 15,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "filingDate": "2026-08-14",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260159942",
-      "title": "제품의 절단길이 제어 장치 및 방법",
-      "companies": [
-        "현대제철"
-      ],
-      "outsideCoApplicants": [
-        "한동대학교 산학협력단"
-      ],
-      "publicationDate": "2026-11-05",
-      "daysSincePublication": 15,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "searched_same_title_only",
-      "olderSameTitleSearchComplete": true,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001807",
-          "filingDate": "2026-11-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260157850",
-      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
-      "companies": [
-        "현대모비스"
-      ],
-      "outsideCoApplicants": [
-        "에스피비 오디오 랩 불가리아 제이에스씨"
-      ],
-      "publicationDate": "2026-11-02",
-      "daysSincePublication": 18,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": true,
-      "claim1Excerpt": "1. 가변 수렴인자를 적용한 능동소음제어 방법에 있어서,차량에 포함된 가속도 센서를 통해 도로 소음 RMS(Root Mean Square) 레벨을 측정하는 단계;측정된 RMS 레벨에 따라, 도로 소음 조절과",
-      "olderSameTitleSearchState": "searched_same_title_only",
-      "olderSameTitleSearchComplete": true,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "filingDate": "2026-08-14",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260162851",
-      "title": "리튬 이차 전지용 양극, 이의 제조 방법 및 이를 포함하는 리튬 이차 전지",
-      "companies": [
-        "SK이노베이션"
-      ],
-      "outsideCoApplicants": [
-        "에스케이온 주식회사"
-      ],
-      "publicationDate": "2026-11-13",
-      "daysSincePublication": 7,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [
-        {
-          "publicationNumber": "1020260149937",
-          "publicationDate": "20261014",
-          "title": "리튬 이차 전지용 음극 활물질, 이의 제조 방법 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 0.918,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260161447",
-          "publicationDate": "20261109",
-          "title": "리튬 이차 전지용 양극 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 0.863,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260150493",
-          "publicationDate": "20261015",
-          "title": "리튬 이차 전지용 양극 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 0.863,
-          "samePatentOrClaimProven": false
-        }
-      ],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "indexed_articles_need_review",
-      "pressIndexArticlesForManualReview": [
-        {
-          "headline": "2년 만에 결론 난 LG·SK 배터리 소송…특허침해 사건은 남아 - 연합뉴스",
-          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFA2R2g0Q2JGSTYzeWEydzVkc0hocDEwWGRLWFpjQW0yN09vLWJEVXg3bnJJVTI5MzZxQmxjRlBCSGwzQ3gwUDVNOEFBY1FKUF9zTm1uY1pZSGxrUkXSAWBBVV95cUxQbTJfUXp0dzJfbXlKX1JCQ09INmt4RFNIWlhIZHlvSXk5X2xuYUFoSmp6R3gxTjJyRmhVbF8xNTJsaHd6b1h2NlJ3bng3RVI2d0phWHFDTHdLWHh2eDY1Zlc?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        }
-      ],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "no_dart_related_source_coverage",
-        "earlier_patent_titles_need_claim_and_family_comparison",
-        "indexed_news_needs_full_article_review"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260161754",
-      "title": "분리막 및 이의 제조방법",
-      "companies": [
-        "SK이노베이션"
-      ],
-      "outsideCoApplicants": [
-        "에스케이아이이테크놀로지주식회사"
-      ],
-      "publicationDate": "2026-11-10",
-      "daysSincePublication": 10,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [
-        {
-          "publicationNumber": "1020260160976",
-          "publicationDate": "20261106",
-          "title": "금속분리판 및 이의 제조방법",
-          "similarity": 0.818,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260156604",
-          "publicationDate": "20261029",
-          "title": "선재 및 이의 제조방법",
-          "similarity": 0.737,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260157748",
-          "publicationDate": "20261102",
-          "title": "양극재 및 이의 제조방법",
-          "similarity": 0.7,
-          "samePatentOrClaimProven": false
-        }
-      ],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "indexed_articles_need_review",
-      "pressIndexArticlesForManualReview": [
-        {
-          "headline": "SK이노베이션, SK아이이테크놀로지 흡수합병... 448만주 신주 발행 - 데이터투자",
-          "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE02UGxLbms3aGFoX2Rid19sZktadFNMRGFVbXJrNnJKSjlVaHJZOUpTQVlyZHQ3c1JyeXZ2b29OaWZuTWZMQWVUdjRrQW9fbk9tNUsxazd3MmJKOGJfem55LXJzamxEX2pXZEY0SXA4QWhxYk0?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        }
-      ],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "no_dart_related_source_coverage",
-        "earlier_patent_titles_need_claim_and_family_comparison",
-        "indexed_news_needs_full_article_review"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260161447",
-      "title": "리튬 이차 전지용 양극 및 이를 포함하는 리튬 이차 전지",
-      "companies": [
-        "SK이노베이션"
-      ],
-      "outsideCoApplicants": [
-        "에스케이온 주식회사"
-      ],
-      "publicationDate": "2026-11-09",
-      "daysSincePublication": 11,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [
-        {
-          "publicationNumber": "1020260150493",
-          "publicationDate": "20261015",
-          "title": "리튬 이차 전지용 양극 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 1.0,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260150807",
-          "publicationDate": "20261016",
-          "title": "리튬 이차전지용 음극 및 이를 포함하는 리튬 이차전지",
-          "similarity": 0.955,
-          "samePatentOrClaimProven": false
-        },
-        {
-          "publicationNumber": "1020260149937",
-          "publicationDate": "20261014",
-          "title": "리튬 이차 전지용 음극 활물질, 이의 제조 방법 및 이를 포함하는 리튬 이차 전지",
-          "similarity": 0.778,
-          "samePatentOrClaimProven": false
-        }
-      ],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "indexed_articles_need_review",
-      "pressIndexArticlesForManualReview": [
-        {
-          "headline": "2년 만에 결론 난 LG·SK 배터리 소송…특허침해 사건은 남아 - 연합뉴스",
-          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFA2R2g0Q2JGSTYzeWEydzVkc0hocDEwWGRLWFpjQW0yN09vLWJEVXg3bnJJVTI5MzZxQmxjRlBCSGwzQ3gwUDVNOEFBY1FKUF9zTm1uY1pZSGxrUkXSAWBBVV95cUxQbTJfUXp0dzJfbXlKX1JCQ09INmt4RFNIWlhIZHlvSXk5X2xuYUFoSmp6R3gxTjJyRmhVbF8xNTJsaHd6b1h2NlJ3bng3RVI2d0phWHFDTHdLWHh2eDY1Zlc?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        }
-      ],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "no_dart_related_source_coverage",
-        "earlier_patent_titles_need_claim_and_family_comparison",
-        "indexed_news_needs_full_article_review"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260160664",
-      "title": "배터리 팩",
-      "companies": [
-        "SK이노베이션"
-      ],
-      "outsideCoApplicants": [
-        "에스케이온 주식회사"
-      ],
-      "publicationDate": "2026-11-06",
-      "daysSincePublication": 14,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "not_checked",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "indexed_articles_need_review",
-      "pressIndexArticlesForManualReview": [
-        {
-          "headline": "SK온, 미국서 9GWh LFP 배터리 셀 공급계약…1.5조 규모 - 연합뉴스",
-          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE1oVEFjWFFJekU2N2xMQ1BoMW1xSGJyY2xvRS03U0VHbHNQT1dzOXF2bG5CT3M4ZkZOaDFzTXpOQlRFc1BVeDZtaEFHNXF6T1ZGYjdKczRQWmpFaGvSAWBBVV95cUxNRURWc05mNDY0ZURpaWlJazFKN19mYzV6OXRFblg2UTlVSFpCVWdHQnp0TkFmcGJqYUEzaXNWcmd4aEg4dHR0aG9MNlVZdm1WOGdWdnU3aU9EOWI3SEpwMWM?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        },
-        {
-          "headline": "[인터배터리 2026] SK온, 배터리 팩 솔루션 앞세워 영토확장 - 시사저널e",
-          "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE5sN0ItV0IwVS11ZG9ZQVBiRzJzOV85ek9QcXBacXJCRnkxZmo1bzlDbnpDNUUySmlIQzVEOXdCd1Y0czIxSjhld2dGZkR1YjdxaEVOWFdDdU12dkVIXzFfcjNjUkpsZWZibVdwdHAySEx1d9IBdkFVX3lxTE52TGxNalRob1drbk90a29BdGRWbko5R1UtdU1tcW9ZaDU0T01nOXd6T213QTVvcmFudkdqakNUQTV0b05MSnN1YjhvRFZTYTJPcUdUVFMzTjNNcGowSVkzeUluYlRnenJfM0szNW9DeTVVcTdMalE?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        },
-        {
-          "headline": "[현장] 차세대 에너지 시대를 열다(Unlock the Next Energy) - ‘인터배터리 2026’에서 마주한 SK온의 현재와 미래 - ASK Inno",
-          "url": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE5DV1lwb2ZVNlNYNlE2ODJoRVBnNkF3dlFsRmFWSlg4OWdmbWY4ZmtJSGdCZEJZMXIwaGhWemVBdTdXWUFrRldCV1AwZw?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        },
-        {
-          "headline": "냉각시스템 관련주, 엔비디아가 막아도 시장은 열리고 있다! : 네이버 블로그 - Naver Blog",
-          "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTE92aUctUzU5Q3lDZHFrRHBLWFBwSnBzRm1rU0tPNERSQjFDUzBxcXZxUkxVbjU4d216NVJsdUt0UU83aWt4akRxMkdUcnA3dk1wd0ZfNUsxaw?oc=5",
-          "headlineRelation": "weak_or_generic_index_hit",
-          "samePatentConfirmed": false
-        }
-      ],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "no_dart_related_source_coverage",
-        "indexed_news_needs_full_article_review"
       ],
       "questions": [
         "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
