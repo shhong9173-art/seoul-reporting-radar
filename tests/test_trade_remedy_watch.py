@@ -1023,6 +1023,15 @@ class UsSchedule(unittest.TestCase):
         self.assertEqual([(x["kind"], x["date"], x.get("statutory")) for x in ad], [("final", "2027-03-02", True)])
         self.assertIn("연장 최대 180일", ad[0]["how"])
 
+    def test_footnote_separators_do_not_glue_sentences(self):
+        # 운영 11-20: 실제 본문은 각주 구분선·각주 번호 뒤에 '120 days' 문장이 붙어 있어 v1이 놓치고 법정 시한으로 적었다
+        raw = ("pursuant to the Order.\\5\\ --------------------------------------------------------------------------- \\5\\ See Memorandum, ``Preliminary "
+               "Decision Memorandum,'' dated concurrently with this notice. ---------------------------------------------------------------------------\n" + CORE_CVD_SCHED)
+        got = w.schedule_items(raw, "2026-10-08", "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Recission, In Part, "
+                               "of Countervailing Duty Administrative Review; 2024", "International Trade Administration")
+        self.assertEqual([(x["kind"], x["date"], x["how"], x.get("statutory")) for x in got], [("final", "2027-02-05", "관보 게재일+120일", None)])
+        self.assertTrue(got[0]["quote"].startswith("Final Results Unless otherwise extended, we intend to issue the final results"))
+
     def test_itc_hearing_and_typo_dates(self):
         got = w.schedule_items(ITC_FINAL_SCHED, "2026-11-20", "Polytetramethylene Ether Glycol (PTMEG) from China, South Korea, Taiwan, and Vietnam; Scheduling of "
                                "the Final Phase of Antidumping Duty Investigations", "International Trade Commission")
