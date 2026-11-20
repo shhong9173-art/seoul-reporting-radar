@@ -985,3 +985,93 @@ class ItcDeterminations(unittest.TestCase):
         self.assertEqual((rows[0]["itcOutcome"]["korea"], rows[0]["beatProduct"], read), ("긍정", True, 1))   # 본문은 한 번만
         again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
         self.assertEqual((read2, again[0]["itcOutcome"]["phase"]), (0, "일몰 재심"))
+
+
+# 탐침 25(11-20)의 실제 관보 문장
+PTMEG_PRELIM = ("Commerce published the notice of initiation of this investigation on May 5, 2026.\\1\\ On August 28, 2026, Commerce postponed the preliminary "
+                "determination of this investigation, and the revised deadline is now November 4, 2026.\\2\\ Postponement of Final Determination and Extension of "
+                "Provisional Measures Section 735(a)(2) of the Act provides that a final determination may be postponed until not later than 135 days after the date of "
+                "publication of the preliminary determination if, in the event of an affirmative preliminary determination, a request for such postponement is made. "
+                "Accordingly, Commerce will make its final determination no later than 135 days after the date of publication of this preliminary determination. "
+                "Commerce intends to issue assessment instructions to CBP no earlier than 35 days after the date of publication of the final results.")
+CORE_CVD_SCHED = ("Final Results Unless otherwise extended, we intend to issue the final results of this administrative review, which will include the results of "
+                   "our analysis of the issues raised in the case briefs, within 120 days of publication of these preliminary results in the Federal Register, pursuant "
+                   "to section 751(a)(3)(A) of the Act and 19 CFR 351.213(h). Notification to Interested Parties We are issuing these preliminary results.")
+LPT_AD_PRELIM = ("On July 9, 2026, we extended the preliminary results of this review to no later than October 30, 2026.\\5\\ Disclosure Commerce intends to "
+                 "disclose its calculations and analysis performed to interested parties for these preliminary results within five days of any public announcement. "
+                 "Case briefs or other written comments may be submitted no later than seven days after the date on which the last verification report is issued.")
+ITC_FINAL_SCHED = ("Staff report.--The prehearing staff report in the final phase of these investigations will be placed in the nonpublic record on January 6, 2026, "
+                   "and a public version will be issued thereafter. Hearing.-- The Commission will hold a hearing in connection with the final phase of these "
+                   "investigations beginning at 9:30 a.m. on January 20, 2027. Requests to appear at the hearing should be filed in writing with the Secretary to the "
+                   "Commission on or before January 14, 2026. The deadline for filing posthearing briefs is 5:15 p.m. on January 27, 2027.")
+
+
+class UsSchedule(unittest.TestCase):
+    def test_relative_to_publication_and_past_dates_dropped(self):
+        got = w.schedule_items(PTMEG_PRELIM, "2026-11-10", "Polytetramethylene Ether Glycol From the Republic of Korea: Preliminary Affirmative Determination "
+                               "of Sales at Less Than Fair Value, Postponement of Final Determination", "International Trade Administration")
+        self.assertEqual([(x["kind"], x["date"], x["how"]) for x in got], [("final", "2027-03-25", "관보 게재일+135일")])
+        self.assertTrue(got[0]["quote"].startswith("Accordingly, Commerce will make its final determination no later than 135 days"))
+
+    def test_admin_review_prelim(self):
+        cvd = w.schedule_items(CORE_CVD_SCHED, "2026-10-08", "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and "
+                               "Recission, In Part, of Countervailing Duty Administrative Review; 2024", "International Trade Administration")
+        self.assertEqual([(x["kind"], x["date"], x["how"]) for x in cvd], [("final", "2027-02-05", "관보 게재일+120일")])
+        # 반덤핑 행정재심 예비 결과는 최종 시한 문장이 없다 — 법정 시한(19 U.S.C. 1675(a)(3)(A))
+        ad = w.schedule_items(LPT_AD_PRELIM, "2026-11-02", "Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty "
+                              "Administrative Review; 2024-2025", "International Trade Administration")
+        self.assertEqual([(x["kind"], x["date"], x.get("statutory")) for x in ad], [("final", "2027-03-02", True)])
+        self.assertIn("연장 최대 180일", ad[0]["how"])
+
+    def test_itc_hearing_and_typo_dates(self):
+        got = w.schedule_items(ITC_FINAL_SCHED, "2026-11-20", "Polytetramethylene Ether Glycol (PTMEG) from China, South Korea, Taiwan, and Vietnam; Scheduling of "
+                               "the Final Phase of Antidumping Duty Investigations", "International Trade Commission")
+        self.assertEqual([(x["kind"], x["date"]) for x in got], [("hearing", "2027-01-20")])   # 직원 보고서·출석 요청·서면(잡음)과 관보 오타 2026은 뺀다
+
+    def test_case_merge_supersede_and_done(self):
+        base = {"koreaInTitle": True, "url": "u", "named": [{"company": "LS일렉트릭"}], "beatProduct": True}
+        t_pre = "Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025"
+        rows = [dict(base, id="fr:1", date="2026-11-02", title=t_pre, dockets=["A-580-867"],
+                     schedule={"v": 1, "items": [{"kind": "final", "date": "2027-03-02", "how": "법정", "quote": "q"}]})]
+        a = w.us_ahead(rows, None, dt.date(2026, 11, 20))
+        self.assertEqual([(x["case"], x["kind"], x["date"], x["named"], x["beat"]) for x in a], [("A-580-867:2024-2025", "final", "2027-03-02", ["LS일렉트릭"], True)])
+        # 관보 45일 창에서 빠져도 남는다
+        self.assertEqual(len(w.us_ahead([], a, dt.date(2026, 12, 30))), 1)
+        # 연장 고시(늦게 게재)가 날짜를 바꾼다
+        ext = dict(base, id="fr:2", date="2027-01-20", title="Large Power Transformers From the Republic of Korea: Extension of Time Limit for the Final Results "
+                   "of Antidumping Duty Administrative Review; 2024-2025", dockets=["A-580-867"],
+                   schedule={"v": 1, "items": [{"kind": "final", "date": "2027-04-30", "how": "관보 명시", "quote": "q2"}]})
+        a2 = w.us_ahead([ext], a, dt.date(2027, 1, 21))
+        self.assertEqual([(x["date"], x["pub"]) for x in a2], [("2027-04-30", "2027-01-20")])
+        # 최종 결과가 게재되면 뺀다. 다른 해(2023-2024) 최종 결과는 이 일정을 지우지 않는다
+        other = dict(base, id="fr:3", date="2027-01-25", title=t_pre.replace("Preliminary", "Final").replace("2024-2025", "2023-2024"), dockets=["A-580-867"])
+        self.assertEqual(len(w.us_ahead([other], a2, dt.date(2027, 1, 26))), 1)
+        fin = dict(base, id="fr:4", date="2027-04-20", title=t_pre.replace("Preliminary", "Final"), dockets=["A-580-867"])
+        self.assertEqual(w.us_ahead([fin], a2, dt.date(2027, 4, 21)), [])
+        # 지난 날짜(3일 넘게)는 뺀다
+        self.assertEqual(w.us_ahead([], a2, dt.date(2027, 5, 4)), [])
+
+    def test_federal_register_reads_schedule_once(self):
+        fr = {"results": [{"title": "Polytetramethylene Ether Glycol From the Republic of Korea: Preliminary Affirmative Determination of Sales at Less Than Fair "
+                                    "Value, Postponement of Final Determination, and Extension of Provisional Measures",
+                           "publication_date": "2026-11-10", "document_number": "2026-22941", "html_url": "https://www.federalregister.gov/d/2026-22941",
+                           "type": "Notice", "agencies": [{"name": "International Trade Administration"}], "docket_ids": ["A-580-917"],
+                           "raw_text_url": "https://www.federalregister.gov/full_text/2026-22941.txt"}]}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            if url == w.FR_API:
+                return R(body=fr)
+            if url == w.PI_API:
+                return R(body={"results": []})
+            return R(text=PTMEG_PRELIM)
+        rows, err, read = w.federal_register(NOW, None, get=get, sleep=lambda s: None)
+        self.assertEqual(rows[0]["schedule"], {"v": w.SCHED_RULES, "items": [w.schedule_items(PTMEG_PRELIM, "2026-11-10", rows[0]["title"], "International Trade Administration")[0]]})
+        self.assertEqual(read, 1)
+        _, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
+        self.assertEqual(read2, 0)
+        # 일정 규칙 전에 읽어 둔 줄(schedule 없음)은 한 번 다시 읽는다
+        old = [{k: v for k, v in rows[0].items() if k != "schedule"}]
+        again, _, read3 = w.federal_register(NOW, {"federalRegister": old}, get=get, sleep=lambda s: None)
+        self.assertEqual((read3, again[0]["schedule"]["items"][0]["date"]), (1, "2027-03-25"))
