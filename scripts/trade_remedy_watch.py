@@ -858,6 +858,7 @@ def schedule_items(text, pub, title, agency):
     return list(out.values())
 
 
+US_PUB_LAG = 10    # 상무부가 시한날 서명한 판정이 관보에 실리기까지 보통 며칠 — 그 사이는 '연장'으로 보지 않는다
 SCHED_KO = {"prelim": "상무부 예비 판정·결과 시한", "final": "상무부 최종 판정·결과 시한", "hearing": "ITC 공청회", "vote": "ITC 표결", "itcDet": "ITC 판정 시한"}
 
 
@@ -898,7 +899,13 @@ def us_ahead(rows, previous, today):
     for key, it in items.items():
         if key in done and str(done[key]) >= str(it.get("pub") or ""):
             continue                      # 그 뒤 판정이 게재됨
-        if str(it.get("date") or "") < (today - dt.timedelta(days=3)).isoformat():
+        # 법정 120일이 지났는데(서명 뒤 관보 게재까지 걸리는 날 US_PUB_LAG 감안) 판정 고시가 없으면 연장으로 본다 — 연장 메모는 관보에 안 나온다(11-20)
+        if it.get("statutory") and not it.get("extended") and str(it.get("date") or "") < (today - dt.timedelta(days=US_PUB_LAG)).isoformat() and it.get("pub"):
+            it = {**it, "first": it["date"], "extended": True,
+                  "date": (dt.date.fromisoformat(str(it["pub"])[:10]) + dt.timedelta(days=180)).isoformat(),
+                  "how": f"법정 120일({it['date']}) 지나고 {US_PUB_LAG}일 넘게 판정 고시 없음 → 연장 추정(법정 최대 180일)"}
+        lag = US_PUB_LAG if it.get("statutory") else 3
+        if str(it.get("date") or "") < (today - dt.timedelta(days=lag)).isoformat():
             continue
         out.append(it)
     return sorted(out, key=lambda x: x["date"])[:80]

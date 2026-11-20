@@ -330,6 +330,23 @@ PRODUCT_NOISE = re.compile(r"\(\s*(?:원심|재심|PSR|BA)\s*\)|의?\s*덤핑\s*
                            r"|(?:특허권|디자인권|상표권|영업비밀|저작권)\s*침해|불공정\s*무역\s*행위|원산지\s*표시\s*위반|여부|이의\s*신청\s*결정|관련\s*무역위원회\s*처분")
 
 
+def title_countries(title):
+    """목록 제목 앞의 '중국, 미국, 말레이시아산 …' → ['중국', '미국', '말레이시아']. 나라 이름이 아닌 조각이 끼면 [](확신 없음).
+    11-20: 23-2026-10호(아크릴산 2-에틸헥실)는 상세 페이지 관리정보 칸(대상국·조사유형)이 원문부터 비어 있다."""
+    m = re.match(r"^\s*(?:구제\s*[\d-]+호\s*)?(.{2,50}?)산\s", str(title or ""))
+    if not m:
+        return []
+    out = []
+    for tok in re.split(r"\s*(?:,|·|‧|및)\s*", m.group(1).strip()):
+        name = tok if tok in KTC_COUNTRIES else COUNTRY_SHORT.get(tok)
+        if not name:
+            return []
+        name = "태국" if name == "타이" else name
+        if name not in out:
+            out.append(name)
+    return out
+
+
 def countries_in(text):
     t = str(text or "")
     found = {c for c in KTC_COUNTRIES if c in t}
@@ -652,11 +669,13 @@ def collect(prev, now, http, *, sleep=time.sleep):
             if read:
                 detail_fail += 1
                 c["detailError"] = "상세 조회 실패"
+        if not c.get("country") and title_countries(c.get("title")):
+            c["countryFromTitle"] = "·".join(title_countries(c.get("title")))
         if baseline:
             continue
         if not old:
             what = f"{c['title']} — 품목 {c['product']}, 개시 {c['opened'] or '날짜 미상'}" + (f", {c.get('kind')}/{c.get('review')}" if c.get("kind") else "") \
-                + (f", 대상국 {c['country']}" if c.get("country") else "")
+                + (f", 대상국 {c['country']}" if c.get("country") else f", 대상국 {c['countryFromTitle']}(목록 제목에서)" if c.get("countryFromTitle") else "")
             event("case", c["id"], f"무역위 새 조사 · {c['no']}", what, c["url"], "B" if c["beat"] else "C", c["beat"], c["product"])
             continue
         fresh = []

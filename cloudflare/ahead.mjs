@@ -81,7 +81,7 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
     const [head, ...rest] = t.includes(':') ? t.split(':') : t.split(';');
     const stage = rest.join(':').replace(/;\s*20\d\d(?:-20\d\d)?\s*$/, '').replace(/;.*$/, '').trim();
     out.push({ date: it.date, country: '미국', agency: itc ? 'ITC' : '상무부', src: 'us', beat: Boolean(it.beat),
-      what: `${US_KO[it.kind] ?? it.kind}${it.statutory ? '(법정 — 연장 최대 180일)' : ''}`,
+      what: `${US_KO[it.kind] ?? it.kind}${it.extended ? `(연장 추정 — 법정 120일 ${it.first} 지나도록 판정 고시 없음, 법정 최대 180일)` : it.statutory ? '(법정 — 연장 최대 180일)' : ''}`,
       title: `${head.trim().slice(0, 90)}${per ? ` (${per})` : ''}${stage ? ` · ${stage.slice(0, 70)}` : ''}(관보 ${it.pub})`,
       who: it.named ?? [], whoNote: (it.named ?? []).length ? '관보 본문 속 출입처 이름' : '',
       basis: `${it.how} — "${String(it.quote ?? '').slice(0, 200)}"`, url: it.url ?? '' });
