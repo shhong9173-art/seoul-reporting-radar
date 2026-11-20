@@ -791,7 +791,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
 # (3) 행정재심 예비 결과에 최종 시한 문장이 없을 때만 법정 시한 — 19 U.S.C. 1675(a)(3)(A): 예비 결과 게재일부터 120일(연장 최대 180일).
 #     탐침 25(11-20): 반덤핑 행정재심 예비 결과(대형 변압기 2026-22343·도금강판 2026-20698)는 최종 시한 문장이 없고, 상계관세(2026-20699)는 '120 days of publication'.
 # 게재일보다 앞선 날짜는 버린다(지난 경과 — 'On May 12, 2026, we extended …', 관보 오타 'January 6, 2026'도 같이 걸러진다).
-SCHED_RULES = 1
+SCHED_RULES = 2   # v2(11-20 운영): 각주 구분선('-----')·각주 번호('\\2\\')가 문장을 이어 붙여 도금강판 상계관세 '120 days' 문장을 놓쳤다
 MONTHS_EN = "January|February|March|April|May|June|July|August|September|October|November|December"
 EN_DATE = re.compile(rf"\b({MONTHS_EN})\s+(\d{{1,2}}),\s+(20\d\d)\b")
 # 서면·출석·APO 같은 절차 기한 문장은 판정 일정이 아니다. '…issues raised in the case briefs, within 120 days …'(최종 시한 문장)는 남겨야 해서
@@ -827,11 +827,15 @@ def sched_kind(sent, itc):
 
 def schedule_items(text, pub, title, agency):
     """관보 본문 → [{kind, date, how, quote}] (게재일 뒤 날짜만, 같은 종류는 가장 늦게 적힌 문장의 날짜)."""
-    t = re.sub(r"\s+", " ", text or "")
+    t = re.sub(r"-{4,}", " . ", text or "")              # 각주 구분선은 문장 끝으로
+    t = re.sub(r"\\\d+\\", " ", t)                       # 각주 번호 \2\
+    t = re.sub(r"\[\[Page \d+\]\]", " ", t)
+    t = re.sub(r"\s+", " ", t)
     itc = "International Trade Commission" in (agency or "")
     pub_d = dt.date.fromisoformat(pub)
     out = {}
     for sent in re.split(r"(?<=[.;])\s+(?=[A-Z])", t):
+        sent = sent.strip(" .")
         if len(sent) > 900 or SCHED_NOISE.search(sent) or not SCHED_ANCHOR.search(sent):
             continue
         kind = sched_kind(sent, itc)
@@ -849,7 +853,7 @@ def schedule_items(text, pub, title, agency):
         out[kind] = {"kind": kind, "date": date, "how": how, "quote": sent[:320] + (" …" if len(sent) > 320 else "")}
     if not itc and "final" not in out and re.search(r"Preliminary Results", title or "") and re.search(r"Administrative Review", title or "", re.I):
         out["final"] = {"kind": "final", "date": (pub_d + dt.timedelta(days=120)).isoformat(), "how": "법정 시한(게재일+120일, 연장 최대 180일)",
-                        "quote": "19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음",
+                        "quote": "19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에서 최종 시한 문장을 못 찾아 법정 시한으로 적음",
                         "statutory": True}
     return list(out.values())
 
