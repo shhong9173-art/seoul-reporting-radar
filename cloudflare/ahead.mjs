@@ -70,6 +70,22 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
         note: `최종 권고 기한 ${fr} 지남 · 진행 목록에 남아 있음(다음 단계 ${c.milestone || '?'}) — 결정 공고(ADN) 전`, basis: AU_MINISTER });
     }
   }
+  // 미국 — 상무부·ITC 관보 고시에 적힌 날짜(명시·게재일+N일), 반덤핑 행정재심 예비 결과는 법정 시한(19 U.S.C. 1675(a)(3)(A), 11-20)
+  const US_KO = { prelim: '예비 판정·결과 시한', final: '최종 판정·결과 시한', hearing: '공청회', vote: '표결', itcDet: '판정 시한' };
+  for (const it of tr.usAhead ?? []) {
+    if (!it || !inWin(it.date)) continue;
+    const itc = ['hearing', 'vote', 'itcDet'].includes(it.kind);
+    // 상무부 제목은 '품목 From 나라: 단계; 기간', ITC 제목은 '품목 From 나라; 단계'
+    const t = String(it.title ?? '');
+    const per = t.match(/;\s*(20\d\d(?:-20\d\d)?)\s*$/)?.[1];
+    const [head, ...rest] = t.includes(':') ? t.split(':') : t.split(';');
+    const stage = rest.join(':').replace(/;\s*20\d\d(?:-20\d\d)?\s*$/, '').replace(/;.*$/, '').trim();
+    out.push({ date: it.date, country: '미국', agency: itc ? 'ITC' : '상무부', src: 'us', beat: Boolean(it.beat),
+      what: `${US_KO[it.kind] ?? it.kind}${it.statutory ? '(법정 — 연장 최대 180일)' : ''}`,
+      title: `${head.trim().slice(0, 90)}${per ? ` (${per})` : ''}${stage ? ` · ${stage.slice(0, 70)}` : ''}(관보 ${it.pub})`,
+      who: it.named ?? [], whoNote: (it.named ?? []).length ? '관보 본문 속 출입처 이름' : '',
+      basis: `${it.how} — "${String(it.quote ?? '').slice(0, 200)}"`, url: it.url ?? '' });
+  }
   // 태국 — 재심 중 담보(징수) 끝 날짜(사건 쪽 표기). 11-15 다른 매체 단독(석도·크롬도금 재심, KG스틸)이 '최장 2027-11-12까지'로 쓴 날짜
   for (const x of docs?.['th-trade-remedy']?.cases ?? []) {
     if (!x?.read || !inWin(x.dutyTo) || !/ทบทวน/.test(x.status ?? '')) continue;

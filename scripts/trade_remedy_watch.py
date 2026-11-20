@@ -698,7 +698,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         old = prev.get(did) or {}
         if old.get("pi") and not x.get("pi"):
             old = {}   # 사전 공개본으로 읽어 둔 줄이 게재됐다 — 게재본 글자로 다시 읽는다(표 꼴이 다르다). 처음 본 때는 run()이 이어 준다
-        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome", "correction", "namedVia"):
+        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome", "correction", "namedVia", "schedule"):
             if k in old:
                 row[k] = old[k]
         if row.get("memoTopics"):
@@ -712,7 +712,8 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         wants_rates = results and ("rateTable" not in row or stale_rates)   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
         # 정정 고시 규칙(11-15) 전에 읽어 둔 정정 고시도 한 번 다시 읽는다
         wants_fix = results and bool(CORRECTION.search(title)) and "correction" not in row and not (row.get("rateTable") or {}).get("rates")
-        if ("named" not in row or wants_memo or wants_rates or wants_fix) and x.get("raw_text_url") and (pre is not None or (budget > 0 and not throttled)):
+        wants_sched = in_title and (row.get("schedule") or {}).get("v") != SCHED_RULES   # 11-20 일정 규칙 전에 읽은 고시도 한 번 다시 읽는다
+        if ("named" not in row or wants_memo or wants_rates or wants_fix or wants_sched) and x.get("raw_text_url") and (pre is not None or (budget > 0 and not throttled)):
             if pre is not None:
                 body, err = pre, None
             else:
@@ -725,6 +726,8 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                 if stale_rates:
                     row.pop("prior", None)
                 lines = text_lines(body)
+                if in_title and row.get("date"):
+                    row["schedule"] = {"v": SCHED_RULES, "items": schedule_items(lines, str(row["date"])[:10], title, agency)}
                 row["named"] = named_companies(lines)
                 topics = memo_topics(lines)
                 if topics is not None:
@@ -780,6 +783,121 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         rows.append(row)
     federal_register.pi_error = pi_err   # 사전 공개본만 못 읽은 것은 목록 실패가 아니다 — run()이 '일부'로 적는다
     return rows, ("본문 HTTP 429(관보 호출 제한) — 이번 실행은 본문 읽기 멈춤, 다음 실행에 이어 읽음" if throttled else None), BODY_BUDGET - budget
+
+
+# ---------- 미국 판정 일정(11-20 기자 "다음업데이트 진행해") ----------
+# 관보 본문에 적힌 날짜만 쓴다: (1) 명시 날짜('no later than March 3, 2027', 공청회 'beginning at 9:30 a.m. on January 20, 2027'),
+# (2) 게재일 기준 상대 날짜('no later than 135 days after the date of publication of this preliminary determination'),
+# (3) 행정재심 예비 결과에 최종 시한 문장이 없을 때만 법정 시한 — 19 U.S.C. 1675(a)(3)(A): 예비 결과 게재일부터 120일(연장 최대 180일).
+#     탐침 25(11-20): 반덤핑 행정재심 예비 결과(대형 변압기 2026-22343·도금강판 2026-20698)는 최종 시한 문장이 없고, 상계관세(2026-20699)는 '120 days of publication'.
+# 게재일보다 앞선 날짜는 버린다(지난 경과 — 'On May 12, 2026, we extended …', 관보 오타 'January 6, 2026'도 같이 걸러진다).
+SCHED_RULES = 1
+MONTHS_EN = "January|February|March|April|May|June|July|August|September|October|November|December"
+EN_DATE = re.compile(rf"\b({MONTHS_EN})\s+(\d{{1,2}}),\s+(20\d\d)\b")
+# 서면·출석·APO 같은 절차 기한 문장은 판정 일정이 아니다. '…issues raised in the case briefs, within 120 days …'(최종 시한 문장)는 남겨야 해서
+# 브리프는 '브리프가 주어인 기한 문장'만 잡음으로 본다(11-20 상계관세 도금강판 예비 결과)
+SCHED_NOISE = re.compile(r"assessment instructions|\b(?:case|rebuttal|prehearing|posthearing) briefs?\b(?:\s+\w+){0,5}\s+(?:may|must|should|shall|are|is|due)\b|"
+                         r"deadline for filing|administrative protective order|\bAPO\b|requests? to appear|written testimony|prehearing conference|"
+                         r"staff report|notice of appearance|presentation slides|disclose its calculations|liquidat|written questions|cash deposit|summons", re.I)
+SCHED_ANCHOR = re.compile(r"no later than|not later than|is now|until|on or before|deadline|beginning at|will (?:make|issue|hold)|intends? to issue|within \d+ days|i\.e\.,", re.I)
+
+
+def en_date(m):
+    try:
+        return dt.date(int(m.group(3)), list(MONTHS_EN.split("|")).index(m.group(1)) + 1, int(m.group(2))).isoformat()
+    except ValueError:
+        return ""
+
+
+def sched_kind(sent, itc):
+    if itc:
+        if re.search(r"\bhearing\b", sent, re.I) and re.search(r"will hold|beginning at", sent, re.I):
+            return "hearing"
+        if re.search(r"\bvote\b", sent, re.I):
+            return "vote"
+        if re.search(r"Commission(?:'s)? (?:will )?(?:make|issue|transmit)\w* (?:its )?(?:final )?determinations?|determinations? (?:are|is) due", sent, re.I):
+            return "itcDet"
+        return None
+    if re.search(r"final (?:determination|results)", sent, re.I):
+        return "final"
+    if re.search(r"preliminary (?:determination|results)", sent, re.I):
+        return "prelim"
+    return None
+
+
+def schedule_items(text, pub, title, agency):
+    """관보 본문 → [{kind, date, how, quote}] (게재일 뒤 날짜만, 같은 종류는 가장 늦게 적힌 문장의 날짜)."""
+    t = re.sub(r"\s+", " ", text or "")
+    itc = "International Trade Commission" in (agency or "")
+    pub_d = dt.date.fromisoformat(pub)
+    out = {}
+    for sent in re.split(r"(?<=[.;])\s+(?=[A-Z])", t):
+        if len(sent) > 900 or SCHED_NOISE.search(sent) or not SCHED_ANCHOR.search(sent):
+            continue
+        kind = sched_kind(sent, itc)
+        if not kind:
+            continue
+        rel = re.search(r"(?:within|no later than|not later than|until not later than)\s+(?:the\s+)?(\d{2,3})(?:th)?\s+days?\s+(?:after|of|from)\s+(?:the\s+date\s+(?:of|on which it published notice of)\s+)?"
+                        r"(?:the\s+)?(?:publication\s+of\s+)?(?:this|these|its)\s+(?:notice|preliminary (?:determination|results))", sent, re.I)
+        dates = [d for d in (en_date(m) for m in EN_DATE.finditer(sent)) if d and d > pub]
+        if dates:
+            date, how = dates[-1], "관보 명시"
+        elif rel and re.search(r"publication|published", rel.group(0), re.I):
+            date, how = (pub_d + dt.timedelta(days=int(rel.group(1)))).isoformat(), f"관보 게재일+{rel.group(1)}일"
+        else:
+            continue
+        out[kind] = {"kind": kind, "date": date, "how": how, "quote": sent[:320] + (" …" if len(sent) > 320 else "")}
+    if not itc and "final" not in out and re.search(r"Preliminary Results", title or "") and re.search(r"Administrative Review", title or "", re.I):
+        out["final"] = {"kind": "final", "date": (pub_d + dt.timedelta(days=120)).isoformat(), "how": "법정 시한(게재일+120일, 연장 최대 180일)",
+                        "quote": "19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음",
+                        "statutory": True}
+    return list(out.values())
+
+
+SCHED_KO = {"prelim": "상무부 예비 판정·결과 시한", "final": "상무부 최종 판정·결과 시한", "hearing": "ITC 공청회", "vote": "ITC 표결", "itcDet": "ITC 판정 시한"}
+
+
+def case_key(row):
+    # 행정재심은 같은 사건 번호에 해마다 기간이 다르다('…Review; 2024-2025') — 기간까지 붙여 다른 해 판정과 섞지 않는다
+    per = re.search(r";\s*(20\d\d(?:\s*[-–]\s*20\d\d)?)\s*(?:;\s*Correction)?\s*$", row.get("title") or "")
+    tail = ":" + re.sub(r"\s", "", per.group(1)) if per else ""
+    ds = sorted(d for d in row.get("dockets") or [] if re.match(r"[AC]-580-\d{3}|731-TA-\d+|701-TA-\d+", d))
+    if ds:
+        return ds[0] + tail
+    m = re.match(r"(?:Certain\s+)?(.+?)\s+(?:From|from)\b", row.get("title") or "")
+    return "t:" + re.sub(r"[^a-z0-9]+", " ", (m.group(1) if m else row.get("title") or "").lower()).strip()[:60] + tail
+
+
+def us_ahead(rows, previous, today):
+    """관보 줄의 일정 → 사건별 다가오는 날짜(관보 45일 창을 벗어나도 남긴다). 같은 사건·종류는 늦게 게재된 고시가 이긴다.
+    그 사건의 예비·최종 판정이 게재되면 해당 종류 일정은 끝난 것으로 뺀다."""
+    items = {f"{x.get('case')}|{x.get('kind')}": x for x in previous or [] if isinstance(x, dict) and x.get("case")}
+    done = {}
+    for r in sorted(rows, key=lambda r: str(r.get("date") or "")):
+        if not r.get("koreaInTitle"):
+            continue
+        ck = case_key(r)
+        title = r.get("title") or ""
+        # 제목 콜론 뒤가 판정 자체일 때만('…: Extension of Time Limit for the Final Results …'는 판정이 아니다)
+        if re.search(r":\s*Preliminary (?:Results|Affirmative|Negative|Determination)", title):
+            done[f"{ck}|prelim"] = r.get("date")
+        if re.search(r":\s*Final (?:Results|Affirmative|Negative|Determination)", title) and not re.search(r"Correction|Amended", title):
+            done[f"{ck}|final"] = r.get("date")
+        for it in (r.get("schedule") or {}).get("items") or []:
+            key = f"{ck}|{it['kind']}"
+            old = items.get(key)
+            if old and str(old.get("pub") or "") > str(r.get("date") or ""):
+                continue
+            items[key] = {**it, "case": ck, "pub": r.get("date"), "title": title[:220], "url": r.get("url"), "doc": r.get("id"),
+                          "named": [n.get("company") if isinstance(n, dict) else n for n in r.get("named") or []][:6], "beat": bool(r.get("beatProduct") or r.get("named"))}
+    out = []
+    for key, it in items.items():
+        if key in done and str(done[key]) >= str(it.get("pub") or ""):
+            continue                      # 그 뒤 판정이 게재됨
+        if str(it.get("date") or "") < (today - dt.timedelta(days=3)).isoformat():
+            continue
+        out.append(it)
+    return sorted(out, key=lambda x: x["date"])[:80]
 
 
 # ---------- Foreign listing pages ----------
@@ -1036,6 +1154,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
+            "usAhead": us_ahead(fr, (previous or {}).get("usAhead"), now.date()),
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
             **({"edis": edis} if edis else {}), **({"tra": tra} if tra else {}), **({"cbsa": cbsa} if cbsa else {}),
             **({"citt": citt} if citt else {}), **({"auEpr": au_epr} if au_epr else {}),

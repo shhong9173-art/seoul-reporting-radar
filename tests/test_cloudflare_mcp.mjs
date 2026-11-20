@@ -6048,6 +6048,15 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
   const lp2 = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-se-eng.html';
   assert.equal((await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [{ source: '캐나다 CBSA 사건 문서·시행 중 조치', status: 'ok' }],
+    usAhead: [
+      { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
+        quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
+        title: 'Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025',
+        url: 'https://www.federalregister.gov/d/2026-22343', named: ['HD현대일렉트릭', 'LS일렉트릭'], beat: true },
+      { case: 'A-580-917', kind: 'hearing', date: '2026-12-29', how: '관보 명시', pub: '2026-11-18', quote: 'Hearing.-- The Commission will hold a hearing … beginning at 9:30 a.m. on December 29, 2026.',
+        title: 'Certain Steel Wheels From the Republic of Korea; Scheduling of the Final Phase of Antidumping Duty Investigation', url: 'https://www.federalregister.gov/d/2026-9', named: [], beat: true },
+      { case: 't:thermal paper:2024-2025', kind: 'final', date: '2026-12-30', how: '관보 명시', pub: '2026-11-01', quote: 'q', title: 'Thermal Paper From the Republic of Korea: Extension of Time Limit; 2024-2025',
+        url: 'https://www.federalregister.gov/d/2026-8', named: [], beat: false }],
     cbsa: { checkedAt: recent, lists: {
       'ar-ra': { status: 'ok', cases: {
         'ar-ra/lp22026/lp2202601': { title: 'Carbon and alloy steel line pipe 2: Dumping (South Korea)—Concludes on December 14, 2026', state: 'Concludes', stateDate: '2026-12-14',
@@ -6095,7 +6104,10 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.deepEqual([sg.tier, sg.company, sg.check.who, sg.check.terms], ['A', 'EU', '하이브리드차', ['EU', '세이프가드']]);
   const d = (await call('scoop_desk', {}, opts)).text;
   const block = d.slice(d.indexOf('[2-2.'), d.indexOf('\n[', d.indexOf('[2-2.') + 5) > 0 ? d.indexOf('\n[', d.indexOf('[2-2.') + 5) : undefined);
-  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 4건\n/);
+  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 5건\n/);
+  // 미국 ITC 공청회(관보 명시) — 업종 밖 감열지 최종 시한은 단독 데스크에 안 올린다
+  assert.match(block, /- 2026-12-29 · 미국 ITC · 공청회 · Certain Steel Wheels From the Republic of Korea · Scheduling of the Final Phase of Antidumping Duty Investigation\(관보 2026-11-18\)\n   근거: 관보 명시 — "Hearing\.-- The Commission will hold a hearing/);
+  assert.doesNotMatch(block, /Thermal Paper/);
   assert.match(block, /- 2026-12-27 · EU 집행위 · 세이프가드 조사 조치 결정 시한\(9개월\) · grain-oriented flat-rolled products of silicon-electrical steel\(개시 2026-03-27 · 잠정 조치 나옴\) · 세이프가드 — 모든 나라산\(한국 포함\)\n/);
   assert.match(block, new RegExp(`- 2026-12-14 · 캐나다 CBSA · 행정재심 결론 예정 · Carbon and alloy steel line pipe 2: Dumping \\(South Korea\\) · 출입처 세아제강\\(시행 중 조치 LP2 한국 수출자 표\\)\\n   근거: CBSA 사건 목록에 적힌 결론 예정일 · 원문: ${lp2.replace(/[.?]/g, '\\$&')}\\n`));
   assert.match(block, /- ~2026-12-16 · 호주 ATRC · 종료재심 장관 결정 시한\(추정 — 최종 권고 기한\+30일\) · 사건 698 · 698 - Aluminium zinc coated steel \(≥600mm\) from Korea, Vietnam · 출입처 KG스틸\(문서 제목에 나온 출입처 이름\) · 최종 권고 기한 2026-11-16 지남 · 진행 목록에 남아 있음\(다음 단계 Final Report\) — 결정 공고\(ADN\) 전\n   근거: 호주 관세법\(2011 개정[^\n]*30일 안에 결정[^\n]*종료재심은 조치 만료일 전 · 원문: https:\/\/www\.industry\.gov\.au\/epr\/698\n/);
@@ -6109,7 +6121,9 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
 
   const t = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(t, /^다가오는 해외 판정 일정 — 앞으로 400일 · /);
-  assert.match(t, /미국·영국·인도는 아직 일정 계산 안 함 — 미확인/);
+  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\)\. 영국·인도는 아직 일정 계산 안 함 — 미확인/);
+  assert.match(t, /- 2027-03-02 · 미국 상무부 · 최종 판정·결과 시한\(법정 — 연장 최대 180일\) · Large Power Transformers From the Republic of Korea \(2024-2025\) · Preliminary Results of Antidumping Duty Administrative Review\(관보 2026-11-02\) · 출입처 HD현대일렉트릭·LS일렉트릭\(관보 본문 속 출입처 이름\)\n   근거: 법정 시한\(게재일\+120일, 연장 최대 180일\) — "19 U\.S\.C\. 1675\(a\)\(3\)\(A\)/);
+  assert.match(t, /- 2026-12-30 · 미국 상무부 · 최종 판정·결과 시한 · Thermal Paper[^\n]* \(출입 업종 품목 아님\)/);
   const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers: Dumping (Chinese Taipei and South Korea) · 출입처 HD현대일렉트릭·일진전기(시행 중 조치 SPT 한국 수출자 표)',
     '2027-03-05 · 호주 ATRC · 조사 필수사실 보고서(SEF) 공개 기한 · 사건 706', '2027-03-26 · EU 집행위 · 반덤핑 조사 잠정 관세 사전 공개', '2027-04-19 · 호주 ATRC · 조사 최종 권고(장관 보고) 기한',
     '2027-04-23 · EU', '2027-07-30 · EU 집행위 · 세이프가드 조사 조치 결정 시한(9개월) · new hybrid vehicles for the transport of persons(개시 2026-10-30) · 세이프가드 — 모든 나라산(한국 포함)',
