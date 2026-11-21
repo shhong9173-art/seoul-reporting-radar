@@ -3121,6 +3121,13 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.deepEqual([g80.who, g80.terms, g80.must], ['제네시스', ['G80', '리콜'], ['G80', '94,622', '94622', '9만4622', '9만4,622', '9만 4622']]);
   assert.deepEqual(usRecallModels('HYUNDAI ELANTRA 2026, TUCSON HYBRID 2026'), ['아반떼', '엘란트라', '투싼']);
   assert.deepEqual(countForms(999), []);
+  // 11-22: 혼다 차명은 한글로, 10만 대 넘으면 '81만'도 같은 리콜 표시로
+  assert.deepEqual(usRecallModels('ACCORD 2013, CIVIC 2012~2013, CR-V 2012~2013, ILX 2013, RDX 2013'), ['어코드', '시빅', 'CR-V']);
+  assert.deepEqual(usRecallModels('VOLKSWAGEN TIGUAN 2025, ATLAS 2025'), ['티구안', '아틀라스']);
+  assert.ok(countForms(810592).includes('81만'));
+  assert.ok(!countForms(52000).includes('5만'));
+  const honda = usRecallHint({ models: 'ACCORD 2013, CIVIC 2012~2013, CR-V 2012~2013', affected: 810592 }, [{ role: '제조사(출입처 브랜드)', name: '혼다' }]);
+  assert.deepEqual([honda.who, honda.terms], ['혼다', ['어코드', '리콜']]);
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
 
