@@ -733,7 +733,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     // 인도 DGTR 절차 공지뿐인 줄은 C(기자 11-14 22:36 — 11-14 새 줄 8건 중 7건이 이메일 주소 변경·질문서 기한 연장 같은 공지였다). 사건 페이지를 못 읽었으면 B 그대로
-    push(e.repeats || dgtrProcedural(e) ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
+    // EU 쿼터(TARIC) 소진은 참고(C): 기자가 'EU 철강 쿼터 소진 같은 일반 통상 통계 발제는 패스'라고 여러 번 말했다(11-21까지 한국 전용 소진이 A로 떴다)
+    push(e.repeats || dgtrProcedural(e) || e.pageId === 'taric' ? 'C' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       // 해외 조사 목록(인도 DGTR 등)의 '새 줄'은 새 조사가 아닐 수 있다 — 11-14 확인: '페놀' 줄은 3-19 개시 조사에 절차 공지가 붙어 다시 뜬 것
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : e.pageId === 'taric' || tr?.dgtrCases?.[e.url]?.latest ? '' : ' — 목록에 새로 보인 줄(새 조사인지는 원문의 개시일 확인)'}`
         // 인도 DGTR: 사건 페이지 일정표에서 읽은 개시일·가장 최근 문서(dgtr_cases.py) — 읽었으면 위 '확인하라' 문구 대신 이것을 적는다
