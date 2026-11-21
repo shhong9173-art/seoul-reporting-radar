@@ -5041,6 +5041,15 @@ test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden
   assert.match(t.text, /뺀 사업장 4곳[^\n]*PAT PECK KIA OF GULFPORT\(1\), ARMANDO'S MANDO GRILL\(1\) · 검색 낱말이 다른 낱말 속에 든 이름 2곳 접음\(ARMANDO 등\)/);
   assert.doesNotMatch(t.text, /ARMANDO PEREZ|CAHOKIA/);
   assert.match((await call('us_litigation', { include_routine: true }, opts)).text, /MOBIS ALABAMA/);
+  // 같은 사업장·같은 날·같은 종류 점검이 업종 코드만 달리 두 건이면 한 줄로(11-22 운영: DOOSAN TURBOMACHINERY SERVICES 08-11 민원 점검 2건)
+  const twin = (id, naics) => x(id, '두산에너빌리티', 'DOOSAN TURBOMACHINERY SERVICES, INC.', 'B', '민원', '2026-08-11', { city: 'LA PORTE', state: 'TX', naics, employees: 235 });
+  const doc2 = { ...doc, inspections: [twin('349104612', '333611'), twin('349104604', '332710')], events: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-osha', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc2) }), env, {})).status, 200);
+  const t2 = (await call('us_litigation', { company: 'DOOSAN' }, opts)).text;
+  assert.match(t2, /\] 1건\(점검 번호 2개\) · 정기·후속·모니터링 점검과 공장 주소 하도급의 일반 점검 0건 숨김/);
+  assert.match(t2, /개시 2026-08-11 · 두산에너빌리티 · 민원\(B\) 점검 2건\(같은 날 같은 사업장 — 업종 코드만 다름\) · 진행 중\n   사업장: DOOSAN TURBOMACHINERY SERVICES, INC\. \(LA PORTE, TX\) · 종업원 235명 · NAICS 333611·332710/);
+  assert.match(t2, /원문: https:\/\/www\.osha\.gov\/ords\/imis\/establishment\.inspection_detail\?id=349104612 · https:\/\/www\.osha\.gov\/ords\/imis\/establishment\.inspection_detail\?id=349104604/);
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-osha', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const sec = (k) => r.text.split(`[${k} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /OSHA 위반 통지 2026-10-30 · 1건\(반복\)[^\n]*회사 책임 확정 아님/);

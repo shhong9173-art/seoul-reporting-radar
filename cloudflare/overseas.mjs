@@ -1435,14 +1435,28 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
     : (x.violations ?? []).some((v) => ['W', 'R'].includes(v.type)) || (x.penaltyInitial ?? 0) >= 100000 ? 1
       : ['B', 'C'].includes(x.type) || (x.violations ?? []).length ? 2 : 3);
   const all = (doc.inspections ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.estab, x.city, x.state));
-  const rows = all.filter((x) => routine || weight(x) < 3).sort((a, b) => weight(a) - weight(b) || String(b.opened).localeCompare(String(a.opened)));
+  const shown = all.filter((x) => routine || weight(x) < 3).sort((a, b) => weight(a) - weight(b) || String(b.opened).localeCompare(String(a.opened)));
+  // 같은 사업장·같은 날·같은 종류 점검이 업종 코드(NAICS)만 달리 여러 건이면 한 줄로(11-22 운영: DOOSAN TURBOMACHINERY SERVICES 08-11 민원 점검 2건)
+  const twins = new Map();
+  for (const x of shown) {
+    const k = `${x.estab}|${x.city}|${x.opened}|${x.type}`;
+    if (!twins.has(k)) twins.set(k, []);
+    twins.get(k).push(x);
+  }
+  const rows = shown.filter((x) => twins.get(`${x.estab}|${x.city}|${x.opened}|${x.type}`)[0] === x);
   const out = [`\n[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 ${String(doc.since ?? '').slice(0, 10)} 이후 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60, true) : ''}] `
-    + `${rows.length}건${routine ? '' : ` · 정기·후속·모니터링 점검과 공장 주소 하도급의 일반 점검 ${all.length - rows.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`
+    + `${rows.length}건${shown.length > rows.length ? `(점검 번호 ${shown.length}개)` : ''}${routine ? '' : ` · 정기·후속·모니터링 점검과 공장 주소 하도급의 일반 점검 ${all.length - shown.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`
     + ` · 지켜보는 공장 주소 ${Object.keys(doc.sites ?? {}).length}곳`];
-  for (const x of rows.slice(0, limit)) {
+  for (const x0 of rows.slice(0, limit)) {
+    const tw = twins.get(`${x0.estab}|${x0.city}|${x0.opened}|${x0.type}`);
+    // 쌍둥이 점검은 위반·사고를 합쳐 보인다(어느 점검 번호에서 나왔든 같은 사업장·같은 날 일)
+    const x = tw.length > 1 ? { ...x0, violations: tw.flatMap((y) => y.violations ?? []), accidents: tw.flatMap((y) => y.accidents ?? []),
+      penaltyInitial: tw.reduce((n, y) => n + (y.penaltyInitial ?? 0), 0), penaltyCurrent: tw.reduce((n, y) => n + (y.penaltyCurrent ?? 0), 0),
+      isNew: tw.some((y) => y.isNew), closed: tw.every((y) => y.closed) ? x0.closed : null,
+      naics: [...new Set(tw.map((y) => y.naics).filter(Boolean))].join('·'), url: tw.map((y) => y.url).join(' · ') } : x0;
     const v = x.violations ?? [];
     const kinds = [...new Set(v.map((y) => y.typeName))].join('·');
-    out.push(`- ${x.isNew ? '[신규] ' : ''}개시 ${x.opened} · ${x.company}${x.atSite ? '(공장 주소 하도급)' : ''} · ${x.typeName}(${x.type}) 점검${x.closed ? ` · 종결 ${x.closed}` : ' · 진행 중'}${x.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${x.notReturned ? ' · ⚠ 이번 조회에 안 나옴' : ''}`);
+    out.push(`- ${x.isNew ? '[신규] ' : ''}개시 ${x.opened} · ${x.company}${x.atSite ? '(공장 주소 하도급)' : ''} · ${x.typeName}(${x.type}) 점검${tw.length > 1 ? ` ${tw.length}건(같은 날 같은 사업장 — 업종 코드만 다름)` : ''}${x.closed ? ` · 종결 ${x.closed}` : ' · 진행 중'}${x.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${x.notReturned ? ' · ⚠ 이번 조회에 안 나옴' : ''}`);
     out.push(x.atSite ? `   사업장: ${x.estab} — 출입처(${x.company}) 공장 주소 ${x.address ?? '?'} (${x.city ?? '?'}, ${x.state ?? '?'})의 하도급·협력사 점검(그 회사 점검, 출입처 책임 아님)${x.naics ? ` · NAICS ${x.naics}` : ''}`
       : `   사업장: ${x.estab} (${x.city ?? '?'}, ${x.state ?? '?'})${x.employees ? ` · 종업원 ${x.employees}명` : ''}${x.naics ? ` · NAICS ${x.naics}` : ''}`);
     out.push(v.length ? `   위반 통지 ${v.length}건(${kinds}) · 최초 벌금 합 $${(x.penaltyInitial ?? 0).toLocaleString('en-US')}${x.penaltyCurrent !== x.penaltyInitial ? ` → 현재 $${(x.penaltyCurrent ?? 0).toLocaleString('en-US')}` : ''} · 통지 ${[...new Set(v.map((y) => y.issued))].join(', ')}`
