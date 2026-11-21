@@ -1664,9 +1664,10 @@ export async function workforceSection(ctx, q, days, limit) {
     return { s, cur, prev, year, d: cur != null && prev ? cur - prev : null, pct: cur != null && prev ? ((cur - prev) / prev) * 100 : null,
       ypct: cur != null && year ? ((cur - year) / year) * 100 : null };
   });
-  rows.sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0) || (b.cur ?? 0) - (a.cur ?? 0));
+  // 줄어든 사람 수 순(11-22): 비율 순으로는 가입자 4명 사업장 -2명(-33.3%)·18명 -2명이 맨 위였다 — 감원 기사는 사람 수가 먼저다
+  rows.sort((a, b) => (a.d ?? 0) - (b.d ?? 0) || (a.pct ?? 0) - (b.pct ?? 0) || (b.cur ?? 0) - (a.cur ?? 0));
   const months = (s) => Object.keys(s.history ?? {}).length;
-  out.push(`- 자사 사업장 ${rows.length}곳(지난달 비교 가능 ${rows.filter((r) => r.d != null).length}곳 · 1년 전 비교 가능 ${rows.filter((r) => r.ypct != null).length}곳) — 지난달 대비 많이 줄어든 순`);
+  out.push(`- 자사 사업장 ${rows.length}곳(지난달 비교 가능 ${rows.filter((r) => r.d != null).length}곳 · 1년 전 비교 가능 ${rows.filter((r) => r.ypct != null).length}곳) — 지난달 대비 줄어든 사람 수 순`);
   for (const r of rows.slice(0, limit)) {
     const h = r.s.history?.[m] ?? {};
     out.push(`  ${r.s.company} · ${r.s.name}${r.s.status === '2' ? ' · 탈퇴' : ''} · 가입자 ${fmt(r.cur)}명`

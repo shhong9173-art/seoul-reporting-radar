@@ -1139,7 +1139,9 @@ test('kr_official workforce: member counts ranked by monthly drop with year-ago,
       { id: 's1', company: '현대제철', name: '현대제철(주)포항1공장', region: '47111', status: '1',
         history: { 202609: { members: 1150, acq: 4, loss: 106 }, 202608: { members: 1252 }, 202509: { members: 1300 } } },
       { id: 's2', company: '기아', name: '기아(주)AutoLand화성', region: '41591', status: '1', history: { 202609: { members: 11560, acq: 49, loss: 75 }, 202608: { members: 11586 } } },
-      { id: 's3', company: '현대제철', name: '현대제철 순천공장', region: '12150', status: '1', history: { 202609: { members: 310 } } }],
+      { id: 's3', company: '현대제철', name: '현대제철 순천공장', region: '12150', status: '1', history: { 202609: { members: 310 } } },
+      // 11-22: 작은 사업장의 큰 비율(4명 -2명, -33.3%)은 사람 수 순으로 뒤에
+      { id: 's4', company: '영풍', name: '주식회사 영풍', region: '11140', status: '1', history: { 202609: { members: 4 }, 202608: { members: 6 } } }],
     projects: [
       { id: 'p1', company: '현대제철', title: '현대제철 당진 전기로 신설공사', names: ['(주)대한건설/일용/현대제철 당진 전기로 신설공사'], sites: 1, month: '202609', tier: 'A', adptDt: '20260905', members: 41, baseline: false },
       { id: 'p2', company: '기아', title: '기아 오토랜드 화성 PBV 2공장 신축공사', names: ['삼우기전/상용/기아 오토랜드 화성 PBV 2공장 신축공사'], sites: 7, month: '202609', tier: 'A', baseline: true },
@@ -1154,7 +1156,8 @@ test('kr_official workforce: member counts ranked by monthly drop with year-ago,
   const r = await call('kr_official', { section: 'workforce' }, opts);
   assert.match(r.text, /\[사업장 인력\(국민연금 가입 사업장\) · 자료 2026-09/);
   assert.match(r.text, /남은 채우기 12곳/);
-  assert.match(r.text, /자사 사업장 3곳\(지난달 비교 가능 2곳 · 1년 전 비교 가능 1곳\)/);
+  assert.match(r.text, /자사 사업장 4곳\(지난달 비교 가능 3곳 · 1년 전 비교 가능 1곳\) — 지난달 대비 줄어든 사람 수 순/);
+  assert.ok(r.text.indexOf('포항1공장 · 가입자') < r.text.indexOf('주식회사 영풍 · 가입자'));   // -102명이 -2명(-33.3%)보다 먼저
   assert.match(r.text, /현대제철 · 현대제철\(주\)포항1공장 · 가입자 1,150명 \(지난달 -102, -8\.1%\) · 1년 전 1,300명 대비 -11\.5% · 그달 취득 4·상실 106 · 3개월 보관/);
   assert.ok(r.text.indexOf('포항1공장 · 가입자') < r.text.indexOf('AutoLand화성 · 가입자'));
   assert.match(r.text, /현대제철 순천공장 · 가입자 310명 \(지난달 미수집\)/);
