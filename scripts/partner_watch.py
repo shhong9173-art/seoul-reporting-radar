@@ -107,12 +107,15 @@ def glossary(sn, phrases):
 #     'POSCO-KB Shipbuilding Fund Fee and commission income'(관계사 거래 표)
 #  ② 고객사 이름 나열 — Adient 10-K 'longstanding relationships with … BMW, Mercedes-Benz Group, Ford …, Hyundai Motor Company, … Kia Corporation'
 FIN_GROUP = re.compile(r"KB Financial Group|Woori Financial Group|Shinhan Financial Group|Hana Financial Group", re.I)
-LIST_CUE = re.compile(r"\b(?:including|such as|customers?\b|OEMs?\b|relationships with)\b", re.I)
+LIST_CUE = re.compile(r"\b(?:including|such as|customers?\b|OEMs?\b|partners?\b|relationships with|include[sd]?(?=\s*:))", re.I)
+BULLET = re.compile(r"[●•▪◦■]")
 
 
 def name_list(sent):
-    """쉼표로 회사 이름 여럿을 늘어놓은 문장(고객·거래처 목록) — 출입처는 그중 하나."""
-    return sent.count(",") >= 5 and bool(LIST_CUE.search(sent))
+    """쉼표나 글머리표(●)로 회사 이름 여럿을 늘어놓은 문장(고객·거래처·협력사 목록) — 출입처는 그중 하나.
+    11-22: Forge Nano S-1 'partners … include: ● Volkswagen ● Hanwha Aerospace ● General Motors ● LG Chem ● Air Liquide ●
+    Mitsui Kinzoku'가 뒤따른 'commercial agreements' 낱말 때문에 A로 떴다(같은 회사 10-27 8-K 투자 계약은 이미 잡힘)."""
+    return sent.count(",") + len(BULLET.findall(sent)) >= 5 and bool(LIST_CUE.search(sent))
 
 
 def classify(it):
