@@ -369,6 +369,9 @@ const US_MODEL_KO = {
   palisade: ['팰리세이드'], kona: ['코나'], venue: ['베뉴'], ioniq: ['아이오닉'], nexo: ['넥쏘'], sorento: ['쏘렌토'], sportage: ['스포티지'],
   telluride: ['텔루라이드'], carnival: ['카니발'], forte: ['포르테', 'K3'], soul: ['쏘울'], niro: ['니로'], seltos: ['셀토스'],
   trax: ['트랙스'], trailblazer: ['트레일블레이저'], envista: ['엔비스타'], encore: ['앙코르'],
+  // 11-22: 혼다·폭스바겐 — 국내 기사는 한글 차명(어코드·티구안)을 쓴다(26V765000 혼다 ACCORD·CIVIC·CR-V 81만 대가 "혼다 ACCORD"로 대조됨)
+  accord: ['어코드'], civic: ['시빅'], 'cr-v': ['CR-V'], 'hr-v': ['HR-V'], pilot: ['파일럿'], odyssey: ['오딧세이', '오디세이'],
+  tiguan: ['티구안'], atlas: ['아틀라스'], jetta: ['제타'], passat: ['파사트'], golf: ['골프'], arteon: ['아테온'], touareg: ['투아렉'],
 };
 const BRAND_WORDS = /^(HYUNDAI|KIA|GENESIS|AUDI|VOLKSWAGEN|VW|BMW|MINI|MERCEDES-BENZ|MERCEDES|HONDA|ACURA|CHEVROLET|BUICK|GMC)$/;
 export function usRecallModels(models) {
@@ -388,6 +391,8 @@ export function countForms(n) {
   if (man) {
     out.push(`${man}만${rest || ''}`, `${man}만${rest ? rest.toLocaleString('en-US') : ''}`, `${man}만 ${rest || ''}`.trim());
     if (rest && rest % 1000 === 0) out.push(`${man}만${rest / 1000}천`);
+    // 10만 대가 넘으면 기사는 끝자리를 버리고 '81만 대'로 쓴다(11-22: 혼다 26V765000 810,592대) — 1만~9만은 '5만원'처럼 흔해 쓰지 않는다
+    if (man >= 10) out.push(`${man}만`);
   }
   return [...new Set(out)];
 }
