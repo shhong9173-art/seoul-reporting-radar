@@ -1,0 +1,20 @@
+name: Report Diff Probe (isolated, branch only)
+# 격리 탐색(브랜치 전용). 저장하지 않음. 키·주소는 찍지 않음.
+on:
+  push:
+    branches: ['probe/report-diff']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6" "pdfminer.six==20240706"
+      - run: python scripts/probe/x.py
