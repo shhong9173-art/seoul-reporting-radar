@@ -94,6 +94,17 @@ class Parsers(unittest.TestCase):
         self.assertEqual(d["attach"], ["무상수리 안내문.pdf"])
         self.assertEqual(f.parse_list("<html>점검 중</html>"), ([], None))
 
+    def test_swapped_reason_and_action_cells_are_read_back(self):
+        # 11-22 운영 4884 쏠라티(공지 원문 그대로): 내용 칸에 조치, 조치 칸에 원인 문장
+        page = detail_page("현대자동차(주)", "쏠라티", "341", "ECU 데이터 리프로그래밍 및 DPF 수동 재생", produced="2022-01-19 ~ 2026-03-10").replace(
+            "소프트웨어 업데이트", "저속 운행 시, DPF 내 잔여물 과다 퇴적으로 DRT 버스 저속 운행 조건 시 DPF 빈번 재생 및 엔진 오일 소모량이 증가할 가능성이 확인됨에 따른 무상수리")
+        d = f.parse_detail(page)
+        self.assertTrue(d["swapped"])
+        self.assertIn("가능성이 확인됨에 따른", d["reason"])
+        self.assertEqual(d["action"], "ECU 데이터 리프로그래밍 및 DPF 수동 재생")
+        normal = f.parse_detail(detail_page("기아 주식회사", "K8", "77,043", "HPCU 소프트웨어 설계 오류로 … 발생 가능성이 확인됨에 따른 무상수리"))
+        self.assertNotIn("swapped", normal)
+
     def test_beat_brands_only(self):
         for title, want in (("[기아] K8 HEV - HPCU 관련 무상수리", "기아"), ("[현대] 팰리세이드 - ABS 관련 무상수리", "현대차"),
                             ("[제네시스] GV80 - 후방카메라 관련 무상수리", "현대차"), ("[비엠더블유] 520i - 냉각수 관련 무상수리", "BMW코리아"),
@@ -148,6 +159,19 @@ class Collect(unittest.TestCase):
         again, check2 = f.collect(sec, NOW + dt.timedelta(hours=8), Site([K8] + base, DETAILS), sleep=nosleep)
         self.assertEqual((check2["newPosts"], check2["pages"]), (0, 1))
         self.assertEqual(len(again["items"]), len(sec["items"]))
+
+    def test_stored_posts_with_swapped_cells_are_fixed_once(self):
+        # 11-22: 4884가 고치기 전에 이미 저장됐다 — 상세는 새 글만 읽으니 저장분을 다음 실행이 바로잡는다
+        first, _ = f.collect(None, NOW, Site([TASMAN, OLD_HYUNDAI] + OLD, DETAILS), sleep=nosleep)
+        x = next(i for i in first["items"] if i["no"] == "4875")
+        x.update(detail="ok", reason="ECU 데이터 리프로그래밍", action="주행 중 시동 꺼짐 가능성이 확인됨에 따른 무상수리")
+        sec, _ = f.collect(first, NOW + dt.timedelta(hours=5), Site([TASMAN, OLD_HYUNDAI] + OLD, DETAILS), sleep=nosleep)
+        y = next(i for i in sec["items"] if i["no"] == "4875")
+        self.assertTrue(y["swapped"])
+        self.assertEqual((y["reason"][:5], y["action"]), ("주행 중 ", "ECU 데이터 리프로그래밍"))
+        self.assertIn("주행중시동", y["why"])     # 원인 칸이 바로잡혀 안전 낱말로 다시 등급을 매김
+        third, _ = f.collect(sec, NOW + dt.timedelta(hours=8), Site([TASMAN, OLD_HYUNDAI] + OLD, DETAILS), sleep=nosleep)
+        self.assertEqual(next(i for i in third["items"] if i["no"] == "4875")["action"], "ECU 데이터 리프로그래밍")   # 두 번 바꾸지 않음
 
     def test_failures_keep_previous_and_are_not_zero(self):
         first, _ = f.collect(None, NOW, Site([TASMAN] + OLD, DETAILS), sleep=nosleep)

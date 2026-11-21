@@ -4623,7 +4623,7 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
     vehicles: [], rules: ['연비 신고는 출시 확정이 아니다.'],
     freeRepair: { checkedAt: '2026-10-26T06:10:00+09:00', baselineAt: '2026-10-26T06:10:00+09:00', total: 4177, rules: ['무상수리는 리콜(제작결함 시정조치)이 아니다.'],
       items: [it(4874, '[기아] K8 HEV - HPCU 관련 무상수리'),
-        it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성', tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
+        it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성이 확인됨에 따른 무상수리', action: 'BDC 소프트웨어 업데이트', swapped: true, tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4873, '[기아] 쏘렌토 - 계기판 관련 무상수리', { detail: 'pending', units: undefined, reason: undefined, maker: undefined, model: undefined, produced: undefined, tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4871, '[현대] 아반떼 - 계기판 관련 무상수리', { company: '현대차', date: '2026-10-10', baseline: true, isNew: false, units: 3300, maker: '현대자동차(주)', model: '아반떼(CN7)', tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4870, '[포르쉐] 카이엔 - 부품 관련 무상수리', { company: null, detail: undefined, units: undefined, reason: undefined, tier: 'C', why: '출입처 브랜드 아님' })] } };
@@ -4632,7 +4632,7 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
   const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /국내 무상점검·수리[^\n]*\n?[^\n]*자동차리콜센터 무상점검·수리 공지\(글 번호 4874\): \[기아\] K8 HEV - HPCU 관련 무상수리 · 대상 77,043대 · 생산기간 2021-04-23 ~ 2024-08-12 · 내용 「HPCU 소프트웨어 설계 오류로 경고등이 점등될 가능성」 — 리콜\(시정조치\) 아님/);
-  assert.match(sec('B'), /글 번호 4875\): \[기아\] 타스만 - BDC 관련 무상수리 · 대상 1,204대/);
+  assert.match(sec('B'), /글 번호 4875\): \[기아\] 타스만 - BDC 관련 무상수리 · 대상 1,204대[^\n]* · 원인\(공지 조치 칸\) 「BDC 소프트웨어 오류/);
   assert.match(sec('B'), /글 번호 4873\): \[기아\] 쏘렌토 - 계기판 관련 무상수리 · 상세\(대수·내용\) 미확인 — 다음 실행에서 읽음/);
   assert.doesNotMatch(r.text, /아반떼 - 계기판|카이엔/);          // 첫 실행 때 이미 있던 글·다른 브랜드는 레이더에 올리지 않는다
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
@@ -4647,6 +4647,8 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   assert.match(r.text, /- 국내 연비 신고: 자동차리콜센터 무상점검·수리 게시판 원문 대기 1건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
   assert.match(t.text, /- \[신규\] 2026-10-25 · A · 기아 · \[기아\] K8 HEV - HPCU 관련 무상수리 · 글 번호 4874\n   잡힌 사실: 기아\(주\) · K8\(GL3\) HEV · 대상 77,043대 · 생산기간 2021-04-23 ~ 2024-08-12 · 무상수리 기간 2026-10-26 ~\n   내용\(공지 원문\): 「HPCU/);
   assert.match(t.text, /조치: 「소프트웨어 업데이트」 · 첨부 안내문\.pdf\n   등급 이유: 대상 77,043대\(1만 대 이상\)/);
+  assert.match(t.text, /타스만[^\n]*\n[^\n]*\n   원인\(공지의 조치 칸 원문 — 공지가 두 칸을 바꿔 적어 바꿔 읽음\): 「BDC 소프트웨어 오류[^\n]*\n   조치\(공지의 내용 칸\): 「BDC 소프트웨어 업데이트」/);
+  assert.doesNotMatch(t.text, /K8 HEV[^\n]*\n[^\n]*\n   원인\(/);    // 바뀌지 않은 공지는 그대로 '내용'
   assert.match(t.text, /- \[기준선\] 2026-10-10 · B · 현대차 · \[현대\] 아반떼/);
   assert.match(t.text, /쏘렌토[^\n]*\n   상세 읽기 대기\(다음 실행\)/);
   assert.doesNotMatch(t.text, /카이엔/);

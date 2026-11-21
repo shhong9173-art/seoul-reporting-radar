@@ -1016,7 +1016,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const model = String(x.title ?? '').replace(/^\s*\[[^\]]*\]\s*/, '').split(/\s+-\s+|\s+/)[0];
     const units = Number.isFinite(x.units) ? ` · 대상 ${x.units.toLocaleString('en-US')}대` : '';
     const body = x.detail === 'ok'
-      ? `${units}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.reason ? ` · 내용 「${clipAt(x.reason, 160)}」` : ''}`
+      ? `${units}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.reason ? ` · ${x.swapped ? '원인(공지 조치 칸)' : '내용'} 「${clipAt(x.reason, 160)}」` : ''}`
       : ` · 상세(대수·내용) 미확인${x.detail === 'pending' ? ' — 다음 실행에서 읽음' : ''}`;
     push(x.tier, FREE_REPAIR, { kind: '무상점검·수리 공지', id: x.id, date: x.date || x.firstSeen, company: x.company,
       fact: `자동차리콜센터 무상점검·수리 공지(글 번호 ${x.no}): ${x.title}${body} — 리콜(시정조치) 아님 · 해외 조치 시점·대상 차이와 원인은 미확인(us_recalls·회사 확인)`,
