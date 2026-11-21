@@ -276,6 +276,16 @@ def investigations(raw, *, now, previous, had_state):
         old = prev.get(iid, {})
         opened, closed = kdate(lead.get("openedDate")), kdate(lead.get("closedDate"))
         direct = any(w["beat"] in DIRECT or (str(w["role"]) == "부품사(조사 요약)") for w in why)
+        # 다른 제조사 조사에 현대·기아·한국GM 차종이 한두 줄 끼어 있으면(조사 대상의 3분의 1 미만, 제목·요약에 이름 없음) 직접 조사로 보지 않는다
+        # (11-22 운영: 혼다 오토 스타트·스톱 재시동 EA26007 대상 6줄 중 HYUNDAI ELANTRA 2016 한 줄로 A — 조사는 혼다 것)
+        vs = lead.get("vehicles") or []
+        own = [v for v in vs if str(v.get("make") or "").upper() in ("HYUNDAI", "KIA", "GENESIS")
+               or (str(v.get("make") or "").upper() in ("CHEVROLET", "BUICK") and GM_KOREA.match(str(v.get("model") or "")))]
+        named = re.search(r"\b(?:HYUNDAI|KIA|GENESIS|TRAX|TRAILBLAZER)\b", f"{lead.get('subject') or ''} {lead.get('summary') or ''}", re.I)
+        by_supplier = any(str(w["role"]) == "부품사(조사 요약)" for w in why)
+        minor = bool(own) and len(own) * 3 < len(vs) and not named and not by_supplier
+        if minor:
+            direct = False
         rec = {"id": iid, "action": action, "type": INV_TYPES.get(action[:2], action[:2]), "kind": "조사 종결" if closed else "조사 개시",
                "opened": opened, "closed": closed,
                "models": model_line([(f"{v.get('make')} {v.get('model')}".strip(), str(v.get("modelYear") or "")) for v in lead.get("vehicles") or []]),
@@ -285,7 +295,7 @@ def investigations(raw, *, now, previous, had_state):
                # A: a probe opened (or escalated) on a Hyundai/Kia/GM Korea car or naming a Korean supplier; its close is B;
                # imported brands' probes are B when opened, C when closed
                "tier": ("A" if not closed else "B") if direct else ("B" if not closed else "C"),
-               "firstSeen": old.get("firstSeen") or stamp}
+               "firstSeen": old.get("firstSeen") or stamp, **({"minorShare": f"{len(own)}/{len(vs)}"} if minor else {})}
         rec["isNew"] = bool(had_state and iid not in prev)
         if old and closed and not old.get("closed"):
             rec["isNew"], rec["changedAt"] = True, stamp  # a watched probe was closed

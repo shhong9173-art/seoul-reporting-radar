@@ -69,6 +69,10 @@ INV_LINES = [
     inv("PE26012", "FORD", "F-150", "2025", "STEERING", "20261001", summary="Steering racks supplied by Hyundai Mobis may crack."),
     inv("EA26006", "BUICK", "ENCLAVE", "2025", "SERVICE BRAKES", "20260821"),           # not a GM Korea model
     inv("EA26007", "CHEVROLET", "TRAX", "2025", "AIR BAGS", "20260901"),               # GM Korea builds it
+    # 11-22 운영 꼴: 혼다 조사(6줄)에 HYUNDAI ELANTRA 한 줄 — 직접 조사 아님(수입 브랜드 조사 B)
+    *[inv("EA26097", mk, md, yr, "ELECTRICAL SYSTEM:STARTER ASSEMBLY", "20261025", subject="No Restart After Auto Start/Stop Engages", maker="Honda")
+      for mk, md, yr in (("HONDA", "ACCORD", "2025"), ("HONDA", "ODYSSEY", "2024"), ("HONDA", "PASSPORT", "2022"), ("HONDA", "PILOT", "2024"),
+                         ("HONDA", "RIDGELINE", "2024"), ("HYUNDAI", "ELANTRA", "2016"))],
 ]
 
 
@@ -193,8 +197,10 @@ class Investigations(unittest.TestCase):
     def test_beat_probes_tiers_and_baseline(self):
         first = w.run(now=NOW, previous=None, get=fake(), sleep=lambda s: None)
         got = {x["action"]: x for x in first["investigations"]}
-        self.assertEqual(set(got), {"PE26010", "DP26009", "PE26012", "EA26007"})  # Enclave is not built by GM Korea
-        self.assertEqual({a: x["tier"] for a, x in got.items()}, {"PE26010": "A", "DP26009": "C", "PE26012": "A", "EA26007": "A"})
+        self.assertEqual(set(got), {"PE26010", "DP26009", "PE26012", "EA26007", "EA26097"})  # Enclave is not built by GM Korea
+        self.assertEqual({a: x["tier"] for a, x in got.items()}, {"PE26010": "A", "DP26009": "C", "PE26012": "A", "EA26007": "A", "EA26097": "B"})
+        self.assertEqual(got["EA26097"]["minorShare"], "1/6")
+        self.assertNotIn("minorShare", got["PE26010"])
         self.assertEqual(got["PE26012"]["beat"], ["현대모비스"])
         self.assertEqual((got["PE26010"]["type"], got["PE26010"]["kind"], got["PE26010"]["opened"]), ("예비조사(PE)", "조사 개시", "2026-10-20"))
         self.assertEqual(got["DP26009"]["kind"], "조사 종결")
