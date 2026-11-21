@@ -4623,14 +4623,18 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   const it = (no, title, extra = {}) => ({ id: `grts:${no}`, no: String(no), ctype: 'O', title, source: '국토교통부', date: '2026-10-25', company: '기아',
     firstSeen: '2026-10-26T06:10:00+09:00', isNew: true, baseline: false, url: `https://www.car.go.kr/ri/grts/list.do#${no}`, detail: 'ok', maker: '기아(주)',
     model: 'K8(GL3) HEV', produced: '2021-04-23 ~ 2024-08-12', period: '2026-10-26 ~', units: 77043, reason: 'HPCU 소프트웨어 설계 오류로 경고등이 점등될 가능성',
-    action: '소프트웨어 업데이트', attach: ['안내문.pdf'], tier: 'A', why: '대상 77,043대(1만 대 이상)', ...extra });
+    action: '소프트웨어 업데이트', attach: ['안내문.pdf'], tier: 'A', why: '대상 77,043대(1만 대 이상)', us: { status: 'no-model' }, ...extra });
   const doc = { schema: 'kr_fuel/v1', generatedAt: '2026-10-26T06:10:00+09:00', fuelAt: '2026-10-26T06:10:00+09:00', status: 'complete', dataset: 'https://www.data.go.kr/data/15139827/openapi.do',
     checks: [{ source: '에너지공단 자동차 표시연비(공공데이터포털 15139827)', status: 'ok', rows: 9000, beatRows: 3100 },
       { source: SRC, status: 'partial', returned: 20, pages: 4, total: 4177, newPosts: 3, newBeat: 3, detailsRead: 3, pending: 1, note: '상세 읽기 멈춤(HTTP 429) — 다음 실행에서 이어 읽음' }],
     vehicles: [], rules: ['연비 신고는 출시 확정이 아니다.'],
     freeRepair: { checkedAt: '2026-10-26T06:10:00+09:00', baselineAt: '2026-10-26T06:10:00+09:00', total: 4177, rules: ['무상수리는 리콜(제작결함 시정조치)이 아니다.'],
       items: [it(4874, '[기아] K8 HEV - HPCU 관련 무상수리'),
-        it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성이 확인됨에 따른 무상수리', action: 'BDC 소프트웨어 업데이트', swapped: true, tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
+        it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성이 확인됨에 따른 무상수리', action: 'BDC 소프트웨어 업데이트', swapped: true,
+          us: { status: 'ok', make: 'KIA', models: ['TASMAN'], years: [2026, 2027], parts: ['BDC'], campaigns: 4,
+            matches: [{ campaign: '26V100000', received: '2026-08-01', leadDays: 103, models: ['TASMAN'], years: ['2026'], parts: ['BDC'],
+              summary: 'Kia America is recalling certain 2026 Tasman vehicles. The body domain controller (BDC) software may fail.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V100' }] },
+          tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4873, '[기아] 쏘렌토 - 계기판 관련 무상수리', { detail: 'pending', units: undefined, reason: undefined, maker: undefined, model: undefined, produced: undefined, tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4871, '[현대] 아반떼 - 계기판 관련 무상수리', { company: '현대차', date: '2026-10-10', baseline: true, isNew: false, units: 3300, maker: '현대자동차(주)', model: '아반떼(CN7)', tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
         it(4870, '[포르쉐] 카이엔 - 부품 관련 무상수리', { company: null, detail: undefined, units: undefined, reason: undefined, tier: 'C', why: '출입처 브랜드 아님' })] } };
@@ -4656,6 +4660,10 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   assert.match(t.text, /조치: 「소프트웨어 업데이트」 · 첨부 안내문\.pdf\n   등급 이유: 대상 77,043대\(1만 대 이상\)/);
   assert.match(t.text, /타스만[^\n]*\n[^\n]*\n   원인\(공지의 조치 칸 원문 — 공지가 두 칸을 바꿔 적어 바꿔 읽음\): 「BDC 소프트웨어 오류[^\n]*\n   조치\(공지의 내용 칸\): 「BDC 소프트웨어 업데이트」/);
   assert.doesNotMatch(t.text, /K8 HEV[^\n]*\n[^\n]*\n   원인\(/);    // 바뀌지 않은 공지는 그대로 '내용'
+  // 미국 NHTSA 리콜 자동 대조(11-22): 맞은 리콜은 접수일·국내 공지와의 날짜 차이·맞은 낱말·원문 주소, 미국 판매 이름 없는 차종은 '조회 안 함'
+  assert.match(t.text, /   미국 리콜 대조\(자동 · NHTSA TASMAN 2026·2027년형 · 국내 부품 낱말 BDC\) — 같은 결함인지 미확인\(리콜 원문·회사 확인\)\n     26V100000 접수 2026-08-01\(국내 공지보다 103일 앞\) · TASMAN 2026 · 맞은 낱말 BDC · 「Kia America[^」]*」 https:\/\/www\.nhtsa\.gov\/recalls\?nhtsaId=26V100/);
+  assert.match(t.text, /등급 이유: 대상 77,043대\(1만 대 이상\)\n   미국 리콜 대조: 미국 판매 이름을 모르는 차종\(국내 전용·수입차\) — 조회 안 함/);
+  assert.match(sec('B'), /글 번호 4875\)[^\n]* · 미국 같은 차종·부품 낱말 리콜 26V100000\(접수 2026-08-01, 국내 공지보다 103일 앞 — 같은 결함인지 미확인\) — 리콜\(시정조치\) 아님/);
   assert.match(t.text, /- \[기준선\] 2026-10-10 · B · 현대차 · \[현대\] 아반떼/);
   assert.match(t.text, /쏘렌토[^\n]*\n   상세 읽기 대기\(다음 실행\)/);
   assert.doesNotMatch(t.text, /카이엔/);

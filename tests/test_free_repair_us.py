@@ -1,0 +1,124 @@
+"""국내 무상수리 공지 ↔ 미국 NHTSA 리콜 대조(free_repair_us.py, 11-22): 차종·연식·부품 낱말, 날짜 꼴, 한도, 실패, 등급."""
+import datetime as dt
+import json
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import free_repair_us as u  # noqa: E402
+import kr_free_repair as f  # noqa: E402
+
+KST = dt.timezone(dt.timedelta(hours=9))
+NOW = dt.datetime(2026, 11, 22, 6, 10, tzinfo=KST)
+
+
+class Resp:
+    def __init__(self, data, status=200):
+        self.status_code, self._data = status, data
+        self.text = json.dumps(data)
+
+    def json(self):
+        return self._data
+
+
+def item(no, title, model, produced, reason, date="2026-11-20", company="현대차"):
+    return {"id": f"grts:{no}", "no": no, "title": title, "model": model, "produced": produced, "reason": reason, "date": date,
+            "company": company, "detail": "ok"}
+
+
+# 11-04 기사 꼴: 팰리세이드 ABS — 미국 리콜이 먼저(값은 시험용)
+PALISADE = item("4800", "[현대] 팰리세이드 - ABS 모듈 관련 무상수리", "팰리세이드(LX2)", "2019-03-01 ~ 2022-05-31",
+                "ABS 모듈 내부 회로 단락으로 화재 발생 가능성이 확인됨에 따른 무상수리", date="2026-11-04")
+ROW = {"NHTSACampaignNumber": "25V900000", "ReportReceivedDate": "05/12/2025", "Component": "SERVICE BRAKES, HYDRAULIC:ANTILOCK/TRACTION CONTROL/ELECTRONIC LIMITED SLIP:CONTROL UNIT/MODULE",
+       "Summary": "Hyundai Motor America (Hyundai) is recalling certain 2020-2022 Palisade vehicles. The Anti-lock Brake System (ABS) module may short circuit, which can result in an engine compartment fire.",
+       "ModelYear": "2020", "Make": "HYUNDAI", "Model": "PALISADE"}
+OTHER = {"NHTSACampaignNumber": "24V100000", "ReportReceivedDate": "10/02/2024", "Component": "AIR BAGS", "Summary": "The passenger air bag may not deploy.",
+         "ModelYear": "2020", "Make": "HYUNDAI", "Model": "PALISADE"}
+
+
+class Api:
+    def __init__(self, by=None, fail=()):
+        self.by, self.fail, self.calls = by or {}, set(fail), []
+
+    def __call__(self, url, headers=None, timeout=None):
+        self.calls.append(url)
+        assert url.startswith(u.API) and "Mozilla/5.0 seoul-reporting-radar" in headers["User-Agent"]
+        key = next((k for k in self.by if k in url), None)
+        if any(k in url for k in self.fail):
+            return Resp({}, 503)
+        return Resp({"Count": 1, "results": self.by.get(key, [])})
+
+
+class Parts(unittest.TestCase):
+    def test_models_years_parts_and_dates(self):
+        self.assertEqual(u.us_models({"model": "싼타페 (MX5), 싼타페 하이브리드 (MX5 HEV)", "title": "[현대] 싼타페 등 2차종 - 도어"}), ("HYUNDAI", ["SANTA FE", "SANTA FE HYBRID"]))
+        self.assertEqual(u.us_models({"model": "쏘나타 (DT23)"}), ("HYUNDAI", ["SONATA"]))
+        self.assertEqual(u.us_models({"model": "G90(RS4)"}), ("GENESIS", ["G90"]))
+        self.assertEqual(u.us_models({"model": "코나 일렉트릭(SX2 EV)"}), ("HYUNDAI", ["KONA ELECTRIC", "KONA"]))
+        for domestic in ("K8(GL3) HEV", "타스만(TK)", "스타리아 (US4 PE)", "레이 (TAM)", "쏠라티", "BMW 740 xDrive"):   # 미국 판매 이름 없음
+            self.assertIsNone(u.us_models({"model": domestic}), domestic)
+        self.assertEqual(u.model_years("2026-01-21 ~ 2026-09-04"), [2026, 2027])
+        self.assertEqual(u.model_years("2019-03-01 ~ 2022-05-31"), [2019, 2021, 2023])
+        self.assertEqual(u.model_years(""), [])
+        self.assertEqual([p[0] for p in u.domestic_parts(PALISADE)], ["ABS"])
+        # 제목의 부품 이름 + 원인 문장(조치 칸은 안 본다)
+        radar = item("4885", "[현대] 쏘나타 - 후측방 레이더 관련 무상수리", "쏘나타 (DT23)", "2026-05-22 ~ 2026-07-29", "후측방레이더 내부 수분유입 가능성")
+        radar["action"] = "와이어링 점검"
+        self.assertEqual([p[0] for p in u.domestic_parts(radar)], ["레이더"])
+        self.assertEqual(u.recall_date("05/12/2025"), "2025-12-05")    # 일/월/연
+        self.assertEqual(u.recall_date("2025-12-05T00:00:00"), "2025-12-05")
+        self.assertIsNone(u.recall_date("31/31/2025"))
+        self.assertEqual(u.recall_url("25V900000"), "https://www.nhtsa.gov/recalls?nhtsaId=25V900")
+
+    def test_only_recalls_with_a_strong_part_word_match(self):
+        m = u.match_rows([ROW, OTHER, {**ROW, "ModelYear": "2021"}], u.domestic_parts(PALISADE), "2026-11-04")
+        self.assertEqual([(x["campaign"], x["received"], x["years"], x["parts"], x["leadDays"]) for x in m], [("25V900000", "2025-12-05", ["2020", "2021"], ["ABS"], 334)])
+        door_only = item("4886", "[현대] 싼타페 등 2차종 - 도어 사이드 관련 무상수리", "싼타페", "2026-01-21 ~ 2026-09-04", "도어 오픈 시 소음")
+        self.assertEqual(u.match_rows([{**OTHER, "Component": "LATCHES/LOCKS/LINKAGES:DOORS", "Summary": "The rear door may open."}], u.domestic_parts(door_only)), [])   # 약한 낱말(도어)만
+
+
+class Link(unittest.TestCase):
+    def test_link_fills_us_and_classify_raises_to_a_when_us_recall_came_two_months_earlier(self):
+        x = dict(PALISADE)
+        api = Api({"model=PALISADE": [ROW, OTHER]})
+        check = u.link([x], api, NOW, sleep=lambda s: None)
+        self.assertEqual((check["calls"], check["checked"], check["linked"]), (3, 1, 1))
+        self.assertEqual(x["us"]["status"], "ok")
+        self.assertEqual(x["us"]["matches"][0]["campaign"], "25V900000")
+        x["units"] = 900
+        x["reason"] = "ABS 모듈 내부 회로 단락 가능성이 확인됨에 따른 무상수리"     # 안전 낱말 없음
+        self.assertEqual(f.classify(x), ("A", "미국 같은 차종·부품 낱말 리콜 25V900000이 국내 공지보다 334일 앞(같은 결함인지 미확인)"))
+        x["units"] = 92000
+        self.assertEqual(f.classify(x)[1], "대상 92,000대(1만 대 이상) · 미국 같은 차종·부품 낱말 리콜 25V900000이 국내 공지보다 334일 앞(같은 결함인지 미확인)")
+        # 넓은 낱말(브레이크)만 맞은 대조는 화면에만 — A로 올리지 않는다
+        broad = {**x, "units": 900, "us": {"matches": [{**x["us"]["matches"][0], "parts": ["브레이크"]}]}}
+        self.assertEqual(f.classify(broad)[0], "B")
+        # 다음 실행은 다시 조회하지 않는다
+        self.assertEqual(u.link([x], api, NOW, sleep=lambda s: None)["calls"], 0)
+
+    def test_no_model_budget_and_failures(self):
+        k8 = item("4874", "[기아] K8 HEV - HPCU 관련 무상수리", "K8(GL3) HEV", "2021-04-23 ~ 2024-08-12", "HPCU 소프트웨어 설계 오류", company="기아")
+        other = {**item("4870", "[포르쉐] 카이엔 - 무상수리", "Cayenne", "2024-01-01 ~ 2024-12-31", "x"), "company": None}
+        api = Api()
+        u.link([k8, other], api, NOW, sleep=lambda s: None)
+        self.assertEqual((k8["us"]["status"], "us" in other, api.calls), ("no-model", False, []))   # 국내 전용 차종은 조회 안 함·다른 브랜드는 안 봄
+        # 한도: 한 공지(3연식 × 2차종 = 6번)씩, 한도 12면 두 건, 셋째는 다음 실행
+        many = [item(str(4900 + i), "[현대] 싼타페 하이브리드 - EGR 관련 무상수리", "싼타페, 싼타페 하이브리드", "2020-01-01 ~ 2023-12-31", "EGR 쿨러 결빙", date=f"2026-11-{10 + i}") for i in range(3)]
+        sleeps = []
+        check = u.link(many, Api(), NOW, sleep=sleeps.append)
+        self.assertEqual((check["calls"], check["checked"], check["waiting"]), (12, 2, 1))
+        self.assertEqual(len(sleeps), 11)
+        self.assertNotIn("us", many[0])      # 날짜가 가장 이른 글이 남음(새 글부터)
+        self.assertEqual(many[2]["us"]["matches"], [])
+        # 전부 실패: failed·tries — TRIES번까지 다음 실행이 다시
+        y = item("4801", "[현대] 쏘나타 - 레이더 관련 무상수리", "쏘나타", "2026-05-22 ~ 2026-07-29", "레이더 수분")
+        for n in range(1, u.TRIES + 1):
+            u.link([y], Api(fail=["SONATA"]), NOW, sleep=lambda s: None)
+            self.assertEqual((y["us"]["status"], y["us"]["tries"]), ("failed", n))
+        self.assertEqual(u.link([y], Api(fail=["SONATA"]), NOW, sleep=lambda s: None)["calls"], 0)
+        self.assertEqual(f.classify({**y, "company": "현대차"})[0], "B")   # 실패는 등급에 안 씀
+
+
+if __name__ == "__main__":
+    unittest.main()

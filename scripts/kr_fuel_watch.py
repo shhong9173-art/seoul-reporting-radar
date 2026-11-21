@@ -281,7 +281,7 @@ def run_any(keys, **kw):
     return (doc if keys else run("", **kw)), None, refused
 
 
-def build(previous, now, keys, *, get=None, session=None, sleep=time.sleep):
+def build(previous, now, keys, *, get=None, session=None, sleep=time.sleep, us_get=None):
     """한 번 실행의 저장 문서. 돌려줌: (doc, {keyName, refused, fuelFailed, free}).
     연비 목록과 무상점검·수리 게시판(kr_free_repair.py)은 따로 읽는다 — 한쪽이 실패해도 다른 쪽은 저장한다."""
     import kr_free_repair
@@ -301,6 +301,11 @@ def build(previous, now, keys, *, get=None, session=None, sleep=time.sleep):
         session = requests.Session()
     free, fcheck = kr_free_repair.collect((prev or {}).get("freeRepair"), now, session, sleep=sleep)
     if free:
+        # 출입처 공지 ↔ 미국 NHTSA 리콜(같은 차종·연식·부품 낱말) 자동 대조(free_repair_us.py, 11-22) — 결과에 따라 등급을 다시 매긴다
+        import free_repair_us
+        fcheck["us"] = free_repair_us.link(free.get("items") or [], us_get or session.get, now, sleep=sleep)
+        for x in free.get("items") or []:
+            x["tier"], x["why"] = kr_free_repair.classify(x)
         doc["freeRepair"] = free
     doc["checks"] = [doc["checks"][0], fcheck]
     fuel_failed = doc["status"] == "failed" and bool(prev)
@@ -331,6 +336,7 @@ def main():
     print(f"::notice title=kr-free-repair::무상점검·수리 게시판 상태 {fcheck['status']} · 목록 {fcheck.get('pages', 0)}쪽 {fcheck.get('returned', 0)}건(전체 {fcheck.get('total')}) · "
           f"새 글 {fcheck.get('newPosts', 0)}(출입처 {fcheck.get('newBeat', 0)}) · 상세 {fcheck.get('detailsRead', 0)} · 읽기 대기 {fcheck.get('pending', 0)} · "
           f"저장 {len(fitems)}건(A {sum(1 for x in fitems if x.get('tier') == 'A')}·B {sum(1 for x in fitems if x.get('tier') == 'B')})"
+          f"{' · 미국 리콜 대조 조회 {calls}번(공지 {checked}건 · 맞음 {linked}건 · 실패 {failed} · 다음 실행 {waiting})'.format(**fcheck['us']) if fcheck.get('us') else ''}"
           f"{' · ' + fcheck['robots'] if fcheck.get('robots') else ''}{' · ' + fcheck['note'] if fcheck.get('note') else ''}{' · ' + fcheck['error'] if fcheck.get('error') else ''}")
     kinds = {}
     for v in doc.get("vehicles", []):

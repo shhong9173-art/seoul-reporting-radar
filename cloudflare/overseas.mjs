@@ -1308,6 +1308,23 @@ export function dgtrDocNote(c, all = false) {
 // 무상수리는 리콜(시정조치)이 아니고 보도자료가 따로 없는 경우가 많다. 출입처 브랜드 글만 보이고 다른 브랜드는 show_all에서만.
 export const FREE_REPAIR_SOURCE = '자동차리콜센터 무상점검·수리 게시판';
 const clipText = (v, n) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; };
+// 국내 무상수리 공지 ↔ 미국 NHTSA 리콜 자동 대조(free_repair_us.py, 11-22): 같은 차종(미국 판매 이름)·생산기간 연식을 조회해 부품 낱말이 맞은 리콜.
+// 같은 결함이라는 확인이 아니다. 미국 판매 이름을 모르는 차종은 조회하지 않았다(없음이 아님).
+export function usLinkLine(us) {
+  if (!us) return '';
+  const span = `${(us.models ?? []).join('·')} ${(us.years ?? []).join('·')}년형`;
+  if (us.status === 'no-model') return '미국 리콜 대조: 미국 판매 이름을 모르는 차종(국내 전용·수입차) — 조회 안 함';
+  if (us.status === 'no-years') return '미국 리콜 대조: 생산기간이 없어 연식을 못 정함 — 조회 안 함';
+  if (us.status === 'failed') return `미국 리콜 대조 실패(${us.error ?? '조회 오류'}) — 미확인, 다음 실행에서 다시`;
+  const head = `미국 리콜 대조(자동 · NHTSA ${span} · 국내 부품 낱말 ${(us.parts ?? []).join('·') || '없음'})`;
+  const part = us.status === 'partial' ? ` · 일부 조회 실패(${us.error ?? '?'})` : '';
+  if (!(us.parts ?? []).length) return `${head}: 공지에서 부품 낱말을 못 찾아 맞춰 보지 않음(리콜 ${us.campaigns ?? 0}건 조회)${part}`;
+  if (!(us.matches ?? []).length) return `${head}: 같은 부품 낱말 리콜 없음(조회한 리콜 ${us.campaigns ?? 0}건 · 서비스 캠페인·보증 연장은 us_recalls 제조사 통신)${part}`;
+  const rows = us.matches.map((m) => `${m.campaign} 접수 ${m.received ?? '?'}${Number.isFinite(m.leadDays) ? (m.leadDays > 0 ? `(국내 공지보다 ${m.leadDays}일 앞)` : m.leadDays < 0 ? `(국내 공지보다 ${-m.leadDays}일 뒤)` : '(같은 날)') : ''}`
+    + ` · ${(m.models ?? []).join('·')} ${(m.years ?? []).join('·')} · 맞은 낱말 ${(m.parts ?? []).join('·')} · 「${clipText(m.summary ?? '', 160)}」 ${m.url}`);
+  return `${head} — 같은 결함인지 미확인(리콜 원문·회사 확인)${part}\n     ${rows.join('\n     ')}`;
+}
+
 export function freeRepairSection(doc, q, limit, showAll, ctx) {
   const fr = doc?.freeRepair;
   const c = (doc?.checks ?? []).find((x) => x.source === FREE_REPAIR_SOURCE);
@@ -1332,6 +1349,8 @@ export function freeRepairSection(doc, q, limit, showAll, ctx) {
       if (x.reason) out.push(`   ${x.swapped ? '원인(공지의 조치 칸 원문 — 공지가 두 칸을 바꿔 적어 바꿔 읽음)' : '내용(공지 원문)'}: 「${clipText(x.reason, 320)}」`);
       if (x.action) out.push(`   ${x.swapped ? '조치(공지의 내용 칸)' : '조치'}: 「${clipText(x.action, 160)}」${(x.attach ?? []).length ? ` · 첨부 ${x.attach.join(', ')}` : ''}`);
       if (x.company) out.push(`   등급 이유: ${x.why}`);
+      const us = usLinkLine(x.us);
+      if (x.company && us) out.push(`   ${us}`);
     } else if (x.company) out.push(`   상세 ${x.detail === 'failed' ? `못 읽음(${x.detailError ?? '실패'}) — 대수·내용 미확인` : x.detail === 'pending' ? '읽기 대기(다음 실행)' : '안 읽음'}`);
     out.push(`   원문: ${x.url} (상세 주소가 따로 없다 — 게시판에서 글 번호·제목으로 찾는다)`);
   }

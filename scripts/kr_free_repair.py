@@ -117,10 +117,16 @@ def classify(item):
         return "C", "출입처 브랜드 아님"
     units = item.get("units") or 0
     words = sorted({m.group(0).replace(" ", "") for m in SAFETY.finditer(f"{item.get('title', '')} {item.get('reason', '')}")})
+    # 미국 같은 차종·부품 낱말 리콜이 두 달 넘게 앞섬(free_repair_us.py, 11-22) — 11-04 「팰리세이드 ABS 무상수리⋯美보다 11개월 늦어」 꼴
+    import free_repair_us
+    us = free_repair_us.lead_note(item)
+    tail = f" · {us}" if us else ""
     if units >= BIG_UNITS:
-        return "A", f"대상 {units:,}대(1만 대 이상)"
+        return "A", f"대상 {units:,}대(1만 대 이상){tail}"
     if words:
-        return "A", f"안전 관련 낱말({'·'.join(words[:3])})"
+        return "A", f"안전 관련 낱말({'·'.join(words[:3])}){tail}"
+    if us:
+        return "A", us
     return "B", "출입처 브랜드 무상수리 공지"
 
 

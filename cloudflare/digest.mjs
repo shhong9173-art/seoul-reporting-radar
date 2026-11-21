@@ -1018,8 +1018,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const body = x.detail === 'ok'
       ? `${units}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.reason ? ` · ${x.swapped ? '원인(공지 조치 칸)' : '내용'} 「${clipAt(x.reason, 160)}」` : ''}`
       : ` · 상세(대수·내용) 미확인${x.detail === 'pending' ? ' — 다음 실행에서 읽음' : ''}`;
+    // 미국 NHTSA 리콜 자동 대조(free_repair_us.py, 11-22): 같은 차종·연식·부품 낱말 리콜 첫 건 — 같은 결함인지는 미확인
+    const um = (x.us?.matches ?? [])[0];
+    const usBit = um ? ` · 미국 같은 차종·부품 낱말 리콜 ${um.campaign}(접수 ${um.received ?? '?'}${Number.isFinite(um.leadDays) && um.leadDays > 0 ? `, 국내 공지보다 ${um.leadDays}일 앞` : ''} — 같은 결함인지 미확인)` : '';
     push(x.tier, FREE_REPAIR, { kind: '무상점검·수리 공지', id: x.id, date: x.date || x.firstSeen, company: x.company,
-      fact: `자동차리콜센터 무상점검·수리 공지(글 번호 ${x.no}): ${x.title}${body} — 리콜(시정조치) 아님 · 해외 조치 시점·대상 차이와 원인은 미확인(us_recalls·회사 확인)`,
+      fact: `자동차리콜센터 무상점검·수리 공지(글 번호 ${x.no}): ${x.title}${body}${usBit} — 리콜(시정조치) 아님 · 해외 조치 시점·대상 차이와 원인은 미확인(us_recalls·회사 확인)`,
       url: x.url, check: hint(x.company, [model, '무상수리'], [model], model ? [model] : []) });
   }
 

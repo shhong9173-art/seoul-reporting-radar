@@ -211,6 +211,39 @@ class Build(unittest.TestCase):
         self.assertTrue(doc2["freeRepair"]["stale"])
         self.assertEqual(len(doc2["freeRepair"]["items"]), 1)
 
+    def test_free_repair_notice_is_checked_against_us_recalls_and_retiered(self):
+        # 11-22: 국내 무상수리 공지 ↔ 미국 NHTSA 리콜(free_repair_us.py) — 미국 리콜이 두 달 넘게 앞서면 A
+        class PalisadeBoard(Board):
+            def post(self, url, data=None, headers=None, timeout=None):
+                if "detail.do" in url:
+                    self.calls += 1
+                    return Resp("<table><tr><th>제작(수입)사</th><td>현대자동차(주)</td><th>차명</th><td>팰리세이드(LX2)</td></tr>"
+                                "<tr><th>생산기간</th><td>2021-03-01 ~ 2022-05-31</td><th>대수</th><td>900 대</td></tr>"
+                                "<tr><th>무상점검내용</th><td>ABS 모듈 내부 회로 단락 가능성이 확인됨에 따른 무상수리</td></tr></table>")
+                return super().post(url, data, headers, timeout)
+
+        class Json:
+            status_code = 200
+
+            def __init__(self, rows):
+                self.rows = rows
+
+            def json(self):
+                return {"results": self.rows}
+        urls = []
+
+        def nhtsa(url, headers=None, timeout=None):
+            urls.append(url)
+            return Json([{"NHTSACampaignNumber": "25V900000", "ReportReceivedDate": "05/12/2025", "Component": "SERVICE BRAKES:ANTILOCK",
+                          "Summary": "The ABS module may short circuit.", "ModelYear": "2021", "Model": "PALISADE"}])
+        post = ("4890", "[현대] 팰리세이드 - ABS 모듈 관련 무상수리", "2026-10-29")
+        doc, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=PalisadeBoard([post]), sleep=lambda s: None, us_get=nhtsa)
+        x = next(i for i in doc["freeRepair"]["items"] if i["no"] == "4890")
+        self.assertEqual(len(urls), 3)       # 2021·2022·2023년형
+        self.assertEqual((x["tier"], x["us"]["matches"][0]["campaign"]), ("A", "25V900000"))
+        self.assertIn("국내 공지보다 328일 앞", x["why"])
+        self.assertEqual(doc["checks"][1]["us"]["linked"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
