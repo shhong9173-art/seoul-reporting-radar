@@ -1540,6 +1540,13 @@ test('converging signals: the new item comes first and background from one watch
   const r2 = convergenceRows(many);
   assert.deepEqual(r2.rows.map((x) => x.id), ['n4', 'n3', 'n2', 'n1']);
   assert.equal(r2.more, 1);
+  // 11-22: 같은 사업장 굴뚝 신호가 날마다 쌓이면 한 줄(가장 최근 + 횟수·기간) — 다른 감시 줄이 '더'에 묻히지 않게
+  const sk = (d) => ({ id: `stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-${d}`, tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', date: `2026-11-${d}T00:20:00+09:00`, fact: `케이지스틸(주) 당진공장: 배출구 멈춤 ${d}` });
+  const kg = { items: [sk('18'), sk('19'), sk('21'), sk('22'), { id: 'rptnote:x', tier: 'B', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', date: '2026-11-15T17:55:00+09:00', fact: 'KG스틸 3분기 보고서 새 줄' }] };
+  const r3 = convergenceRows(kg);
+  assert.deepEqual(r3.rows.map((x) => x.id), ['stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-22 외 3', 'rptnote:x']);
+  assert.equal(r3.rows[0].fact, '같은 사업장 굴뚝 신호 4번(11-18~11-22, 가장 최근 줄) — 케이지스틸(주) 당진공장: 배출구 멈춤 22');
+  assert.equal(r3.more, 0);
 });
 
 test('radar_today shows converging signals above the tiers', async () => {

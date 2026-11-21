@@ -1883,7 +1883,23 @@ export function convergence(items, { cut } = {}) {
 // (10-31 운영: 금호타이어 함평 정련동 공사가 시공사마다 이름이 조금씩 달라 국민연금 공사 현장 배경 3줄이 묶음 4줄 중 3줄을 채웠다).
 export function convergenceRows(g, max = 4) {
   const byDate = (a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''));
-  const fore = g.items.filter((x) => !x.background).sort(byDate);
+  // 같은 사업장의 굴뚝 신호가 날마다 새 항목으로 쌓이면 한 줄로 접는다(가장 최근 줄 + 횟수·기간). 11-22 운영: 'KG스틸 · 당진' 묶음이
+  // 11-18·11-19·11-21·11-22 굴뚝 줄 넷으로 넉 줄을 다 써, 함께 가리킨 다른 감시(정기보고서 숨은 대목) 줄이 '같은 묶음 2줄 더'에 묻혔다
+  const stackLabel = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
+  const site = (x) => (x.watch === stackLabel && /^stk:/.test(String(x.id)) ? String(x.id).replace(/:\d{4}-\d{2}-\d{2}$/, '') : null);
+  const bySite = new Map();
+  const fore = [];
+  for (const x of g.items.filter((y) => !y.background).sort(byDate)) {
+    const k = site(x);
+    if (!k) { fore.push(x); continue; }
+    if (!bySite.has(k)) { bySite.set(k, [x]); fore.push(x); } else bySite.get(k).push(x);
+  }
+  for (const [i, x] of fore.entries()) {
+    const xs = bySite.get(site(x) ?? '') ?? [];
+    if (xs.length < 2 || xs[0] !== x) continue;
+    const day = (v) => (String(v.date ?? '').length > 10 ? kstStamp(v.date).slice(0, 5) : String(v.date ?? '').slice(5, 10));
+    fore[i] = { ...x, id: `${x.id} 외 ${xs.length - 1}`, fact: `같은 사업장 굴뚝 신호 ${xs.length}번(${day(xs[xs.length - 1])}~${day(x)}, 가장 최근 줄) — ${x.fact}` };
+  }
   const back = new Map();
   for (const x of g.items.filter((y) => y.background).sort(byDate)) {
     if (!back.has(x.watch)) back.set(x.watch, []);
