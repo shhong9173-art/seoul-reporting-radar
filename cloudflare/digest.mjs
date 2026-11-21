@@ -1548,6 +1548,9 @@ export async function itemIndex(ctx) {
 
 function health(ctx, docs) {
   const lines = [];
+  // 11-21: 알림·아침 화면은 수집 상태를 4줄까지만 옮긴다 — 실패가 아닌 안내(토큰 만료 예고·'새 글 없음 연속'만 있는 감시)는 맨 뒤로
+  // (11-21 22:11 알림 화면: 토큰 예고·인천 파산 '새 글 없음'이 4줄 중 2줄, 문제 임원 점검 일부 실패는 '그 밖 1줄'로 밀림)
+  const low = [];
   for (const w of WATCHES) {
     const d = docs[w.feed];
     if (!d) { lines.push(`- ${w.label}: 결과 없음 — 미확인(${w.schedule} 실행 확인)`); continue; }
@@ -1579,17 +1582,18 @@ function health(ctx, docs) {
     if (quiet.length) {
       issues.push(`새 글 없음 연속 ${quiet.length}곳(${quiet.slice(0, 3).map((x) => `${x.source}: 이전 ${(x.before ?? []).join('·')}줄 → 0, 목록 전체 ${Number(x.total).toLocaleString('en-US')}건은 응답`).join(' / ')}) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음`);
     }
-    if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
+    const onlyQuiet = issues.length === 1 && quiet.length && issues[0].startsWith('새 글 없음 연속');
+    if (issues.length) (onlyQuiet ? low : lines).push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
     // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
     if (typeof d.healthNote === 'string' && d.healthNote) lines.push(`- ${w.label}: ${d.healthNote.slice(0, 300)}`);
     // 11-17 기자 결정('전부 추천대로'): EDIS 첨부 본문 토큰 만료 7일 전부터 한 줄. 고장이 아니다 — 만료돼도 목록·제목·당사자는 계속 읽는다(11-15 기자: 필요할 때만 갱신)
     const exp = Date.parse(d.edis?.tokenExpires ?? '');
     if (w.feed === 'trade-remedy' && Number.isFinite(exp) && !d.edis?.tokenNote) {
       const left = Math.ceil((exp - ctx.now.getTime()) / 86400000);
-      if (left <= 7) lines.push(`- ${w.label}: 미국 ITC 문서(EDIS) 첨부 본문 토큰 ${left > 0 ? `만료 D-${left}(${String(d.edis.tokenExpires).slice(0, 10)})` : '만료'} — 만료돼도 목록·제목·당사자는 계속 읽는다. 337 본문이 필요하면 EDIS에서 새로 받아 EDIS_API_TOKEN 비밀값을 바꾼다`);
+      if (left <= 7) (left > 2 ? low : lines).push(`- ${w.label}: 미국 ITC 문서(EDIS) 첨부 본문 토큰 ${left > 0 ? `만료 D-${left}(${String(d.edis.tokenExpires).slice(0, 10)})` : '만료'} — 만료돼도 목록·제목·당사자는 계속 읽는다. 337 본문이 필요하면 EDIS에서 새로 받아 EDIS_API_TOKEN 비밀값을 바꾼다`);
     }
   }
-  return lines;
+  return [...lines, ...low];
 }
 
 // 겹친 신호: 공장·부지에 닿는 감시(공장등록·건축허가·지자체 고시·국민연금 사업장·굴뚝 측정·단독 후보·전기위)가 14일 안에
