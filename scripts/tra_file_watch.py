@@ -311,6 +311,28 @@ def event_of(rec, case, stamp):
             "published": rec["published"]}
 
 
+TIER_RANK = {"A": 0, "B": 1, "C": 2}
+
+
+def retier_stored(events, tra):
+    """저장된 공개기록 문서·이벤트를 지금 제목 규칙으로 다시 본다(내리기만, 한 번). 11-21에 기한 연장 메모를 일상 문서로 고쳤지만
+    11-20에 저장된 'Note to public file - PMS (SK) Questionnaire response extension'은 11-22에도 A로 남았다."""
+    docs = {d.get("id"): d for d in (tra or {}).get("docs") or [] if isinstance(d, dict)}
+    lowered = {}
+    for d in docs.values():
+        if not d.get("title") or d.get("party") is None:
+            continue
+        tier, why, _ = classify(d)
+        if TIER_RANK.get(tier, 2) > TIER_RANK.get(d.get("tier"), 2):
+            d.update(tierWas=d.get("tier"), tier=tier, why=why)
+            lowered[f"trafile:{d.get('case')}:{d.get('sid')}"] = (tier, why)
+    for e in events:
+        hit = lowered.get(e.get("id")) if e.get("pageId") == "trafile" else None
+        if hit and TIER_RANK.get(hit[0], 2) > TIER_RANK.get(e.get("tier"), 2):
+            e.update(tierWas=e.get("tier"), tier=hit[0], why=hit[1])
+    return lowered
+
+
 def collect(prev, now, *, get, sleep=time.sleep, extra_cases=()):
     """prev: 지난 doc['tra'] 또는 None. 돌려줌: (tra 구역, 새 이벤트, 점검 한 줄)."""
     stamp = now.isoformat(timespec="seconds")

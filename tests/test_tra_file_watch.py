@@ -112,6 +112,22 @@ class TraFile(unittest.TestCase):
         # 출입처가 낸 기한 연장 요청은 기존대로 B(절차 문서)
         self.assertEqual(t.classify({"party": "LG Chem, Ltd.", "title": "Request for extension"})[0], "B")
 
+    def test_stored_docs_and_events_are_lowered_by_the_current_title_rule(self):
+        # 11-22 운영: 11-20 저장분 'Note to public file - PMS (SK) Questionnaire response extension'(규칙 고친 11-21 전)이 아직 A
+        doc = {"id": "tra:AD0092:1282", "case": "AD0092", "sid": "1282", "party": "Trade Remedies Authority", "tier": "A", "why": "조사기관의 판단·쟁점 문서",
+               "title": "Note to public file - PMS (SK) Questionnaire response extension", "published": "2026-11-20"}
+        keep = {"id": "tra:AD0092:1239", "case": "AD0092", "sid": "1239", "party": "Trade Remedies Authority", "tier": "A", "why": "조사기관의 판단·쟁점 문서",
+                "title": "Note to public file - Particular Market Situation", "published": "2026-11-05"}
+        events = [{"id": "trafile:AD0092:1282", "pageId": "trafile", "tier": "A", "why": "조사기관의 판단·쟁점 문서"},
+                  {"id": "trafile:AD0092:1239", "pageId": "trafile", "tier": "A", "why": "조사기관의 판단·쟁점 문서"}]
+        tra = {"docs": [doc, keep]}
+        t.retier_stored(events, tra)
+        t.retier_stored(events, tra)
+        self.assertEqual((doc["tier"], doc["tierWas"], doc["why"]), ("C", "A", "조사기관의 일상 문서"))
+        self.assertEqual([e["tier"] for e in events], ["C", "A"])
+        self.assertEqual(events[0]["tierWas"], "A")
+        self.assertNotIn("tierWas", keep)
+
     def test_first_run_is_baseline_and_only_recent_docs_are_announced(self):
         log = []
         sec, events, check = t.collect(None, NOW, get=getter(self.pages(), log), sleep=lambda s: None)
