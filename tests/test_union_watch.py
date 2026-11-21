@@ -81,6 +81,16 @@ class Parse(unittest.TestCase):
         self.assertEqual(w.tier_of("현대위아 분할 매각 중단 촉구", "", True), "A")
         self.assertEqual(w.tier_of("성과급 기준 공개 요구", "", True), "B")
         self.assertEqual(w.tier_of("원청 교섭 거부 규탄", "", False), "B")   # 이름이 본문에만 — A→B
+        # 11-22 운영: 본문 끝 단체 소개의 '포스코 퇴직자 폐암' 한 줄 — 이름이 앞 600자 밖에만 있고 앞뒤 80자에 사건 낱말이 없으면 C
+        story = "3D프린터를 수업에 쓰던 교사의 희귀암이 공무상 재해로 인정됐다. 같은 사유로 숨진 교사의 유족도 인정을 요구했다. " * 10
+        tail = ("위해 대법원 판단까지 받을 생각이라고 전해졌다. 한편, 직업성·환경성암환자찾기119(직업성암119)는 2021년부터 '암도 산재다!'를 외치며 "
+                "포스코 퇴직자와 학교 급식실 노동자 폐암, 그리고 3D프린터 육종암 집단 산재신청을 진행했다. 화섬식품노조는 민주노총 소속으로 석유화학, 섬유, 식품업을 비롯해")
+        self.assertGreater(len(story), 600)
+        self.assertEqual(w.tier_of("교사 희귀암 공무상 재해 인정, 같은 사유로 사망한 교사도 인정 요구", story + tail, False, ["포스코"]), "C")
+        self.assertEqual(w.tier_of("교사 희귀암 공무상 재해 인정, 같은 사유로 사망한 교사도 인정 요구", tail, False, ["포스코"]), "B")   # 앞부분에 있으면 그대로
+        near = story + "원청 기아, 현대글로비스는 납품단가 인상하라. 자동차부품 물류 하청노동자 파업하면 기아 멈춘다."
+        self.assertEqual(w.tier_of("[취재요청] 현대글로비스광주지회 전면파업 경고 기자회견", near, False, ["기아"]), "B")   # 뒤쪽이어도 이름 가까이 '파업'
+        self.assertEqual(w.tier_of("원청 교섭 거부 규탄", "현대제철 비정규직지회는 원청 현대제철이 교섭을 거부하고 있다고 밝혔다.", False, ["현대제철"]), "B")
 
 
 class Run(unittest.TestCase):

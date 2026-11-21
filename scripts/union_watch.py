@@ -96,10 +96,36 @@ def parse_post(page):
     return {"title": title, "date": date, "body": body}
 
 
-def tier_of(title, body, in_title):
-    t = "A" if A_WORDS.search(title) or A_WORDS.search(body[:600]) else "B"
+NEAR = 80   # 이름이 본문 앞부분(600자) 밖에만 있을 때 사건 낱말이 이 거리(앞뒤 글자 수) 안에 있어야 B
+HEAD = 600  # 사건 낱말을 찾는 본문 앞부분(tier_of) — 이름이 여기 안에 있으면 글의 주제로 본다
+
+
+def near_event(text, companies):
+    """출입처 이름(본문 속 어느 자리든) 앞뒤 NEAR자 안에 사건 낱말이 있나."""
+    for k, rx in BEAT_RX:
+        if k not in companies:
+            continue
+        for m in rx.finditer(text or ""):
+            if A_WORDS.search(text[max(0, m.start() - NEAR): m.end() + NEAR]):
+                return True
+    return False
+
+
+def first_pos(text, companies):
+    pos = [m.start() for k, rx in BEAT_RX if k in companies for m in [rx.search(text or "")] if m]
+    return min(pos) if pos else None
+
+
+def tier_of(title, body, in_title, companies=None):
+    t = "A" if A_WORDS.search(title) or A_WORDS.search(body[:HEAD]) else "B"
     if not in_title:
         t = {"A": "B", "B": "C"}[t]
+        # 11-22 운영: 화섬식품노조 「3D프린터 활용 교사의 희귀암 공무상 재해 인정, 같은 사유로 사망한 교사…」가 본문 끝 단체 소개의
+        # '포스코 퇴직자 폐암' 한 줄로 포스코 B — 제목의 '사망'은 포스코 일이 아니었다. 이름이 앞부분 밖에만 있으면 이름 가까이에 사건 낱말이 있어야 B.
+        if t == "B" and companies:
+            p = first_pos(body[:2000], companies)
+            if p is not None and p >= HEAD and not near_event(body[:2000], companies):
+                t = "C"
     return t
 
 
@@ -189,7 +215,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             comps = list(dict.fromkeys(in_title + beats_in(post["body"][:2000])))
             if not comps:
                 continue
-            tier = tier_of(post["title"], post["body"], bool(in_title))
+            tier = tier_of(post["title"], post["body"], bool(in_title), comps)
             pid = f"un:{bo}:{wid}"
             m = next(rx.search(post["body"]) for k, rx in BEAT_RX if k == comps[0]) if not in_title and comps else None
             excerpt = (post["body"][max(0, m.start() - 80): m.end() + 160] if m else post["body"][:240]).strip()
@@ -215,7 +241,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
             "rules": ["금속노조·화섬식품노조 공개 게시판(보도자료·성명·주요소식, 금속노조 지역소식의 지부·지회 소식지)의 새 글 중 제목·본문 앞부분에 출입처 이름이 나온 것. 노조 발표는 한쪽 주장이다 — 회사 입장·사실관계 확인.",
                       "금속노조 누리집은 robots.txt의 요청 간격(180초)을 지켜 게시판마다 한 실행에 글 2개까지만 연다 — 새 글이 많으면 다음 실행으로 넘어간다(늦게 잡힐 수 있음).",
-                      "사망·사고·파업·쟁의·결렬·폐쇄·매각·분할·구조조정·해고·가처분·고발·원청 교섭 낱말이 있으면 A, 아니면 B. 이름이 본문에만 있으면 한 단계 내림.",
+                      "사망·사고·파업·쟁의·결렬·폐쇄·매각·분할·구조조정·해고·가처분·고발·원청 교섭 낱말이 있으면 A, 아니면 B. 이름이 본문에만 있으면 한 단계 내리고, 그 이름이 본문 앞 600자 밖에만 있으면 이름 앞뒤 80자 안에 사건 낱말이 있어야 B(없으면 C — 이름이 배경으로만 나온 글).",
                       "첫 실행은 기준선(그때 목록의 글은 열지 않음). 조회 실패 게시판은 0건이 아니라 미확인."]}
 
 
