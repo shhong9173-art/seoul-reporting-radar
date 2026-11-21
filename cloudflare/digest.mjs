@@ -874,7 +874,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // (10-31 운영: 현대차 24대·17대 리콜이 A, BMW 45대 리콜이 B '관련 보도 있음'(다른 BMW 리콜 기사)으로 떴다).
     const n = Number(x.affected ?? 0);
     const urgent = x.parkOutside || x.doNotDrive;
-    const tier = direct ? (n >= 1000 || urgent ? 'A' : 'B') : (n >= 10000 || urgent ? 'B' : 'C');
+    // 수입 브랜드만 걸린 리콜의 차종이 모두 12년 넘은 연식이면 10만 대 이상만 B(11-22 운영: 혼다 S2000 2004~2005년형 16,387대가 B).
+    // 2012~2013년형 81만 대 Takata 리콜(26V765)처럼 큰 리콜은 그대로 B.
+    const newestMY = Math.max(0, ...[...String(x.models ?? '').matchAll(/(?<!\d)((?:19|20)\d{2})(?!\d)/g)].map((m) => Number(m[1])));
+    const oldOnly = newestMY > 0 && newestMY < new Date(Date.parse(String(x.received ?? '')) || Date.now()).getUTCFullYear() - 12;
+    const tier = direct ? (n >= 1000 || urgent ? 'A' : 'B') : ((oldOnly ? n >= 100000 : n >= 10000) || urgent ? 'B' : 'C');
     push(tier, W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
       url: x.url, check: tier === 'C' ? undefined : usRecallHint(x, why) });
