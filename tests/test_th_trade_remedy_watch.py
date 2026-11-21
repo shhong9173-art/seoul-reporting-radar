@@ -179,6 +179,28 @@ class Thai(unittest.TestCase):
         get3, _ = fake("<html>점검 중</html>", {})
         self.assertIn("형식 변경 의심", w.run(NOW, None, get=get3, sleep=lambda s: None)["checks"][0]["error"])
 
+    def test_list_connection_error_is_retried_once(self):
+        state, waits = {"n": 0}, []
+
+        def get(url, headers=None, timeout=None):
+            if url == w.LIST:
+                state["n"] += 1
+                if state["n"] == 1:
+                    raise ConnectionError("HTTPSConnectionPool(host='thaitr.dft.go.th', port=443): Max retries exceeded")
+                return R(200, listing(B1044))
+            return R(200, "<html></html>")
+        doc = w.run(NOW, None, get=get, sleep=waits.append)
+        self.assertEqual((doc["status"], state["n"]), ("ok", 2))
+        self.assertIn(w.LIST_RETRY_WAIT, waits)
+        get2, calls = fake(listing(B1044), {}, fail=("list",))       # 503 두 번이면 실패(0건 아님)
+        doc2 = w.run(NOW, None, get=get2, sleep=lambda s: None)
+        self.assertEqual((doc2["status"], calls.count(w.LIST)), ("failed", 2))
+
+        def bad(url, headers=None, timeout=None):
+            raise ValueError("parse")
+        with self.assertRaises(ValueError):                           # 연결 문제가 아닌 오류는 다시 받지 않는다
+            w.get_list(bad, lambda s: None)
+
     def test_kinds_dates_products(self):
         self.assertEqual(w.kind_of(BOND), "담보 요구")
         self.assertEqual(w.kind_of(REVIEW), "재심 개시")

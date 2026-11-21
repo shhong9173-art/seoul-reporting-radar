@@ -207,6 +207,26 @@ def event_of(case, ann, stamp, names, pdf_error=None):
             "text": text, "detectedAt": stamp}
 
 
+# 11-21 05:46(금요일 GitHub 예약이 늦게 돈 실행): 목록 'HTTPSConnectionPool … Max retries'(연결 실패) — 주말에는 다음 실행이 월요일 12:10이라
+# 이틀 넘게 '실패'로 남았다. 연결 실패·시간 초과·서버 오류(5xx)면 LIST_RETRY_WAIT초 뒤 한 번만 다시 받는다.
+LIST_RETRY_WAIT = 15
+
+
+def get_list(get, sleep):
+    for attempt in (1, 2):
+        try:
+            r = get(LIST, headers=UA, timeout=60)
+        except Exception as e:  # noqa: BLE001
+            if attempt == 2 or type(e).__name__ not in ("ConnectionError", "ReadTimeout", "ConnectTimeout", "Timeout"):
+                raise
+            sleep(LIST_RETRY_WAIT)
+            continue
+        if r.status_code >= 500 and attempt == 1:
+            sleep(LIST_RETRY_WAIT)
+            continue
+        return r
+
+
 def run(now, previous=None, *, get=None, sleep=time.sleep):
     if get is None:
         import requests
@@ -218,7 +238,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     events = [e for e in prev.get("events") or [] if isinstance(e, dict) and str(e.get("detectedAt", "")) >= (now - dt.timedelta(days=EVENT_DAYS)).isoformat()]
     check = {"source": "태국 무역구제과(thaitr.dft.go.th)", "status": "ok", "returned": 0}
     try:
-        r = get(LIST, headers=UA, timeout=60)
+        r = get_list(get, sleep)
         if r.status_code != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
         listed = parse_list(r.text)
