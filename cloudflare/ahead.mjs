@@ -124,6 +124,19 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       }
     }
   }
+  // 미국 ITC — EDIS 결정 문서 본문 속 기한(11-21, edis_watch.schedule_from): 지켜보는 337 조사(출입처 당사자)·한국 조사 위원회 판정 문서가
+  // 적은 서면 제출 기한·연장 날짜(예: 337-1494 재검토 결정의 서면 마감). 문서에 적힌 날짜 그대로
+  for (const x of tr.edis?.docs ?? []) {
+    if (!x || !['A', 'B'].includes(x.tier) || !(x.schedule ?? []).length) continue;
+    const watched = x.why === '지켜보는 조사의 위원회·판사 결정·공고';
+    for (const s of x.schedule) {
+      if (!inWin(s.date)) continue;
+      out.push({ date: s.date, country: '미국', agency: 'ITC', src: 'us', beat: watched || (x.companies ?? []).length > 0 || /korea/i.test(x.investigationTitle ?? ''),
+        what: `${x.investigationNumber} ${x.documentType} 본문 속 기한`, title: `${String(x.investigationTitle ?? '').slice(0, 80)} — 「${String(x.documentTitle ?? '').slice(0, 90)}」(접수 ${String(x.officialReceivedDate ?? '').slice(0, 10)})`,
+        who: x.companies ?? [], whoNote: (x.companies ?? []).length ? '문서 속 출입처 이름' : watched ? '지켜보는 337 조사(출입처가 당사자)' : '',
+        basis: `EDIS 문서 ${x.id} 본문 — "${String(s.quote ?? '').slice(0, 220)}"`, url: x.url ?? '' });
+    }
+  }
   // 미국 — 새 한국산 반덤핑·상계관세 청원(EDIS 'Petition', 701·731 조사)의 접수일에서 법정 시한(11-21). 관보 고시가 나오면 그 날짜가 우선이고
   // 이 계산은 고시 전 며칠~몇 주의 준비용이다: 상무부 개시 결정 20일(19 U.S.C. 1671a(c)·1673a(c)), ITC 예비 판정 45일(1671b(a)·1673b(a)),
   // 상무부 예비 판정 — 상계관세 개시+65일(1671b(b)), 반덤핑 개시+140일(1673b(b)) — 개시일은 접수+20일로 어림('~')

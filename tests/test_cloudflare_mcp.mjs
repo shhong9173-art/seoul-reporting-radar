@@ -6092,7 +6092,11 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
       'https://www.dgtr.gov.in/en/anti-dumping-cases/tdi': { status: 'ok', initiated: '2026-09-30', initTitle: 'Initiation Notification', latest: { title: 'x', date: '2026-11-01' } } },
     edis: { docs: [{ id: '905001', why: '한국산 조사 제소장·청원', tier: 'A', investigationNumber: '731-1781', documentType: 'Petition', documentTitle: 'Petition for the Imposition of Antidumping Duties',
       investigationTitle: 'Paper File Folders from Korea', officialReceivedDate: '2026/11/10 10:02:00', companies: [], url: 'https://edis.usitc.gov/data/document/905001' },
-      { id: '905002', why: '한국산 조사 제소장·청원', tier: 'A', investigationNumber: '337-1501', documentType: 'Complaint', investigationTitle: 'Certain Widgets from Korea', officialReceivedDate: '2026/11/11 10:00:00', companies: [] }] },
+      { id: '905002', why: '한국산 조사 제소장·청원', tier: 'A', investigationNumber: '337-1501', documentType: 'Complaint', investigationTitle: 'Certain Widgets from Korea', officialReceivedDate: '2026/11/11 10:00:00', companies: [] },
+      { id: '901438', why: '지켜보는 조사의 위원회·판사 결정·공고', tier: 'B', investigationNumber: '337-1494', documentType: 'Notice',
+        documentTitle: 'Commission Decision to Review an Initial Determination Terminating the Investigation in its Entirety', investigationTitle: 'Certain TOPCon Solar Cells, Modules',
+        officialReceivedDate: '2026/11/20 14:05:00', companies: [], url: 'https://edis.usitc.gov/data/document/901438',
+        schedule: [{ date: '2026-12-04', quote: 'The parties are requested to file written submissions on the issues under review no later than close of business on December 4, 2026.' }] }] },
     usAhead: [
       { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
@@ -6154,7 +6158,7 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.deepEqual([sg.tier, sg.company, sg.check.who, sg.check.terms], ['A', 'EU', '하이브리드차', ['EU', '세이프가드']]);
   const d = (await call('scoop_desk', {}, opts)).text;
   const block = d.slice(d.indexOf('[2-2.'), d.indexOf('\n[', d.indexOf('[2-2.') + 5) > 0 ? d.indexOf('\n[', d.indexOf('[2-2.') + 5) : undefined);
-  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 6건\n/);
+  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 7건\n/);
   // 영국 TRA 예정표: 지금 걸쳐 있는 '잠정 판정(필요 시) 11~12월'(달 단위 — 끝 날짜로), 검증(절차)은 안 올린다
   assert.match(block, /- ~2026-12-31 · 영국 TRA · 잠정 판정\(필요 시\) — 예정표 'November – December 2026'\(달 단위\) · AD0092 Suspension polyvinylchloride \(S-PVC\) · 출입처 LG화학·한화솔루션\(공개기록 당사자\)\n   근거: TRA 사건 예정표\(구속력 없음 — CD-01395_External Timeline \(S-PVC\)\.pdf, 게시 2026-08-05\)/);
   assert.doesNotMatch(block, /Verification/);
@@ -6184,6 +6188,8 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /- 2027-09-30 · 인도 DGTR · 재심 종결 시한\(개시 12개월\) · Toluene DiIsocyanate-\(TDI\) \(개시 2026-09-30\)\n/);   // 명단에 이름이 없어도 품목이 출입 업종이면 업종 밖 표시 없음
   assert.doesNotMatch(t, /chisel|Nitrile Rubber/);
   assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
+  // 11-21: EDIS 결정 문서 본문 속 기한(지켜보는 337) — 출입처 당사자 조사라 단독 데스크 2-2구역에도
+  assert.match(t, /- 2026-12-04 · 미국 ITC · 337-1494 Notice 본문 속 기한 · Certain TOPCon Solar Cells, Modules — 「Commission Decision to Review an Initial Determination[^」]*」\(접수 2026\/11\/20\) · 지켜보는 337 조사\(출입처가 당사자\)\n   근거: EDIS 문서 901438 본문 — "The parties are requested to file written submissions/);
   // 11-21: EDIS 한국산 반덤핑 청원(731) 접수일 → 상무부 개시 결정 20일·ITC 예비 판정 45일·상무부 예비 판정(개시+140일 어림). 337 제소장은 계산 안 함
   assert.match(t, /- 2026-11-30 · 미국 상무부 · 조사 개시 여부 결정\(법정 — 청원 접수 20일, 업계 지지 조사 시 최대 40일\) · Paper File Folders from Korea \(731-1781, 청원 접수 2026-11-10\) \(출입 업종 품목 아님\)\n   근거: 19 U\.S\.C\. 1671a\(c\)·1673a\(c\)/);
   assert.match(t, /- 2026-12-25 · 미국 ITC · 예비 피해 판정\(법정 — 청원 접수 45일\) · Paper File Folders from Korea/);
