@@ -1475,7 +1475,7 @@ async function buildingSection(ctx, q, days, limit) {
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
-  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 소규모 ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 소규모 ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   // Coverage gaps: plants whose lot is unknown and lots whose query failed have unknown permits, not none.
