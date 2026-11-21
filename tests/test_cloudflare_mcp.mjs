@@ -4631,7 +4631,7 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
     freeRepair: { checkedAt: '2026-10-26T06:10:00+09:00', baselineAt: '2026-10-26T06:10:00+09:00', total: 4177, rules: ['무상수리는 리콜(제작결함 시정조치)이 아니다.'],
       items: [it(4874, '[기아] K8 HEV - HPCU 관련 무상수리'),
         it(4875, '[기아] 타스만 - BDC 관련 무상수리', { units: 1204, model: '타스만(TK1)', reason: 'BDC 소프트웨어 오류로 실내등이 꺼지지 않을 가능성이 확인됨에 따른 무상수리', action: 'BDC 소프트웨어 업데이트', swapped: true,
-          us: { status: 'ok', make: 'KIA', models: ['TASMAN'], years: [2026, 2027], parts: ['BDC'], campaigns: 4,
+          us: { status: 'ok', make: 'KIA', models: ['TASMAN'], years: [2026, 2027], parts: ['BDC'], campaigns: 4, unknown: ['TASMAN 2027'],
             matches: [{ campaign: '26V100000', received: '2026-08-01', leadDays: 103, models: ['TASMAN'], years: ['2026'], parts: ['BDC'],
               summary: 'Kia America is recalling certain 2026 Tasman vehicles. The body domain controller (BDC) software may fail.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V100' }] },
           tier: 'B', why: '출입처 브랜드 무상수리 공지' }),
@@ -4661,7 +4661,7 @@ test('kr_fuel 무상점검·수리 게시판: 출입처 브랜드 새 공지만 
   assert.match(t.text, /타스만[^\n]*\n[^\n]*\n   원인\(공지의 조치 칸 원문 — 공지가 두 칸을 바꿔 적어 바꿔 읽음\): 「BDC 소프트웨어 오류[^\n]*\n   조치\(공지의 내용 칸\): 「BDC 소프트웨어 업데이트」/);
   assert.doesNotMatch(t.text, /K8 HEV[^\n]*\n[^\n]*\n   원인\(/);    // 바뀌지 않은 공지는 그대로 '내용'
   // 미국 NHTSA 리콜 자동 대조(11-22): 맞은 리콜은 접수일·국내 공지와의 날짜 차이·맞은 낱말·원문 주소, 미국 판매 이름 없는 차종은 '조회 안 함'
-  assert.match(t.text, /   미국 리콜 대조\(자동 · NHTSA TASMAN 2026·2027년형 · 국내 부품 낱말 BDC\) — 같은 결함인지 미확인\(리콜 원문·회사 확인\)\n     26V100000 접수 2026-08-01\(국내 공지보다 103일 앞\) · TASMAN 2026 · 맞은 낱말 BDC · 「Kia America[^」]*」 https:\/\/www\.nhtsa\.gov\/recalls\?nhtsaId=26V100/);
+  assert.match(t.text, /   미국 리콜 대조\(자동 · NHTSA TASMAN 2026·2027년형 · 국내 부품 낱말 BDC\) — 같은 결함인지 미확인\(리콜 원문·회사 확인\) · NHTSA에 없는 차명·연식 TASMAN 2027\(아직 등록 전 연식일 수 있음\)\n     26V100000 접수 2026-08-01\(국내 공지보다 103일 앞\) · TASMAN 2026 · 맞은 낱말 BDC · 「Kia America[^」]*」 https:\/\/www\.nhtsa\.gov\/recalls\?nhtsaId=26V100/);
   assert.match(t.text, /등급 이유: 대상 77,043대\(1만 대 이상\)\n   미국 리콜 대조: 미국 판매 이름을 모르는 차종\(국내 전용·수입차\) — 조회 안 함/);
   assert.match(sec('B'), /글 번호 4875\)[^\n]* · 미국 같은 차종·부품 낱말 리콜 26V100000\(접수 2026-08-01, 국내 공지보다 103일 앞 — 같은 결함인지 미확인\) — 리콜\(시정조치\) 아님/);
   assert.match(t.text, /- \[기준선\] 2026-10-10 · B · 현대차 · \[현대\] 아반떼/);

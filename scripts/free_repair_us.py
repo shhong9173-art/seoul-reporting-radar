@@ -185,9 +185,15 @@ def match_rows(rows, parts, domestic_date=None):
     return out[:MAX_MATCHES]
 
 
+class Unknown(Exception):
+    """NHTSA가 모르는 차명·연식(HTTP 400) — 11-22 첫 운영: SANTA FE·SONATA 2027년형이 400(아직 등록 전 연식). 조회 실패가 아니다."""
+
+
 def _fetch(get, make, model, year):
     url = f"{API}?{urlencode({'make': make, 'model': model, 'modelYear': year})}"
     r = get(url, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=20)
+    if getattr(r, "status_code", 200) == 400:
+        raise Unknown("HTTP 400")
     if getattr(r, "status_code", 200) != 200:
         raise RuntimeError(f"HTTP {r.status_code}")
     data = r.json() if hasattr(r, "json") else json.loads(r.text)
@@ -200,6 +206,13 @@ def _fetch(get, make, model, year):
 def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
     """출입처·상세 읽은 공지에 us 칸을 채운다(새 글부터, 한 번). 돌려줌: 점검 {calls, checked, linked, failed, waiting}."""
     stamp = now.isoformat(timespec="seconds")
+    for x in items:   # 11-22 첫 운영 저장분: HTTP 400(모르는 연식)을 실패로 적었다 — 한 번 고쳐 둔다
+        us = x.get("us") or {}
+        bits = [b.strip() for b in str(us.get("error") or "").split(";") if b.strip()]
+        if us.get("status") in ("partial", "failed") and bits and all(b.endswith("HTTP 400") for b in bits):
+            us.update(status="ok", unknown=[b[:-len(" HTTP 400")] for b in bits])
+            us.pop("error", None)
+            us.pop("tries", None)
     todo = [x for x in items if x.get("company") and x.get("detail") == "ok"
             and (not x.get("us") or (x["us"].get("status") == "failed" and (x["us"].get("tries") or 0) < TRIES))]
     todo.sort(key=lambda x: (x.get("date") or "", int(x.get("no") or 0)), reverse=True)
@@ -218,13 +231,15 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
         if calls + len(pairs) > budget:
             waiting += 1
             continue
-        rows, errors = [], []
+        rows, errors, unknown = [], [], []
         for m, y in pairs:
             if calls:
                 sleep(GAP)
             calls += 1
             try:
                 rows += _fetch(get, make, m, y)
+            except Unknown:
+                unknown.append(f"{m} {y}")
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{m} {y} {str(e)[:40] or type(e).__name__}")
         parts = domestic_parts(x)
@@ -233,6 +248,7 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
         x["us"] = {"at": stamp, "status": status, "make": make, "models": names, "years": years,
                    "parts": [label for label, _, _ in parts], "campaigns": len({r.get("NHTSACampaignNumber") for r in rows if r.get("NHTSACampaignNumber")}),
                    "matches": match_rows(rows, parts, x.get("date")) if parts else [],
+                   **({"unknown": unknown} if unknown else {}),
                    **({"error": "; ".join(errors)[:160], "tries": prev_tries + 1} if errors else {})}
         checked += 1
         failed += status == "failed"
