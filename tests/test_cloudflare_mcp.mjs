@@ -1920,7 +1920,7 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   // 특허 미보도 후보(clue:late)는 B(10-31)
   assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 2\(씀 1 · 보류 1\) · B 6\(씀 1 · 킬 4 · 봤음 1\)/);
   assert.match(r.text, /- 해외 파트너 공시 1 — 봤음 1 \| B 1\(봤음 1\)/);
-  assert.match(r.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
+  assert.match(r.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1\n   id: gone:1\(봤음\)\n/);
   assert.match(r.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4 \| 일상\(B\) 5: 씀 1 · 킬 4/);
   assert.match(r.text, /- 단독 후보 심사 · DART 소송판결 1 — 씀 1/);
   assert.match(r.text, /- 단독 후보 심사 · DART 주요사항보고서\(유상증자결정\) 1 — 보류 1/);  // unsupported type grouped by report name
@@ -1937,7 +1937,7 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   assert.match(later.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4/);
   // 11-21: 목록에서 빠진 'clue:late'는 id 앞말(clue)로 단독 후보 심사로 짐작 — 앞말을 모르는 'gone:1'만 미상
   assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
-  assert.match(later.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1/);
+  assert.match(later.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1[^\n]*\n   \(그중 1건은 판정 때 감시 이름이 없어 id 앞말로 짐작\)/);
 });
 
 test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 감시에 사유·제안, 이미 바꾼 기준(굴뚝 11-04)은 바뀐 뒤 판정만 본다', async () => {

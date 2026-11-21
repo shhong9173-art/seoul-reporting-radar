@@ -211,6 +211,12 @@ export async function weeklyReview(ctx, args) {
   for (const [watch, rs] of groupBy(items, (r) => r.watch)) {
     const tiers = groupBy(rs.filter((r) => r.tier), (r) => r.tier).sort((a, b) => a[0].localeCompare(b[0]));
     out.push(`- ${watch} ${rs.length} — ${fmt(rs)}${tiers.length ? ` | ${tiers.map(([t, x]) => `${t} ${x.length}(${fmt(x)})`).join(' · ')}` : ''}`);
+    // 11-21: 미상 묶음은 어떤 항목인지 보이지 않았다(기자가 쓴 단독 1건 포함) — id를 붙인다(씀·보류 먼저). 앞말로 짐작한 묶음은 그 수를 적는다
+    if (watch.startsWith('감시 미상')) {
+      const order = { 씀: 0, 보류: 1, 봤음: 2, 킬: 3 };
+      const ids = [...rs].sort((a, b) => (order[a.verdict] ?? 9) - (order[b.verdict] ?? 9)).map((r) => `${r.item_id}(${r.verdict})`);
+      out.push(`   id: ${ids.slice(0, 6).join(', ')}${ids.length > 6 ? ` … ${ids.length - 6}건 더` : ''}`);
+    } else if (rs.some((r) => r.guessed)) out.push(`   (그중 ${rs.filter((r) => r.guessed).length}건은 판정 때 감시 이름이 없어 id 앞말로 짐작)`);
     const killed = rs.filter((r) => r.verdict === '킬').length;
     if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(killNote(watch, rs, killed, watch));
   }
