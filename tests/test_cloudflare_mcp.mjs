@@ -5953,6 +5953,19 @@ test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(
     if (want) assert.match(text, want);
     else assert.doesNotMatch(text, /첨부 본문 토큰 만료 D-/);
   }
+  // 11-21: 안내 줄(토큰 만료 예고 D-3 이상·'새 글 없음 연속'만 있는 감시)은 실패 줄 뒤로 — 알림 화면은 수집 상태를 4줄까지만 옮긴다
+  const opts = PRIVATE();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  await post('trade-remedy', { ...base, edis: { ...base.edis, tokenExpires: exp(5) } });
+  await post('partner-filings', { schema: 'partner_filings/v1', generatedAt: recent, status: 'partial', items: [],
+    checks: [{ source: 'EDGAR', target: 'Kia America', status: 'failed', error: 'HTTP 500' }] });
+  const text = (await call('radar_today', {}, opts)).text;
+  const iFail = text.indexOf('해외 파트너 공시: 일부 실패');
+  const iTok = text.indexOf('첨부 본문 토큰 만료 D-5');
+  assert.ok(iFail > 0 && iTok > iFail, `실패 줄이 토큰 안내보다 앞: ${iFail} < ${iTok}`);
+  await post('trade-remedy', { ...base, edis: { ...base.edis, tokenExpires: exp(1) } });   // D-1부터는 앞에
+  const t2 = (await call('radar_today', {}, opts)).text;
+  assert.ok(t2.indexOf('첨부 본문 토큰 만료 D-1') < t2.indexOf('해외 파트너 공시: 일부 실패'));
 });
 
 test('예약 작업 저장본(11-18): 저장본 없음·진행 중 멈춤을 radar_today·radar_health(기자 전용) 맨 위에 — 11-19 아침 발제는 기자가 지워 목록에서 뺌', async () => {
