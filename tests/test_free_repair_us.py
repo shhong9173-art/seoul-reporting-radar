@@ -58,7 +58,17 @@ class Parts(unittest.TestCase):
         self.assertEqual(u.us_models({"model": "쏘나타 (DT23)"}), ("HYUNDAI", ["SONATA"]))
         self.assertEqual(u.us_models({"model": "G90(RS4)"}), ("GENESIS", ["G90"]))
         self.assertEqual(u.us_models({"model": "코나 일렉트릭(SX2 EV)"}), ("HYUNDAI", ["KONA ELECTRIC", "KONA"]))
-        for domestic in ("K8(GL3) HEV", "타스만(TK)", "스타리아 (US4 PE)", "레이 (TAM)", "쏠라티", "BMW 740 xDrive"):   # 미국 판매 이름 없음
+        # 11-22 수입·한국GM 차종: 혼다 미국 생산 차종·한국GM 수출 차종·폭스바겐·아우디 일부
+        self.assertEqual(u.us_models({"model": "ACCORD Hybrid (어코드 하이브리드)", "title": "[혼다] 어코드 - 에어백 관련 무상수리"}), ("HONDA", ["ACCORD", "ACCORD HYBRID"]))
+        self.assertEqual(u.us_models({"model": "CR-V"}), ("HONDA", ["CR-V"]))
+        self.assertEqual(u.us_models({"model": "트레일블레이저"}), ("CHEVROLET", ["TRAILBLAZER"]))
+        self.assertEqual(u.us_models({"model": "Q4 40 e-tron, Q4 Sportback 40 e-tron"}), ("AUDI", ["Q4 E-TRON"]))
+        self.assertEqual(u.us_models({"model": "ID.4 Pro"}), ("VOLKSWAGEN", ["ID.4"]))
+        self.assertIsNone(u.us_models({"model": "SCR-VALVE"}))           # CR-V 낱말 경계
+        # 다른 브랜드 공지의 낱말로 엉뚱한 차종을 조회하지 않는다(현대차 공지의 '아틀라스' 배터리 → 폭스바겐 ATLAS 아님)
+        self.assertIsNone(u.us_models({"model": "그랜저", "title": "[현대] 그랜저 - 아틀라스 배터리 관련 무상수리", "company": "현대차"}))
+        self.assertEqual(u.us_models({"model": "ATLAS", "company": "폭스바겐코리아"}), ("VOLKSWAGEN", ["ATLAS"]))
+        for domestic in ("K8(GL3) HEV", "타스만(TK)", "스타리아 (US4 PE)", "레이 (TAM)", "쏠라티", "BMW 740 xDrive", "E 300 4MATIC", "KOLEOS (콜레오스)"):   # 미국 판매 이름 없음·차명 다름
             self.assertIsNone(u.us_models({"model": domestic}), domestic)
         self.assertEqual(u.model_years("2026-01-21 ~ 2026-09-04"), [2026, 2027])
         self.assertEqual(u.model_years("2019-03-01 ~ 2022-05-31"), [2019, 2021, 2023])
@@ -105,6 +115,13 @@ class Link(unittest.TestCase):
         api = Api()
         u.link([k8, other], api, NOW, sleep=lambda s: None)
         self.assertEqual((k8["us"]["status"], "us" in other, api.calls), ("no-model", False, []))   # 국내 전용 차종은 조회 안 함·다른 브랜드는 안 봄
+        # 차종 목록 판이 바뀌기 전(판 없음)에 '조회 안 함'으로 적은 공지는 다시 본다 — 11-22 혼다 추가
+        accord = {**item("4870", "[혼다] 어코드 - 에어백 관련 무상수리", "ACCORD (어코드)", "2025-03-01 ~ 2025-06-30", "에어백 인플레이터", company="혼다코리아"),
+                  "us": {"status": "no-model"}}
+        api2 = Api()
+        u.link([accord, k8], api2, NOW, sleep=lambda s: None)
+        self.assertEqual((accord["us"]["status"], accord["us"]["models"], len(api2.calls)), ("ok", ["ACCORD"], 2))   # 2025·2026년형(끝 해 +1)
+        self.assertEqual(u.link([accord, k8], Api(), NOW, sleep=lambda s: None)["calls"], 0)       # 같은 판이면 다시 안 봄
         # 한도: 한 공지(3연식 × 2차종 = 6번)씩, 한도 12면 두 건, 셋째는 다음 실행
         many = [item(str(4900 + i), "[현대] 싼타페 하이브리드 - EGR 관련 무상수리", "싼타페, 싼타페 하이브리드", "2020-01-01 ~ 2023-12-31", "EGR 쿨러 결빙", date=f"2026-11-{10 + i}") for i in range(3)]
         sleeps = []
