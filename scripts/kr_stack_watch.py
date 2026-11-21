@@ -327,6 +327,57 @@ def retier_repeat_downs(events):
                 seen[c] = (since, str(e.get("detectedAt") or ""))
 
 
+# 알린 뒤 곧 돌아온 사업장 멈춤(11-22 운영: 세아창원특수강 00:20 B '배출구 6개 중 3개 멈춤' → 03:20 재가동 신호(3개 중 2개 평소 수준) ·
+# 05:20 194번 해제 — 194번은 최근 30일 멈췄다 돈 게 5번인 간헐 가동). 재가동 신호가 B를 알린 뒤 하루 안에 나고, 측정기 쪽 상태가 아닌 멈춘 배출구가
+# 모두 재가동 때까지 사흘(LONG_STOP_HOURS) 안쪽으로 멈췄으면 C — 사흘 넘게 멈췄던 배출구가 있으면 긴 멈춤이 끝난 것이라 B 그대로 둔다.
+SHORT_DOWN_HOURS = 24
+SHORT_DOWN_NOTE = "짧은 멈춤이라 C로 바로잡음"
+INSTRUMENT_STATUS = ("보수중", "기기점검", "미수신", "측정자료확인중")
+DOWN_PART = re.compile(r"(\S+?)번\(평소[^)]*(?:\([^)]*\)[^)]*)*\)")
+
+
+def _event_time(v):
+    try:
+        t = dt.datetime.fromisoformat(str(v or ""))
+    except ValueError:
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=KST)
+
+
+def retier_short_downs(events, hours=SHORT_DOWN_HOURS):
+    """B '사업장 가동 중단 신호' 뒤 hours시간 안에 같은 사업장 '사업장 재가동 신호'가 나고 멈춘 배출구가 모두 사흘 안쪽 멈춤이면 C(한 번)."""
+    downs = {}
+    for e in sorted(events, key=lambda e: str(e.get("detectedAt") or "")):
+        eid = str(e.get("id") or "")
+        if e.get("kind") == "사업장 가동 중단 신호" and eid.startswith("stk:down:"):
+            downs[eid[len("stk:down:"):].rsplit(":", 1)[0]] = e
+            continue
+        if e.get("kind") != "사업장 재가동 신호" or not eid.startswith("stk:up:"):
+            continue
+        d = downs.pop(eid[len("stk:up:"):].rsplit(":", 1)[0], None)
+        text = str((d or {}).get("text") or "")
+        a, b = _event_time((d or {}).get("detectedAt")), _event_time(e.get("detectedAt"))
+        if not d or d.get("tier") != "B" or SHORT_DOWN_NOTE in text or not a or not b or not 0 <= (b - a).total_seconds() <= hours * 3600:
+            continue
+        spans = []
+        for m in DOWN_PART.finditer(text):
+            part = m.group(0)
+            st = re.search(r"상태 '([^']+)'", part)
+            if st and st.group(1) in INSTRUMENT_STATUS:
+                continue  # 측정기 쪽 상태는 설비 멈춤으로 세지 않는다
+            since = re.search(r"멈춤 (\d\d-\d\d \d\d:\d\d)부터", part)
+            t0 = obs_time(f"{b.year}-{since.group(1)}") if since else a
+            if t0 and t0 > b:
+                t0 = t0.replace(year=t0.year - 1)
+            spans.append((b - t0).total_seconds() / 3600 if t0 else None)
+        if not spans or any(h is None or h > LONG_STOP_HOURS for h in spans):
+            continue
+        back = re.search(r"멈췄던 배출구 \d+개 중 \d+개", str(e.get("text") or ""))
+        d["tier"] = "C"
+        d["text"] = text + (f" — {b:%m-%d %H:%M} 재가동 신호({back.group(0) + ' 평소 수준' if back else '평소 수준으로 돌아옴'}) — 알린 뒤 "
+                            f"{(b - a).total_seconds() / 3600:.0f}시간 · 멈춘 배출구 모두 사흘 안쪽(가장 긴 {max(spans):.0f}시간) {SHORT_DOWN_NOTE}")
+
+
 def retier_marginal(events):
     """저장된 배출허용기준 초과 이벤트 중 기준을 5% 안쪽으로 넘은 것을 한 단계 내린다(예전 규칙으로 B·A가 된 것 바로잡기)."""
     lower = {"배출허용기준 초과(측정값)": ("B", "C"), "배출허용기준 초과 지속": ("A", "B")}
@@ -1119,6 +1170,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     allev = fold_gone_bursts(fresh + events)
     collapse_long_gone(allev)
     retier_repeat_downs(allev)
+    retier_short_downs(allev)
     cap_tiers(allev)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
@@ -1132,6 +1184,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "멈췄다 다시 움직인 배출구는 시작·끝을 남겨(11-03부터, 최근 8번·90일) 다음 멈춤 알림에 최근 30일 앞선 멈춤을 함께 적는다 — 되풀이되는 짧은 멈춤은 일상 정비·간헐 가동일 수 있다. 기록 시작 전 멈춤은 모른다.",
+                      "사업장 가동 중단 신호(B)를 알린 뒤 하루 안에 같은 사업장 재가동 신호(멈췄던 배출구 절반 넘게 평소 수준)가 나고, 측정기 쪽 상태가 아닌 멈춘 배출구가 모두 사흘 안쪽 멈춤이었으면 C로 바로잡는다(짧은 멈춤). 사흘 넘게 멈췄던 배출구가 있으면 B 그대로.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
                       "숫자로 돌던 배출구가 '가동중지'(사업장이 보낸 시설 멈춤 신고)로 바뀐 순간을 알린다(연속 가동 사업장만): 멈춤 B와 같은 사업장 크기 기준(5%·최소 2개, 큰 배출구, 평소 값 합 10%)이면 B, 아니면 3개 이상일 때 C. 거꾸로 다시 숫자를 보내면 '해제'(같은 기준). 먼저 B로 알린 배출구의 멈춤 신호(3번 연속)는 C. 11-03 확인: '가동중지'는 2시간 뒤에도 17개 중 16개 그대로였다.",
