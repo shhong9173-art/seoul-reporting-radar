@@ -310,9 +310,13 @@ def council_items(materials):
 
 
 def pdf_text(content):
+    """부회 자료 PDF는 AES 암호지만 열람 암호는 비어 있다(권한 제한만 — 누구나 연다). pypdf가 빈 암호로 열려면 cryptography 패키지가 필요하다."""
     import io
     from pypdf import PdfReader
-    return norm("\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(content)).pages))
+    reader = PdfReader(io.BytesIO(content))
+    if reader.is_encrypted:
+        reader.decrypt("")
+    return norm("\n".join((p.extract_text() or "") for p in reader.pages))
 
 
 def council_facts(text):

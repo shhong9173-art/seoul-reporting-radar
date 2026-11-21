@@ -58,7 +58,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6"
+      # 부회 자료 PDF는 AES 암호(빈 열람 암호 — 권한 제한만)라 pypdf가 열려면 cryptography가 있어야 한다(11-21 첫 실행: 3개 모두 못 읽음)
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6" "cryptography>=3.1"
       - name: Test announcement reading
         run: python -m unittest discover -s tests -p 'test_jp_trade_remedy_watch.py' -v
       - name: Read Japan trade remedy announcements (counts-only log)
