@@ -167,6 +167,9 @@ export function returnedWatch(prev, doc, nowIso) {
       continue;
     }
     hist[source] = [n, ...before].slice(0, RW_KEEP);
+    // 기간 안 줄 수(returned)만 0이고 원천 목록 자체(total)는 비지 않았으면 형식 변경이 아니라 그 기간 새 글이 없는 것(11-21 운영:
+    // 인천지방법원 법인파산 '정상 응답인데 0줄, 이전 5·5·5·5줄' — 토요일 실행, 대법원 목록 total은 그대로). 의심도 풀어 준다
+    if (typeof c.total === 'number' && c.total > 0) continue;
     const old = was.get(source);
     if (old && n <= (old.limit ?? 0)) { silent.push({ ...old, now: n }); continue; }
     const ref = before.slice(1, 5);
