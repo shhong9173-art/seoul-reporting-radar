@@ -103,6 +103,37 @@ def tier_of(title, body, in_title):
     return t
 
 
+TAG = re.compile(r"^\s*(?:[\[［(【][^\]］)】]{1,12}[\]］)】]\s*)+")
+FOLLOW_DAYS = 4
+
+
+def core_title(title):
+    """'[취재요청] 동희오토 민주노조 인정! … 기자회견' → 머리 꼬리표([취재요청]·[보도자료]·[성명])·'발언문'을 뺀 본 제목(빈칸 없이)."""
+    t = TAG.sub("", str(title or ""))
+    t = re.sub(r"\s*(?:발언문|기자회견문|보도자료|자료)\s*$", "", t)
+    return re.sub(r"\s+", "", t)
+
+
+def fold_followups(events, posts):
+    """같은 게시판에 같은 행사 글이 며칠 사이 두 번 오르면(취재요청 → 보도자료·발언문) 뒤 글은 C — 11-15~11-19 금속노조:
+    동희오토·현대차그룹사 3대 요구안·현대글로비스광주지회 기자회견이 [취재요청]·[보도자료] 두 줄씩 B로 떴다. 한 번만 고친다."""
+    told = []
+    for e in sorted(events, key=lambda e: str(e.get("detectedAt") or "")):
+        core = core_title(e.get("title"))
+        at = str(e.get("detectedAt") or "")
+        if len(core) < 12:
+            continue
+        first = next((t for t in told if t[0] == e.get("board") and (t[1].startswith(core) or core.startswith(t[1]))
+                      and at[:10] <= (dt.date.fromisoformat(t[2][:10]) + dt.timedelta(days=FOLLOW_DAYS)).isoformat()), None)
+        if first and e.get("tier") in ("A", "B") and not e.get("followOf"):
+            e["tier"], e["followOf"] = "C", first[3]
+            e["text"] = str(e.get("text") or "") + f" — {first[2][5:10]} 같은 행사 글을 먼저 알림(C)"
+            if e.get("id") in posts:
+                posts[e["id"]] = {**posts[e["id"]], "tier": "C", "followOf": first[3]}
+        elif not first:
+            told.append((e.get("board"), core, at, e.get("id")))
+
+
 def run(now, previous=None, *, get=None, sleep=time.sleep):
     if get is None:
         import requests
@@ -175,6 +206,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
                                         + " · 노조 발표(한쪽 주장) — 회사 입장·사실관계 확인")})
         checks.append({"source": label, "status": "ok" if not bad else "partial", "returned": len(ids), "opened": len(new) - bad,
                        **({"error": f"글 {bad}건 읽기 실패"} if bad else {})})
+    fold_followups(events, known)
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     ok = [c for c in checks if c["status"] != "failed"]
     status = "failed" if not ok else "complete" if all(c["status"] == "ok" for c in checks) else "partial"
