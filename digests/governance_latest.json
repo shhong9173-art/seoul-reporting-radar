@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-20T07:44:33+09:00",
- "windowStart": "2026-10-21",
+ "generatedAt": "2026-11-22T07:11:11+09:00",
+ "windowStart": "2026-10-23",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -472,8 +472,8 @@
    "company": "두산에너빌리티",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 15,
-   "rowsInWindow": 0
+   "rowsReturned": 16,
+   "rowsInWindow": 1
   },
   {
    "company": "두산에너빌리티",
@@ -710,8 +710,8 @@
    "company": "금호석유화학",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 63,
-   "rowsInWindow": 5
+   "rowsReturned": 60,
+   "rowsInWindow": 4
   },
   {
    "company": "금호석유화학",
@@ -728,6 +728,25 @@
  },
  "count": 43,
  "items": [
+  {
+   "company": "두산에너빌리티",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-11-20",
+   "receiptNo": "20261120000468",
+   "reporter": "두산",
+   "reportType": "일반",
+   "shares": 196506795.0,
+   "sharesChange": 0.0,
+   "ratio": 30.68,
+   "ratioChange": 0.0,
+   "reason": "계약 내용의 변경",
+   "tags": [
+    "[사유: 계약]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261120000468"
+  },
   {
    "company": "넥센타이어",
    "team": "자동차",
@@ -759,8 +778,9 @@
    "sharesChange": 13348206.0,
    "ratio": 10.0,
    "ratioChange": 10.0,
+   "firstReport": true,
    "tags": [
-    "[지분율 +10.00%p]"
+    "[10% 이상 주주로 첫 보고 · 보유 10.00%]"
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261119000277"
@@ -1004,24 +1024,6 @@
    "routine": false,
    "treasury": "20261015000414",
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000155"
-  },
-  {
-   "company": "금호석유화학",
-   "team": "화학·소재",
-   "kind": "임원·주요주주",
-   "date": "2026-10-22",
-   "receiptNo": "20261022000135",
-   "reporter": "박주형",
-   "role": "비등기임원 부사장 사실상지배주주",
-   "shares": 331980.0,
-   "sharesChange": 400.0,
-   "ratio": 1.19,
-   "ratioChange": 0.01,
-   "tags": [
-    "[최고경영진]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000135"
   },
   {
    "company": "금호석유화학",
