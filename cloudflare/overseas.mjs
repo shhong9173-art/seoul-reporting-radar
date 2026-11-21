@@ -575,6 +575,9 @@ export function thSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
     if (duty.length) out.push(`   ${duty.join(' · ')}`);
     if (x.latest) out.push(`   가장 최근 공고(태국어): 「${String(x.latest).slice(0, 160)}」`);
     if ((x.steps ?? []).length) out.push(`   최근 단계: ${x.steps.slice(-2).map((s) => `${s.no} ${(s.dates ?? []).join('·')} 「${String(s.label).slice(0, 70)}」`).join(' / ')}`);
+    // 11-21: 상태·공고·단계 이름이 태국어 그대로 — 아는 절차 낱말만 짚는다(번역 아님)
+    const g = foreignGloss('th-trade', [x.status, x.latest, ...(x.steps ?? []).slice(-2).map((s) => s.label)].filter(Boolean).join(' '));
+    if (g) out.push(`   ${g}`);
     out.push(`   원문: ${x.url ?? `https://thaitr.dft.go.th/th/search/${x.code}`}`);
   }
   if (cases.length > limit) out.push(`… 남은 ${cases.length - limit}건`);
