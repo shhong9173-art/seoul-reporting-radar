@@ -6276,6 +6276,18 @@ test('EU 기업결합(11-21): 출입처가 당사자인 사전 신고·승인은
   assert.match((await call('radar_today', {}, opts)).text, /EU 기업결합 — 승인\(이의 없음\): M\.12449/);
 });
 
+test('조용한 0건(11-21): 기간 안 줄 수만 0이고 원천 목록 total이 남아 있으면 형식 변경 의심이 아니다', () => {
+  const at = '2026-11-21T09:00:00Z';
+  let w = null;
+  for (let i = 0; i < 5; i += 1) w = returnedWatch(w, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 5, total: 3120 }, { source: '깨진 목록', status: 'ok', returned: 5 }] }, at);
+  for (let i = 0; i < 2; i += 1) w = returnedWatch(w, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 0, total: 3121 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
+  assert.deepEqual((w.silent ?? []).map((x) => x.source), ['깨진 목록']);
+  // 이미 의심으로 적힌 원천도 total이 있으면 풀린다
+  const w2 = returnedWatch({ ...w, silent: [...w.silent, { source: '인천지방법원 법인파산', kind: 'zero', now: 0, before: [5, 5, 5, 5], limit: 0, since: at }] },
+    { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 0, total: 3121 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
+  assert.deepEqual(w2.silent.map((x) => x.source), ['깨진 목록']);
+});
+
 test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {
   const at = new Date('2026-11-21T03:00:00Z');   // 12:00 KST
   const opts = { ...PRIVATE(), now: at };
