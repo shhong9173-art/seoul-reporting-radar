@@ -6174,7 +6174,7 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
 
   const t = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(t, /^다가오는 해외 판정 일정 — 앞으로 400일 · /);
-  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\), 영국 TRA 사건 예정표\(구속력 없음\), 인도 DGTR 개시일\+규칙\(Rule 17·23\)\. 우회 조사는 계산 안 함/);
+  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한, 원심 ITC 최종 판정은 상무부 최종\+45일 법정 최대치\)·EDIS 새 청원 접수일\+법정 시한, 영국 TRA 사건 예정표\(구속력 없음\), 인도 DGTR 개시일\+규칙\(Rule 17·23\)\. 우회 조사는 계산 안 함/);
   assert.match(t, /- 2027-03-02 · 미국 상무부 · 최종 판정·결과 시한\(법정 — 연장 최대 180일\) · Large Power Transformers From the Republic of Korea \(2024-2025\) · Preliminary Results of Antidumping Duty Administrative Review\(관보 2026-11-02\) · 출입처 HD현대일렉트릭·LS일렉트릭\(관보 본문 속 출입처 이름\)\n   근거: 법정 시한\(게재일\+120일, 연장 최대 180일\) — "19 U\.S\.C\. 1675\(a\)\(3\)\(A\)/);
   assert.match(t, /- 2026-12-30 · 미국 상무부 · 최종 판정·결과 시한 · Thermal Paper[^\n]* \(출입 업종 품목 아님\)/);
   assert.match(t, /- ~2027-04-01 · 영국 TRA · 필수사실 고지\(SEF\) 공개 — 예정표 'April 2027'\(달 단위\) · AD0092/);
