@@ -310,6 +310,20 @@ export function annotateHandled(text, ledger) {
 export function entryLabel(e) { return entryLabelOf(e); }
 const entryLabelOf = (e) => `[${e.state}${e.tag && e.tag !== e.state && e.tag !== '킬' ? `·${e.tag}` : ''}] ${e.subject || e.key}`;
 
+// 즉시 알림을 보낸 레이더 항목을 경쟁지가 그 뒤 [단독]으로 쓴 것(11-21: 냉연강판 상계관세 예비 — 11-20 알림, 11-21 07:35 토요경제 단독).
+// alerted 값은 알림 보낸 날(MM-DD)뿐이라 기사 날(KST)과 같거나 앞설 때만 '알림 뒤'로 본다. 같은 날이면 앞뒤를 모른다고 적는다.
+export function alertBeforeArticle(alerted, itemId, publishedIso) {
+  const day = alerted?.get?.(String(itemId));
+  const t = Date.parse(publishedIso ?? '');
+  if (!day || !Number.isFinite(t)) return '';
+  const kst = new Date(t + 9 * 3600000);
+  const art = `${String(kst.getUTCMonth() + 1).padStart(2, '0')}-${String(kst.getUTCDate()).padStart(2, '0')}`;
+  // 12월 알림 ↔ 1월 기사처럼 해를 넘긴 경우: 월이 기사보다 크면 지난해로 본다
+  const before = day <= art || (Number(day.slice(0, 2)) - Number(art.slice(0, 2)) > 6);
+  if (!before) return '';
+  return day === art ? ` 〔같은 날(${day}) 즉시 알림 보냄 — 알림·기사 앞뒤는 알림 기록 시각으로 확인〕` : ` 〔즉시 알림 보냄 ${day} — 그 뒤 경쟁지 단독〕`;
+}
+
 export async function loadLedger(ctx, feedback = null) {
   const [{ rows: packages }, fb] = await Promise.all([storeOp(ctx, 'packages.digest', {}),
     feedback ? Promise.resolve({ rows: feedback }) : storeOp(ctx, 'feedback.latest', {})]);

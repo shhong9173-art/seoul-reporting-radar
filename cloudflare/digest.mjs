@@ -3,7 +3,7 @@
 // their silence is "미확인", not "nothing new".
 import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
-import { EXCLUDING, entryLabel, loadLedger, matchHandled } from './handled.mjs';
+import { EXCLUDING, alertBeforeArticle, entryLabel, loadLedger, matchHandled } from './handled.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { browserHealth } from './local_browser.mjs';
 import { alertHealth, taskHealth } from './alert_health.mjs';
@@ -2018,10 +2018,11 @@ export async function radarTodayText(ctx, args) {
     if (!rows.length) out.push('없음');
   }
   if (firsts.length) {
-    out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건 · 확인 ${kstStamp(rev.generatedAt)}`);
+    const alertedFirst = firsts.filter((a) => alertBeforeArticle(d.ledger?.alerted, a.best.id, a.published)).length;
+    out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건${alertedFirst ? `(그중 즉시 알림을 보낸 항목 ${alertedFirst}건)` : ''} · 확인 ${kstStamp(rev.generatedAt)}`);
     for (const a of firsts.slice(0, 5)) {
       out.push(`- 기사 ${kstStamp(a.published)} · ${a.source ?? '?'} 「${String(a.title ?? '').slice(0, 70)}」 · 기사 id ${a.articleId}`);
-      out.push(`   레이더: ${kstStamp(a.best.seen)} ${a.best.label} — ${reverseClip(a.best.text, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''})${reverseNumbersNote(a.best)} · id ${a.best.id}`);
+      out.push(`   레이더: ${kstStamp(a.best.seen)} ${a.best.label} — ${reverseClip(a.best.text, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''})${reverseNumbersNote(a.best)} · id ${a.best.id}${alertBeforeArticle(d.ledger?.alerted, a.best.id, a.published)}`);
     }
     if (firsts.length > 5) out.push(`… 남은 ${firsts.length - 5}건`);
     out.push('판정은 기자가 한다: 기사 원문(매체 사이트)·최초 게재 시각과 레이더 원천 원문을 열어 같은 사실인지 본다. 자세히: scoop_reverse.');

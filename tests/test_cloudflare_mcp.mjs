@@ -4414,6 +4414,19 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   assert.match(today.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric[^\n]*\(48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
   assert.doesNotMatch((await call('radar_today', { hours: 72, company: '포스코' }, opts)).text, /경쟁지 단독 역추적/);
   assert.ok((await call('scoop_reverse', {}, PRIVATE())).isError);
+  // 11-21: 즉시 알림을 보낸 항목을 경쟁지가 그 뒤 단독으로 쓴 것(냉연 상계관세 예비 — 11-20 알림, 11-21 07:35 토요경제)
+  await call('package_save', { name: 'alert-20261024', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 10-24 · 누적 1건', body: '[단독 후보 알림 21:43] 1건\n…\n보낸 id: cl:75019340' }, opts);
+  await call('package_save', { name: 'alert-20261026', state: '미발제·확인 필요', title: '단독 후보 즉시 알림 10-26 · 누적 1건', body: '[단독 후보 알림 08:43] 1건\n…\n보낸 id: fr:1' }, opts);
+  const r2 = (await call('scoop_reverse', {}, opts)).text;
+  assert.match(r2, /· id cl:75019340 〔즉시 알림 보냄 10-24 — 그 뒤 경쟁지 단독〕/);
+  assert.match(r2, /\(40시간 앞[^\n]*· id fr:1\n/);                                       // 10-25 기사 — 알림(10-26)이 뒤라 표시 안 함
+  assert.match(r2, /\(41시간 앞[^\n]*· id fr:1 〔같은 날\(10-26\) 즉시 알림 보냄 — 알림·기사 앞뒤는 알림 기록 시각으로 확인〕/);
+  const t2 = (await call('radar_today', { hours: 72 }, opts)).text;
+  assert.match(t2, /최근 14일 레이더가 먼저 잡은 후보 4건\(그중 즉시 알림을 보낸 항목 2건\)/);
+  assert.match(t2, /· id cl:75019340 〔즉시 알림 보냄 10-24 — 그 뒤 경쟁지 단독〕/);
+  const { alertBeforeArticle } = await import('../cloudflare/handled.mjs');
+  assert.equal(alertBeforeArticle(new Map([['x', '12-30']]), 'x', '2027-01-02T09:00:00+09:00'), ' 〔즉시 알림 보냄 12-30 — 그 뒤 경쟁지 단독〕');  // 해 넘김
+  assert.equal(alertBeforeArticle(new Map(), 'x', '2027-01-02T09:00:00+09:00'), '');
 });
 
 test('us_epa: a new model is A, an EV range change B, carryover C; tool shows EPA facts', async () => {
