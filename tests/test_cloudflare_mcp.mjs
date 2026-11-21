@@ -6305,6 +6305,12 @@ test('처리 장부(11-16): 정기보고서 주소를 적은 패키지가 같은
   // 같은 사건을 낱말로 적은 패키지(주소·id 없이)도 그대로 붙는다
   const byWords = () => ledgerEntries([pk('lgchem-lges-stake-sale-1028', '[킬] LG화학, LG에너지솔루션 주식 매각·주가수익스왑 — 이미 보도', '접음', '2026-11-16T10:15:00Z')], []);
   assert.ok(matchHandled(note, byWords())?.entry);
+  // 11-22: id가 안 적힌 구역 줄(kr_signals section=exec 문제 임원 점검)도 보고서 주소만으로는 붙지 않는다 — 낱말이 맞는 패키지는 그대로
+  const execBlock = `- B · LG화학 · 권봉석 1963년생 부회장(기타비상무이사) · 2026년 3분기(9-30 기준)\n   공식 제재: 공정위 2022-04-07 LG전자 — 과징금 — 4400만원\n   원문: ${URL}`;
+  assert.equal(annotateHandled(execBlock, petchem()).marked, 0);
+  const mobis = ledgerEntries([pk('mobis-board', '[접음] 현대모비스 이사회 9→7명(강진아 독립이사 퇴임·김도형 CFO 사내이사 이탈)', '접음', '2026-11-17T01:00:00Z', `${LINK_LINE} ${URL}`)], []);
+  const mobisBlock = `- A · 11-17 07:54 · 현대모비스 · 명단에서 빠짐\n   잡힌 사실: 현대모비스 2026년 3분기(9-30 기준) 임원 명단에서 빠짐 — 2026년 반기(6-30 기준) 강진아 1967년생 이사(등기 사외이사) · 담당 독립이사후보추천위원회 위원장\n   원문: ${URL}`;
+  assert.equal(annotateHandled(mobisBlock, mobis).marked, 1);
 });
 
 test('EDIS 첨부 본문 토큰: 만료 7일 전부터 수집 상태에 한 줄(고장 아님, 11-17 기자 결정)', async () => {
