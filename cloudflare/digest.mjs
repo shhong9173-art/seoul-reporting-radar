@@ -1898,7 +1898,8 @@ export function convergenceRows(g, max = 4) {
     const xs = bySite.get(site(x) ?? '') ?? [];
     if (xs.length < 2 || xs[0] !== x) continue;
     const day = (v) => (String(v.date ?? '').length > 10 ? kstStamp(v.date).slice(0, 5) : String(v.date ?? '').slice(5, 10));
-    fore[i] = { ...x, id: `${x.id} 외 ${xs.length - 1}`, fact: `같은 사업장 굴뚝 신호 ${xs.length}번(${day(xs[xs.length - 1])}~${day(x)}, 가장 최근 줄) — ${x.fact}` };
+    // id는 그대로 둔다(보도 대조 결과를 id로 찾는다 — 바꾸면 '[미보도 후보]' 표시가 빠진다) — 화면은 idMore로 '외 N'을 붙인다
+    fore[i] = { ...x, idMore: xs.length - 1, fact: `같은 사업장 굴뚝 신호 ${xs.length}번(${day(xs[xs.length - 1])}~${day(x)}, 가장 최근 줄) — ${x.fact}` };
   }
   const back = new Map();
   for (const x of g.items.filter((y) => y.background).sort(byDate)) {
@@ -2104,7 +2105,7 @@ export async function radarTodayText(ctx, args) {
     for (const g of conv.slice(0, 5)) {
       out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place}${g.plant ? ` · ${g.plant}` : ''} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})${coveredGroup(g) ? ' · 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}`);
       const { rows, more } = convergenceRows(g);
-      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · ${pressOf(x) ? `[${pressOf(x)}] ` : ''}`}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
+      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · ${pressOf(x) ? `[${pressOf(x)}] ` : ''}`}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}${x.idMore ? ` 외 ${x.idMore}` : ''}`);
       if (more) out.push(`   … 같은 묶음 ${more}줄 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
