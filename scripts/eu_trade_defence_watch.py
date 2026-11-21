@@ -354,6 +354,22 @@ def schedule_quote(text):
     return out
 
 
+# 출판청 SPARQL은 가끔 504·503을 낸다(11-21 07:00 실행 HTTP 504 — 다음 17:50 실행까지 EU 관보가 비었다).
+# 서버 오류(5xx)·시간 초과·연결 끊김이면 RETRY_WAIT초 뒤 한 번만 다시 묻는다(4xx·형식 오류는 다시 묻지 않는다).
+RETRY_WAIT = 20
+
+
+def list_docs_retry(get, since, sleep, limit=200):
+    try:
+        return list_docs(get, since, limit)
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        if not (msg.startswith("HTTP 5") or type(e).__name__ in ("ReadTimeout", "ConnectTimeout", "ConnectionError", "Timeout")):
+            raise
+        sleep(RETRY_WAIT)
+        return list_docs(get, since, limit)
+
+
 def run(now, previous=None, *, get=None, sleep=time.sleep):
     if get is None:
         import requests
@@ -368,7 +384,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     check = {"source": "EU 관보(Cellar SPARQL)", "status": "ok", "returned": 0}
     since = (now.date() - dt.timedelta(days=LOOKBACK_DAYS)).isoformat()
     try:
-        docs = list_docs(get, since)
+        docs = list_docs_retry(get, since, sleep)
     except Exception as e:  # noqa: BLE001
         check.update(status="failed", error=f"목록 {str(e)[:60] or type(e).__name__}")
         return {**prev, "schema": SCHEMA, "generatedAt": stamp, "status": "failed", "checks": [check], "stale": True} if prev else \
