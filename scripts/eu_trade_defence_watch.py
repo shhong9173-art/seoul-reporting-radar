@@ -354,6 +354,101 @@ def schedule_quote(text):
     return out
 
 
+# ── EU 기업결합(11-21) ─────────────────────────────────────────────
+# 경쟁지 11-14 [단독] '포스코·JSW 인도 합작제철소, EU 기업결합 승인'은 EU 관보 공고였다 — 사전 신고(10-30, 52026M12449)와
+# 승인 결정(11-12, 32026M12449)이 같은 출판청 목록에 있었다. 탐침(11-21): 5월 뒤 'concentration' 제목 592건(사전 신고 212·이의 없음 177·결정·철회).
+# 제목의 당사자('Case M.12449 – POSCO / JSW / SAFFRON / PMH')에 출입처 영문 이름이 있을 때만. 계열사는 뺀다(POSCO FLOW·POSCO International 등,
+# 'TMUS / KIA / I3 BROADBAND'의 KIA는 기아가 아니다 — 기아는 KIA CORPORATION·KIA MOTORS만).
+MERGER_DAYS = 30
+MERGER_NAMES = [
+    ("포스코", r"\bPOSCO\b(?!\s*(?:INTERNATIONAL|FUTURE|E&C|DX|FLOW|HOLDINGS|A&C|M-TECH|WIDE|ICT|ENERGY|STEELEON|MOBILITY))"),
+    ("포스코홀딩스", r"POSCO HOLDINGS"), ("현대차", r"HYUNDAI MOTOR"), ("기아", r"\bKIA (?:CORPORATION|MOTORS|CORP)\b"), ("현대모비스", r"HYUNDAI MOBIS"),
+    ("현대위아", r"HYUNDAI WIA"), ("HL만도", r"\bHL MANDO\b|\bMANDO CORP"), ("현대제철", r"HYUNDAI STEEL"), ("동국제강", r"DONGKUK STEEL"),
+    ("동국씨엠", r"DONGKUK (?:CM|COATED)"), ("세아제강", r"SEAH STEEL(?! HOLDINGS)"), ("세아홀딩스", r"SEAH (?:STEEL )?HOLDINGS"), ("KG스틸", r"\bKG STEEL"),
+    ("고려아연", r"KOREA ZINC"), ("영풍", r"YOUNG ?POONG"), ("한국타이어", r"HANKOOK TIRE|HANKOOK & COMPANY"), ("넥센타이어", r"NEXEN TIRE"),
+    ("금호타이어", r"KUMHO TIRE"), ("HD현대일렉트릭", r"HD HYUNDAI ELECTRIC"), ("LS일렉트릭", r"LS ELECTRIC"), ("LS전선", r"LS CABLE"),
+    ("대한전선", r"TAIHAN"), ("LS MnM", r"LS MNM"), ("두산에너빌리티", r"DOOSAN ENERBILITY"), ("GS칼텍스", r"GS CALTEX"),
+    ("한화솔루션", r"HANWHA SOLUTIONS|HANWHA Q ?CELLS|\bQCELLS\b"), ("OCI", r"\bOCI (?:HOLDINGS|COMPANY|CO)\b"), ("LG화학", r"\bLG CHEM"),
+    ("롯데케미칼", r"LOTTE CHEMICAL(?!\s*TITAN)"), ("금호석유화학", r"KUMHO PETROCHEMICAL"), ("S-OIL", r"\bS-OIL\b"), ("SK이노베이션", r"SK INNOVATION"),
+    ("HD현대오일뱅크", r"HYUNDAI OILBANK"), ("태광", r"TAEKWANG"), ("DL케미칼", r"DL CHEMICAL"), ("동성케미칼", r"DONGSUNG CHEMICAL"),
+]
+
+
+def merger_query(since):
+    return query(since).replace('"anti-dumping|countervailing|anti-subsidy|safeguard"', '"concentration"').replace("LIMIT 200", "LIMIT 400")
+
+
+def merger_kind(title):
+    t = title or ""
+    if re.search(r"Prior notification", t, re.I):
+        return "사전 신고", "notified"
+    if re.search(r"Withdrawal of notification", t, re.I):
+        return "신고 철회", "withdrawn"
+    if re.search(r"incompatible|prohibit", t, re.I):
+        return "불허", "prohibited"
+    if re.search(r"initiation of proceedings|open(?:ing)? proceedings|Article 6\(1\)\(c\)", t, re.I):
+        return "2단계 심사 개시", "phase2"
+    if re.search(r"Non-opposition|declaring a concentration to be compatible", t, re.I):
+        return "승인(이의 없음)", "cleared"
+    return None, None
+
+
+def merger_parts(title):
+    """'(Case M.12449 – POSCO / JSW / SAFFRON / PMH)' → ('M.12449', 'POSCO / JSW / SAFFRON / PMH'). 못 읽으면 (None, '')."""
+    m = re.search(r"Case (?:No\s*)?(?:COMP/)?(M\.\d{4,6})\s*[–—-]\s*([^)]{2,200})\)", title or "")
+    return (m.group(1), re.sub(r"\s+", " ", m.group(2)).strip()) if m else (None, "")
+
+
+def merger_names(parties):
+    return [ko for ko, rx in MERGER_NAMES if re.search(rx, parties or "", re.I)]
+
+
+def mergers_run(get, now, prev, stamp, sleep):
+    """EU 기업결합 공고(사전 신고·승인·철회·2단계·불허) 중 당사자에 출입처가 든 것 → (mergers, events, error). 첫 실행은 기준선."""
+    first = "mergers" not in (prev or {})
+    cases = {m["case"]: m for m in (prev or {}).get("mergers") or [] if isinstance(m, dict) and m.get("case")}
+    since = (now.date() - dt.timedelta(days=MERGER_DAYS)).isoformat()
+    try:
+        r = get(SPARQL, params={"query": merger_query(since), "format": "application/sparql-results+json"}, headers=UA, timeout=180)
+        if r.status_code >= 500:
+            sleep(RETRY_WAIT)
+            r = get(SPARQL, params={"query": merger_query(since), "format": "application/sparql-results+json"}, headers=UA, timeout=180)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        rows = r.json()["results"]["bindings"]
+    except Exception as e:  # noqa: BLE001
+        return list(cases.values()), [], f"기업결합 목록 {str(e)[:40] or type(e).__name__}"
+    events = []
+    for b in sorted(rows, key=lambda b: b["date"]["value"]):
+        celex, title, date = b["celex"]["value"], plain(b["title"]["value"]), b["date"]["value"][:10]
+        if not re.match(r"^[35]\d{4}M", celex):
+            continue
+        kind, stage = merger_kind(title)
+        case, parties = merger_parts(title)
+        if not kind or not case:
+            continue
+        names = merger_names(parties)
+        if not names:
+            continue
+        rec = cases.setdefault(case, {"case": case, "parties": parties, "companies": names, "stages": {}, "firstSeen": stamp})
+        if stage in rec["stages"]:
+            continue
+        url = f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{celex}"
+        rec["stages"][stage] = {"date": date, "celex": celex, "url": url, "kind": kind, "simplified": bool(re.search(r"simplified procedure", title, re.I))}
+        rec["latest"] = stage
+        if first:
+            continue
+        text = (f"EU 기업결합 — {kind}: {case} 「{parties}」({date}) · 출입처 {'·'.join(names)}"
+                + (" · 간이 절차 대상(통상 신고 뒤 25영업일 안 결정)" if rec["stages"][stage]["simplified"] else "")
+                + (f" · 사전 신고 {rec['stages']['notified']['date']}" if stage != "notified" and rec["stages"].get("notified") else "")
+                + " (EU 집행위원회 경쟁총국 공고 — 사전 신고는 심사 시작, 승인은 '이의 없음' 결정. 거래 구조·지분·금액은 회사 확인)")
+        events.append({"id": f"eumerger:{case}:{stage}", "kind": f"EU 기업결합({kind})", "tier": "A", "company": "·".join(names), "companies": names,
+                       "product": "", "number": case, "date": date, "korea": False, "merger": True, "url": url, "text": text, "detectedAt": stamp})
+    keep_from = (now.date() - dt.timedelta(days=KEEP_DAYS)).isoformat()
+    kept = [m for m in cases.values() if max((s["date"] for s in m["stages"].values()), default="") >= keep_from]
+    return sorted(kept, key=lambda m: max(s["date"] for s in m["stages"].values()), reverse=True)[:40], events, None
+
+
 # 출판청 SPARQL은 가끔 504·503을 낸다(11-21 07:00 실행 HTTP 504 — 다음 17:50 실행까지 EU 관보가 비었다).
 # 서버 오류(5xx)·시간 초과·연결 끊김이면 RETRY_WAIT초 뒤 한 번만 다시 묻는다(4xx·형식 오류는 다시 묻지 않는다).
 RETRY_WAIT = 20
@@ -457,6 +552,15 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     if history_err:
         errors.append(history_err)
         check.update(status="partial", error="; ".join(errors[:3]))
+    mergers, mevents, merr = mergers_run(get, now, prev, stamp, sleep)
+    known = {e["id"] for e in events}
+    for e in mevents:
+        if e["id"] not in known:
+            events.append(e)
+            fresh += 1
+    if merr:
+        errors.append(merr)
+        check.update(status="partial", error="; ".join(errors[:3]))
     keep_from = (now.date() - dt.timedelta(days=KEEP_DAYS)).isoformat()
     kept = sorted((r for r in recs.values() if (r.get("date") or "") >= keep_from), key=lambda r: (r.get("date") or "", r.get("celex")), reverse=True)[:MAX_RECORDS]
     for r in kept:
@@ -464,11 +568,12 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             r["isNew"] = False
     return {"schema": SCHEMA, "generatedAt": stamp, "status": check["status"], "checks": [check], "baselineAt": prev.get("baselineAt") or stamp,
             "seen": seen[-800:], "records": kept, "events": events[-60:], "fresh": fresh, "skipped": skipped,
-            "history": history[-300:], "historyAt": history_at, "proceedings": procs,
+            "history": history[-300:], "historyAt": history_at, "proceedings": procs, "mergers": mergers,
             "rules": ["EU 관보의 무역구제 규정·공고(유럽연합 출판청 목록, 최근 21일). 제목에 Korea가 든 출입 업종 품목과, 본문에 출입처 이름이 나온 확정·잠정 관세 규정만.",
                       "출입처 해외 법인(포스코 베트남 등)이 수출자로 나온 규정은 그 나라산 조치다 — 한국산 조치가 아니다.",
                       "세율은 본문 제1조에서 출입처 이름 뒤 첫 % 값을 자동으로 읽은 것 — 기사 전 원문 표 대조. 첫 실행은 기준선.",
-                      "판정 일정의 날짜는 규정상 시한(개시일부터 계산)이지 발표 예정일이 아니다 — 실제 발표는 더 이르거나(보통) 연장 공고로 늦어질 수 있다."]}
+                      "판정 일정의 날짜는 규정상 시한(개시일부터 계산)이지 발표 예정일이 아니다 — 실제 발표는 더 이르거나(보통) 연장 공고로 늦어질 수 있다.",
+                      "EU 기업결합: 관보 공고 제목의 당사자에 출입처 영문 이름이 든 사전 신고·승인·철회·2단계·불허만(최근 30일). 계열사(POSCO FLOW·POSCO International 등)는 뺀다."]}
 
 
 def main():

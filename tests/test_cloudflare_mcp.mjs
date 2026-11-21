@@ -6252,6 +6252,30 @@ test('베트남·인도네시아 무역구제 소식 줄 낱말 풀이(11-21): �
   assert.match((await call('trade_remedies', { section: 'notices' }, opts)).text, /   잡힌 사실: Cục Phòng vệ[^\n]*\n   베트남어 낱말 풀이: 범위 재심/);
 });
 
+test('EU 기업결합(11-21): 출입처가 당사자인 사전 신고·승인은 A(회사+EU+기업결합 대조), section=eu에 사건 단계', async () => {
+  const at = new Date('2026-11-21T03:00:00Z');
+  const opts = { ...PRIVATE(), now: at };
+  const recent = new Date(at.getTime() - 3600000).toISOString();
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [] }) }), opts.env, {});
+  const url = 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32026M12449';
+  const text = "EU 기업결합 — 승인(이의 없음): M.12449 「POSCO / JSW / SAFFRON / PMH」(2026-11-12) · 출입처 포스코 · 사전 신고 2026-10-30 (EU 집행위원회 경쟁총국 공고 — 사전 신고는 심사 시작, 승인은 '이의 없음' 결정. 거래 구조·지분·금액은 회사 확인)";
+  const res = await worker.fetch(new Request(ORIGIN + '/ingest/eu-trade-defence', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'eu_trade_defence/v1', generatedAt: recent, status: 'ok', checks: [{ source: 'EU 관보(Cellar SPARQL)', status: 'ok', returned: 20 }], records: [],
+      mergers: [{ case: 'M.12449', parties: 'POSCO / JSW / SAFFRON / PMH', companies: ['포스코'], latest: 'cleared',
+        stages: { notified: { date: '2026-10-30', celex: '52026M12449', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026M12449', kind: '사전 신고', simplified: true },
+          cleared: { date: '2026-11-12', celex: '32026M12449', url, kind: '승인(이의 없음)', simplified: false } } }],
+      events: [{ id: 'eumerger:M.12449:cleared', kind: 'EU 기업결합(승인(이의 없음))', tier: 'A', company: '포스코', companies: ['포스코'], product: '', number: 'M.12449', date: '2026-11-12',
+        korea: false, merger: true, url, text, detectedAt: recent }] }) }), opts.env, {});
+  assert.equal(res.status, 200);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const it = items.items.find((x) => x.id === 'eumerger:M.12449:cleared');
+  assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms], ['A', '포스코', '포스코', ['EU', '기업결합']]);
+  const t = (await call('trade_remedies', { section: 'eu' }, opts)).text;
+  assert.match(t, /\[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고[^\]]*\] 1건\n- M\.12449 「POSCO \/ JSW \/ SAFFRON \/ PMH」 · 출입처 포스코 · 2026-10-30 사전 신고 → 2026-11-12 승인\(이의 없음\) · 간이 절차 대상\n   원문: https:\/\/eur-lex\.europa\.eu\/[^\n]*32026M12449/);
+  assert.match((await call('radar_today', {}, opts)).text, /EU 기업결합 — 승인\(이의 없음\): M\.12449/);
+});
+
 test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {
   const at = new Date('2026-11-21T03:00:00Z');   // 12:00 KST
   const opts = { ...PRIVATE(), now: at };
