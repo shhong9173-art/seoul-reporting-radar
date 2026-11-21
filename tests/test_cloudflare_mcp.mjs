@@ -6274,6 +6274,9 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
   assert.match(t, /\[태국 무역구제 공고 · 한국산\(태국이 거는 조치\)·출입 업종 세이프가드 · 확인 [^\]]+\] 사건 3건 · 원천 태국 무역구제과\(thaitr\.dft\.go\.th\) ok\(목록 50건 중 한국·세이프가드 4\)\n/);
   assert.match(t, /- AD1044 · 크롬도금강판 「สินค้าเหล็กแผ่นชุบ[^」]*」 · 상태 「ใช้มาตรการและอยู่ระหว่างการทบทวน」 · 목록 날짜 2026-11-11\n   한국 세율 0-17\.06%\(CIF 기준\) · 징수·담보 2026-11-11, 2026-11-13~2027-11-12\n   가장 최근 공고\(태국어\): 「ประกาศ/);
   assert.match(t, /   최근 단계: 2\.1 2026-11-11 「ประกาศกรมการค้าต่างประเทศ/);
+  // 11-21: 상태·공고·단계 이름 태국어 낱말 풀이(번역 아님)
+  assert.match(t, /- AD1044 [^\n]*\n(?:   [^\n]*\n)*   태국어 낱말 풀이: [^\n]*재심 진행 중[^\n]*담보\(관세 납부 보증\) 요구[^\n]*\(번역 아님/);
+  assert.match(t, /- AD1009 [^\n]*\n(?:   [^\n]*\n)*   태국어 낱말 풀이: [^\n]*판단 근거 사실 공개\(필수 사실\)[^\n]*결과 초안/);
   assert.match(t, /- AD1004 · 냉연강판 「เหล็กแผ่นรีดเย็น」 · [^\n]* · 사건 쪽 아직 못 읽음\n/);
   assert.match(t, /새 공고\(감지일 기준\): 1건\n- A · [^\n]* · 태국 무역구제 공고 AD1044 — 담보 요구[^\n]*\n   원문: https:\/\/thaitr\.dft\.go\.th\/storage\/announcements\/C1\.pdf/);
   assert.doesNotMatch(t, /\[EU 관보 무역구제/);
@@ -6293,6 +6296,9 @@ test('베트남·인도네시아 무역구제 소식 줄 낱말 풀이(11-21): �
   assert.equal(foreignGloss('id-kadi', 'Laporan Akhir Penyelidikan Anti Dumping atas Impor Baja Canai Dingin dari Korea'),
     '인도네시아어 낱말 풀이: 최종 보고서 · 반덤핑 · 냉연 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
   assert.equal(foreignGloss('in-dgtr', 'Anti-dumping investigation concerning imports of Korea'), '');
+  // 태국(11-21): 실제 단계 이름 — 일몰 재심 개시, 담보 요구
+  assert.equal(foreignGloss('th-trade', 'ประกาศกรมการค้าต่างประเทศ เรื่อง เปิดการทบทวนการเรียกเก็บอากรตอบโต้การทุ่มตลาดต่อไป สาธารณรัฐเกาหลี'),
+    '태국어 낱말 풀이: 일몰 재심(관세 계속 부과 여부) · 재심 개시 · 외국무역국(DFT) 공고 · 반덤핑 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
   const at = new Date('2026-11-21T03:00:00Z');
   const opts = { ...PRIVATE(), now: at };
   const recent = new Date(at.getTime() - 3600000).toISOString();
