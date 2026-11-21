@@ -237,12 +237,15 @@ class Build(unittest.TestCase):
             return Json([{"NHTSACampaignNumber": "25V900000", "ReportReceivedDate": "05/12/2025", "Component": "SERVICE BRAKES:ANTILOCK",
                           "Summary": "The ABS module may short circuit.", "ModelYear": "2021", "Model": "PALISADE"}])
         post = ("4890", "[현대] 팰리세이드 - ABS 모듈 관련 무상수리", "2026-10-29")
-        doc, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=PalisadeBoard([post]), sleep=lambda s: None, us_get=nhtsa)
+        tsb = {"campaign": "WTY900", "doc": "26-BR-001H", "kindName": "보증 연장", "mfrDate": "2026-07-01", "models": [{"model": "PALISADE", "years": ["2022"]}],
+               "components": ["SERVICE BRAKES"], "summary": "Warranty extension for the ABS module.", "url": "https://static.nhtsa.gov/odi/tsbs/2026/MC-9.pdf"}
+        doc, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=PalisadeBoard([post]), sleep=lambda s: None, us_get=nhtsa, tsbs=[tsb])
         x = next(i for i in doc["freeRepair"]["items"] if i["no"] == "4890")
         self.assertEqual(len(urls), 3)       # 2021·2022·2023년형
         self.assertEqual((x["tier"], x["us"]["matches"][0]["campaign"]), ("A", "25V900000"))
         self.assertIn("국내 공지보다 328일 앞", x["why"])
         self.assertEqual(doc["checks"][1]["us"]["linked"], 1)
+        self.assertEqual((doc["checks"][1]["us"]["tsbLinked"], x["usTsb"][0]["key"]), (1, "WTY900"))
 
 
 if __name__ == "__main__":

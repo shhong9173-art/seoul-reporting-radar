@@ -1327,6 +1327,14 @@ export function usLinkLine(us) {
   return `${head} — 같은 결함인지 미확인(리콜 원문·회사 확인)${part}\n     ${rows.join('\n     ')}`;
 }
 
+// 같은 차종·연식·부품 낱말의 미국 제조사 통신(서비스 캠페인·보증 연장·서비스 공지 — us_recalls 저장소 120일, 11-22). 딜러용 통신이라 리콜·결함 인정 아님.
+const tsbDays = (d) => (Number.isFinite(d) ? (d > 0 ? `(국내 공지보다 ${d}일 앞)` : d < 0 ? `(국내 공지보다 ${-d}일 뒤)` : '(같은 날)') : '');
+export function usTsbLine(list) {
+  if (!(list ?? []).length) return '';
+  return `미국 제조사 통신 대조(자동 · 같은 차종·연식·부품 낱말 — 딜러용 통신이라 리콜·결함 인정 아님, 같은 결함인지 미확인)\n     `
+    + list.map((m) => `${m.campaign ? `캠페인 ${m.campaign} · ` : ''}${m.kind} · 문서 ${m.doc} ${m.date}${tsbDays(m.leadDays)} · ${(m.models ?? []).join('·')} ${(m.years ?? []).join('·')} · 맞은 낱말 ${(m.parts ?? []).join('·')} · 「${clipText(m.summary ?? '', 160)}」 ${m.url}`).join('\n     ');
+}
+
 export function freeRepairSection(doc, q, limit, showAll, ctx) {
   const fr = doc?.freeRepair;
   const c = (doc?.checks ?? []).find((x) => x.source === FREE_REPAIR_SOURCE);
@@ -1353,6 +1361,8 @@ export function freeRepairSection(doc, q, limit, showAll, ctx) {
       if (x.company) out.push(`   등급 이유: ${x.why}`);
       const us = usLinkLine(x.us);
       if (x.company && us) out.push(`   ${us}`);
+      const tsb = usTsbLine(x.usTsb);
+      if (x.company && tsb) out.push(`   ${tsb}`);
     } else if (x.company) out.push(`   상세 ${x.detail === 'failed' ? `못 읽음(${x.detailError ?? '실패'}) — 대수·내용 미확인` : x.detail === 'pending' ? '읽기 대기(다음 실행)' : '안 읽음'}`);
     out.push(`   원문: ${x.url} (상세 주소가 따로 없다 — 게시판에서 글 번호·제목으로 찾는다)`);
   }
