@@ -185,6 +185,28 @@ class Run(unittest.TestCase):
         self.assertEqual(by["clik:CLIKS1"]["tier"], "A")
         self.assertEqual((by["clik:CLIKOLD"]["tier"], by["clik:CLIKOLD"]["old"]), ("C", True))   # 3년 전 회의 — 늦게 공개된 옛 이야기
         self.assertEqual([e["id"] for e in doc2["events"]], ["clik:CLIKS1"])
+    def test_stored_A_is_rejudged_with_the_current_words(self):
+        # 11-22 운영 저장분(대목 그대로): 포항시의회 본회의 10-30은 '한국지방세연구원'의 '지방세'로 A였다 — 지금 규칙이면 C.
+        # 자치행정위 10-21은 '민원'이 이름 가까이 있어 그대로 A
+        agenda = ("를 위원회안으로 채택, 포항시의회 의원신분증 규칙 일부개정규칙안을 위원회안으로 가결하였다는 보고가 있었으며, 10월 15일 자치행정위원장으로부터 "
+                  "2027년도 한국지방세연구원 출연안 등 3건을 원안 가결하였다는 보고가 있었으며, 10월 15일 경제산업위원장으로부터 경북-포스코 혁신성장 벤처펀드 "
+                  "출연안 등 8건을 원안 가결하였다는 보고가 있었으며, 10월 15일 복지환경위원장으로부터 시립어린이집 재위탁 동의안 등 4건을 원안 가결하였다는 보고가 "
+                  "있었으며, 10월 16일 건설도시위원장으로부터 포항시 실종자 수색 활동 지원에 관한 조례안은")
+        gas = ("테니 여기 있지 마시고 대피하시라고 한 거예요. 그래서 많은 사람들이 숙박을 했다는 거예요. 어떻게 됐냐면은 시 공무원이 나와서 숙박비를 해결해 드릴 "
+               "테니까 우선 피하세요 해서 여러 사람들이 피했는데 지금 아무 이야기도 없더라는 민원 내용이에요. 그다음에 두 번째, 포스코로 가는 가스관을 가스 공급을 "
+               "중단할 수가 없어요. 그래서 가관 설치를 합니다.")
+        rec = {"company": "포스코", "council": "경상북도 포항시의회", "date": "20261030", "firstSeen": "2026-11-12T09:10:00+09:00", "tier": "A"}
+        prev = {"schema": w.SCHEMA, "baselineAt": "2026-11-03T23:12:00+09:00", "seen": {}, "listCount": 60,
+                "items": [dict(rec, id="clik:CLIKC3447479604608255:포스코", snippets=[agenda]), dict(rec, id="clik:CLIKC3447485233290849", date="20261021", snippets=[gas])],
+                "events": [{"id": "clik:CLIKC3447479604608255:포스코", "tier": "A", "kind": "지방의회 회의록", "company": "포스코", "detectedAt": "2026-11-12T09:10:00+09:00"},
+                           {"id": "clik:CLIKC3447485233290849", "tier": "A", "kind": "지방의회 회의록", "company": "포스코", "detectedAt": "2026-11-12T09:10:00+09:00"}]}
+        doc = w.run(dt.datetime(2026, 11, 22, 9, 10, tzinfo=KST), prev, key="k", get=fake({})[0], sleep=lambda s: None)
+        items = {x["id"]: x for x in doc["items"]}
+        events = {e["id"]: e for e in doc["events"]}
+        self.assertEqual((items["clik:CLIKC3447479604608255:포스코"]["tier"], events["clik:CLIKC3447479604608255:포스코"]["tier"]), ("C", "C"))
+        self.assertTrue(items["clik:CLIKC3447479604608255:포스코"]["rejudged"])
+        self.assertEqual((items["clik:CLIKC3447485233290849"]["tier"], events["clik:CLIKC3447485233290849"]["tier"]), ("A", "A"))
+
     def test_widening_the_list_baselines_the_newly_visible_tail(self):
         # 11-04: 목록을 30→60건으로 넓힌다. 이전 실행(listCount 없음 = 30)이 못 보던 31~60번째는 열지 않고 기준선으로만
         prev = {"schema": w.SCHEMA, "baselineAt": "2026-11-03T23:12:00+09:00", "seen": {}, "items": [], "events": []}

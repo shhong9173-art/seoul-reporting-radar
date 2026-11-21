@@ -157,6 +157,24 @@ def hits(text, rx, n=2, width=150):
     return out, bool(near_a)
 
 
+def rejudge(known, events):
+    """저장된 A를 지금 사건 낱말 규칙으로 다시 본다 — 저장된 대목(이름 앞뒤 150자) 어디에도 이름 앞뒤 60자 안 사건 낱말이 없으면 C.
+    규칙을 고친 뒤에도 예전 규칙으로 저장된 A가 남았다(11-22: 포항시의회 본회의 10-30 '한국지방세연구원 출연안 … 경북-포스코
+    혁신성장 벤처펀드 출연안' — #972 뒤에도 A, radar_today 겹친 신호에 B로)."""
+    rx = {c: r for _t, c, r in PATTERNS}
+    lowered = set()
+    for rid, x in list(known.items()):
+        if x.get("tier") != "A" or x.get("company") not in rx or not x.get("snippets"):
+            continue
+        if not any(hits(sn, rx[x["company"]])[1] for sn in x["snippets"]):
+            known[rid] = {**x, "tier": "C", "rejudged": True}
+            lowered.add(rid)
+    for e in events:
+        if e.get("id") in lowered and e.get("tier") == "A":
+            e["tier"], e["rejudged"] = "C", True
+    return lowered
+
+
 def interleave(fresh):
     """검색어마다 하나씩 돌아가며(한 검색어의 새 회의록이 상한을 다 쓰지 않게)."""
     groups = {}
@@ -266,6 +284,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, regions=Non
                                "text": (f"{rec['council']} {rec['meeting'] or ''}({rec['date']}) 회의록 · {c} 대목 「{snips[0][:240]}」"
                                         + (f" · 안건 {rec['agenda'][:80]}" if rec["agenda"] else "") + f" · 회의록 번호 {did}(국회도서관 지방의정포털)"
                                         + " · 의원 질의는 주장 — 집행부 답변·회사 확인")})
+    rejudge(known, events)
     for e in events:
         if e.get("tier") == "A" and in_region(regions, e.get("company"), e.get("council")) is False:
             e["tier"], e["outside"] = "C", True
