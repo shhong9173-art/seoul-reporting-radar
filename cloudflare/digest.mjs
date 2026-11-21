@@ -1865,8 +1865,10 @@ export function convergence(items, { cut } = {}) {
     const ids = new Set(g0.items.map((x) => String(x.id)));
     const g = { ...g0, items: g0.items.filter((x) => !(x.background && ids.has(String(x.id).replace(/^bg:bd:/, '')) && String(x.id).startsWith('bg:bd:'))) };
     const watches = [...new Set(g.items.map((x) => x.watch))];
-    // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다
-    if (watches.length < 2 || !g.items.some((x) => !x.background)) continue;
+    // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다.
+    // 그 새 항목이 자유 글(지방의회·국회 회의록·노조 성명)뿐이어도 묶지 않는다 — 시군 이름과 회사 이름이 한 대목에 나온 발언일 뿐이고, 큰 공장 도시는
+    // 굴뚝·공사 현장 배경이 늘 있어 발언 하나로 묶음이 생긴다(11-22 운영: 울산시의회 '국제정원박람회' 질의 대목이 굴뚝·명촌천 공사 배경과 '현대차 · 울산 — 감시 3곳')
+    if (watches.length < 2 || !g.items.some((x) => !x.background && !FREE_TEXT_WATCHES.has(x.watch))) continue;
     const times = g.items.map((x) => Date.parse(x.date)).filter(Number.isFinite);
     const latest = times.length ? Math.max(...times) : null;
     // 날짜만 있는 항목(공고일·허가일)은 한국 날짜로 견준다
