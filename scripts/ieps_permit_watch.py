@@ -30,6 +30,7 @@ KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "ieps_permits/v1"
 BASE = "https://ieps.nier.go.kr"
 LIST = BASE + "/web/board/7?pMENUMST_ID=176&page={}"
+SEARCH = BASE + "/web/board/7?pMENUMST_ID=176&searchType=ALL&searchWord={}"
 VIEW = BASE + "/web/board/7/{}/?pMENUMST_ID=176"
 UA = {"User-Agent": "Mozilla/5.0 seoul-reporting-radar (reporter research)"}
 PAGES = 3            # 실행마다 앞 3쪽(한 쪽 10건, 주 20건 안팎 올라온다)
@@ -37,8 +38,9 @@ FIRST_PAGES = 5      # 첫 실행은 기준선
 PDF_BUDGET = 2       # 검토 결과서 PDF는 수 MB(11-21 탐침: 227쪽 6.9MB) — 실행당 2건, 앞 8쪽만
 PDF_PAGES = 8
 PAUSE = 2.0
-KEEP_DAYS = 365
-SEEN_KEEP = 600
+KEEP_DAYS = 730      # 게시판이 2025-07에 열렸다 — 출입처 사업장 허가 이력 참고용으로 2년
+BACKFILL_PER_RUN = 10  # 회사 이름 검색으로 지난 글 채우기(실행당 10곳, 검색 첫 쪽 10건만, 기준선)
+SEEN_KEEP = 1500
 
 TITLE_RX = re.compile(r"^\[(?P<kind>[^,\]]+?)(?:\s*,\s*(?P<ind>[^\]]+?))?\]\s*(?P<site>.+?)\s*(?:정보\s*공개)?\s*"
                       r"(?:\((?P<no>제?\s*\d+(?:-\d+)?\s*호)\))?\s*(?:\(\d+\))?\s*$")
@@ -69,6 +71,18 @@ def load_rules(path=ROOT / "data" / "factory_watch.json"):
 
 
 RULES = load_rules()
+
+
+def backfill_names(path=ROOT / "data" / "factory_watch.json"):
+    """지난 글 채우기 검색어: 공장등록 감시 회사의 검색어(관련 기업 제외)."""
+    out = []
+    for c in json.loads(Path(path).read_text(encoding="utf-8")).get("companies", []):
+        if "관련" in str(c.get("company") or ""):
+            continue
+        for q in c.get("queries") or []:
+            if q and q not in out:
+                out.append(q)
+    return out
 
 
 def norm(site):
@@ -261,12 +275,43 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
                            "industry": x["industry"], "no": x["no"], "date": x["date"], "url": x["url"], "text": line_of(x),
                            "detectedAt": stamp})
             counts["events"] += 1
+    # 지난 글 채우기(11-21): 게시판 앞 쪽은 최근 글뿐이다 — 회사 이름 검색 첫 쪽으로 출입처 사업장 허가 이력을 기준선으로 채운다(알림 없음)
+    bf = dict(prev.get("backfill") or {"next": 0})
+    if not first and not err and not bf.get("done"):
+        from urllib.parse import quote
+        names = backfill_names()
+        start = int(bf.get("next") or 0)
+        for q in names[start:start + BACKFILL_PER_RUN]:
+            sleep(PAUSE)
+            try:
+                r = get(SEARCH.format(quote(q)), timeout=30)
+                got = list_rows(r.text) if r.status_code == 200 else []
+            except Exception:  # noqa: BLE001 — 채우기는 덤: 실패하면 다음 실행에 같은 자리부터
+                bf["error"] = q
+                break
+            for row in got:
+                if row["seq"] in seen_set:
+                    continue
+                t = parse_title(row["title"])
+                comp, related = beat_of((t or {}).get("site"), rules) if t and t["kind"] != "연간보고서" else (None, False)
+                seen.append(row["seq"])
+                seen_set.add(row["seq"])
+                if comp:
+                    items[f"ieps:{row['seq']}"] = {"id": f"ieps:{row['seq']}", "company": comp, "related": related, **t, "date": row["date"],
+                                                   "title": row["title"][:200], "url": VIEW.format(row["seq"]), "tier": tier_of(t["kind"], related),
+                                                   "firstSeen": stamp, "baseline": True, "backfill": True}
+                    counts["backfill"] = counts.get("backfill", 0) + 1
+            start += 1
+        else:
+            bf.pop("error", None)
+        bf["next"] = start
+        bf["done"] = start >= len(names)
     keep = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     status = "failed" if err and not rows else "partial" if err else "ok"
     checks = [{"source": "통합환경허가 정보공개(게시판)", "status": status, "returned": len(rows), "pages": pages,
                **({"error": err} if err else {})}]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp,
-            "checks": checks, "counts": counts, "seen": seen[-SEEN_KEEP:],
+            "checks": checks, "counts": counts, "seen": seen[-SEEN_KEEP:], "backfill": bf,
             "items": sorted([x for x in items.values() if str(x.get("date") or "") >= keep], key=lambda x: (x["date"], x["id"]), reverse=True),
             "events": [e for e in events if str(e.get("detectedAt") or "") >= (now - dt.timedelta(days=60)).isoformat()],
             "rules": ["국립환경과학원 통합환경허가시스템 '정보공개 > 통합허가' 게시판(환경오염시설법 제27조제5항 공개)의 출입처 사업장 글만. 계열사·이름이 다른 회사는 빼고, 효성중공업·일진전기는 관련(C).",

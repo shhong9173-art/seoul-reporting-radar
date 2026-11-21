@@ -43,6 +43,8 @@ def site(pages, fail=()):
         calls.append(url)
         if any(f in url for f in fail):
             raise type("ReadTimeout", (Exception,), {})("x")
+        if "searchWord=" in url:
+            return R(text=pages.get("search", "<table></table>"))
         if "/web/board/7?" in url:
             n = int(url.rsplit("page=", 1)[1])
             return R(text=pages.get(n, "<table></table>"))
@@ -93,8 +95,8 @@ class Run(unittest.TestCase):
         get, calls = site({1: PAGE1})
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
         self.assertEqual((doc["status"], doc["events"]), ("ok", []))
-        # 연간보고서·계열사·비출입처 빼고, 게시 1년 넘은 글(2025-09 현대제철 변경허가)은 보관하지 않는다
-        self.assertEqual({x["company"] for x in doc["items"]}, {"금호석유화학"})
+        # 연간보고서·계열사·비출입처 빼고(2025-09 현대제철 변경허가는 2년 보관 안이라 남는다)
+        self.assertEqual({x["company"] for x in doc["items"]}, {"현대제철", "금호석유화학"})
         self.assertTrue(all(x["baseline"] for x in doc["items"]))
         self.assertFalse(any("readDownloadFile" in u for u in calls))                          # 기준선은 결과서를 안 읽는다
         new = PAGE1.replace("<table><tr><th>", "<table>" + row(3700, "[변경허가, 석유정제]에쓰-오일(주) 온산공장 정보공개(제0400-02호)", "2026-11-23")
@@ -119,7 +121,29 @@ class Run(unittest.TestCase):
                           {"id": "ieps:3640", "company": "금호석유화학", "site": "금호석유화학(주) 율촌CNT공장", "kind": "통합허가", "date": "2026-10-26", "tier": "C"}]}
         get, _ = site({1: PAGE1})
         doc = w.run(NOW, prev, get=get, sleep=lambda s: None, read_pdf=lambda raw: (PDF, 3))
-        self.assertEqual({x["id"] for x in doc["items"]} - {"ieps:3640"}, set())
+        self.assertNotIn("ieps:3601", {x["id"] for x in doc["items"]})
+        self.assertIn("ieps:3640", {x["id"] for x in doc["items"]})
+
+    def test_backfill_by_company_name_is_baseline_and_resumes(self):
+        # 게시판 앞 쪽은 최근 글뿐 — 회사 이름 검색 첫 쪽으로 출입처 허가 이력을 기준선으로 채운다(실행당 10곳, 알림 없음)
+        search = ("<table>" + row(3445, "[통합허가, 철강]현대제철(주) 포항2공장 정보공개(제338-01호)", "2025-08-25")
+                  + row(3486, "[연간보고서]현대제철(주)당진제철소_2023(2022년 기준)", "2025-09-08") + "</table>")
+        get, calls = site({1: PAGE1, "search": search})
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        self.assertEqual(doc["backfill"], {"next": 0})                                          # 첫 실행(기준선)엔 채우지 않는다
+        doc2 = w.run(NOW + dt.timedelta(hours=1), doc, get=get, sleep=lambda s: None, read_pdf=lambda raw: (PDF, 3))
+        self.assertEqual(doc2["backfill"]["next"], w.BACKFILL_PER_RUN)
+        self.assertEqual(sum(1 for u in calls if "searchWord=" in u), w.BACKFILL_PER_RUN)
+        x = next(i for i in doc2["items"] if i["id"] == "ieps:3445")
+        self.assertEqual((x["baseline"], x["backfill"], x["tier"]), (True, True, "C"))
+        self.assertFalse(any(e["id"] == "ieps:3445" for e in doc2["events"]))
+        names = w.backfill_names()
+        self.assertIn("현대자동차", names)
+        self.assertFalse(any("효성" in n for n in names))
+        done = dict(doc2, backfill={"next": len(names)})
+        calls.clear()
+        doc3 = w.run(NOW + dt.timedelta(hours=2), done, get=get, sleep=lambda s: None)
+        self.assertEqual((doc3["backfill"]["done"], sum(1 for u in calls if "searchWord=" in u)), (True, 0))
 
     def test_failures_are_unconfirmed(self):
         get, _ = site({1: PAGE1}, fail=("page=1",))
