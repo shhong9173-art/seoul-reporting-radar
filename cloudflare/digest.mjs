@@ -1558,7 +1558,7 @@ export function pressLines(r, stamp, docAt) {
   const at = Date.parse(r.checkedAt ?? '');
   const own = Number.isFinite(at) ? kstStamp(r.checkedAt) : stamp;
   const old = Number.isFinite(at) && at < Date.parse(docAt ?? '') - 60000;
-  const stale = old && !r.recheck ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
+  const stale = old && !r.recheck && !r.late ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
   const failed = Object.entries(r.channels ?? {}).filter(([, v]) => v.status !== 'ok').map(([k, v]) => `${k} ${v.status}${v.error ? `(${v.error})` : ''}`);
   const qs = (r.queries ?? []).map((q) => `"${q}"`).join(', ');
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
@@ -1568,7 +1568,9 @@ export function pressLines(r, stamp, docAt) {
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   // 다시 본 항목은 그 뒤 실행에서 또 보지 않는다 — 두 표시를 한 줄로(11-09 13:10: '다시 봄 · 다시 안 봄'이 함께 떠 헷갈림)
-  const again = r.recheck ? (old ? ` · 대조 규칙이 바뀌어 72시간 지난 뒤 ${own}에 한 번 다시 봄(그 뒤로는 범위 밖)` : ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄') : '';
+  const again = r.recheck ? (old ? ` · 대조 규칙이 바뀌어 72시간 지난 뒤 ${own}에 한 번 다시 봄(그 뒤로는 범위 밖)` : ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄')
+    // 11-22: 대조 낱말이 늦게 생겼거나 실행이 비어 72시간 안에 못 본 A를 그 뒤 한 번 처음 본 것(radar_press_check.rechecks late)
+    : r.late ? ` · 항목 72시간 지난 뒤 ${own}에 처음 대조(대조 낱말이 늦게 생겼거나 실행이 비었음 — 그 사이 기사가 났을 수 있음)` : '';
   // 근거 기사 제목 숫자가 항목 숫자와 같은지(11-09, scoop_screen.title_numbers) — 같은 사건인지 가르는 근거, 판정은 그대로
   const sameNum = ev.filter((e) => !e.before && e.numbers?.found?.length).length;
   const numSum = r.verdict === '관련 보도 있음' && sameNum ? ` · 제목 숫자까지 항목과 같은 기사 ${sameNum}건 — 같은 사건일 가능성 높음` : '';

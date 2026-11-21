@@ -217,6 +217,21 @@ class Run(unittest.TestCase):
         vn = next(e for e in row["evidence"] if "베트남산 냉연" in e["title"])
         self.assertIn("열연·후판 없음 — 다른 사업장·다른 건 기사일 수 있음", vn["why"])                    # 품목이 다른 기사는 약한 근거로만
 
+    def test_never_checked_A_items_past_72_hours_are_checked_once(self):
+        # 11-22: 11-20 제네시스 미국 홈 '2028 G80'(A, 즉시 알림 보냄)은 대조 낱말이 11-21에 생겨 72시간 안에 못 보고 '아직 대조 전'으로 남았다
+        page = {"tier": "A", "watch": "해외 공식 페이지", "id": "genesis-us-home:2026-11-20T03:30:48+09:00", "date": "2026-11-20T03:30:48+09:00",
+                "company": "현대차(제네시스)", "fact": "제네시스 미국 홈 문구 변화: + 2028 G80 / 2028 GV80", "check": {"who": "제네시스", "terms": ["G80", "GV80"]}}
+        b_never = dict(page, id="b:never", tier="B")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run([], now=NOW, previous={"items": []}, older=[page, b_never], get=channels({}), sleep=lambda s: None)
+        rows = {r["id"]: r for r in doc["items"]}
+        self.assertEqual((doc["late"], doc["rechecked"]), (1, 0))
+        self.assertTrue(rows[page["id"]]["late"])
+        self.assertNotIn("b:never", rows)                                              # B는 그대로 새로 안 본다
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            again = rpc.run([], now=NOW + dt.timedelta(hours=4), previous=doc, older=[page], get=channels({}), sleep=lambda s: None)
+        self.assertEqual(again["late"], 0)                                              # 한 번 본 뒤에는 질의가 같아 안 봄
+
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
                  "check": {"who": "현대제철", "terms": ["관세", "판정"]}} for i in range(12)]

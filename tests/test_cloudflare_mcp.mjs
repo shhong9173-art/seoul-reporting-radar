@@ -2825,6 +2825,11 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     const line = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], evidence: [], checkedAt: '2026-11-09T11:02:00+09:00', recheck: true },
       '11-09 12:50', '2026-11-09T12:50:00+09:00')[0];
     assert.match(line, /보도 대조\(자동 11-09 11:02\): 관련 보도 있음 — "현대제철 강관 관세" · 대조 규칙이 바뀌어 72시간 지난 뒤 11-09 11:02에 한 번 다시 봄\(그 뒤로는 범위 밖\)$/);
+    // 11-22: 72시간 안에 못 본 A를 그 뒤 한 번 처음 본 것(late) — '다시 안 봄' 표시 대신 한 줄
+    const late = pressLines({ verdict: '미보도 후보', since: '2026-11-17', queries: ['제네시스 G80'], evidence: [], checkedAt: '2026-11-23T08:50:00+09:00', late: true },
+      '11-23 12:50', '2026-11-23T12:50:00+09:00')[0];
+    assert.match(late, / · 항목 72시간 지난 뒤 11-23 08:50에 처음 대조\(대조 낱말이 늦게 생겼거나 실행이 비었음 — 그 사이 기사가 났을 수 있음\)$/);
+    assert.doesNotMatch(late, /다시 안 봄/);
     // 근거 기사 제목 숫자가 항목 숫자와 같은지(11-09)
     const lines = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], checkedAt: '2026-11-09T12:50:00+09:00', evidence: [
       { date: '2026-11-05', channel: 'naver', title: '[단독] 美, 현대제철 강관 반덤핑 4.20% 확정', url: 'https://a', numbers: { article: ['4.20%'], found: ['4.20%'] } },
