@@ -263,6 +263,18 @@ class Factory(unittest.TestCase):
         self.assertEqual([c[1]["pageNo"] for c in calls if c[1].get("cmpnyNm") == "포스코"], [1, 2])
 
 
+class RealNameRules(unittest.TestCase):
+    def test_posco_affiliate_plants_are_not_posco(self):
+        # 11-22 운영 show_all: 포스코 12곳 중 7곳이 계열사 공장이었다 — '\\S{0,8}(?:공장…)$'가 계열사 이름 + '공장'까지 받아들였다
+        cfg = json.loads(w.CONFIG.read_text(encoding="utf-8"))
+        rx = re.compile(next(c["accept"] for c in cfg["companies"] if c["company"] == "포스코"))
+        own = ["(주)포스코", "주식회사 포스코", "(주)포스코 포항제철소", "(주)포스코 광양제철소"]
+        affiliates = ["(주)포스코에스피 포항공장", "(주)포스코케미칼-포항라임공장", "(주)포스코퓨처엠 청림공장", "(주)포스코퓨처엠 포항양극재공장",
+                      "(주)포스코퓨처엠 호동공장", "포스코스틸리온(주)도금공장", "포스코스틸리온(주)컬러공장", "포스코인터내셔널(주)"]
+        self.assertTrue(all(rx.search(w.norm(n)) for n in own))
+        self.assertEqual([n for n in affiliates if rx.search(w.norm(n))], [])
+
+
 class CommonNames(unittest.TestCase):
     def test_industry_rule_narrows_common_names(self):
         cfg = {"companies": [{"company": "태광", "queries": ["태광산업"], "accept": "^태광산업", "industryAccept": "화학|섬유",
