@@ -228,6 +228,44 @@ class Partners(unittest.TestCase):
         doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=aff, get=lambda *a, **k: R(404), sleep=lambda s: None)
         self.assertEqual([x["id"] for x in doc["items"]], ["edgar:z-3:h.htm"])          # 포스코홀딩스가 함께 나오면 남긴다
 
+    def test_document_defining_posco_as_an_affiliate_is_not_posco(self):
+        # 11-22 확인: Chord Energy 10-Q(2026-11-05) 9번 주석 — 정의 문장 뒤 'from POSCO'만 발췌에 남아 포스코 A였다(원문 그대로)
+        chord = ("<html><body><p>9. Assets Held for Sale</p><p>During the third quarter of 2026, the Company entered into an agreement to divest its "
+                 "entire non-operated interest in the Marcellus Shale to a subsidiary of POSCO International Corporation (“POSCO”). The transaction "
+                 "is expected to close during the fourth quarter of 2026, subject to customary closing conditions, for estimated total gross proceeds "
+                 "of $ 550.0 million, subject to customary purchase price adjustments. Upon execution of the purchase and sale agreement, the Company "
+                 "received a refundable cash deposit of $ 55.0 million from POSCO, which is included in accrued liabilities.</p></body></html>")
+        stored = ("…rter of 2026, subject to customary closing conditions, for estimated total gross proceeds of $ 550.0 million, subject to customary "
+                  "purchase price adjustments. Upon execution of the purchase and sale agreement, the Company received a refundable cash deposit of "
+                  "$ 55.0 million from POSCO, which is included in accrued liabilities on the Company’s Condensed Consolidated Balance Sheet at September 30, 2…")
+        both = chord.replace("from POSCO,", "from POSCO, and POSCO Holdings Inc. guaranteed the deposit,")
+        pages = {"https://www.sec.gov/Archives/c.htm": chord, "https://www.sec.gov/Archives/s.htm": chord, "https://www.sec.gov/Archives/h.htm": both}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            return R(200, text=pages[url]) if url in pages else R(404)
+        base = {"source": "EDGAR", "date": "2026-11-05", "firstSeen": "2026-11-21T07:00:00+09:00", "phrases": ["POSCO"], "beat": ["포스코"], "form": "10-Q",
+                "filer": "Chord Energy Corp  (CHRD)"}
+        prev = {"items": [dict(base, id="edgar:c-1:c.htm", url="https://www.sec.gov/Archives/c.htm"),                      # 새 문서
+                          dict(base, id="edgar:s-1:s.htm", url="https://www.sec.gov/Archives/s.htm", snippet=stored),      # 저장된 발췌(다시 엶)
+                          dict(base, id="edgar:h-1:h.htm", url="https://www.sec.gov/Archives/h.htm", snippet=stored),      # 포스코홀딩스도 나옴
+                          dict(base, id="edgar:k-1:k.htm", url="https://www.sec.gov/Archives/k.htm", snippet="supply agreement with Hyundai Steel",
+                               phrases=["Hyundai Steel"], beat=["현대제철"])]}                                                # 약칭 정의와 무관 — 다시 열지 않음
+        doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=get, sleep=lambda s: None)
+        ids = [x["id"] for x in doc["items"]]
+        self.assertNotIn("edgar:c-1:c.htm", ids)
+        self.assertNotIn("edgar:s-1:s.htm", ids)
+        self.assertIn("edgar:h-1:h.htm", ids)
+        self.assertNotIn("https://www.sec.gov/Archives/k.htm", calls)
+        h = next(x for x in doc["items"] if x["id"] == "edgar:h-1:h.htm")
+        self.assertTrue(h["aliasChecked"])
+        self.assertEqual(h["snippet"], stored)  # 다시 연 문서의 발췌는 그대로
+        again = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=doc, get=get, sleep=lambda s: None)
+        self.assertEqual(calls.count("https://www.sec.gov/Archives/h.htm"), 1)  # 한 번만 다시 연다
+        self.assertIn("edgar:h-1:h.htm", [x["id"] for x in again["items"]])
+        self.assertEqual(w.affiliate_alias("POSCO", chord), "POSCO International Corporation")
+
     def test_previous_items_keep_first_seen_and_expire(self):
         prev = {"items": [{"id": "edgar:0001193125-26-111111:d111d8k.htm", "source": "EDGAR", "date": "2026-10-21", "firstSeen": "2026-10-21T07:00:00+09:00",
                            "snippet": "kept", "beat": ["현대제철"], "phrases": ["Hyundai Steel"]},

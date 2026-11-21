@@ -40,6 +40,23 @@ UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+To
              # EDGAR 전문 검색은 대소문자를 가리지 않아 말레이시아·싱가포르 성씨 'Seah'도 걸린다(10-29 Global Engine Group 20-F → '세아' A).
              # 세아는 'SeAH'로만 쓴다 — 다른 대소문자 'Seah·SEAH'는 무관한 뜻으로 센다.
              "SeAH": re.compile(r"\b(?!SeAH\b)[Ss][Ee][Aa][Hh]\b")}
+# 문서가 출입처 낱말을 계열사 약칭으로 정의하면('a subsidiary of POSCO International Corporation (“POSCO”)') 그 뒤 맨 'POSCO'도 모두
+# 그 계열사다 — 11-22 확인: Chord Energy 10-Q(11-05) 9번 주석의 'cash deposit of $ 55.0 million from POSCO'가 정의 문장 뒤라 발췌에
+# 정의가 빠져 포스코 A로 남았다. 문서에 출입처 본사 이름(POSCO Holdings·POSCO Co., Ltd.)이 함께 나오면 가리지 않는다.
+ALIAS_BEAT = {"POSCO": re.compile(r"POSCO\s+Holdings|POSCO\s+(?:Co|Company)\b|Pohang\s+Iron", re.I)}
+
+
+def affiliate_alias(ph, text):
+    """문서 전체에서 출입처 낱말이 계열사 약칭으로 정의됐고 출입처 본사 이름은 없으면 그 계열사 이름(아니면 None)."""
+    rx, beat = UNRELATED.get(ph), ALIAS_BEAT.get(ph)
+    if not rx or not beat or beat.search(text or ""):
+        return None
+    for m in rx.finditer(text or ""):
+        if re.search(rf"[“\"']{re.escape(ph)}[”\"']", m.group(0), re.I):
+            return re.sub(r"\s*\(.*$", "", m.group(0)).strip()
+    return None
+
+
 def unrelated_count(ph, text):
     """무관한 뜻으로 쓰인 출입처 낱말 수 — 한 대목 안의 낱말을 모두 센다('POSCO International Corporation (“POSCO”)'는 2)."""
     rx = UNRELATED.get(ph)
@@ -387,26 +404,41 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
                               "title": f"{h['form']} {h['description']}".strip(), "firstSeen": old.get("firstSeen") or stamp,
                               **({"baseline": True} if base else {})}
         checks.append({"source": "EDGAR", "target": phrase, "status": "ok", "returned": len(hits), "kept": kept})
-    # Context sentences for new EDGAR documents (budgeted).
+    # Context sentences for new EDGAR documents (budgeted). 발췌를 받은 문서도 약칭 정의를 아직 안 본 것은 한 번 다시 연다(실행당 8건).
+    alias_budget = 8
     for it in sorted(items.values(), key=lambda x: x.get("date") or "", reverse=True):
-        if snippet_budget <= 0:
-            break
-        if it["source"] != "EDGAR" or it.get("snippet") or it.get("snippetError") or not it.get("url"):
+        if it["source"] != "EDGAR" or it.get("snippetError") or not it.get("url") or it.get("noise"):
             continue
-        snippet_budget -= 1
+        recheck = bool(it.get("snippet")) and not it.get("aliasChecked") and any(ph in ALIAS_BEAT for ph in it.get("phrases", []))
+        if it.get("snippet") and not recheck:
+            continue
+        if (alias_budget if recheck else snippet_budget) <= 0:
+            continue
+        if recheck:
+            alias_budget -= 1
+        else:
+            snippet_budget -= 1
         text, err = doc_text(it["url"], get=get)
         sleep(0.4)
         if err:
-            it["snippetError"] = err
+            if not recheck:
+                it["snippetError"] = err
             continue
-        related = []
+        it["aliasChecked"] = True
+        related, aliased = [], []
         for ph in it.get("phrases", []):
             total = len(re.findall(re.escape(ph), text, re.I))
             unrelated = unrelated_count(ph, text)
-            if total and total > unrelated:
+            alias = affiliate_alias(ph, text)
+            if alias:
+                aliased.append(alias)
+            elif total and total > unrelated:
                 related.append(ph)
         if it.get("phrases") and not related:
-            it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
+            it["noise"] = (f"문서가 출입처 낱말을 계열사 약칭으로 정의({', '.join(aliased)} → 맨 이름도 그 계열사) — 출입처 아님" if aliased
+                           else "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임")
+            continue
+        if recheck:
             continue
         for ph in related:
             sn = snippet(UNRELATED[ph].sub(" ", text) if ph in UNRELATED else text, ph)
