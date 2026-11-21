@@ -99,6 +99,9 @@ NOS = [
 CONSUMER_CAUSE = re.compile(r"Magnuson|Warranty|Product Liabil|Personal Inj|Motor Vehicle|Lemon", re.I)
 # 11-21: 소송 종류·사유 칸이 빈 접수 직후 사건 'Scott Cooper as conservator for Nathan Ballenger v. Hyundai Motor America'가 '분류 없음'(B)으로
 # 이틀 연달아(사건번호 둘) 떴다. 후견인·유족·유산관리인이 원고인 사건명은 상해·사망 사고 소송(제조물책임) — 소비자 소송과 같이 일상(C)
+INDIVIDUAL_V_SALES = re.compile(r"^.{2,80}?\sv\.\s+(?:Hyundai|Kia|Genesis)\s+(?:Motor\s+)?America\b", re.I)
+ENTITY = re.compile(r"\b(?:Inc|LLC|L\.L\.C|Corp|Corporation|Co\.|Company|Ltd|L\.P|LP|LLP|PLLC|Association|Authority|Trust|Bank|Insurance|"
+                    r"State|States|County|City|Commonwealth|People|Department|Commission|Union|Group|Holdings|Partners|Dealers?|Motors?)\b", re.I)
 INJURY_PARTY = re.compile(r"\bas (?:the )?(?:conservator|guardian|next friend|personal representative|administrat(?:or|rix)|executor|executrix|(?:natural )?parents?)\b"
                           r"|\bEstate of\b|\bwrongful death\b|\bdeceased\b", re.I)
 
@@ -121,6 +124,10 @@ def classify(x):
             return name, pri
     if CONSUMER_CAUSE.search(cause) or INJURY_PARTY.search(case):
         return "소비자·제조물책임", 3
+    # 11-21: 'Vierra v. Hyundai Motor America'처럼 개인 원고가 판매법인(현대·기아·제네시스 미국)을 상대로 낸 접수 직후 사건은 종류·사유 칸이 비어
+    # '분류 없음'(B)으로 떴다 — 대부분 차량 결함·보증(레몬법) 소송이다. 칸이 채워지면 다음 실행에서 다시 분류한다(사건 목록은 실행마다 다시 분류)
+    if not nos and not cause and INDIVIDUAL_V_SALES.match(case) and not ENTITY.search(case.split(" v. ")[0]):
+        return "분류 대기(개인 원고 — 소비자 소송일 수 있음)", 3
     return "분류 없음", 2
 
 

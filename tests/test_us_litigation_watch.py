@@ -164,6 +164,13 @@ class Litigation(unittest.TestCase):
         self.assertEqual(c("Doe, as next friend of J.D. v. Hyundai Motor Company")[1], 3)
         self.assertEqual(c("Acme Parts LLC v. Hyundai Motor America"), ("분류 없음", 2))          # 회사끼리 사건은 그대로
         self.assertEqual(c("Smith as executor v. Hyundai Motor America", suitNature="190 Contract: Other")[0], "계약")   # 종류 칸이 있으면 그것
+        # 개인 원고 ↔ 판매법인, 종류·사유 칸 빈 접수 직후(11-20 'Vierra v. Hyundai Motor America') — 분류 대기 C, 칸이 채워지면 다시 분류
+        self.assertEqual(c("Vierra v. Hyundai Motor America"), ("분류 대기(개인 원고 — 소비자 소송일 수 있음)", 3))
+        self.assertEqual(c("Jane Doe v. Kia America, Inc.")[1], 3)
+        self.assertEqual(c("Acme Logistics LLC v. Hyundai Motor America"), ("분류 없음", 2))     # 회사 원고는 그대로
+        self.assertEqual(c("State of Minnesota v. Hyundai Motor America")[1], 2)
+        self.assertEqual(c("Vierra v. Hyundai Motor America", suitNature="442 Civil Rights: Jobs")[0], "고용 차별(개인)")
+        self.assertEqual(c("Vierra v. Hyundai Motor Company")[1], 2)                              # 본사 상대는 그대로
 
     def test_later_run_marks_new_and_keeps_older_cases(self):
         first = run()
