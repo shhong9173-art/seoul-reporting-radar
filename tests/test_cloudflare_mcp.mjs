@@ -1717,6 +1717,26 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   assert.match(empty.text, /단독 후보 심사: 결과 없음 — 미확인/);
 });
 
+test('해외 페이지 연식·차명 줄(11-21)도 보도 대조 낱말 — 제네시스 페이지는 제네시스+차명', async () => {
+  const opts = PRIVATE();
+  const at = new Date('2026-11-20T06:00:00Z');
+  const recent = new Date(at.getTime() - 3600000).toISOString();
+  await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'page_watch/v1', generatedAt: recent, pages: [], events: [
+      { pageId: 'genesis-us-home', scope: 'page', company: '현대차(제네시스)', label: '제네시스 미국 홈', detectedAt: recent,
+        url: 'https://www.genesis.com/us/en/home', added: { models: ['2028 G80', '2028 GV80'] }, removed: { timing: ['COMING EARLY 2027'] } },
+      { pageId: 'kia-us-ev9', scope: 'page', company: '기아', label: '기아 미국 EV9', detectedAt: recent, url: 'https://www.kia.com/us/en/ev9',
+        added: { models: ['2027 EV9', '2027 Kia EV9'] } },
+      { pageId: 'kia-us-ev6', scope: 'page', company: '기아', label: '기아 미국 EV6', detectedAt: recent, url: 'https://www.kia.com/us/en/ev6',
+        added: { timing: ['Coming Soon'] } }] }) }), opts.env, {});
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const g = items.items.find((x) => String(x.id).startsWith('genesis-us-home:'));
+  assert.deepEqual([g.tier, g.check.who, g.check.terms], ['A', '제네시스', ['G80', 'GV80']]);
+  const k = items.items.find((x) => String(x.id).startsWith('kia-us-ev9:'));
+  assert.deepEqual([k.check.who, k.check.terms], ['기아', ['EV9']]);
+  assert.equal(items.items.find((x) => String(x.id).startsWith('kia-us-ev6:'))?.check, undefined);   // 출시 시점 문구만은 대조 낱말 없음
+});
+
 test('radar_today ranks EDGAR mentions by deal words and hides items the reporter already judged', async () => {
   const opts = PRIVATE();
   const env = opts.env;
