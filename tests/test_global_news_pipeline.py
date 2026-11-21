@@ -272,6 +272,13 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         out=summarize_selected([dict(row)],lambda t,x:"100억원 보조금",previous=old,workers=1)
         self.assertEqual((out[0]["koSummary"],out[0]["summaryVersion"]),("100억원 보조금",SUMMARY_VERSION))
         self.assertGreaterEqual(SUMMARY_VERSION,2)
+        # 제목 번역 캐시가 옛 요약을 행에 옮겨 온 경우(운영 경로: translate_selected → summarize_selected)도 다시 만든다
+        cached={**row,"koSummary":"1조원 보조금","summaryTranslationStatus":"summarized_ai"}
+        out=summarize_selected([cached],lambda t,x:"100억원 보조금",previous=old,workers=1)
+        self.assertEqual((out[0]["koSummary"],out[0]["summaryVersion"]),("100억원 보조금",SUMMARY_VERSION))
+        # 본문 발췌가 없으면 옛 요약을 그대로 둔다(숫자 대조 표시는 남음)
+        bare={k:v for k,v in cached.items() if k!="articleText"}
+        self.assertEqual(summarize_selected([bare],lambda t,x:"새 요약",previous=old,workers=1)[0]["koSummary"],"1조원 보조금")
         same=[{**old[0],"summaryVersion":SUMMARY_VERSION}]
         self.assertEqual(summarize_selected([dict(row)],lambda t,x:"새 요약",previous=same,workers=1)[0]["koSummary"],"1조원 보조금")   # 같은 판은 다시 씀
 
