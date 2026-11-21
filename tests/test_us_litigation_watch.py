@@ -156,6 +156,15 @@ class Litigation(unittest.TestCase):
         self.assertEqual(cases["cl:4"]["url"], "https://www.courtlistener.com/docket/4/x/")
         self.assertFalse(any(x["isNew"] for x in doc["cases"]))  # first run is a baseline
 
+    def test_injury_party_names_are_consumer_cases_11_21(self):
+        # 11-18·11-19 D. Colorado 접수(종류·사유 칸 빈 채) — 후견인이 원고인 상해 소송이 '분류 없음'(B)으로 두 번 떴다
+        c = lambda name, **kw: w.classify({"court_id": "cod", "caseName": name, **kw})  # noqa: E731
+        self.assertEqual(c("Scott Cooper as conservator for Nathan Ballenger v. Hyundai Motor America Corporation"), ("소비자·제조물책임", 3))
+        self.assertEqual(c("Estate of Jane Roe v. Kia America, Inc."), ("소비자·제조물책임", 3))
+        self.assertEqual(c("Doe, as next friend of J.D. v. Hyundai Motor Company")[1], 3)
+        self.assertEqual(c("Acme Parts LLC v. Hyundai Motor America"), ("분류 없음", 2))          # 회사끼리 사건은 그대로
+        self.assertEqual(c("Smith as executor v. Hyundai Motor America", suitNature="190 Contract: Other")[0], "계약")   # 종류 칸이 있으면 그것
+
     def test_later_run_marks_new_and_keeps_older_cases(self):
         first = run()
         first["cases"] = [x for x in first["cases"] if x["id"] != "cl:3"]

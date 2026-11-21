@@ -97,6 +97,10 @@ NOS = [
     (r"^44[0-9]", "고용 차별(개인)", 3), (r"^4[0-9]{2}", "기타 민사", 2),
 ]
 CONSUMER_CAUSE = re.compile(r"Magnuson|Warranty|Product Liabil|Personal Inj|Motor Vehicle|Lemon", re.I)
+# 11-21: 소송 종류·사유 칸이 빈 접수 직후 사건 'Scott Cooper as conservator for Nathan Ballenger v. Hyundai Motor America'가 '분류 없음'(B)으로
+# 이틀 연달아(사건번호 둘) 떴다. 후견인·유족·유산관리인이 원고인 사건명은 상해·사망 사고 소송(제조물책임) — 소비자 소송과 같이 일상(C)
+INJURY_PARTY = re.compile(r"\bas (?:the )?(?:conservator|guardian|next friend|personal representative|administrat(?:or|rix)|executor|executrix|(?:natural )?parents?)\b"
+                          r"|\bEstate of\b|\bwrongful death\b|\bdeceased\b", re.I)
 
 
 def classify(x):
@@ -115,7 +119,7 @@ def classify(x):
     for rx, name, pri in NOS:
         if re.match(rx, nos):
             return name, pri
-    if CONSUMER_CAUSE.search(cause):
+    if CONSUMER_CAUSE.search(cause) or INJURY_PARTY.search(case):
         return "소비자·제조물책임", 3
     return "분류 없음", 2
 
