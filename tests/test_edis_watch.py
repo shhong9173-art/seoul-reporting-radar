@@ -215,6 +215,37 @@ def first_run(**k):
     return w.collect(None, NOW, get=get, token=k.get("token", TOKEN), sleep=NOSLEEP), calls
 
 
+REVIEW_TEXT = ("International Trade Commission has determined to review an initial determination (Order No. 47) terminating the investigation. "
+               "Order No. 45 at 2 (Sept. 4, 2026), unreviewed by Comm'n Notice (Oct. 6, 2026). On September 17, 2026, Complainant filed a motion. "
+               "The parties are requested to file written submissions on the issues under review no later than close of business on December 4, 2026. "
+               "Reply submissions must be filed on or before December 11, 2026. The target date remains unchanged.")
+
+
+class Schedule(unittest.TestCase):
+    def test_deadlines_after_receipt_with_anchor_only(self):
+        got = w.schedule_from(REVIEW_TEXT, "2026/11/20 14:05:00")
+        self.assertEqual([x["date"] for x in got], ["2026-12-04", "2026-12-11"])
+        self.assertIn("written submissions", got[0]["quote"])
+        self.assertEqual(w.schedule_from("The Commission decided on October 6, 2026 to extend.", "2026/11/20"), [])   # 지난 날짜
+        self.assertEqual(w.schedule_from("A hearing was held. The weather on December 25, 2026 will be cold.", "2026/11/20"), [])   # 기한 낱말 없음
+
+    def test_stored_watched_decision_is_reread_once_for_deadlines(self):
+        (ed, _, _), _ = first_run()
+        later = NOW + dt.timedelta(days=19)
+        for x in ed["docs"]:
+            x.pop("schedV", None)          # 기한 규칙 전에 읽어 둔 문서
+        review = doc(901438, "Notice", "2026/11/20 14:05:00", firm="USITC",
+                     title="Commission Decision to Review an Initial Determination Terminating the Investigation in its Entirety")
+        get = fake([[review]], {"337-1494": [review]}, attach={"901438": att(901438), "899140": att(899140)},
+                   files={dl(901438): (200, pdf([[REVIEW_TEXT]])), dl(899140): (200, pdf([["The Commission has determined to extend the due date until November 23, 2026."]]))})
+        ed2, events, check = w.collect(ed, later, get=get, token=jwt(later + dt.timedelta(days=7)), sleep=NOSLEEP)
+        by = {x["id"]: x for x in ed2["docs"]}
+        self.assertEqual([x["date"] for x in by["901438"]["schedule"]], ["2026-12-04", "2026-12-11"])
+        self.assertEqual(by["899140"]["schedule"], [{"date": "2026-11-23", "quote": "The Commission has determined to extend the due date until November 23, 2026."}])
+        self.assertEqual(by["899140"]["schedV"], w.SCHED_V)
+        self.assertNotIn("schedV", by["898408"])   # 당사자 서면은 다시 읽지 않는다
+
+
 class Collect(unittest.TestCase):
     def test_first_run_is_a_baseline_with_bodies_but_no_events(self):
         (ed, events, check), calls = first_run()

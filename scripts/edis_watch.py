@@ -143,6 +143,36 @@ def snippets(text, names):
     return [s[:280] + (" …" if len(s) > 280 else "") for s in sorted(pick, key=order.get)]
 
 
+# 본문 속 기한(11-21): 337-1494 위원회 재검토 결정(11-20 접수, EDIS 901438)처럼 위원회 공고는 서면 제출 기한·목표일을 본문에 적는다.
+# 접수일 뒤 날짜가 기한 낱말과 같은 문장에 있을 때만(각주 인용 '(Sept. 4, 2026)'처럼 지난 날짜·줄인 달 이름은 안 센다). SCHED_V가 바뀌면 저장된 결정 문서를 한 번 다시 읽는다
+SCHED_V = 1
+SCHED_DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(20\d\d)\b")
+SCHED_ANCHOR = re.compile(r"no later than|not later than|on or before|close of business|(?:is|are) due|due date|target date|extend(?:s|ed)? (?:until|to)|\buntil\b", re.I)
+_MONTH = {m: i for i, m in enumerate(("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 1)}
+
+
+def schedule_from(text, received):
+    """본문 → [{date, quote}] 접수일 뒤 날짜 + 기한 낱말이 든 문장(4개까지, 날짜마다 한 번)."""
+    try:
+        base = dt.date(*map(int, str(received)[:10].replace("-", "/").split("/")))
+    except (TypeError, ValueError):
+        return []
+    sents = re.split(r"(?<=[.;])\s+(?=[A-Z(\"“])", re.sub(r"\s+", " ", text or ""))
+    out = []
+    for s in sents:
+        if len(s) > 900 or not SCHED_ANCHOR.search(s):
+            continue
+        for m in SCHED_DATE.finditer(s):
+            try:
+                d = dt.date(int(m.group(3)), _MONTH[m.group(1)], int(m.group(2)))
+            except ValueError:
+                continue
+            if d <= base or any(x["date"] == d.isoformat() for x in out):
+                continue
+            out.append({"date": d.isoformat(), "quote": s[:240] + (" …" if len(s) > 240 else "")})
+    return sorted(out, key=lambda x: x["date"])[:4]
+
+
 def pdf_pages(data, limit=60):
     import pypdf
     pdf = pypdf.PdfReader(io.BytesIO(data))
@@ -379,7 +409,25 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
             rec["bodyError"] = err
             continue
         rec["pages"], rec["snippets"] = n, snippets(" ".join(pages_text), rec["companies"])
+        rec["schedule"], rec["schedV"] = schedule_from(" ".join(pages_text), rec["officialReceivedDate"]), SCHED_V
         read += 1
+    # 저장된 결정 문서(지켜보는 337·한국 조사 판정) 중 기한을 아직 안 본 것: 남은 한도 안에서 한 번 다시 읽는다(최근 45일 접수)
+    redo_floor = (now - dt.timedelta(days=45)).strftime("%Y/%m/%d %H:%M:%S")
+    redo = [x for x in out.values() if x.get("tier") in ("A", "B") and x.get("why") in ("지켜보는 조사의 위원회·판사 결정·공고", "한국 조사 위원회 판정")
+            and "pages" in x and x.get("schedV") != SCHED_V and str(x.get("securityLevel", "")).lower() == "public"
+            and x.get("officialReceivedDate", "") >= redo_floor and x.get("firstSeen") != stamp]
+    left = max(0, budget - min(len(todo), budget))
+    for rec in sorted(redo, key=lambda x: x["officialReceivedDate"], reverse=True)[:left] if auth and not token_note else []:
+        try:
+            n, pages_text, err, denied = fetch_pdf(rec["id"], get=get, headers=headers, auth=auth)
+        except Exception as e:  # noqa: BLE001
+            n, pages_text, err, denied = None, None, str(e)[:60] or type(e).__name__, False
+        sleep(0.5)
+        if denied:
+            token_note = f"EDIS 토큰 거부(HTTP 401, 만료 가능) — {TOKEN_OFF}"
+            break
+        if not err:
+            rec["schedule"], rec["schedV"] = schedule_from(" ".join(pages_text), rec["officialReceivedDate"]), SCHED_V
     events = [{"id": f"edis:unread:{d['id']}", "pageId": "edis", "country": "미국", "tier": "B",
                "label": f"USITC {d['investigationNumber']} {d['documentType']}"[:120],
                "text": (f"새 337 제소장 — 피제소인 미확인(토큰이 꺼져 표지를 못 읽음): {d['investigationTitle'] or d['documentTitle']} — 제출 {d['firmOrganization'] or d['filedBy']}"
