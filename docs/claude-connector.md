@@ -231,6 +231,7 @@
 - 방법: 같은 SPARQL에 제목 'concentration' 질의 하나(최근 30일, 5xx면 한 번 다시). 제목의 당사자('Case M.12449 – POSCO / JSW / SAFFRON / PMH')에 출입처 영문 이름이 든 것만 — 계열사(POSCO FLOW·POSCO International·Future M 등)는 빼고, 기아는 'KIA CORPORATION·KIA MOTORS'만('TMUS / KIA / I3 BROADBAND'의 KIA는 인프라 펀드).
 - 단계: Prior notification 사전 신고 · Non-opposition / declaring … compatible 승인(이의 없음) · Withdrawal 신고 철회 · 2단계 심사 개시 · 불허. 사건(M.번호)·단계마다 한 번 A 이벤트. 첫 실행 기준선.
 - 보도 대조: 회사 + EU + 기업결합. 사전 신고는 심사 시작일 뿐 승인이 아니다. 거래 구조·지분·금액은 회사 확인.
+- 사전 신고 본문(11-21 밤): 제목만으로는 무슨 거래인지 몰라 그날 기사 판단을 못 한다. 사전 신고 공고 본문(`publications.europa.eu/resource/celex/<CELEX>`, 영어 XHTML 10KB, 탐침 52026M12609)에서 신고 접수일('On 10 November 2026, the Commission received notification')·제3자 의견 마감(관보일+10일)·당사자 줄(이름·나라)·거래 문장(… will acquire within the meaning of Article 3 …)·사업 내용(2·3항)을 뽑는다. 실행당 본문 3건, 실패하면 다음 실행에 다시(3번까지), 예전에 잡힌 사전 신고도 남은 예산으로 채운다. 본문에 Korea가 없으면 C('이름만 같은 다른 회사일 수 있음' — 탐침에서 기아로 잡힌 M.12477 본문에 Korea 없음). 포스코 건은 10-19 접수 → 10-30 관보 사전 신고 → 11-12 승인 → 11-14 경쟁지 단독. 화면은 영어 원문 그대로(번역 아님).
 
 ## 태국 무역구제 공고(trade_remedies section=th — 11-19)
 

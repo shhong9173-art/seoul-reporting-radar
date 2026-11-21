@@ -6417,7 +6417,11 @@ test('EU 기업결합(11-21): 출입처가 당사자인 사전 신고·승인은
     body: JSON.stringify({ schema: 'eu_trade_defence/v1', generatedAt: recent, status: 'ok', checks: [{ source: 'EU 관보(Cellar SPARQL)', status: 'ok', returned: 20 }], records: [],
       mergers: [{ case: 'M.12449', parties: 'POSCO / JSW / SAFFRON / PMH', companies: ['포스코'], latest: 'cleared',
         stages: { notified: { date: '2026-10-30', celex: '52026M12449', url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026M12449', kind: '사전 신고', simplified: true },
-          cleared: { date: '2026-11-12', celex: '32026M12449', url, kind: '승인(이의 없음)', simplified: false } } }],
+          cleared: { date: '2026-11-12', celex: '32026M12449', url, kind: '승인(이의 없음)', simplified: false } },
+        // 사전 신고 본문(11-21): 꼴만 같은 시험용 값
+        facts: { korea: true, notifiedOn: '2026-10-19', deadline: '2026-11-09', undertakings: ['POSCO Holdings Inc. (Republic of Korea)', 'JSW Steel Limited (India)'],
+          transaction: 'POSCO and JSW will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron.',
+          activities: '— POSCO: steel production, — JSW: steel production in India.' } }],
       events: [{ id: 'eumerger:M.12449:cleared', kind: 'EU 기업결합(승인(이의 없음))', tier: 'A', company: '포스코', companies: ['포스코'], product: '', number: 'M.12449', date: '2026-11-12',
         korea: false, merger: true, url, text, detectedAt: recent }] }) }), opts.env, {});
   assert.equal(res.status, 200);
@@ -6425,7 +6429,9 @@ test('EU 기업결합(11-21): 출입처가 당사자인 사전 신고·승인은
   const it = items.items.find((x) => x.id === 'eumerger:M.12449:cleared');
   assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms], ['A', '포스코', '포스코', ['EU', '기업결합']]);
   const t = (await call('trade_remedies', { section: 'eu' }, opts)).text;
-  assert.match(t, /\[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고[^\]]*\] 1건\n- M\.12449 「POSCO \/ JSW \/ SAFFRON \/ PMH」 · 출입처 포스코 · 2026-10-30 사전 신고 → 2026-11-12 승인\(이의 없음\) · 간이 절차 대상\n   원문: https:\/\/eur-lex\.europa\.eu\/[^\n]*32026M12449/);
+  assert.match(t, /\[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고[^\]]*\] 1건\n- M\.12449 「POSCO \/ JSW \/ SAFFRON \/ PMH」 · 출입처 포스코 · 2026-10-30 사전 신고 → 2026-11-12 승인\(이의 없음\) · 간이 절차 대상\n/);
+  assert.match(t, /\n   신고 접수 2026-10-19 · 제3자 의견 마감 2026-11-09\n   당사자\(공고 원문\): POSCO Holdings Inc\. \(Republic of Korea\) \/ JSW Steel Limited \(India\)\n   거래\(원문\): 「POSCO and JSW will acquire[^」]*」\n   사업 내용\(원문\): 「— POSCO: steel production[^」]*」\n   사전 신고 원문: [^\n]*52026M12449\n   원문: https:\/\/eur-lex\.europa\.eu\/[^\n]*32026M12449/);
+  assert.match((await call('trade_remedies', { section: 'eu', company: '기업결합' }, opts)).text, /\] 1건\n- M\.12449/);   // '기업결합'으로도 걸러진다
   assert.match((await call('radar_today', {}, opts)).text, /EU 기업결합 — 승인\(이의 없음\): M\.12449/);
 });
 
