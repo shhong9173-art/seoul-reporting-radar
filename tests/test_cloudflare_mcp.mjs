@@ -6463,15 +6463,25 @@ test('EU 기업결합(11-21): 출입처가 당사자인 사전 신고·승인은
           transaction: 'POSCO and JSW will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron.',
           activities: '— POSCO: steel production, — JSW: steel production in India.' } }],
       events: [{ id: 'eumerger:M.12449:cleared', kind: 'EU 기업결합(승인(이의 없음))', tier: 'A', company: '포스코', companies: ['포스코'], product: '', number: 'M.12449', date: '2026-11-12',
-        korea: false, merger: true, url, text, detectedAt: recent }] }) }), opts.env, {});
+        korea: false, merger: true, url, text, detectedAt: recent },
+        // 사전 신고 본문에 Korea 없음(#958) — 수집기 C를 B로 올리지 않는다
+        { id: 'eumerger:M.12701:notified', kind: 'EU 기업결합(사전 신고)', tier: 'C', company: '기아', companies: ['기아'], product: '', number: 'M.12701', date: '2026-11-18',
+          korea: false, merger: true, url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026M12701',
+          text: 'EU 기업결합 — 사전 신고: M.12701 「KIA CORPORATION / XYZ / JV」(2026-11-18) · 출입처 기아 · 거래(원문): 「Kia and XYZ will acquire joint control of a newly created company constituting a joint venture.」 · 본문에 한국(Korea) 없음 — 이름만 같은 다른 회사일 수 있음', detectedAt: recent }] }) }), opts.env, {});
   assert.equal(res.status, 200);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
   const it = items.items.find((x) => x.id === 'eumerger:M.12449:cleared');
   assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms], ['A', '포스코', '포스코', ['EU', '기업결합']]);
+  const kc = items.items.find((x) => x.id === 'eumerger:M.12701:notified');
+  assert.equal(kc?.tier ?? 'C', 'C');                                   // radar-items는 A·B만 — 있으면 C여야 한다
+  assert.doesNotMatch((await call('radar_today', {}, opts)).text.split('[C · ')[0], /M\.12701/);
+  assert.match((await call('radar_today', { include_minor: true }, opts)).text, /M\.12701[^\n]*영어 낱말 풀이: 공동 지배\(합작\) · 신설 합작사/);
   const t = (await call('trade_remedies', { section: 'eu' }, opts)).text;
   assert.match(t, /\[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고[^\]]*\] 1건\n- M\.12449 「POSCO \/ JSW \/ SAFFRON \/ PMH」 · 출입처 포스코 · 2026-10-30 사전 신고 → 2026-11-12 승인\(이의 없음\) · 간이 절차 대상\n/);
-  assert.match(t, /\n   신고 접수 2026-10-19 · 제3자 의견 마감 2026-11-09\n   당사자\(공고 원문\): POSCO Holdings Inc\. \(Republic of Korea\) \/ JSW Steel Limited \(India\)\n   거래\(원문\): 「POSCO and JSW will acquire[^」]*」\n   사업 내용\(원문\): 「— POSCO: steel production[^」]*」\n   사전 신고 원문: [^\n]*52026M12449\n   원문: https:\/\/eur-lex\.europa\.eu\/[^\n]*32026M12449/);
+  assert.match(t, /\n   신고 접수 2026-10-19 · 제3자 의견 마감 2026-11-09\n   당사자\(공고 원문\): POSCO Holdings Inc\. \(Republic of Korea\) \/ JSW Steel Limited \(India\)\n   거래\(원문\): 「POSCO and JSW will acquire[^」]*」\n   사업 내용\(원문\): 「— POSCO: steel production[^」]*」\n   영어 낱말 풀이: [^\n]*\n   사전 신고 원문: [^\n]*52026M12449\n   원문: https:\/\/eur-lex\.europa\.eu\/[^\n]*32026M12449/);
   assert.match((await call('trade_remedies', { section: 'eu', company: '기업결합' }, opts)).text, /\] 1건\n- M\.12449/);   // '기업결합'으로도 걸러진다
+  // 영어 낱말 풀이(번역 아님): 거래 형태·나라
+  assert.match(t, /\n   영어 낱말 풀이: 공동 지배\(합작\) · 간이 절차\(통상 신고 뒤 25영업일 안 결정\) · 한국 · 인도 \(번역 아님 — 누가 무엇을 얼마에 사는지·지분율은 원문과 회사\)\n/);
   assert.match((await call('radar_today', {}, opts)).text, /EU 기업결합 — 승인\(이의 없음\): M\.12449/);
 });
 
