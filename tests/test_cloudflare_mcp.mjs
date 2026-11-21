@@ -4980,7 +4980,7 @@ test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden
     sites: { '7777 KIA PARKWAY': { raw: '7777 KIA PARKWAY', company: '기아' } },
     events: [{ id: 'osha:viol:1002:2026-10-30', kind: '위반 통지', tier: 'A', company: '현대차', inspection: '1002', text: 'OSHA 위반 통지 2026-10-30 · 1건(반복) · 최초 벌금 합 $48,000 · HYUNDAI MOTOR MANUFACTURING ALABAMA, LLC (MONTGOMERY, AL)', url: 'https://www.osha.gov/x', detectedAt: recent },
       { id: 'osha:insp:1007', kind: '점검 개시', tier: 'C', company: '현대모비스', inspection: '1007', text: 'OSHA 점검 개시 2026-10-29 · 정기(계획)(H)', url: 'https://www.osha.gov/y', detectedAt: recent }],
-    dropped: [['PAT PECK KIA OF GULFPORT', 1], ["ARMANDO'S MANDO GRILL", 1]] };
+    dropped: [['PAT PECK KIA OF GULFPORT', 1], ["ARMANDO'S MANDO GRILL", 1], ['ARMANDO PEREZ', 1], ['CITY OF CAHOKIA HEIGHTS - POLICE DEPT.', 1]] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-osha', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_litigation', {}, opts);
   assert.match(t.text, /미국 소송·ITC 결과가 아직 없음/);  // 소송 결과가 없어도 OSHA 구역은 나온다
@@ -4991,7 +4991,8 @@ test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden
   assert.match(t.text, /사고 요약 2026-08-28 · 사망: Worker struck by press/);
   assert.match(t.text, /위반 통지 1건\(반복\) · 최초 벌금 합 \$48,000/);
   assert.doesNotMatch(t.text, /MOBIS ALABAMA/);
-  assert.match(t.text, /뺀 사업장 2곳[^\n]*PAT PECK KIA OF GULFPORT\(1\)/);
+  assert.match(t.text, /뺀 사업장 4곳[^\n]*PAT PECK KIA OF GULFPORT\(1\), ARMANDO'S MANDO GRILL\(1\) · 검색 낱말이 다른 낱말 속에 든 이름 2곳 접음\(ARMANDO 등\)/);
+  assert.doesNotMatch(t.text, /ARMANDO PEREZ|CAHOKIA/);
   assert.match((await call('us_litigation', { include_routine: true }, opts)).text, /MOBIS ALABAMA/);
   const r = await call('radar_today', { include_minor: true }, opts);
   const sec = (k) => r.text.split(`[${k} · `)[1].split(/\n\[[ABC] · /)[0];
