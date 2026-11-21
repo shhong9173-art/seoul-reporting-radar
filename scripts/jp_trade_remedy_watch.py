@@ -34,6 +34,15 @@ INDEXES = (("AD", "반덤핑(不当廉売関税)", BASE + "futou/index.html"),
            ("CVD", "상계관세(相殺関税)", BASE + "sousai/index.html"),
            ("SG", "세이프가드(緊急関税)", BASE + "kinkyu/index.html"))
 UA = {"User-Agent": "Mozilla/5.0 seoul-reporting-radar (reporter research)"}
+# 관세·외국환등심의회 관세분과회 특수관세부회 배포자료(11-21 2판): 확정·잠정 관세와 과세 기간 연장은 각의 결정 전에 이 부회가 '적당' 답신을 낸다.
+# 11-20 회의 자료에 한국산 도금강판(포스코 29.2% 등 5년)·비스페놀A(LG화학 제외)·수산화칼륨 연장이 올랐는데 국내 보도는 없었다(11-21 18시 대조).
+# 목록은 'li > p > a(令和8年11月20日開催)'(탐침: li 하나에 여러 회의), 회의 쪽은 PDF 링크 제목에 품목('（資料２－２）大韓民国産及び…の課税(PDF:729KB)').
+COUNCIL_INDEX = SITE + "/about_mof/councils/customs_foreign_exchange/sub-of_customs/proceedings_tokusyu/material/index.html"
+COUNCIL_RECENT_DAYS = 7     # 첫 실행이라도 최근 이만큼 안의 회의는 이벤트로(자료가 회의 뒤 며칠 동안 기사 거리다)
+MEETING_BUDGET = 2
+PDF_BUDGET = 3
+PDF_MAX = 6_000_000
+KEEP_MEETINGS = 20
 DETAIL_BUDGET = 4
 PAUSE = 2.0
 EVENT_DAYS = 90
@@ -74,6 +83,11 @@ def now_kst():
 
 def norm(s):
     return unicodedata.normalize("NFKC", s or "")
+
+
+def latin_spaced(text):
+    """영문 이름 앞뒤에 빈칸 — 한자·가나도 \\w라 '供給者LG Chem'에서 \\bLG가 안 맞는다(11-21 비스페놀A 자료)."""
+    return re.sub(r"([A-Za-z][A-Za-z0-9&.,'\- ]*[A-Za-z0-9.])", r" \1 ", text or "")
 
 
 def plain(raw):
@@ -234,10 +248,189 @@ def parse_detail(raw, published):
     names = [ko for ko, rx in JP_NAMES if re.search(rx, text)]
     try:
         from trade_remedy_watch import BEAT_NAMES
-        names += [ko for ko, rx in BEAT_NAMES if ko not in names and re.search(rx, text, re.I)]
+        spaced = latin_spaced(text)
+        names += [ko for ko, rx in BEAT_NAMES if ko not in names and re.search(rx, spaced, re.I)]
     except Exception:  # noqa: BLE001
         pass
     return {"facts": facts, "rates": rates, "until": until, "dutyTo": duty_to, "applicants": applicants, "companies": names, "pdfs": pdfs}
+
+
+COUNCIL_A = re.compile(r"""(?is)<a[^>]+href=["']([^"']*kanb\d{8}\.html?)["'][^>]*>(.*?)</a>""")
+PDF_A = re.compile(r"""(?is)<a[^>]+href=["']([^"']+\.pdf)["'][^>]*>(.*?)</a>""")
+
+
+def parse_council_index(raw, page_url=COUNCIL_INDEX):
+    """부회 배포자료 목록 → [{url, date}] ('令和8年11月20日開催' 링크만)."""
+    from urllib.parse import urljoin
+    out, seen = [], set()
+    for href, inner in COUNCIL_A.findall(raw or ""):
+        text = plain(inner)
+        date = era_date(text)
+        url = urljoin(page_url, href.strip())
+        if "開催" not in text or not date or url in seen:
+            continue
+        seen.add(url)
+        out.append({"url": url, "date": date})
+    return out
+
+
+def council_kind(title):
+    t = norm(title)
+    if re.search(r"課税期間の延長", t):
+        return "과세 기간 연장(일몰)"
+    if re.search(r"暫定", t):
+        return "잠정 관세"
+    if re.search(r"課税|課する", t):
+        return "관세 부과(확정)"
+    return "안건"
+
+
+def parse_meeting(raw, page_url):
+    """회의 배포자료 쪽 → PDF [{title, url}] (제목 끝 '(PDF:729KB)'는 뗀다)."""
+    from urllib.parse import urljoin
+    out = []
+    for href, inner in PDF_A.findall(raw or ""):
+        title = re.sub(r"\s*[(（]PDF[:：][^)）]*[)）]\s*$", "", plain(inner)).strip()
+        url = urljoin(page_url, href.strip())
+        if title and url not in [m["url"] for m in out]:
+            out.append({"title": title[:300], "url": url})
+    return out
+
+
+def council_items(materials):
+    """한국산 안건(자료 제목에 '大韓民国') 또는 출입 업종 품목 세이프가드 자료."""
+    items = []
+    for m in materials:
+        korea = bool(KOREA.search(m["title"]))
+        ko, words, beat = product_ko(m["title"])
+        if not korea and not (beat and re.search(r"緊急関税", norm(m["title"]))):
+            continue
+        items.append({**m, "korea": korea, "productKo": ko, "productWords": words, "beat": beat, "kind": council_kind(m["title"])})
+    return items
+
+
+def pdf_text(content):
+    import io
+    from pypdf import PdfReader
+    return norm("\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(content)).pages))
+
+
+def council_facts(text):
+    """부회 자료 PDF 글 → '適当'(부과 권고)·기간·본문 출입처·'…を除く'(제외 업체). 세율은 표 배치 때문에 자동으로 뽑지 않는다(원문 표 확인)."""
+    names = [ko for ko, rx in JP_NAMES if re.search(rx, text)]
+    try:
+        from trade_remedy_watch import BEAT_NAMES
+        names += [ko for ko, rx in BEAT_NAMES if ko not in names and re.search(rx, latin_spaced(text), re.I)]
+    except Exception:  # noqa: BLE001
+        BEAT_NAMES = []
+    excl_raw = [x.strip() for x in re.findall(r"[(（]([^()（）]{2,80}?)を除く[)）]", text)][:3]
+    excluded = []
+    for x in excl_raw:
+        excluded += [ko for ko, rx in JP_NAMES if re.search(rx, x) and ko not in excluded]
+        excluded += [ko for ko, rx in BEAT_NAMES if re.search(rx, latin_spaced(x), re.I) and ko not in excluded]
+    y = re.search(r"(\d{1,2})\s*年間", text)
+    return {"recommends": "適当" in text, "years": int(y.group(1)) if y else None, "companies": names, "excluded": excluded, "excludedRaw": excl_raw[:2]}
+
+
+def council_item_text(it):
+    p = it.get("pdf") or {}
+    bits = [f"{it.get('productKo') or '업종 밖 품목'} {it['kind']}"]
+    if p.get("read"):
+        if p.get("recommends"):
+            bits.append("자료에 '適当'(부과가 적당)")
+        if p.get("years"):
+            bits.append(f"기간 {p['years']}년")
+        named = [n for n in p.get("companies") or [] if n not in (p.get("excluded") or [])]
+        if named:
+            bits.append(f"본문 출입처 {'·'.join(named)}")
+        if p.get("excluded"):
+            bits.append(f"부과 대상에서 제외 {'·'.join(p['excluded'])}(자료 '…を除く')")
+    elif p.get("error"):
+        bits.append(f"PDF 못 읽음({p['error']})")
+    return " · ".join(bits)
+
+
+def council_event(m, stamp):
+    items = m.get("items") or []
+    beat = [i for i in items if i.get("beat")]
+    names = []
+    for i in items:
+        names += [n for n in (i.get("pdf") or {}).get("companies") or [] if n not in names]
+    marks = "①②③④⑤⑥⑦⑧"
+    text = (f"일본 재무성 특수관세부회 회의 자료({m['date']} 개최) — 한국산 안건 {len(items)}건: "
+            + " / ".join(f"{marks[k] if k < len(marks) else '-'} {council_item_text(i)}" for k, i in enumerate(items))
+            + f" · 자료 목록 {m['url']} (부회가 부과를 '적당'이라 답하면 각의 결정·정령 공포로 이어진다 — 세율·대상 업체는 자료 PDF 원문 표)")
+    words = []
+    for i in beat or items:
+        words += [w for w in i.get("productWords") or [] if w not in words]
+    return {"id": f"jpcouncil:{m['date'].replace('-', '')}", "kind": "일본 무역구제(특수관세부회 자료)", "tier": "A" if beat else "B", "index": "AD",
+            "product": (beat or items)[0].get("productKo") or "", "productWords": words, "korea": any(i.get("korea") for i in items),
+            "company": "·".join(names), "companies": names, "case": "", "date": m["date"], "url": m["url"], "text": text, "detectedAt": stamp}
+
+
+def council_run(prev_council, now, get, sleep, stamp):
+    """부회 배포자료: 새 회의 쪽 → 한국산 안건 → 그 자료 PDF('適当'·기간·출입처·제외). → (council, check, errors)."""
+    council = dict(prev_council or {})
+    meetings = {m["url"]: m for m in council.get("meetings") or [] if isinstance(m, dict) and m.get("url")}
+    first = not meetings and not council.get("seen")
+    check = {"source": "일본 재무성 특수관세부회 배포자료", "url": COUNCIL_INDEX, "status": "ok", "returned": 0}
+    errors = []
+    try:
+        r = get(COUNCIL_INDEX, headers=UA, timeout=60)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        r.encoding = "utf-8"
+        listed = parse_council_index(r.text)
+        if not listed:
+            raise RuntimeError("목록 0줄(형식 변경 의심)")
+    except Exception as ex:  # noqa: BLE001
+        check.update(status="failed", error=str(ex)[:60] or type(ex).__name__)
+        return council, check, errors
+    check["returned"] = len(listed)
+    recent = (now.date() - dt.timedelta(days=COUNCIL_RECENT_DAYS)).isoformat()
+    for x in listed:
+        if x["url"] not in meetings:
+            meetings[x["url"]] = {**x, "read": False, "baseline": first and x["date"] < recent}
+    budget, pdfs = MEETING_BUDGET, PDF_BUDGET
+    for m in sorted(meetings.values(), key=lambda m: m["date"], reverse=True):
+        if m.get("read") or m.get("baseline"):
+            continue
+        if budget <= 0:
+            break
+        budget -= 1
+        sleep(PAUSE)
+        try:
+            r = get(m["url"], headers=UA, timeout=60)
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            r.encoding = "utf-8"
+            mats = parse_meeting(r.text, m["url"])
+            m.update(read=True, readAt=stamp, materials=len(mats), items=council_items(mats))
+            m.pop("error", None)
+        except Exception as ex:  # noqa: BLE001
+            m["error"] = str(ex)[:40] or type(ex).__name__
+            errors.append(f"부회 {m['date']} {m['error']}")
+    # 안건 자료 PDF: 아직 못 읽은 것(최근 회의부터)
+    for m in sorted(meetings.values(), key=lambda m: m["date"], reverse=True):
+        for it in m.get("items") or []:
+            if (it.get("pdf") or {}).get("read") or pdfs <= 0:
+                continue
+            pdfs -= 1
+            sleep(PAUSE)
+            try:
+                r = get(it["url"], headers=UA, timeout=90)
+                if r.status_code != 200:
+                    raise RuntimeError(f"HTTP {r.status_code}")
+                if len(r.content or b"") > PDF_MAX:
+                    raise RuntimeError("PDF 너무 큼")
+                it["pdf"] = {**council_facts(pdf_text(r.content)), "read": True}
+            except Exception as ex:  # noqa: BLE001
+                it["pdf"] = {"read": False, "error": str(ex)[:40] or type(ex).__name__}
+                errors.append(f"부회 PDF {it['url'].rsplit('/', 1)[-1]} {it['pdf']['error']}")
+    kept = sorted(meetings.values(), key=lambda m: m["date"], reverse=True)[:KEEP_MEETINGS]
+    check["korea"] = sum(1 for m in kept if m.get("items"))
+    council.update(meetings=kept, checkedAt=stamp, seen=True)
+    return council, check, errors
 
 
 def event_text(e):
@@ -339,7 +532,22 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             err = str(ex)[:40] or type(ex).__name__
             e["detail"] = {**(e.get("detail") or {}), "read": False, "error": err}
             errors.append(f"{e['url'].rsplit('/', 1)[-1]} {err}")
+    council, ccheck, cerrors = council_run(prev.get("council"), now, get, sleep, stamp)
+    checks.append(ccheck)
+    errors += cerrors
     by_id = {ev["id"]: i for i, ev in enumerate(events)}
+    for m in council.get("meetings") or []:
+        if m.get("baseline") or not m.get("items"):
+            continue
+        ev = council_event(m, stamp)
+        if ev["id"] in by_id:
+            old_ev = events[by_id[ev["id"]]]
+            if old_ev.get("text") != ev["text"]:
+                events[by_id[ev["id"]]] = {**ev, "detectedAt": old_ev.get("detectedAt", stamp), "updatedAt": stamp}
+        else:
+            events.append(ev)
+            by_id[ev["id"]] = len(events) - 1
+            fresh += 1
     for e in entries.values():
         if e.pop("eventPending", None) or (not e.get("baseline") and event_id(e) in by_id):
             ev = event_of(e, stamp)
@@ -351,16 +559,17 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
                 events.append(ev)
                 by_id[ev["id"]] = len(events) - 1
                 fresh += 1
-    status = "ok" if len(ok) == len(checks) and not errors else "partial"
+    status = "ok" if all(c["status"] == "ok" for c in checks) and not errors else "partial"
     if errors:
         checks[0]["detailErrors"] = errors[:3]
     pending = sum(1 for e in entries.values() if not (e.get("detail") or {}).get("read"))
     kept = sorted(entries.values(), key=lambda x: x.get("date") or "", reverse=True)[:KEEP_ENTRIES]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "baselineAt": prev.get("baselineAt") or stamp,
-            "entries": kept, "events": events[-80:], "seen": sorted(seen)[-400:], "fresh": fresh, "detailPending": pending,
+            "entries": kept, "events": events[-80:], "seen": sorted(seen)[-400:], "fresh": fresh, "detailPending": pending, "council": council,
             "rules": ["일본 재무성 관세제도 누리집(공식, 일본어 목록). 반덤핑·상계관세는 제목에 '大韓民国'이 든 공고, 세이프가드는 출입 업종 품목만.",
                       "보도자료 본문의 세율은 범위(업체별 세율은 관보 정령·조사 보고서 원문). 일본 조사는 원칙 1년, 연장하면 최대 18개월.",
-                      "첫 실행은 기준선 — 그 뒤 목록에 새로 오른 공고만 이벤트."]}
+                      "첫 실행은 기준선 — 그 뒤 목록에 새로 오른 공고만 이벤트.",
+                      "특수관세부회 배포자료: 한국산 안건 자료 PDF에서 '適当'(부과가 적당)·기간·출입처 이름·'…を除く'(제외 업체)만 자동으로 본다 — 세율은 원문 표."]}
 
 
 def main():

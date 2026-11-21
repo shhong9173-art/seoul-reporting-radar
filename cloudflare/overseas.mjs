@@ -584,6 +584,14 @@ export function thSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
 
 // 일본 무역구제 공고(jp-trade-remedy feed, 11-21): 재무성 관세제도 누리집의 반덤핑·상계관세(제목에 한국)·세이프가드(출입 업종 품목) 결정 목록.
 // 사건(원산지+품목)마다 가장 최근 공고와 보도자료 본문의 세율 범위·기간. 업체별 세율은 관보 정령·조사 보고서 원문.
+export function jpCouncilItem(it) {
+  const p = it?.pdf ?? {};
+  const named = (p.companies ?? []).filter((n) => !(p.excluded ?? []).includes(n));
+  return [`${it?.productKo ?? '업종 밖 품목'} ${it?.kind ?? ''}`.trim(), p.read && p.recommends ? "자료에 '適当'(부과가 적당)" : '', p.read && p.years ? `기간 ${p.years}년` : '',
+    p.read && named.length ? `본문 출입처 ${named.join('·')}` : '', p.read && (p.excluded ?? []).length ? `부과 대상에서 제외 ${p.excluded.join('·')}(자료 '…を除く')` : '',
+    !p.read && p.error ? `PDF 못 읽음(${p.error})` : ''].filter(Boolean).join(' · ');
+}
+
 export function jpSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
   if (!doc) return ['\n[일본 무역구제 공고(재무성)] 아직 수집 전 — 미확인'];
   const checks = doc.checks ?? [];
@@ -610,13 +618,21 @@ export function jpSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
     out.push(`   원문: ${x.url}`);
   }
   if (cases.size > limit) out.push(`… 남은 ${cases.size - limit}건`);
+  const meets = (doc.council?.meetings ?? []).filter((m) => (m.items ?? []).length && matches(q, ...(m.items ?? []).map((i) => `${i.title} ${i.productKo ?? ''}`)));
+  const cc = (doc.checks ?? []).find((c) => /특수관세부회/.test(c.source ?? ''));
+  out.push(`[특수관세부회 배포자료 — 확정·잠정 관세·과세 기간 연장 전에 부회가 '적당' 답신] 한국산 안건이 있는 회의 ${meets.length}건`
+    + `${cc ? ` · 목록 ${cc.status}(${cc.returned ?? 0}회${cc.error ? `, ${cc.error}` : ''})` : ' · 목록 아직 안 읽음'}`);
+  for (const m of meets.slice(0, 3)) {
+    out.push(`- ${m.date} 개최 · 한국산 안건 ${m.items.length}건 — ${m.items.map((i, k) => `${'①②③④⑤⑥⑦⑧'[k] ?? '-'} ${jpCouncilItem(i)}`).join(' / ')}`);
+    out.push(`   원문: ${m.url}`);
+  }
   const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= String(fromIso) && matches(q, e.text, e.product));
   out.push(`새 공고(감지일 기준): ${ev.length}건`);
   for (const e of ev.slice(-limit).reverse()) {
     out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.text}`);
     out.push(`   원문: ${e.url}`);
   }
-  out.push('   검증 상태: 일본 재무성 누리집 목록·보도자료 본문(자동, 일본어). 공고 종류는 제목 낱말로 가른 것. 세율은 보도자료의 범위 — 업체별 세율은 관보 정령·조사 보고서 원문. 회사 입장은 회사 확인');
+  out.push("   검증 상태: 일본 재무성 누리집 목록·보도자료 본문(자동, 일본어). 공고 종류는 제목 낱말로 가른 것. 세율은 보도자료의 범위 — 업체별 세율은 관보 정령·조사 보고서·부회 자료 원문 표. 부회 자료는 PDF에서 '適当'·기간·이름·'…を除く'만 자동으로 봤다. 회사 입장은 회사 확인");
   return out;
 }
 

@@ -6252,6 +6252,13 @@ test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A,
         { read: true, applicants: '日本製鉄株式会社、JFEスチール株式会社', companies: [] }),
       e('ka20251225', `${KOH}に対する不当廉売関税の課税期間の延長に関する調査を開始します`, '2025-12-25', '일몰 재심(과세 기간 연장 조사) 개시', '수산화칼륨', false, KOH),
       e('ka20250813', `${GALV}に対する不当廉売関税の課税に関する調査を開始します`, '2025-08-13', '조사 개시', '용융아연도금강판', true, GALV)],
+    council: { checkedAt: recent, meetings: [
+      { url: 'https://www.mof.go.jp/about_mof/councils/customs_foreign_exchange/sub-of_customs/proceedings_tokusyu/material/kanb20261120.html', date: '2026-11-20', read: true, materials: 14,
+        items: [{ title: `（資料２－２）${GALV}に対する不当廉売関税の課税`, url: 'https://www.mof.go.jp/x/siryo2-2.pdf', korea: true, productKo: '용융아연도금강판', beat: true, kind: '관세 부과(확정)',
+          pdf: { read: true, recommends: true, years: 5, companies: ['포스코', 'KG스틸'], excluded: [] } },
+        { title: '（資料３－２）大韓民国産及び台湾産ビスフェノールAに対する不当廉売関税の課税', url: 'https://www.mof.go.jp/x/siryo3-2.pdf', korea: true, productKo: '비스페놀A', beat: true,
+          kind: '관세 부과(확정)', pdf: { read: true, recommends: true, years: 5, companies: ['LG화학'], excluded: ['LG화학'] } }] },
+      { url: 'https://www.mof.go.jp/about_mof/councils/customs_foreign_exchange/sub-of_customs/proceedings_tokusyu/material/kanb20260730.html', date: '2026-07-30', read: false, baseline: true }] },
     events: [{ id: 'jptr:ka20261120', kind: '일본 무역구제(예비 판정(가결정))', tier: 'A', index: 'AD', product: '비스페놀A', productWords: ['비스페놀', 'BPA'], korea: true,
       company: '', companies: [], case: BPA, date: '2026-11-20', url: `${F}ka20261120.html`, text: bpaText, detectedAt: recent }] })).status, 200);
 
@@ -6265,13 +6272,14 @@ test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A,
   assert.match(t, /- 용융아연도금강판 반덤핑 · 가장 최근 2026-08-04 잠정 관세 결정 · 지난 공고 2026-07-24 조사 기간 연장 \/ 2025-08-13 조사 개시\n   「大韓民国産[^」]*」\n   세율 29\.2~55\.3%\(보도자료 본문\) · 관세 부과 2026-12-07까지 · 조사 기간 2026-12-12까지\n   원문: https:\/\/www\.mof\.go\.jp\/policy\/customs_tariff\/trade\/plan\/futou\/ka20260804\.html/);
   assert.match(t, /- 열연강판 반덤핑 · 가장 최근 2026-06-01 조사 개시\n   「[^」]*」\n   신청 日本製鉄株式会社、JFEスチール株式会社\n/);
   assert.match(t, /새 공고\(감지일 기준\): 1건\n- A · [^\n]* · 일본 재무성 무역구제 공고[^\n]*\n   원문: https:\/\/www\.mof\.go\.jp\/[^\n]*ka20261120\.html/);
+  assert.match(t, /\[특수관세부회 배포자료 — [^\]]+\] 한국산 안건이 있는 회의 1건 · 목록 아직 안 읽음\n- 2026-11-20 개최 · 한국산 안건 2건 — ① 용융아연도금강판 관세 부과\(확정\) · 자료에 '適当'\(부과가 적당\) · 기간 5년 · 본문 출입처 포스코·KG스틸 \/ ② 비스페놀A 관세 부과\(확정\) · 자료에 '適当'\(부과가 적당\) · 기간 5년 · 부과 대상에서 제외 LG화학\(자료 '…を除く'\)\n   원문: https:\/\/www\.mof\.go\.jp\/about_mof\/[^\n]*kanb20261120\.html/);
   assert.doesNotMatch(t, /\[태국 무역구제 공고/);
   assert.match((await call('trade_remedies', {}, opts)).text, /\[일본 무역구제 공고 · /);
 
   // 도금강판: 잠정 관세 끝(12-07)·조사 끝(연장 공고 날짜 12-12)은 45일 안 — 단독 데스크 2-2구역. 수산화칼륨(업종 밖)은 데스크에 안 올린다
   const dk = (await call('scoop_desk', {}, opts)).text;
-  assert.match(dk, /- 2026-12-07 · 일본 재무성·경산성 · 잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다 · 용융아연도금강판 반덤핑\(잠정 관세 결정 2026-08-04\) · 잠정 관세율 29\.2~55\.3%\n   근거: 일본 재무성 잠정 관세 결정 공고 본문의 부과 기간/);
-  assert.match(dk, /- 2026-12-12 · 일본 재무성·경산성 · 조사 기간 끝\(연장 공고 2026-07-24\) — 이 날까지 확정 관세 여부 결정 · 용융아연도금강판 반덤핑\(개시 2025-08-13\)\n   근거: 일본 재무성 조사 기간 연장 공고 본문의 날짜 · 원문: [^\n]*ka20260724-2\.html/);
+  assert.match(dk, /- 2026-12-07 · 일본 재무성·경산성 · 잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다 · 용융아연도금강판 반덤핑\(잠정 관세 결정 2026-08-04\) · 잠정 관세율 29\.2~55\.3% · 특수관세부회 2026-11-20 자료에 부과 '적당'\(각의 결정 전\)\n   근거: 일본 재무성 잠정 관세 결정 공고 본문의 부과 기간/);
+  assert.match(dk, /- 2026-12-12 · 일본 재무성·경산성 · 조사 기간 끝\(연장 공고 2026-07-24\) — 이 날까지 확정 관세 여부 결정 · 용융아연도금강판 반덤핑\(개시 2025-08-13\) · 특수관세부회 2026-11-20 자료에 부과 '적당'\(각의 결정 전\)\n   근거: 일본 재무성 조사 기간 연장 공고 본문의 날짜 · 원문: [^\n]*ka20260724-2\.html/);
   assert.doesNotMatch(dk, /수산화칼륨/);
   const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(a, /- ~2027-06-01 · 일본 재무성·경산성 · 조사 기간 끝\(원칙 1년 — 연장하면 최대 2027-12-01\) · 열연강판 반덤핑\(개시 2026-06-01\)\n   근거: 관세정률법/);
