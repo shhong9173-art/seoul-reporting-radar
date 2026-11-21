@@ -5480,6 +5480,11 @@ test('주간 판정(11-21): 목록에서 빠진 항목도 id 앞말로 감시를
   assert.equal(watchFromPackage({ name: 'x-pkg', body: '근거 id stk:down:현대제철:현대제철(주)순천공장:2026-11-18' }), '굴뚝 측정(공장 가동 신호)');
   assert.equal(watchFromPackage({ name: 'hpls-louisiana-quality-jobs-1029', body: 'https://www.opportunitylouisiana.gov/docs/default-source/board-of-commerce-and-industry/2026-10-29.pdf' }), '미국 주 환경 허가·공고');
   assert.equal(watchFromPackage({ name: 'memo', body: '메모만' }), undefined);
+  // 11-21 운영: 본문에 TRA 문서 번호(CD-01887)만 있고 주소·id가 없던 패키지 — 이름·제목 낱말로
+  assert.equal(watchFromPackage({ name: 'uk-tra-pvc-korea-pms-1113', title: '[보강 메모] 영국 S-PVC(AD0092) PMS — 기자 작성 기사 보강용', body: 'CD-01887 「Particular Market Situation Questionnaire」' }), '무역구제');
+  assert.equal(watchFromPackage({ name: 'hanwha-itc-1494-with-prejudice', title: '[예약 중] 한화 ITC 337-1494 재검토', body: '' }), '무역구제');
+  assert.equal(watchFromPackage({ name: 'hyundai-factory-delisted-anseong-guess', title: '[킬] 현대차 안성 공장등록 목록에서 빠짐', body: '' }), '공장등록·관보');
+  assert.equal(watchFromPackage({ name: 'lgchem-daesan-br-ssbr', title: 'LG화학 대산 BR·SSBR 설비', body: '' }), undefined);   // 낱말이 없으면 짐작하지 않는다
   assert.equal(watchFromPackage(null), undefined);
 });
 
