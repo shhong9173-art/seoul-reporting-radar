@@ -204,7 +204,7 @@ export function watchFromPackage(row, index = new Map()) {
 }
 const TITLE_WATCH = [[/\buk-tra\b|\bAD\d{4}\b|반덤핑|상계관세|무역구제|세이프가드|\bTRA\b|\bITC\b|\bitc-|\b337\b|EDIS|\bcvd\b|무역위/i, 'trade-remedy'],
   [/osha/i, 'us-osha'], [/louisiana|루이지애나|georgia-epd|ldeq|quality-jobs|ITEP/i, 'us-state-env'], [/factory-|공장등록|공장 목록/i, 'kr-official'],
-  [/굴뚝|stack/i, 'kr-stacks'], [/nlrc|노동위/i, 'kr-labor'], [/리콜|recall|nhtsa|무상수리|서비스 캠페인/i, 'us-recalls'], [/건축허가/i, 'kr-building'],
+  [/굴뚝|stack/i, 'kr-stacks'], [/nlrc|노동위/i, 'kr-labor'], [/리콜|recall|nhtsa|무상수리|서비스 캠페인|美[^,]{0,30}캠페인|특별 보증|보증 연장|\d+년\s?보증|만\s?마일/i, 'us-recalls'], [/건축허가/i, 'kr-building'],
   [/회생|파산/i, 'kr-insolvency'], [/통합환경허가|ieps/i, 'ieps-permits']];
 
 export async function weeklyReview(ctx, args) {

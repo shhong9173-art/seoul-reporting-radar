@@ -5486,6 +5486,10 @@ test('주간 판정(11-21): 목록에서 빠진 항목도 id 앞말로 감시를
   assert.equal(watchFromPackage({ name: 'hanwha-itc-1494-with-prejudice', title: '[예약 중] 한화 ITC 337-1494 재검토', body: '' }), '무역구제');
   assert.equal(watchFromPackage({ name: 'hyundai-factory-delisted-anseong-guess', title: '[킬] 현대차 안성 공장등록 목록에서 빠짐', body: '' }), '공장등록·관보');
   assert.equal(watchFromPackage({ name: 'lgchem-daesan-br-ssbr', title: 'LG화학 대산 BR·SSBR 설비', body: '' }), undefined);   // 낱말이 없으면 짐작하지 않는다
+  // 11-21 남은 미상(실제 제목): 美 보증 연장·서비스 캠페인 — 미국 리콜(제조사 통신). '이행보증'·'지급보증'은 아니다
+  assert.equal(watchFromPackage({ name: 'gmkorea-trailblazer-turbo-15yr-us', title: '트레일블레이저·앙코르GX 美 터보 15년 보증 — 기자 판단 약함으로 접음', body: '' }), '미국 리콜(NHTSA 전체)');
+  assert.equal(watchFromPackage({ name: 'hyundai-hev-egr-freezing-us-9c7', title: '투싼·싼타페 하이브리드 美 EGR 결빙 캠페인 9C7 — 기자 판단 약함으로 접음', body: '' }), '미국 리콜(NHTSA 전체)');
+  assert.equal(watchFromPackage({ name: 'ls-guarantee', title: 'LS 이행보증 새 상대방', body: '' }), undefined);
   assert.equal(watchFromPackage(null), undefined);
 });
 
