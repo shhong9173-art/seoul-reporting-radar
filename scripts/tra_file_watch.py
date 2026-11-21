@@ -50,6 +50,75 @@ KEY = re.compile(r"de minimis|negligible|terminat|particular market situation|no
                  r"respectfully|request(?:s|ed)?\b|subsid|price reduction|government support", re.I)
 
 
+# 사건 예정표(11-21): TRA는 사건마다 '예정표(External timeline / Case timeline)'를 공개기록에 올린다(guidance 'Investigations timelines':
+# "will publish an indicative timeline on the public file"). 탐침 27: AD0092는 개시 문서 묶음의 CD-01395 'External Timeline (S-PVC)' —
+# 'Milestone Date … Provisional Determination (if required) November – December 2026 Publication of Statement of Essential Facts April 2027
+# Final Recommendation June 2027'. 구속력 없는 예정(달 단위). 가장 최근 예정표만 읽는다(바뀐 예정표 'External timeline 2'가 이긴다).
+TIMELINE = re.compile(r"timeline|timetable", re.I)
+OWN_UA = {"User-Agent": "Mozilla/5.0 seoul-reporting-radar (reporter research)"}
+MONTHS_FULL = "January|February|March|April|May|June|July|August|September|October|November|December"
+TL_DATE = re.compile(rf"(?:(\d{{1,2}})\s+)?({MONTHS_FULL})(?:\s*[–-]\s*(?:(\d{{1,2}})\s+)?({MONTHS_FULL}))?\s+(20\d\d)")
+
+
+def parse_timeline(text):
+    """예정표 본문 → [{label, when, from, to, exact}] — 'Milestone Date' 표 뒤 '이름 날짜' 쌍(날짜는 '04 August 2026'·'April 2027'·'October – December 2026')."""
+    import calendar
+    t = re.sub(r"\s+", " ", text or "")
+    i = t.find("Milestone")
+    body = re.sub(r"^\s*Date\b", "", t[i + len("Milestone"):]) if i >= 0 else t
+    names = MONTHS_FULL.split("|")
+    out, last = [], 0
+    for m in TL_DATE.finditer(body):
+        label = re.sub(r"\s*\*+", "", body[last:m.start()]).strip(" :–-|")
+        last = m.end()
+        if not 3 <= len(label) <= 90 or re.search(r"\d{4}", label):
+            continue
+        d1, m1, d2, m2, year = m.groups()
+        y, a, b = int(year), names.index(m1) + 1, names.index(m2 or m1) + 1
+        ys = y - 1 if b < a else y
+        try:
+            start = dt.date(ys, a, int(d1) if d1 else 1)
+            end = dt.date(y, b, int(d2) if d2 else (int(d1) if d1 and not m2 else calendar.monthrange(y, b)[1]))
+        except ValueError:
+            continue
+        out.append({"label": label, "when": m.group(0), "from": start.isoformat(), "to": end.isoformat(), "exact": bool(d1) and not m2})
+    return out[:20]
+
+
+def read_timeline(rows, old, *, get, budget, sleep):
+    """사건 공개기록 줄 가운데 가장 최근 예정표를 읽는다(바뀌었을 때만). 못 읽으면 직전 예정표를 둔다."""
+    named = [r for r in rows if TIMELINE.search(r.get("title") or "")]
+    pick = max(named or [r for r in rows if (r.get("title") or "").strip().lower() == "initiation documents"],
+               key=lambda r: (r.get("published") or "", r.get("sid") or ""), default=None)
+    if not pick or (old or {}).get("sid") == pick["sid"]:
+        return old
+    if budget["pages"] <= 0 or budget["pdfs"] <= 0:
+        return old
+    budget["pages"] -= 1
+    sleep(0.5)
+    url = pick.get("url") or ""
+    try:
+        r = get(url, headers=OWN_UA, timeout=45)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        files = parse_submission(r.text)
+        pdfs = [f for f in files if f["name"].lower().endswith(".pdf")]
+        tl = [f for f in pdfs if TIMELINE.search(f["name"])] or (pdfs[:1] if named else [])
+        if not tl:
+            return {**(old or {}), "sid": pick["sid"], "checked": True} if not old else old
+        budget["pdfs"] -= 1
+        sleep(0.5)
+        p = get(tl[0]["url"], headers=OWN_UA, timeout=120)
+        if p.status_code != 200 or p.content[:5] != b"%PDF-" or len(p.content) > MAX_PDF_BYTES:
+            raise RuntimeError(f"PDF HTTP {p.status_code}")
+        items = parse_timeline(pdf_text(p.content)[1])
+    except Exception as e:  # noqa: BLE001
+        return {**(old or {}), "error": f"예정표 {str(e)[:40] or type(e).__name__}"}
+    if not items:
+        return {**(old or {}), "error": "예정표 표를 못 읽음"} if old else {"sid": pick["sid"], "items": [], "error": "예정표 표를 못 읽음"}
+    return {"sid": pick["sid"], "title": pick.get("title"), "published": pick.get("published"), "file": tl[0]["name"], "url": tl[0]["url"], "items": items}
+
+
 def beat_names():
     from trade_remedy_watch import BEAT_NAMES
     return BEAT_NAMES
@@ -267,8 +336,10 @@ def collect(prev, now, *, get, sleep=time.sleep, extra_cases=()):
         first_case = case["id"] not in seen      # 새로 지켜보게 된 사건도 그 사건만 기준선
         had = seen.setdefault(case["id"], set())
         parties = sorted({r["party"] for r in rows})
+        old_case = next((c for c in prev.get("cases") or [] if c.get("id") == case["id"]), None) or {}
+        timeline = read_timeline(rows, old_case.get("timeline"), get=get, budget=budget, sleep=sleep)
         out_cases.append({**case, "rows": len(rows), "beatParties": sorted({n for p in parties for n in companies_in(p)}),
-                          "govParty": any(GOV.search(p) for p in parties), "parties": len(parties)})
+                          "govParty": any(GOV.search(p) for p in parties), "parties": len(parties), **({"timeline": timeline} if timeline else {})})
         fresh = [r for r in rows if r["sid"] not in had]
         # 못 읽고 넘긴 제출 페이지(pending)는 다음 실행이 이어 읽는다
         pending = [docs[f"tra:{case['id']}:{r['sid']}"] for r in rows if docs.get(f"tra:{case['id']}:{r['sid']}", {}).get("detail") == "pending"]

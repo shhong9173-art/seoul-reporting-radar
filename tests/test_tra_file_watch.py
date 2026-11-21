@@ -169,5 +169,58 @@ class TraFile(unittest.TestCase):
         self.assertEqual(len(events), t.PAGE_BUDGET + 3)                                       # 알림은 한다(파일 목록은 다음 실행)
 
 
+
+# 탐침 27(11-21): AD0092 개시 문서 묶음의 CD-01395 'External Timeline (S-PVC)' 본문(pypdf로 뽑은 글자 그대로)
+TL_TEXT = ("Note to the file AD0092: Dumping investigation into Suspension Polyvinyl Chloride (S-PVC) originating in China, Mexico and South Korea External "
+           "timeline This is an indicative timetable for interested parties and contributors and is in no way legally binding. We may need, at times, to "
+           "deviate from the suggested timeline below if the specific circumstances of the case so demand. Milestone Date Case Initiation 04 August 2026 "
+           "Deadline to register an interest 21 August 2026 Issue of Questionnaires* September 2026 Business survey* open for responses September 2026 "
+           "Deadline for return of Questionnaires* October 2026 Business survey* deadline October 2026 Verification October – December 2026 Provisional "
+           "Determination (if required) November – December 2026 Publication of Statement of Essential Facts April 2027 Final Recommendation June 2027 * UK "
+           "producers, exporters and importers should complete a questionnaire, upstream and downstream businesses, should complete a survey")
+
+
+class Timeline(unittest.TestCase):
+    def test_parse_real_timeline(self):
+        got = t.parse_timeline(TL_TEXT)
+        self.assertEqual([(x["label"], x["from"], x["to"], x["exact"]) for x in got], [
+            ("Case Initiation", "2026-08-04", "2026-08-04", True), ("Deadline to register an interest", "2026-08-21", "2026-08-21", True),
+            ("Issue of Questionnaires", "2026-09-01", "2026-09-30", False), ("Business survey open for responses", "2026-09-01", "2026-09-30", False),
+            ("Deadline for return of Questionnaires", "2026-10-01", "2026-10-31", False), ("Business survey deadline", "2026-10-01", "2026-10-31", False),
+            ("Verification", "2026-10-01", "2026-12-31", False), ("Provisional Determination (if required)", "2026-11-01", "2026-12-31", False),
+            ("Publication of Statement of Essential Facts", "2027-04-01", "2027-04-30", False), ("Final Recommendation", "2027-06-01", "2027-06-30", False)])
+
+    def test_collect_reads_latest_timeline_once(self):
+        init = sub_row("AD0092", "1048", "Initiation documents", "Trade Remedies Authority", "Trade Remedies Authority", "<span>2026-08-05</span> 05 Aug 2026", 3)
+        case = CASE92.replace("</table>", init + "</table>")
+        sub = (f'<a href="https://afd-x.a02.azurefd.net/content/CD-01395_External%20Timeline%20%28S-PVC%29.pdf">CD-01395_External Timeline (S-PVC).pdf</a> '
+               f'<a href="https://afd-x.a02.azurefd.net/content/CD-01382_Notice%20of%20Initiation.pdf">CD-01382_Notice of Initiation (S-PVC).pdf</a>')
+        pages = {t.BASE + "/": LIST, t.BASE + "/case/ad0092": case, t.BASE + "/case/ad0071": CASE71, t.BASE + "/case/ad0092/submission/1048": sub,
+                 "https://afd-x.a02.azurefd.net/content/CD-01395_External%20Timeline%20%28S-PVC%29.pdf": b"%PDF-1.7 timeline"}
+        old = t.pdf_text
+        t.pdf_text = lambda data, limit=t.PDF_PAGES: (1, TL_TEXT if b"timeline" in data else PDF_TEXT)
+        try:
+            log = []
+            sec, _, _ = t.collect(None, NOW, get=getter(pages, log), sleep=lambda s: None)
+            tl = next(c for c in sec["cases"] if c["id"] == "AD0092")["timeline"]
+            self.assertEqual((tl["sid"], tl["file"], len(tl["items"]), tl["items"][-1]["label"]), ("1048", "CD-01395_External Timeline (S-PVC).pdf", 10, "Final Recommendation"))
+            self.assertIn("https://afd-x.a02.azurefd.net/content/CD-01395_External%20Timeline%20%28S-PVC%29.pdf", log)
+            # 다음 실행: 같은 예정표는 다시 안 읽는다. 바뀐 예정표('External timeline 2')가 올라오면 그것을 읽는다
+            log2 = []
+            sec2, _, _ = t.collect(sec, NOW + dt.timedelta(hours=10), get=getter(pages, log2), sleep=lambda s: None)
+            self.assertNotIn(t.BASE + "/case/ad0092/submission/1048", log2)
+            self.assertEqual(next(c for c in sec2["cases"] if c["id"] == "AD0092")["timeline"]["sid"], "1048")
+            tl2 = sub_row("AD0092", "1301", "Note to file: External timeline 2", "Trade Remedies Authority", "Trade Remedies Authority", "21 Nov 2026")
+            pages2 = {**pages, t.BASE + "/case/ad0092": case.replace("</table>", tl2 + "</table>"),
+                      t.BASE + "/case/ad0092/submission/1301": '<a href="https://afd-x.a02.azurefd.net/content/CD-02000_External_timeline_2.pdf">CD-02000_External timeline 2.pdf</a>',
+                      "https://afd-x.a02.azurefd.net/content/CD-02000_External_timeline_2.pdf": b"%PDF-1.7 timeline 2"}
+            t.pdf_text = lambda data, limit=t.PDF_PAGES: (1, TL_TEXT.replace("April 2027", "May 2027") if b"timeline" in data else PDF_TEXT)
+            sec3, _, _ = t.collect(sec2, NOW + dt.timedelta(days=8), get=getter(pages2), sleep=lambda s: None)
+            tl3 = next(c for c in sec3["cases"] if c["id"] == "AD0092")["timeline"]
+            self.assertEqual((tl3["sid"], [x["from"] for x in tl3["items"] if "Essential" in x["label"]]), ("1301", ["2027-05-01"]))
+        finally:
+            t.pdf_text = old
+
+
 if __name__ == "__main__":
     unittest.main()
