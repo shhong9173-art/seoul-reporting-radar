@@ -50,7 +50,20 @@ const TR = [
   [/Kore/i, '한국'], [/[ÇC]in\s+Halk/i, '중국'], [/Hindistan/i, '인도'], [/Endonezya/i, '인도네시아'], [/Vietnam/i, '베트남'],
   [/Tayland/i, '태국'], [/Malezya/i, '말레이시아'], [/Tayvan/i, '대만'], [/Japonya/i, '일본'],
 ];
-const LANG = { 'vn-trav': ['베트남어', VI], 'id-kadi': ['인도네시아어', ID], 'th-trade': ['태국어', TH], 'tr-rg': ['튀르키예어', TR] };
+// EU 기업결합 사전 신고 본문(영어, 11-21 #958): 거래 문장·사업 내용을 원문 그대로 붙였다 — 거래 형태 낱말만 짚는다('Merger Regulation'은 모든 공고에 있어 뺀다)
+const EUM = [
+  [/joint control/i, '공동 지배(합작)'], [/sole control/i, '단독 지배(인수)'],
+  [/newly created (?:company|undertaking|joint venture)|constituting a joint venture|\bJV\b/i, '신설 합작사'],
+  [/purchase of shares|acquisition of shares/i, '지분 매입'], [/purchase of assets|acquisition of assets/i, '자산 매입'],
+  [/\bmerger\b(?!\s+Regulation)/i, '합병'], [/by contract|by other means/i, '계약 등 다른 방식'],
+  [/does not have any business|no (?:current )?business (?:activities|operations)|not (?:currently )?active/i, '현재 사업 없음(신설·휴면 법인)'],
+  [/simplified procedure/i, '간이 절차(통상 신고 뒤 25영업일 안 결정)'],
+  [/Republic of Korea|\bKorea\b/, '한국'], [/\bIndia\b/, '인도'], [/\bChina\b/, '중국'], [/\bJapan\b/, '일본'], [/United States|\(US\)/, '미국'],
+  [/\bGermany\b/, '독일'], [/\bFrance\b/, '프랑스'], [/\bItaly\b/, '이탈리아'], [/\bSpain\b/, '스페인'], [/\bNetherlands\b/, '네덜란드'],
+  [/\bPoland\b/, '폴란드'], [/\bHungary\b/, '헝가리'], [/Czech/, '체코'], [/United Kingdom|\(UK\)/, '영국'], [/Indonesia/, '인도네시아'],
+  [/Viet ?Nam/i, '베트남'], [/\bMexico\b/, '멕시코'],
+];
+const LANG = { 'vn-trav': ['베트남어', VI], 'id-kadi': ['인도네시아어', ID], 'th-trade': ['태국어', TH], 'tr-rg': ['튀르키예어', TR], 'eu-merger': ['영어', EUM] };
 
 // pageId·글 → '베트남어 낱말 풀이: 범위 재심(대상 품목 범위) · 신청서 접수 · 반덤핑 · 도금강판 · 한국 · 중국' (없으면 '')
 export function foreignGloss(pageId, text) {
@@ -63,5 +76,6 @@ export function foreignGloss(pageId, text) {
   const steel = /도금|냉연|열연|스테인리스|강연선|형강|컬러강판/;
   const words = got.filter((w) => !(w === '재심' && got.some((x) => /재심/.test(x) && x !== '재심')) && !(w === '철강' && got.some((x) => steel.test(x)))
     && !(w === '덤핑' && got.includes('반덤핑 관세')));
-  return words.length ? `${lang[0]} 낱말 풀이: ${words.join(' · ')} (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)` : '';
+  const note = pageId === 'eu-merger' ? '번역 아님 — 누가 무엇을 얼마에 사는지·지분율은 원문과 회사' : '번역 아님 — 누가 거는 조치인지·문장 뜻은 원문';
+  return words.length ? `${lang[0]} 낱말 풀이: ${words.join(' · ')} (${note})` : '';
 }

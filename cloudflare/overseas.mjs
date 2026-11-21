@@ -677,6 +677,8 @@ export function euOjSection(doc, q = '', limit = 5, ctx = null) {
       if ((f.undertakings ?? []).length) out.push(`   당사자(공고 원문): ${f.undertakings.slice(0, 5).join(' / ')}`);
       if (f.transaction) out.push(`   거래(원문): 「${String(f.transaction).slice(0, 400)}」`);
       if (f.activities) out.push(`   사업 내용(원문): 「${String(f.activities).slice(0, 500)}」`);
+      const g = foreignGloss('eu-merger', [f.transaction, f.activities, (f.undertakings ?? []).join(' '), m.stages?.notified?.simplified ? 'simplified procedure' : ''].join(' '));
+      if (g) out.push(`   ${g}`);
     } else if (m.factsError) out.push(`   사전 신고 본문 못 읽음(${m.factsError.error}, ${m.factsError.tries}번) — 원문에서 확인`);
     if (m.stages?.notified?.url && m.latest !== 'notified') out.push(`   사전 신고 원문: ${m.stages.notified.url}`);
     out.push(`   원문: ${m.stages?.[m.latest]?.url ?? ''}`);
