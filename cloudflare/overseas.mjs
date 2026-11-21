@@ -1453,6 +1453,13 @@ export function stateEnvSection(doc, q = '', limit = 20, onlyNew = false, ctx = 
 export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 주소가 관할 법원 지역 밖(다른 회사일 수 있음)' : ''}${(ind?.owners ?? 0) >= 2 ? ` · 같은 이름 공장 대표자 ${ind.owners}명` : ''}`;
 
 // Building permits on the same parcel as a beat company's registered factory (kr-building feed), shown under kr_official.
+// 건축허가의 공장이 지금 공장등록 목록에 없으면(이름 규칙을 좁혀 계열사·판매점 공장이 빠진 뒤) 건축허가 감시가 다음 실행에서 'orphan'을
+// 붙이기 전에도 숨긴다 — 11-22: #990 뒤에도 '포스코 · 사용승인 · 포스코스틸리온(주)도금공장 부지'가 B와 '겹친 신호'에 남았다.
+export function plantGone(docs) {
+  const ids = new Set((docs['kr-official']?.factories ?? []).map((f) => f.id));
+  return (x) => ids.size > 0 && Boolean(x.factoryId) && !ids.has(x.factoryId);
+}
+
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   // 기본개요에 주용도가 없으면 동별개요(수집기가 채움)로: '가설건축물 2동' 등
@@ -1470,7 +1477,9 @@ async function buildingSection(ctx, q, days, limit) {
   if (doc.broken) return ['\n[공장 부지 건축허가] 저장 형식 오류 — 미확인'];
   const checks = doc.checks ?? [];
   const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
-  const all = (doc.permits ?? []).filter((x) => !x.orphan && (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+  const plants = await readFeed(ctx, 'kr-official');
+  const gone = plantGone({ 'kr-official': plants && !plants.broken ? plants : null });
+  const all = (doc.permits ?? []).filter((x) => !x.orphan && !gone(x) && (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
   // 같은 등급 안에서는 이번에 새로 잡힌 것([신규])부터 — 월간 갱신으로 새 허가가 한꺼번에 들어오면(11-22: 317건) 지난주 본 것과 섞였다
