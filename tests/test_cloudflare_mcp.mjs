@@ -3446,8 +3446,9 @@ test('통합환경허가 정보공개(ieps-permits, 11-21): 변경허가 B·통�
   assert.match(k, /- C · 게시 2026-10-24 · 통합허가\(무기화학\) · 금호석유화학 · 금호석유화학\(주\) 율촌CNT공장 · 허가번호 제0733-01호 \[기준선\]/);
   // 지난 글 채우기 진행과 180일보다 옛 글(검색 채움)
   assert.match(k, /지난 글 채우기\(회사 이름 검색 첫 쪽, 기준선·알림 없음\): 51곳 중 3곳 검색 · 채운 글 1건 · 평일 실행마다 10곳/);
-  assert.match(k, /\(게시 180일보다 옛 출입처 글 1건 더 — days=400으로 보기\)/);
-  assert.match((await call('kr_official', { section: 'ieps', days: 400 }, opts)).text, /- B · 게시 2025-12-02 · 변경허가\(철강\) · 현대제철 · 현대제철\(주\)당진제철소 · 허가번호 제0520-03호 \[기준선·검색 채움\]/);
+  assert.match(k, /\(게시 180일보다 옛 출입처 글 1건 더 — days=730으로 보기\)/);
+  assert.doesNotMatch((await call('kr_official', { section: 'ieps', days: 730 }, opts)).text, /옛 출입처 글/);
+  assert.match((await call('kr_official', { section: 'ieps', days: 730 }, opts)).text, /- B · 게시 2025-12-02 · 변경허가\(철강\) · 현대제철 · 현대제철\(주\)당진제철소 · 허가번호 제0520-03호 \[기준선·검색 채움\]/);
   assert.match((await call('kr_official', {}, opts)).text, /\[통합환경허가 정보공개 · /);     // section 없이도 붙는다
   assert.doesNotMatch((await call('kr_official', { section: 'ieps', company: '금호' }, opts)).text, /에쓰-오일/);
 });
