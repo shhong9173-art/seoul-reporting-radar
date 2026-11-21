@@ -2035,7 +2035,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(fp.text, /\[신규\] 2026-10-24 · 제조하도급과 · 보도\n   제목: 현대자동차 \(주\) 의 하도급법 위반행위 제재 · 출입처 이름: 현대차/);
   assert.doesNotMatch(fp.text, /\[한전 전자입찰|\[산업통상부 보도|\[공정위 의결서/);  // section only
   const bf = await call('kr_signals', { section: 'briefing' }, opts);
-  assert.match(bf.text, /\[부처 보도자료\(정책브리핑 목록: 기후부·국토부·관세청·조달청\) · 제목에 출입처 이름·업종 낱말 · 최근 60일\] 2건/);
+  assert.match(bf.text, /\[부처 보도자료\(정책브리핑 목록: 기후부·국토부·관세청·조달청·노동부\) · 제목에 출입처 이름·업종 낱말 · 최근 60일\] 2건/);
   assert.match(bf.text, /\[신규\] 2026-10-24 · 국토교통부\n   제목: 기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치\(리콜\) · 출입처 이름: 기아/);
   const g2 = await call('kr_signals', { section: 'g2b' }, opts);
   assert.match(g2.text, /\[나라장터 낙찰 · 출입처가 낙찰자 · 낙찰일 최근 60일 · 금액 큰 순\] 2건/);
@@ -2070,6 +2070,22 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(r.text, /기자 전용 감시 43개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
+});
+
+test('부처 보도자료 고용노동부(11-21): 출입처 이름이면 B, 보도 대조 낱말은 노동부', async () => {
+  const opts = PRIVATE();
+  const at = new Date('2026-11-20T06:00:00Z');
+  const res = await worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'kr_signals/v1', generatedAt: new Date(at.getTime() - 3600000).toISOString(), checks: [], ftc: [], kepco: [], prices: [],
+      briefing: [{ id: 'briefing:156790300', title: '고용노동부, 현대제철 당진제철소 특별감독 착수', date: '2026-11-20', ministry: '고용노동부', companies: ['현대제철'],
+        isNew: true, url: 'https://www.korea.kr/briefing/pressReleaseView.do?newsId=156790300' },
+        { id: 'briefing:156790102', title: '고용노동부, 포항·서산 고용위기 선제대응지역 지정 연장', date: '2026-11-20', ministry: '고용노동부', companies: [],
+          url: 'https://www.korea.kr/briefing/pressReleaseView.do?newsId=156790102' }] }) }), opts.env, {});
+  assert.equal(res.status, 200);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const it = items.items.find((x) => x.id === 'briefing:156790300');
+  assert.deepEqual([it.tier, it.check.who, it.check.terms], ['B', '현대제철', ['노동부']]);
+  assert.equal(items.items.find((x) => x.id === 'briefing:156790102'), undefined);   // 낱말만(이름 없음)은 C — 대조 목록에 안 나온다
 });
 
 test('kr_stats shows KAIDA ranks, price and production series with signals, and radar_today ranks records above routine moves', async () => {
