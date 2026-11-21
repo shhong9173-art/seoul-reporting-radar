@@ -101,6 +101,25 @@ class Partners(unittest.TestCase):
         self.assertNotIn("routine", deal)
         self.assertTrue(deal["dealNear"])
 
+    def test_bank_tables_and_customer_lists_are_routine_11_21(self):
+        # 11-21 partner_filings 실제 화면의 [신규] 발췌
+        kb = {"phrases": ["Hyundai Steel"], "form": "6-K", "filer": "KB Financial Group Inc.  (KB)", "snippet": (
+            "et Management Co., Ltd. 1,406 KB Kookmin Card Co., Ltd 1,277 Hanwha Aerospace Co., Ltd. 1,003 Shinhan Card Co., Ltd. 994 "
+            "Harim Industrial Co., Ltd. 940 Strada Holdco L.P. 911 Hyundai Steel Company 908 LG Energy Solution, Ltd. 834")}
+        w.classify(kb)
+        self.assertIn("금융지주", kb.get("routine", ""))
+        adient = {"phrases": ["Hyundai Motor", "Kia"], "form": "10-K", "filer": "Adient plc  (ADNT)", "snippet": (
+            "Customers Adient is a supplier to all of the global OEMs and has longstanding relationships with premier automotive manufacturers, "
+            "including BMW, Mercedes-Benz Group, Ford Motor Company, General Motors Company, Honda Motor Company, Hyundai Motor Company, "
+            "Jaguar Land Rover, Kia Corporation, Mazda Motor Corporation, Mitsubishi Motor Corporation, Nissan")}
+        w.classify(adient)
+        self.assertIn("나열", adient.get("routine", ""))
+        # 두 회사 사이 거래 문장은 그대로
+        deal = {"phrases": ["Doosan Enerbility"], "form": "8-K", "filer": "X-Energy, Inc.  (XE)", "snippet": (
+            "Announced first procurement order with Alleima and Doosan Enerbility for long-lead steam generator components.")}
+        w.classify(deal)
+        self.assertNotIn("routine", deal)                                     # 두 회사 사이 주문 문장은 접지 않는다
+
     def test_legacy_asx_shape_and_failures_are_recorded(self):
         legacy = {"data": [{"document_release_date": "2026-10-25T10:00:00+1100", "header": "Binding offtake with Kia", "url": "https://www.asx.com.au/asxpdf/x.pdf",
                             "market_sensitive": True}]}

@@ -91,6 +91,19 @@ def glossary(sn, phrases):
     return len(GLOSS_ENTRY.findall(sn)) >= 6 and not re.search(r"[a-z]{3,}\.\s+[A-Z][a-z]", sn)  # 문장 없이 풀이만 이어짐
 
 
+# 11-21 partner_filings 실제 화면에서 [신규]로 뜬 일상 공시:
+#  ① 한국 금융지주(KB·우리·신한) 6-K 재무 표 — 'Hyundai Steel Company 908 … Hanwha Solutions Corporation 735'(대출·투자 노출 표),
+#     'POSCO-KB Shipbuilding Fund Fee and commission income'(관계사 거래 표)
+#  ② 고객사 이름 나열 — Adient 10-K 'longstanding relationships with … BMW, Mercedes-Benz Group, Ford …, Hyundai Motor Company, … Kia Corporation'
+FIN_GROUP = re.compile(r"KB Financial Group|Woori Financial Group|Shinhan Financial Group|Hana Financial Group", re.I)
+LIST_CUE = re.compile(r"\b(?:including|such as|customers?\b|OEMs?\b|relationships with)\b", re.I)
+
+
+def name_list(sent):
+    """쉼표로 회사 이름 여럿을 늘어놓은 문장(고객·거래처 목록) — 출입처는 그중 하나."""
+    return sent.count(",") >= 5 and bool(LIST_CUE.search(sent))
+
+
 def classify(it):
     """routine: no dealing with the beat company (holdings tables) → C. finNote: periodic financial-statement
     notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
@@ -112,6 +125,12 @@ def classify(it):
         elif all(BIO.search(x) for x in beat_windows(sn, it.get("phrases") or [])):
             it["routine"] = "임원·이사 경력 소개 문장에만 나옴 — 출입처와의 거래 아님"
             return
+        if all(name_list(x) for x in sents):
+            it["routine"] = "여러 회사 이름 나열(고객사·거래처 목록) 속 하나 — 출입처와의 새 거래 문구 아님"
+            return
+    if FIN_GROUP.search(str(it.get("filer") or "")) and str(it.get("form") or "").upper().startswith("6-K"):
+        it["routine"] = "한국 금융지주 재무 표(대출·투자·관계사 거래 줄) — 출입처와의 새 거래 아님"
+        return
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
