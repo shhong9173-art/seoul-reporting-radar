@@ -44,6 +44,10 @@ KR_GROUP = re.compile(r"Korea Iron (?:and|&) Steel Association|\bKOSA\b|Korea Pe
 ROUTINE = re.compile(r"Pre-?Sampling|Questionnaire|Registration|Deficienc|Extension", re.I)
 TRA_A = re.compile(r"Statement of Essential Facts|\bSEF\b|Provisional|Determination|Recommendation|Terminat|Particular Market|\bPMS\b|"
                    r"third country|Undertaking|Reconsideration|Definitive", re.I)
+# 11-21: 'Note to public file - PMS (SK) Questionnaire response extension'(11-20)이 제목의 PMS 때문에 A·즉시 알림 — 질문서 기한 연장 메모다.
+# 조사기관의 기한 연장·보완 요구는 쟁점 낱말(PMS·제3국)이 있어도 일상 문서(C). 판정 낱말(SEF·잠정·판정·권고·종결 등)이 함께 있으면 그대로 A
+TRA_ROUTINE = re.compile(r"\bextensions?\b|\bdeadline|Deficienc|Pre-?Sampling", re.I)
+TRA_DECISION = re.compile(r"Statement of Essential Facts|\bSEF\b|Provisional|Determination|Recommendation|Terminat|Undertaking|Reconsideration|Definitive", re.I)
 TRA_B = re.compile(r"Initiation|Sampling|Note to (?:the )?public file|Registration of imports|Hearing|Supplementary|Verification", re.I)
 # 본문에서 먼저 고르는 문장: 요청·쟁점 낱말
 KEY = re.compile(r"de minimis|negligible|terminat|particular market situation|normal value|dumping margin|injury|undertaking|"
@@ -208,6 +212,8 @@ def classify(row):
     who = companies_in(row["party"])
     title = row["title"]
     if TRA_PARTY.search(row["party"]):
+        if TRA_ROUTINE.search(title) and not TRA_DECISION.search(title):
+            return "C", "조사기관의 일상 문서", who
         if TRA_A.search(title):
             return "A", "조사기관의 판단·쟁점 문서", who
         return ("B", "조사기관의 절차 문서", who) if TRA_B.search(title) else ("C", "조사기관의 일상 문서", who)

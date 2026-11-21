@@ -103,6 +103,14 @@ class TraFile(unittest.TestCase):
         self.assertEqual(got["1244"], ("A", "조사기관의 판단·쟁점 문서"))                             # 대표 제3국 메모
         self.assertEqual(t.classify({"party": "Korea Iron and Steel Association(KOSA)", "title": "General"})[:2], ("A", "한국 업계 단체가 낸 문서"))
         self.assertEqual(t.classify({"party": "Trade Remedies Authority", "title": "Final sampling notice"})[0], "B")   # '최종 표본'은 판정이 아니다
+        # 11-20 실제 제목: 질문서 기한 연장 메모 — 제목의 PMS 때문에 A·즉시 알림이 갔다
+        tra = lambda title: t.classify({"party": "Trade Remedies Authority", "title": title})[:2]  # noqa: E731
+        self.assertEqual(tra("Note to public file - PMS (SK) Questionnaire response extension"), ("C", "조사기관의 일상 문서"))
+        self.assertEqual(tra("Note to public file - deficiency notice PMS questionnaire"), ("C", "조사기관의 일상 문서"))
+        self.assertEqual(tra("Extension of the deadline for the Statement of Essential Facts")[0], "A")   # 판정 일정은 그대로
+        self.assertEqual(tra("Supplementary submission (S/K PMS)")[0], "A")
+        # 출입처가 낸 기한 연장 요청은 기존대로 B(절차 문서)
+        self.assertEqual(t.classify({"party": "LG Chem, Ltd.", "title": "Request for extension"})[0], "B")
 
     def test_first_run_is_baseline_and_only_recent_docs_are_announced(self):
         log = []
