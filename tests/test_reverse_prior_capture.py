@@ -271,6 +271,14 @@ class Capture(unittest.TestCase):
                                   "published": "2026-11-02T17:00:00+09:00"}, fut)[0], "먼저 잡은 후보")   # 사건 낱말(청림공장·내화물)이 겹치면 그대로
         self.assertTrue(r.FOREIGN_SITE.search("현대차 인도 공장 증설"))
         self.assertFalse(r.FOREIGN_SITE.search("인도네시아"))
+
+    def test_overseas_award_needs_abroad_title_11_21(self):
+        # 11-21 기자 기사 대조(실제 제목·항목 글): 국내 한전 해저케이블 수주 기사 ↔ EU TED 덴마크 Energinet 낙찰
+        items = [r.mem("overseas-awards", "ted:655836-2026", ["LS전선"], "해외 낙찰 award EU TED Energinet Eltransmission A/S DNK 220 kV Submarine cable systems for offshore wind — 낙찰자 LS Cable & System 수주 입찰",
+                       "2026-10-29T09:33:00+09:00")]
+        v = lambda title: r.match({"title": title, "companies": ["LS전선"], "published": "2026-11-20T23:09:00+09:00"}, items)[0]  # noqa: E731
+        self.assertEqual(v("LS전선, 한전 '화원-안좌' 해저케이블 2차 증설 수주"), "같은 회사 항목만")
+        self.assertEqual(v("[단독] LS전선, 덴마크 에너지넷 해저케이블 수주"), "먼저 잡은 후보")      # 해외 사업 기사는 그대로 잇는다
         self.assertFalse(r.FOREIGN_SITE.search("美 관세에 울산 공장 증설"))
 
     def test_product_words_inside_company_names_are_not_event_words(self):
