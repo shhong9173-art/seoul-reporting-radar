@@ -17,4 +17,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6" "pdfminer.six==20240706"
-      - run: python scripts/probe/x.py
+      - env:
+          KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
+        run: python scripts/probe/x.py
