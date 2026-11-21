@@ -6379,6 +6379,9 @@ test('베트남·인도네시아 무역구제 소식 줄 낱말 풀이(11-21): �
   assert.equal(foreignGloss('id-kadi', 'Laporan Akhir Penyelidikan Anti Dumping atas Impor Baja Canai Dingin dari Korea'),
     '인도네시아어 낱말 풀이: 최종 보고서 · 반덤핑 · 냉연 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
   assert.equal(foreignGloss('in-dgtr', 'Anti-dumping investigation concerning imports of Korea'), '');
+  // 튀르키예(11-21): 관보 무역구제 고시 줄 — 본문 대목
+  assert.equal(foreignGloss('tr-rg', '2026-11-11 튀르키예 관보 「İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2025/4)」 — …Kore Cumhuriyeti menşeli sıcak daldırma galvanizli yassı çelik ürünlerinin ithalatında dampinge karşı vergi…'),
+    '튀르키예어 낱말 풀이: 무역구제(불공정 수입 방지) 고시 · 반덤핑 관세 · 도금 · 판재 · 원산지(~산) · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
   // 태국(11-21): 실제 단계 이름 — 일몰 재심 개시, 담보 요구
   assert.equal(foreignGloss('th-trade', 'ประกาศกรมการค้าต่างประเทศ เรื่อง เปิดการทบทวนการเรียกเก็บอากรตอบโต้การทุ่มตลาดต่อไป สาธารณรัฐเกาหลี'),
     '태국어 낱말 풀이: 일몰 재심(관세 계속 부과 여부) · 재심 개시 · 외국무역국(DFT) 공고 · 반덤핑 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');

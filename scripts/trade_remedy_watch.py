@@ -1013,6 +1013,77 @@ def browser_lines(doc, page, now):
     return dict(list(lines.items())[:200]), None
 
 
+# 튀르키예 관보(Resmî Gazete, 11-21 기자 "너 추천대로 멈추지말고 계속 업데이트"): 무역부의 반덤핑·상계관세·세이프가드 고시는 관보 '고시(Tebliğ)'로
+# 나오고 제목은 'İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2026/32)'처럼 나라 이름이 없다 — 본문에 'Kore'가 있는 것만.
+# 11-21 탐침: 평일 12일 목록에 무역구제 고시 2건, 그중 1건(2025/4 개정) 본문에 Kore. 관보는 토·일에도 나온다 — 실행마다 오늘 포함 3일 목록.
+TR_GAZETTE = "https://www.resmigazete.gov.tr/eskiler/{d:%Y}/{d:%m}/{d:%Y%m%d}.htm"
+TR_REMEDY = re.compile(r"Haks[ıi]z\s+Rekabetin\s+[ÖO]nlenmesi|Korunma\s+[ÖO]nlem|S[üu]bvansiyon|Damping", re.I)
+TR_KOREA = re.compile(r"Kore\b|Kore\s+Cumhuriyeti", re.I)
+TR_PARSER = "tr-gazette-v1"
+
+
+def tr_text(get, url, timeout=40):
+    """관보 쪽 글자(인코딩: utf-8, 안 되면 windows-1254)."""
+    if get is None:
+        import requests
+        get = requests.get
+    try:
+        r = get(url, headers=HEADERS, timeout=timeout)
+    except Exception as e:  # noqa: BLE001
+        return None, type(e).__name__
+    if r.status_code != 200:
+        return None, f"HTTP {r.status_code}"
+    raw = getattr(r, "content", None)
+    if not isinstance(raw, (bytes, bytearray)) or not raw:
+        return r.text, None
+    for enc in ("utf-8", "windows-1254"):
+        try:
+            return raw.decode(enc), None
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", "replace"), None
+
+
+def turkey_gazette(old, now, *, get=None, sleep=time.sleep, days=3):
+    """오늘 포함 days일 관보 목록 → 무역구제 고시 중 본문에 Kore가 든 것 {줄: 원문 주소}. 이미 연 고시는 다시 안 연다(docs)."""
+    seen = list(old.get("docs") or [])
+    lines = dict(old.get("lines") or {}) if old.get("parser") == TR_PARSER else {}
+    errors, listed, opened = [], 0, 0
+    day = now.date()
+    for i in range(days):
+        d = day - dt.timedelta(days=i)
+        url = TR_GAZETTE.format(d=d)
+        if i:
+            sleep(1.2)
+        raw, err = tr_text(get, url)
+        if err:
+            if err != "HTTP 404":   # 404 = 그날 관보가 아직 없음(새벽에 올라온다) — 실패로 세지 않는다. 사흘 다 못 읽으면 실패
+                errors.append(f"{d:%m-%d} 목록 {err}")
+            continue
+        listed += 1
+        for href, inner in re.findall(r"""(?is)<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)</a>""", raw):
+            title = re.sub(r"^[–—\-\s]+", "", plain(inner))
+            if not TR_REMEDY.search(title):
+                continue
+            u = urljoin(url, href)
+            if u in seen:
+                continue
+            sleep(1.2)
+            body, e2 = tr_text(get, u)
+            if e2:
+                errors.append(f"{d:%m-%d} 고시 {e2}")
+                continue
+            seen.append(u)
+            opened += 1
+            text = plain(body)
+            m = TR_KOREA.search(text)
+            if not m:
+                continue
+            a, b = max(0, m.start() - 160), min(len(text), m.end() + 200)
+            lines[f"{d:%Y-%m-%d} 튀르키예 관보 「{title[:120]}」 — …{text[a:b]}…"] = u
+    return dict(list(lines.items())[-200:]), errors, seen[-400:], listed, opened
+
+
 def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None, browser=None):
     prev = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
     out, events = [], []
@@ -1034,6 +1105,20 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
                     href = urljoin(p["url"], lines[t]) if lines[t] else None
                     events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
                                    "text": t, "url": href or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
+            out.append(rec)
+            continue
+        if p.get("via") == "tr-gazette":
+            lines, errs, docs, listed, opened = turkey_gazette(old, now, get=get, sleep=sleep)
+            if not listed:
+                rec.update(status="failed", error="; ".join(errs[:2]) or "관보 목록 못 읽음", lines=old.get("lines", {}), parser=old.get("parser"), docs=old.get("docs", []))
+                out.append(rec)
+                continue
+            rec.update(status="partial" if errs else "ok", lines=lines, docs=docs, checkedAt=now.isoformat(timespec="seconds"), parser=TR_PARSER,
+                       note=f"관보 목록 {listed}일 · 새로 연 무역구제 고시 {opened}건", **({"error": "; ".join(errs[:2])} if errs else {}))
+            if old.get("parser") == TR_PARSER:
+                for t in new_lines(lines, old.get("lines")):
+                    events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
+                                   "text": t, "url": lines[t] or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
             out.append(rec)
             continue
         if p.get("via") == "relay":
