@@ -421,6 +421,17 @@ class Itc(unittest.TestCase):
         posco = [r for r in merged if r.get("slipOp") == "26-131"]
         self.assertEqual(len(posco), 1)
         self.assertEqual((posco[0]["id"], posco[0]["firstSeen"], posco[0]["holding"]), ("op:9", "2026-10-28T07:50:00+09:00", "Sustaining ..."))
+        # 11-21 운영: CourtListener 첫머리 글에 'Slip Op.'가 없어 같은 판결이 두 줄로 나왔다 — PDF 주소에서 번호를 읽는다
+        self.assertEqual(w.slip_of("POSCO v. United States Court No. 24-00006", "http://www.cit.uscourts.gov/sites/cit/files/26-131.pdf"), "26-131")
+        self.assertEqual(w.slip_of("Slip Op. 26-130 KG Dongbu", None), "26-130")
+        self.assertIsNone(w.slip_of("no number", "https://www.courtlistener.com/pdf/abc.pdf"))
+        cl2 = [{"id": "op:11046079", "slipOp": w.slip_of("POSCO v. United States", "http://www.cit.uscourts.gov/sites/cit/files/26-131.pdf"),
+                "dateFiled": "2026-10-27", "holding": "Sustaining ...", "firstSeen": "2026-10-29T01:21:00+09:00"}]
+        self.assertEqual(len([r for r in w.merge_opinions(cl2, rows) if r.get("slipOp") == "26-131"]), 1)
+        stored = [{"id": "op:11046079", "slipOp": None, "pdf": "http://www.cit.uscourts.gov/sites/cit/files/26-131.pdf", "dateFiled": "2026-10-27",
+                   "holding": "Sustaining ...", "firstSeen": "2026-10-29T01:21:00+09:00"}]      # 예전에 번호 없이 저장된 줄
+        merged = w.merge_opinions(stored, rows)
+        self.assertEqual([r["id"] for r in merged if r.get("slipOp") == "26-131"], ["op:11046079"])
 
     def test_cit_list_failure_is_reported_not_zero(self):
         class R:
