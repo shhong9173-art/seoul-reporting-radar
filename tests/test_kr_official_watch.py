@@ -274,6 +274,20 @@ class RealNameRules(unittest.TestCase):
         self.assertTrue(all(rx.search(w.norm(n)) for n in own))
         self.assertEqual([n for n in affiliates if rx.search(w.norm(n))], [])
 
+    def test_dealer_and_service_names_are_not_the_carmaker_or_wia(self):
+        # 11-22 운영 show_all: 현대차 목록의 '(주)현대자동차 충청써비스', 현대위아 목록의 총판·판매·다른 회사 이름, 금호타이어 목록의 가게
+        cfg = json.loads(w.CONFIG.read_text(encoding="utf-8"))
+        rules = {c["company"]: re.compile(c["accept"]) for c in cfg["companies"]}
+        keep = {"현대차": ["현대자동차(주)", "현대자동차 철분말공장", "현대자동차(주)시트사업부", "현대자동차(주) 전주공장", "현대자동차(주)광주하이테크센터"],
+                "현대위아": ["현대위아(주)", "현대위아(주)창원1공장", "현대위아(주) 창원4공장"],
+                "금호타이어": ["금호타이어(주)", "금호타이어(주) 곡성공장"]}
+        drop = {"현대차": ["(주)현대자동차 충청써비스", "현대자동차써비스(주)", "현대자동차부품대리점"],
+                "현대위아": ["(주)현대위아경수", "현대위아경남총판(주)", "현대위아마창판매", "현대위아케이제이머신(주)", "현대위아테크"],
+                "금호타이어": ["금호타이어 대산점", "금호타이어케이티에스(KTS)향남점"]}   # 타이어 가게
+        for co in keep:
+            self.assertTrue(all(rules[co].search(w.norm(n)) for n in keep[co]), co)
+            self.assertEqual([n for n in drop[co] if rules[co].search(w.norm(n))], [], co)
+
 
 class CommonNames(unittest.TestCase):
     def test_industry_rule_narrows_common_names(self):
