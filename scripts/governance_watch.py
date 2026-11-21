@@ -155,9 +155,19 @@ def insider_item(company, team, row, start):
                     if str(row.get(k) or "").strip() not in ("", "-"))
     change_rate = num(row.get("sp_stock_lmp_irds_rate"))
     change_cnt = num(row.get("sp_stock_lmp_irds_cnt"))
+    ratio, shares = num(row.get("sp_stock_lmp_rate")), num(row.get("sp_stock_lmp_cnt"))
     moved = bool(change_cnt)
     tags = []
-    if INSTITUTION.search(reporter):
+    # 첫 보고: 증감이 보유 전체와 같다(직전 보고가 없어서) — 11-19 국민연금공단 현대제철 '10%이상주주' 첫 보고가 '[지분율 +10.00%p]'로 떴다.
+    # 실제로 10%p를 산 게 아니라 10% 선을 넘어 처음 보고한 것이다(그 전 지분은 5% 보고서로 본다).
+    first = (change_rate is not None and ratio is not None and ratio > 0 and abs(change_rate - ratio) < 0.005
+             and (change_cnt is None or shares is None or abs(change_cnt - shares) < 1))
+    if first:
+        if ratio >= 10 and ("주요주주" in role or "10%" in role):
+            tags.append(f"[10% 이상 주주로 첫 보고 · 보유 {ratio:.2f}%]")
+        elif not INSTITUTION.search(reporter) and TOP_EXEC.search(role):
+            tags.append("[최고경영진 첫 보고]")
+    elif INSTITUTION.search(reporter):
         # Institutions as 10%+ holders: same bar as 5% reports.
         if change_rate is not None and abs(change_rate) >= 1:
             tags.append(f"[지분율 {change_rate:+.2f}%p]")
@@ -171,8 +181,8 @@ def insider_item(company, team, row, start):
     return {
         "company": company, "team": team, "kind": "임원·주요주주", "date": date,
         "receiptNo": str(row.get("rcept_no") or ""), "reporter": reporter, "role": role[:80],
-        "shares": num(row.get("sp_stock_lmp_cnt")), "sharesChange": change_cnt,
-        "ratio": num(row.get("sp_stock_lmp_rate")), "ratioChange": change_rate,
+        "shares": shares, "sharesChange": change_cnt,
+        "ratio": ratio, "ratioChange": change_rate, **({"firstReport": True} if first else {}),
         "tags": tags, "routine": not tags,
         "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={row.get('rcept_no')}" if row.get("rcept_no") else None,
     }

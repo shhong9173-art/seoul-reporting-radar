@@ -89,7 +89,10 @@ const VIEWS = {
         reporter: '임원·주요주주 15명', role: '', sharesChange: 134222, ratioChange: null, tags: ['[같은 날 15명 보고]'],
         reason: '매수 15명·매도 0명', routine: false, url: 'https://dart.fss.or.kr/z' },
       { company: '현대차', team: '자동차', kind: '대량보유(5%)', date: '2026-10-21', receiptNo: '20261021000222', reporter: '국민연금공단',
-        ratioChange: 0.05, tags: [], reason: '단순투자', routine: true, url: 'https://dart.fss.or.kr/y' }] },
+        ratioChange: 0.05, tags: [], reason: '단순투자', routine: true, url: 'https://dart.fss.or.kr/y' },
+      // 11-19 운영 꼴: 10% 이상 주주 첫 보고(증감 칸 = 보유 전체)
+      { company: '현대제철', team: '철강·비철', kind: '임원·주요주주', date: '2026-10-24', receiptNo: '20261024000277', reporter: '국민연금공단', role: '10%이상주주',
+        ratio: 10, ratioChange: 10, firstReport: true, tags: ['[10% 이상 주주로 첫 보고 · 보유 10.00%]'], routine: false, url: 'https://dart.fss.or.kr/w' }] },
 };
 
 const RSS = `<?xml version="1.0"?><rss version="2.0"><channel>
@@ -201,7 +204,9 @@ test('governance_changes shows stake moves, hides routine reports and keeps fail
   assert.match(r.text, /단순 보고 1건 숨김/);
   assert.match(r.text, /조회 실패 영풍\(0건 아님\)/);
   assert.match(r.text, /고유번호 미해결 태광/);
-  assert.doesNotMatch(r.text, /국민연금공단/);
+  assert.doesNotMatch(r.text, /현대차 \| 대량보유\(5%\) \| 국민연금공단/);
+  assert.match(r.text, /현대제철 \| 임원·주요주주 \| 국민연금공단\(10%이상주주\) 첫 보고\(직전 보고 없음 — 증감 칸은 보유 전체\) → 10% \[10% 이상 주주로 첫 보고 · 보유 10\.00%\]/);
+  assert.doesNotMatch(r.text, /\+10%p/);
   assert.match(r.text, /KG스틸 \| 임원 집단 보고 \| 임원·주요주주 15명 순증감 \+134,222주 \[같은 날 15명 보고\]/);
   assert.match((await call('governance_changes', { include_routine: true })).text, /국민연금공단/);
 });
