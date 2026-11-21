@@ -4867,6 +4867,29 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 공장 부지 건축허가: 미설정 주소 변환\(JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키\(business\.juso\.go\.kr\) 필요\)/);
 });
 
+test('kr building: permits of a plant no longer in the plant list are hidden before the next building run', async () => {
+  // 11-22: 공장등록 포스코 규칙을 좁힌(#990) 뒤에도 '포스코스틸리온(주)도금공장 부지' 사용승인이 radar_today B·겹친 신호에 남았다
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const p = (id, factoryId, factory) => ({ id, company: '포스코', companies: ['포스코'], factory, factoryId, plot: '경상북도 포항시 남구 장흥동 470번지',
+    bldNm: null, archGbCdNm: '증축', mainPurpsCdNm: '공장', totArea: 49112, permitted: '2026-10-12', useApproved: '2026-10-30', kind: '사용승인(준공)', tier: 'B',
+    firstSeen: now, changedAt: now, baseline: false, isNew: true });
+  const bdoc = { schema: 'kr_building/v1', generatedAt: now, status: 'complete', plants: 2, parcelsResolved: 2, rules: [], checks: [{ source: '건축인허가', status: 'ok', returned: 2 }],
+    permits: [p('bld:own', 'fac:1', '(주)포스코'), p('bld:aff', 'fac:9', '포스코스틸리온(주)도금공장')] };
+  const kdoc = { schema: 'kr_official/v1', generatedAt: now, status: 'complete', checks: [], events: [], gazette: [],
+    factories: [{ id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코', rnAdres: '경상북도 포항시 남구 동해안로 6262', tags: [] }] };
+  for (const [feed, doc] of [['kr-building', bdoc], ['kr-official', kdoc]]) {
+    assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  }
+  const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text, /\(주\)포스코 부지/);
+  assert.doesNotMatch(r.text, /포스코스틸리온/);
+  const t = await call('kr_official', { section: 'building' }, opts);
+  assert.match(t.text, /\(주\)포스코 부지/);
+  assert.doesNotMatch(t.text, /포스코스틸리온/);
+});
+
 test('overseas registry: a new UK company with a beat parent as PSC is A; a missing key is 미설정', async () => {
   const opts = PRIVATE();
   const env = opts.env;

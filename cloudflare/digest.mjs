@@ -15,7 +15,7 @@ import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1118,9 +1118,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 출입처 공장과 같은 번지의 건축인허가(건축주 비공개): 신축 1,000㎡ 이상 A, 증축·사용승인(준공)·그 밖 B, 300㎡ 미만 C.
   const bd = docs['kr-building'];
   const bdBase = baselineOf(bd?.permits ?? []);
+  const gone = plantGone(docs);
   for (const x of bd?.permits ?? []) {
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
-    if (x.orphan) continue;  // its plant left the plant list
+    if (x.orphan || gone(x)) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
@@ -1643,8 +1644,9 @@ export function background(docs, nowMs) {
       fact: `국민연금 공사 현장 「${p.title ?? p.name ?? ''}」 현장 ${p.sites ?? 1}곳${p.addr ? ` · ${p.addr}` : ''}` });
   }
   const from = new Date(nowMs - 120 * 86400000).toISOString().slice(0, 10);
+  const gone = plantGone(docs);
   for (const x of docs['kr-building']?.permits ?? []) {
-    if (x.orphan || x.tier === 'C' || !x.company || String(x.permitted ?? '') < from) continue;
+    if (x.orphan || gone(x) || x.tier === 'C' || !x.company || String(x.permitted ?? '') < from) continue;
     out.push({ id: `bg:bd:${x.id}`, background: true, tier: x.tier, tool: 'kr_official', watch: W['kr-building'].label, company: x.company, date: x.permitted,
       fact: `건축 ${x.kind ?? ''} ${buildingLine(x)}` });
   }
