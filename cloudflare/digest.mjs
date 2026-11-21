@@ -633,9 +633,18 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.site} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.site,
       fact: `${x.site} 보도자료${x.dept ? `(${x.dept})` : ''}: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.site.replace(/광역시|도$/, '')]) : undefined });
   }
+  // 원자재 가격 기록(N일 만 최고·최저)은 반년(PRICE_B_DAYS) 넘은 것과 조회 범위 기록만 B, 그보다 짧은 기록은 C(11-22 기자 기준 '일반 통계 발제는 패스' —
+  // 11-20 아연 111일 만·연 125일 만 최저가 B로 떴다. 시황 기사 소재이지 단독감이 아니다)
+  const PRICE_B_DAYS = 180;
+  const priceTier = (e) => {
+    if (!/최고|최저/.test(e.signal ?? '')) return 'C';
+    if (/조회 범위/.test(e.signal ?? '')) return 'B';
+    const d = Number((/(\d+)일 만/.exec(e.text ?? '') ?? [])[1]);
+    return Number.isFinite(d) && d >= PRICE_B_DAYS ? 'B' : 'C';
+  };
   for (const e of ks?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
+    const tier = e.kind === '원자재 가격' ? priceTier(e) : 'B';
     push(tier, W['kr-signals'], { kind: e.kind === '원자재 가격' ? `원자재 ${e.signal}` : e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
   }
 

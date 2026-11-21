@@ -2037,7 +2037,9 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
         high: { date: '2026-09-09', price: 4186 }, low: { date: '2024-02-14', price: 2285.5 }, span: ['2024-01-02', '2026-10-23'] },
       signals: [{ kind: 'LME 재고 큰 변동', text: '재고 121,600 → 166,950(+37.3%, 2026-09-25 대비)' }] }],
     events: [{ id: 'px:zinc:최고(기간):2026-10-23', kind: '원자재 가격', signal: '최고(기간)', commodity: 'zinc', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '아연(LME CASH, USD/ton) 3,900.00 · 2025-03-03(4,000.00) 이후 최고 — 230일 만' },
-      { id: 'px:zinc:LME 재고 큰 변동:2026-10-23', kind: '원자재 가격', signal: 'LME 재고 큰 변동', commodity: 'zinc', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '아연 재고 +37.3%' }],
+      { id: 'px:zinc:LME 재고 큰 변동:2026-10-23', kind: '원자재 가격', signal: 'LME 재고 큰 변동', commodity: 'zinc', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '아연 재고 +37.3%' },
+      // 11-20 운영 꼴: 반년 안 기록(111일 만 최저)은 C
+      { id: 'px:lead:최저(기간):2026-10-23', kind: '원자재 가격', signal: '최저(기간)', commodity: 'lead', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '연(납)(LME CASH, USD/ton) 1,822.00 · 2026-07-04(1,821.00) 이후 최저 — 111일 만' }],
     confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const k = await call('kr_signals', {}, opts);
@@ -2078,6 +2080,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(b, /현대자동차\(주\) 및 기아\(주\) 발주[\s\S]*현대차 발주처, 기아 발주처/);
   assert.match(b, /한전 전자입찰 한국전력공사 「154kV 지중 전력케이블 구매」 · 추정가격 약 123억원 · 공고진행/);
   assert.match(b, /원자재 가격: 아연\(LME CASH, USD\/ton\) 3,900\.00 · 2025-03-03\(4,000\.00\) 이후 최고/);
+  assert.doesNotMatch(a + b, /111일 만/);    // 반년 안 기록은 참고(C)
   assert.match(b, /산업통상부 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정/);
   assert.match(b, /산업통상부 보도자료: 2026년 9월 수출입 동향 — 2026-09 수출 1,209\.4억달러\(\+83\.5%\) · 자동차 61억달러\(-5%\) · 철강 22억달러\(\+3%\)/);
   assert.doesNotMatch(b, /한우·수산물/);  // topic word only (자동차 in a sale campaign) → C
