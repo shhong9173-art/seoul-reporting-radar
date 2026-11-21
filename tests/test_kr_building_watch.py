@@ -104,6 +104,27 @@ class Building(unittest.TestCase):
         self.assertEqual((new["bld:P2"]["kind"], new["bld:P2"]["tier"]), ("새 허가", "B"))
         self.assertFalse(any(u == b.JUSO for u, _ in get2.calls))  # 번지는 저장분 재사용
 
+    def test_building_named_for_another_company_is_c_and_so_is_its_use_approval(self):
+        # 11-22 운영: LG화학 청주공장 본번의 다른 필지 '(주)LG생활건강 청주공장' 증축(연면적 154,848㎡) 사용승인이 B로 떴다
+        other = dict(permit("P5"), bldNm="(주)이웃화학 청주공장")
+        own = dict(permit("P6"), bldNm="케이지스틸(주) 제강공장")
+        first = go([("K", "good")], FACS[:1], now=NOW, previous=None, get=fake({"0001": [other, own]}), sleep=lambda s: None)
+        by = {x["id"]: x for x in first["permits"]}
+        self.assertEqual((by["bld:P5"]["tier"], by["bld:P5"]["otherName"]), ("C", "이웃화학"))
+        self.assertEqual(by["bld:P6"]["tier"], "B")
+        self.assertNotIn("otherName", by["bld:P6"])
+        second = go([("K", "good")], FACS[:1], now=NOW + dt.timedelta(days=7), previous=first, sleep=lambda s: None,
+                    get=fake({"0001": [dict(other, useAprDay="20261029"), dict(own, useAprDay="20261029")]}))
+        by = {x["id"]: x for x in second["permits"]}
+        self.assertEqual((by["bld:P5"]["kind"], by["bld:P5"]["tier"]), ("사용승인(준공)", "C"))
+        self.assertEqual((by["bld:P6"]["kind"], by["bld:P6"]["tier"]), ("사용승인(준공)", "B"))
+        names = {"LG화학": ["LG화학", "엘지화학", "LG화학"], "포스코": ["포스코"]}
+        self.assertEqual(b.other_company("(주)LG생활건강 청주공장", "LG화학", names), "LG생활건강")
+        self.assertIsNone(b.other_company("(주)엘지화학청주공장", "LG화학", names))
+        self.assertIsNone(b.other_company("㈜포스코 광양제철소 제2냉연공장 증축", "포스코", names))
+        self.assertIsNone(b.other_company("제강공장", "LG화학", names))      # 법인 표기 없으면 판단 안 함
+        self.assertIsNone(b.other_company("(주)아무개", "모르는회사", names))   # 설정에 없는 회사는 판단 안 함
+
     def test_permit_without_main_purpose_gets_dong_purposes_and_temporary_is_c(self):
         get = fake({"0001": [permit("P1")]})
         first = go([("K", "good")], FACS[:1], now=NOW, previous=None, get=get)

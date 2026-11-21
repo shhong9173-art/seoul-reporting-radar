@@ -1475,7 +1475,7 @@ async function buildingSection(ctx, q, days, limit) {
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
-  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 소규모 ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
+  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 참고(C: 소규모·가설·이웃 건물) ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   // Coverage gaps: plants whose lot is unknown and lots whose query failed have unknown permits, not none.
@@ -1488,7 +1488,9 @@ async function buildingSection(ctx, q, days, limit) {
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}`);
     out.push(`   잡힌 사실: ${buildingLine(x)}`);
-    out.push(x.sameLot === false
+    out.push(x.otherName
+      ? `   검증 상태: 건물명에 다른 회사 이름('${x.otherName}') — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임(C). 건축주는 지자체(건축과) 확인`
+      : x.sameLot === false
       ? `   검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음${x.bldNm ? `(건물명 '${x.bldNm}')` : ''}. 건축주는 지자체(건축과) 확인`
       : '   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
   }
