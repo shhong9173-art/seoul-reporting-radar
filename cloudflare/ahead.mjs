@@ -4,6 +4,8 @@
 //   · EU 개시 공고에서 규정으로 계산한 시한(eu_trade_defence_watch.proceedings — 반덤핑 기본규정 제7조 1항·제6조 9항·제11조 5항·제19a조, 세이프가드 공고 8항).
 // 날짜는 누리집 표기이거나 규정상 시한이다 — 발표 예정일이 아니다. 새로 지어낸 날짜는 없다(호주 장관 결정 시한만 '최종 권고 기한+30일' 추정이라고 적는다).
 
+import { foreignGloss } from './gloss.mjs';
+
 const CBSA_KIND = { 'i-e': '조사', 'er-rre': '종료재심', 'ar-ra': '행정재심' };
 const AU_KIND = { investigation: '조사', continuation: '종료재심', review: '재심', 'accelerated review': '신속 재심', 'anti-circumvention': '우회 조사',
   exemption: '면제 조사', 'duty assessment': '관세 정산' };
@@ -199,7 +201,9 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
     for (const st of x?.steps ?? []) {
       const [from, to] = st.dates ?? [];
       if (!from || !to || to <= from || from < addDays(today, -past) || !inWin(to)) continue;
-      out.push({ date: to, country: '태국', agency: '반덤핑위', what: `단계 표 끝 날짜 — ${st.no} 「${String(st.label).slice(0, 60)}」(${from} 시작)`, src: 'th', beat: Boolean(x.productKo),
+      // 11-21: 태국어 단계 이름이 그대로라 무엇의 마감인지 줄만 봐서는 몰랐다(AD1004 '…ข้อเท็จจริง…' = 판단 근거 사실 공개) — 태국 구역과 같은 낱말 풀이를 붙인다
+      const g = foreignGloss('th-trade', st.label);
+      out.push({ date: to, country: '태국', agency: '반덤핑위', what: `단계 표 끝 날짜 — ${st.no} 「${String(st.label).slice(0, 60)}」(${from} 시작)${g ? ` · ${g.replace(/^태국어 낱말 풀이: /, '풀이: ').replace(/ \(번역 아님[^)]*\)$/, '')}` : ''}`, src: 'th', beat: Boolean(x.productKo),
         title: `${x.code} ${x.productKo ?? String(x.product ?? '').slice(0, 40)}`, who: [], whoNote: x.koreaRate ? `한국 세율 ${x.koreaRate}%(CIF)` : '',
         basis: '태국 무역구제과 사건 쪽 조사 단계 표(태국어 단계 이름 — 무엇의 마감인지는 원문)', url: x.url ?? '' });
     }
