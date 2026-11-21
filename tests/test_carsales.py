@@ -240,6 +240,16 @@ class Signals(unittest.TestCase):
         self.assertIn(("Avante (CN7)", "급감"), m)  # CN8 1대는 세대 교체 근거가 아니다
         self.assertNotIn(("Avante (CN7)", "세대 교체로 보임"), m)
 
+    def test_first_sale_of_a_new_generation_is_c(self):
+        # 11-22 화면: 투싼 NX4→NX5 — 앞 세대 '세대 교체로 보임' B, 새 세대 첫 판매는 C(출시는 대개 이미 발표). 새 이름(앞 세대 없음)은 B 그대로
+        rows = [ser("국내 판매", "Tucson (NX4 HEV)", [1500] * 9 + [700, 500, 300, 39]), ser("국내 판매", "Tucson (NX5 HEV)", [0] * 12 + [568]),
+                ser("국내 판매", "Casper (AX2 EV)", [0] * 12 + [300])]
+        got = {(x["label"], x["signal"], x["tier"]) for x in cs.signals(rows, "hmc", "model", "2026-08")}
+        self.assertIn(("Tucson (NX5 HEV)", "첫 판매", "C"), got)
+        self.assertIn(("Casper (AX2 EV)", "첫 판매", "B"), got)
+        nx5 = next(x for x in cs.signals(rows, "hmc", "model", "2026-08") if x["label"] == "Tucson (NX5 HEV)")
+        self.assertIn("같은 이름 Tucson (NX4 HEV)(직전 3개월 평균 500대)의 새 세대", nx5["text"])
+
     def test_stop_of_a_lumpy_series_is_one_step_lower(self):
         # 11-03 운영: 기아 Tasman(특수) 국내 공장 수출 9월 12대 '판매 끊김' B — 그 계열은 6월에도 0(선적이 들쭉날쭉)
         tas = ser("국내 공장 수출(CKD 제외)", "Tasman (특수)", [0, 22, 30, 60, 80, 90, 100, 120, 106, 100, 0, 600, 452, 12], start="2025-08", maker="kia")
