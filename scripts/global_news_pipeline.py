@@ -117,7 +117,11 @@ def summarize_selected(rows,summarizer,*,previous=None,workers=2):
         if (isinstance(old,dict) and old.get("title")==out.get("title") and old.get("summaryTranslationStatus")=="summarized_ai"
                 and old.get("summaryVersion")==SUMMARY_VERSION and isinstance(old.get("koSummary"),str) and old["koSummary"].strip()):
             out.update(koSummary=old["koSummary"],summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
-        elif text.strip() and not out.get("koSummary"):
+        # 11-21(#937 뒤): 제목 번역 캐시(translate_selected)가 지난 행의 koSummary를 같이 옮겨 와 판이 바뀐 요약도 다시 안 만들었다
+        # (금호타이어 'KRW 10 billion' 요약이 '1조원' 그대로). 옮겨 온 요약이 옛 판 AI 요약이면 본문이 있을 때 다시 만든다
+        elif text.strip() and (not out.get("koSummary") or (
+                isinstance(old,dict) and old.get("summaryTranslationStatus")=="summarized_ai" and old.get("summaryVersion")!=SUMMARY_VERSION
+                and out.get("koSummary")==old.get("koSummary"))):
             try:
                 ko=summarizer(out.get("title",""),text)
             except Exception:
