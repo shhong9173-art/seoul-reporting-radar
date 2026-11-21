@@ -436,7 +436,17 @@ export function workforceHint(e) {
   const city = cityOf(e.text);
   return hint(e.company, [city, down ? '감원' : '채용'], [city], [city]);
 }
-const cityOf = (text) => ((/(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(String(text ?? '')) ?? [])[1]);
+// 11-22: 광역시 구 주소(울산광역시 북구·남구, 인천광역시 제물포구)와 전남광주통합특별시의 옛 광주 구(서구·광산구 등)는 시·군이 없어 지명이
+// 비었다 — 현대모비스 울산 염포동·롯데케미칼 울산1공장 허가가 "현대모비스 공장"·"롯데케미칼 공장"으로 대조됐다. 그때는 광역시 이름을 쓴다.
+// 서울특별시(본사 주소)는 쓰지 않는다 — 본사 인력 변화 기사에 '서울'이 없다(기아 서초구 본사 가입자)
+const METRO = /(부산|대구|인천|광주|대전|울산)광역시/;
+const cityOf = (text) => {
+  const t = String(text ?? '');
+  const m = /(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(t);
+  if (m) return m[1];
+  if (/전남광주통합특별시\s+(?:동구|서구|남구|북구|광산구)/.test(t)) return '광주';
+  return (METRO.exec(t) ?? [])[1];
+};
 function factoryHint(company, kind, text) {
   const city = cityOf(text);
   if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
@@ -1161,7 +1171,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       : useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
-      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)]) });
+      // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
+      // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
+      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)], [cityOf(x.plot)]) });
   }
 
   // 통합환경허가 정보공개(11-21): 등급은 수집기(변경허가 B, 통합허가·관련 기업 C). 보도 대조는 회사 + 환경 허가 낱말(사업장 지명이 있으면 함께)
