@@ -10,6 +10,7 @@ import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
+import { watchByPrefix } from '../cloudflare/review.mjs';
 import { deskType } from '../cloudflare/desk.mjs';
 import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
@@ -1934,7 +1935,9 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T15:10:00+09:00', counts: {}, candidates: [] });
   const later = await call('candidate_weekly_review', {}, opts);
   assert.match(later.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4/);
-  assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 2 — 봤음 2/);
+  // 11-21: 목록에서 빠진 'clue:late'는 id 앞말(clue)로 단독 후보 심사로 짐작 — 앞말을 모르는 'gone:1'만 미상
+  assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
+  assert.match(later.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1/);
 });
 
 test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 감시에 사유·제안, 이미 바꾼 기준(굴뚝 11-04)은 바뀐 뒤 판정만 본다', async () => {
@@ -5455,6 +5458,22 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.match(local2, /첨부 원문에서 뽑은 사업 개요\(자동·기자 컴퓨터에서 읽음 — 첨부 원문 확인\): 공사기간 2026\. 11\. ~ 2027\. 6\./);
   assert.doesNotMatch(local2, /첨부는 기자가 직접/);
   assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
+});
+
+test('주간 판정(11-21): 목록에서 빠진 항목도 id 앞말로 감시를 짐작한다', () => {
+  // 30일 판정 87건 중 11건이 '감시 미상(지금 목록에 없음)'(기자가 쓴 단독 1건 포함)
+  assert.equal(watchByPrefix('fr:2026-23802'), '무역구제');
+  assert.equal(watchByPrefix('trafile:AD0071:1272'), '무역구제');
+  assert.equal(watchByPrefix('uk-tra:No. AD0071 Case Hot-rolled'), '무역구제');
+  assert.equal(watchByPrefix('tsb:HMA:doc:26-EM-019G'), '미국 리콜(NHTSA 전체)');
+  assert.equal(watchByPrefix('cl:75138653'), '미국 소송·ITC');
+  assert.equal(watchByPrefix('ted:655836-2026'), '해외 발주처 낙찰');
+  assert.equal(watchByPrefix('insider-group|KG스틸|2026-10-23'), '지분·자사주 변동');
+  assert.equal(watchByPrefix('genesis-us-home:2026-11-20T03:30:48+09:00'), '해외 공식 페이지');
+  assert.equal(watchByPrefix('eumerger:M.12449:notified'), 'EU 관보 무역구제');
+  assert.equal(watchByPrefix('briefing:156790102'), '공정위·한전·원자재');
+  assert.equal(watchByPrefix('ins:000321:2026'), '협력사 회생·파산');
+  assert.equal(watchByPrefix('a1b2c3d4e5f6'), undefined);                       // 해시 id(단서)는 짐작하지 않는다
 });
 
 test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {
