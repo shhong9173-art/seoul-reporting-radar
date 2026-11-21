@@ -403,6 +403,64 @@ def merger_names(parties):
     return [ko for ko, rx in MERGER_NAMES if re.search(rx, parties or "", re.I)]
 
 
+# 사전 신고 공고 본문(11-21 탐침: publications.europa.eu/resource/celex/52026M12609, 영어 XHTML 10KB) — '1. On 10 November 2026, the Commission received
+# notification …'·당사자 줄('— Certares Management LLC (‘Certares Management’, US),')·거래 문장(… will acquire within the meaning of Article 3(1)(b) …)·
+# '2. The business activities …'·'Observations must reach the Commission not later than 10 days following the date of this publication'.
+# 포스코 건(M.12449)은 10-19 접수 → 10-30 관보 → 11-12 승인 → 11-14 경쟁지 단독. 제목만으로는 거래가 무엇인지 몰라 기사 판단을 못 한다.
+# 'TMUS / KIA …'처럼 이름만 같은 회사를 거르려고 본문에 Korea가 있는지도 본다(탐침: 기아로 잡힌 M.12477 본문에 Korea 없음).
+MERGER_BODY_BUDGET = 3
+MONTHS_EN = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+                                         "November", "December"], 1)}
+
+
+def merger_facts(text, published=""):
+    """사전 신고 본문 → {notifiedOn, deadline, undertakings[], transaction, activities, korea}. 못 읽은 칸은 비운다(만들지 않는다)."""
+    t = re.sub(r"\s+", " ", text or "")
+    out = {"korea": bool(re.search(r"\bKorea\b", t))}
+    m = re.search(r"On (\d{1,2}) ([A-Z][a-z]+) (20\d\d),? the Commission received (?:a )?notification", t)
+    if m and m.group(2) in MONTHS_EN:
+        out["notifiedOn"] = f"{m.group(3)}-{MONTHS_EN[m.group(2)]:02d}-{int(m.group(1)):02d}"
+    m = re.search(r"not later than (\d{1,2}) days following the date of this publication", t)
+    if m and re.match(r"\d{4}-\d\d-\d\d$", published or ""):
+        out["deadline"] = (dt.date.fromisoformat(published) + dt.timedelta(days=int(m.group(1)))).isoformat()
+    head = t.split("2. The business activities", 1)[0]
+    parties = list(re.finditer(r"[—–]\s*([A-Z0-9][^—–(]{1,120}?)\s*\(\s*[‘'\"“]([^’'\"”]{1,60})[’'\"”]\s*,\s*([A-Za-z][A-Za-z .&-]{1,40}?)\s*\)", head))
+    out["undertakings"] = [f"{p.group(1).strip()} ({p.group(3).strip()})" for p in parties][:6]
+    if parties:
+        tail = head[parties[-1].end():].lstrip(" ,.;")
+        key = re.search(r"within the meaning of Article 3|\bwill (?:acquire|merge)|\bacquires?\b", tail)
+        if key:
+            # 문장 처음: 소문자·닫는 괄호 뒤 '. 대문자'(S.p.A.·N.V. 같은 약칭 점은 문장 끝으로 보지 않는다)
+            starts = [m.end() for m in re.finditer(r"(?<=[a-z)])\.\s+(?=[A-Z])", tail[:key.start()])]
+            end = re.search(r"(?<=[a-z)\d])\.(?=\s+[A-Z]|\s*$)", tail[key.end():])
+            sent = tail[starts[-1] if starts else 0: key.end() + (end.end() if end else 300)].strip()
+            more = re.match(r"\s*(The concentration is accomplished[^.]*\.)", tail[key.end() + (end.end() if end else 300):])
+            out["transaction"] = (sent + (" " + more.group(1) if more else ""))[:500]
+    m = re.search(r"2\. The business activities of the undertakings? concerned (?:are|is) the following:\s*(.*?)(?:\s4\. On preliminary examination|\s4\. The Commission|$)", t)
+    if m:
+        out["activities"] = m.group(1).strip()[:700]
+    return out
+
+
+def merger_fact_text(f):
+    if not f:
+        return ""
+    bits = []
+    if f.get("notifiedOn"):
+        bits.append(f"신고 접수 {f['notifiedOn']}")
+    if f.get("deadline"):
+        bits.append(f"제3자 의견 마감 {f['deadline']}")
+    if f.get("undertakings"):
+        bits.append("당사자: " + " / ".join(f["undertakings"][:4]))
+    if f.get("transaction"):
+        bits.append(f"거래(원문): 「{f['transaction'][:300]}」")
+    if f.get("activities"):
+        bits.append(f"사업 내용(원문): 「{f['activities'][:400]}」")
+    if not f.get("korea"):
+        bits.append("본문에 한국(Korea) 없음 — 이름만 같은 다른 회사일 수 있음")
+    return " · ".join(bits)
+
+
 def mergers_run(get, now, prev, stamp, sleep):
     """EU 기업결합 공고(사전 신고·승인·철회·2단계·불허) 중 당사자에 출입처가 든 것 → (mergers, events, error). 첫 실행은 기준선."""
     first = "mergers" not in (prev or {})
@@ -419,6 +477,21 @@ def mergers_run(get, now, prev, stamp, sleep):
     except Exception as e:  # noqa: BLE001
         return list(cases.values()), [], f"기업결합 목록 {str(e)[:40] or type(e).__name__}"
     events = []
+    budget, tried = [MERGER_BODY_BUDGET], set()
+
+    def read_facts(rec):
+        st = rec["stages"]["notified"]
+        if budget[0] <= 0 or rec.get("facts") or rec["case"] in tried or rec.get("factsError", {}).get("tries", 0) >= 3:
+            return
+        budget[0] -= 1
+        tried.add(rec["case"])
+        sleep(PAUSE)
+        try:
+            rec["facts"] = merger_facts(read_body(get, st["celex"]), st["date"])
+            rec.pop("factsError", None)
+        except Exception as e:  # noqa: BLE001 — 본문 실패는 제목 줄만 남기고 다음 실행에 다시(3번까지)
+            rec["factsError"] = {"error": str(e)[:40] or type(e).__name__, "tries": rec.get("factsError", {}).get("tries", 0) + 1}
+
     for b in sorted(rows, key=lambda b: b["date"]["value"]):
         celex, title, date = b["celex"]["value"], plain(b["title"]["value"]), b["date"]["value"][:10]
         if not re.match(r"^[35]\d{4}M", celex):
@@ -438,12 +511,22 @@ def mergers_run(get, now, prev, stamp, sleep):
         rec["latest"] = stage
         if first:
             continue
+        if stage == "notified":
+            read_facts(rec)
+        facts = rec.get("facts") or {}
+        ft = merger_fact_text(facts)
         text = (f"EU 기업결합 — {kind}: {case} 「{parties}」({date}) · 출입처 {'·'.join(names)}"
                 + (" · 간이 절차 대상(통상 신고 뒤 25영업일 안 결정)" if rec["stages"][stage]["simplified"] else "")
                 + (f" · 사전 신고 {rec['stages']['notified']['date']}" if stage != "notified" and rec["stages"].get("notified") else "")
+                + (f" · {ft}" if ft else "")
                 + " (EU 집행위원회 경쟁총국 공고 — 사전 신고는 심사 시작, 승인은 '이의 없음' 결정. 거래 구조·지분·금액은 회사 확인)")
-        events.append({"id": f"eumerger:{case}:{stage}", "kind": f"EU 기업결합({kind})", "tier": "A", "company": "·".join(names), "companies": names,
+        tier = "C" if facts and not facts.get("korea") else "A"
+        events.append({"id": f"eumerger:{case}:{stage}", "kind": f"EU 기업결합({kind})", "tier": tier, "company": "·".join(names), "companies": names,
                        "product": "", "number": case, "date": date, "korea": False, "merger": True, "url": url, "text": text, "detectedAt": stamp})
+    # 예전에 잡힌(본문 읽기 전) 사전 신고도 남은 예산으로 채운다
+    for rec in sorted(cases.values(), key=lambda m: m["stages"].get("notified", {}).get("date", ""), reverse=True):
+        if rec["stages"].get("notified") and not rec.get("facts"):
+            read_facts(rec)
     keep_from = (now.date() - dt.timedelta(days=KEEP_DAYS)).isoformat()
     kept = [m for m in cases.values() if max((s["date"] for s in m["stages"].values()), default="") >= keep_from]
     return sorted(kept, key=lambda m: max(s["date"] for s in m["stages"].values()), reverse=True)[:40], events, None

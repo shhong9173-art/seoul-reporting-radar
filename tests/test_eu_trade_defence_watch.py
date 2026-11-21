@@ -32,6 +32,19 @@ BODY2345 = ("<p>HAS ADOPTED THIS REGULATION:</p><p>Article 1</p><p>1. The custom
             "to take the appropriate steps to register imports into the Union of certain polyvinyl chloride originating in the Republic of Korea.</p><p>Article 2</p>")
 
 
+# 탐침 11-21 실제 사전 신고 본문(publications.europa.eu/resource/celex/52026M12609, 태그 뗀 글 — 2·4항 일부 줄임)
+BODY12609 = ("Prior notification of a concentration (Case M.12609 – CERTARES / FS INTERNATIONAL / TRENITALIA FRANCE) Candidate case for simplified procedure (Text with EEA relevance) (C/2026/6131) 1. On 10 November 2026, the Commission received notification of a proposed concentration pursuant to Article 4 of Council Regulation (EC) No 139/2004 ( 1 ) . This notification concerns the following undertakings: — Certares Management LLC (‘Certares Management’, US), — FS International S.p.A. (‘FS International’, Italy), controlled by Ferrovie dello Stato Italiane S.p.A. (‘Ferrovie’), the holding company of the Italian state-owned railway group (‘Ferrovie Group’), — Trenitalia France S.A.S. (‘Trenitalia France’, France), currently wholly controlled by Ferrovie through FS International. Certares Management and FS International will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Trenitalia France. The concentration is accomplished by way of purchase of shares. 2. The business activities of the undertakings concerned are the following: — Certares Management is an investment firm focused on the travel, tourism, and hospitality ecosystem, with global activities, — Ferrovie Group, through its subsidiaries, is active in the management of railway and road infrastructure. 3. The business activities of the undertaking Trenitalia France are the following: the provision of high-speed rail passenger transport services in France and on cross-border routes. 4. On preliminary examination, the Commission finds that the notified transaction could fall within the scope. 5. The Commission invites interested third parties to submit their possible observations on the proposed concentration to the Commission. Observations must reach the Commission not later than 10 days following the date of this publication.")
+# 포스코 건(M.12449)은 공개 로그에 본문을 찍지 않아 꼴만 같은 시험용 글(당사자·사업 문장은 지어낸 것 — 수집기 시험 전용)
+BODY12449 = ("Prior notification of a concentration (Case M.12449 – POSCO / JSW / SAFFRON / PMH) Candidate case for simplified procedure 1. On 19 October 2026, "
+             "the Commission received notification of a proposed concentration pursuant to Article 4 of Council Regulation (EC) No 139/2004. This notification concerns "
+             "the following undertakings: — POSCO Holdings Inc. (‘POSCO’, Republic of Korea), — JSW Steel Limited (‘JSW’, India), — Saffron JV Co (‘Saffron’, India). "
+             "POSCO and JSW will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron. The concentration is "
+             "accomplished by way of purchase of shares in a newly created company constituting a joint venture. 2. The business activities of the undertakings "
+             "concerned are the following: — POSCO: steel production, — JSW: steel production in India. 3. The business activities of the undertaking Saffron are the "
+             "following: steel production in India. 4. On preliminary examination, the Commission finds that the notified transaction could fall within the scope. "
+             "Observations must reach the Commission not later than 10 days following the date of this publication.")
+
+
 class R:
     def __init__(self, status=200, data=None, text=""):
         self.status_code, self._d, self.text = status, data, text
@@ -247,12 +260,16 @@ class Proceedings(unittest.TestCase):
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)                 # 첫 실행: 기업결합도 기준선
         self.assertEqual((doc["mergers"], [e for e in doc["events"] if e.get("merger")]), ([], []))
         self.assertIn("SPARQL-M", calls)
-        get2, _ = fake(BASE, mergers=[flow, kia, notify])
+        get2, _ = fake(BASE, mergers=[flow, kia, notify], bodies={"52026M12449": BODY12449})
         doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
         ev = [e for e in doc2["events"] if e.get("merger")]
         self.assertEqual(len(ev), 1)
         self.assertEqual((ev[0]["id"], ev[0]["tier"], ev[0]["companies"], ev[0]["kind"]), ("eumerger:M.12449:notified", "A", ["포스코"], "EU 기업결합(사전 신고)"))
         self.assertIn("EU 기업결합 — 사전 신고: M.12449 「POSCO / JSW / SAFFRON / PMH」(2026-10-30) · 출입처 포스코 · 간이 절차 대상", ev[0]["text"])
+        # 사전 신고 본문(11-21 추가): 신고 접수일·의견 마감·당사자(나라)·거래 문장
+        self.assertIn("· 신고 접수 2026-10-19 · 제3자 의견 마감 2026-11-09 · 당사자: POSCO Holdings Inc. (Republic of Korea) / JSW Steel Limited (India)", ev[0]["text"])
+        self.assertIn("거래(원문): 「POSCO and JSW will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron.", ev[0]["text"])
+        self.assertTrue(doc2["mergers"][0]["facts"]["korea"])
         self.assertEqual(ev[0]["url"], "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026M12449")
         get3, _ = fake(BASE, mergers=[flow, kia, notify, clear, court])
         doc3 = w.run(NOW + dt.timedelta(hours=6), doc2, get=get3, sleep=lambda s: None)
@@ -262,6 +279,33 @@ class Proceedings(unittest.TestCase):
         self.assertEqual(doc3["mergers"][0]["latest"], "cleared")
         doc4 = w.run(NOW + dt.timedelta(hours=9), doc3, get=get3, sleep=lambda s: None)   # 같은 공고는 다시 이벤트가 되지 않는다
         self.assertEqual(len([e for e in doc4["events"] if e.get("merger")]), 2)
+
+    def test_merger_body_facts_from_real_notice(self):
+        f = w.merger_facts(BODY12609, "2026-11-19")
+        self.assertEqual((f["notifiedOn"], f["deadline"], f["korea"]), ("2026-11-10", "2026-11-29", False))
+        self.assertEqual(f["undertakings"], ["Certares Management LLC (US)", "FS International S.p.A. (Italy)", "Trenitalia France S.A.S. (France)"])
+        self.assertTrue(f["transaction"].startswith("Certares Management and FS International will acquire within the meaning of Article 3(1)(b)"))
+        self.assertTrue(f["transaction"].endswith("The concentration is accomplished by way of purchase of shares."))
+        self.assertTrue(f["activities"].startswith("— Certares Management is an investment firm"))
+        self.assertIn("본문에 한국(Korea) 없음", w.merger_fact_text(f))
+
+    def test_merger_same_name_without_korea_is_c_and_body_failure_retries(self):
+        get, _ = fake(BASE)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        kia = ("52026M12701", "2026-11-18", "Prior notification of a concentration (Case M.12701 – KIA CORPORATION / XYZ / JV) – Candidate case for simplified procedure")
+        notify = ("52026M12449", "2026-10-30", "Prior notification of a concentration (Case M.12449 – POSCO / JSW / SAFFRON / PMH) – Candidate case for simplified procedure")
+        get2, calls = fake(BASE, mergers=[kia, notify], bodies={"52026M12701": BODY12609}, fail=("52026M12449",))
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        ev = {e["id"]: e for e in doc2["events"] if e.get("merger")}
+        self.assertEqual(ev["eumerger:M.12701:notified"]["tier"], "C")                         # 본문에 한국 없음 — 이름만 같은 회사일 수 있음
+        self.assertEqual(ev["eumerger:M.12449:notified"]["tier"], "A")                         # 본문 실패: 제목 줄만, 등급은 그대로
+        posco = next(m for m in doc2["mergers"] if m["case"] == "M.12449")
+        self.assertEqual((posco.get("facts"), posco["factsError"]["tries"]), (None, 1))
+        get3, calls3 = fake(BASE, mergers=[kia, notify], bodies={"52026M12449": BODY12449})
+        doc3 = w.run(NOW + dt.timedelta(hours=6), doc2, get=get3, sleep=lambda s: None)       # 다음 실행에 남은 예산으로 다시 읽는다
+        posco = next(m for m in doc3["mergers"] if m["case"] == "M.12449")
+        self.assertEqual((posco["facts"]["notifiedOn"], "factsError" in posco), ("2026-10-19", False))
+        self.assertEqual(sum(1 for u in calls3 if u.endswith("52026M12701")), 0)              # 읽은 본문은 다시 안 받는다
 
     def test_merger_list_failure_is_partial(self):
         get, _ = fake(BASE)
