@@ -3044,6 +3044,13 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
       { id: 'nhtsa:26V702000', campaign: '26V702000', received: '2026-10-24', makes: ['BMW'], models: 'X3 2025', component: 'AIR BAGS', affected: 52000,
         defect: 'Air bag.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V702', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      // 11-22 운영: 수입 브랜드 옛 연식(12년 넘음) 리콜은 10만 대 이상만 B — S2000 2004~2005년형 16,387대는 참고, Takata 81만 대는 B
+      { id: 'nhtsa:26V749000', campaign: '26V749000', received: '2026-10-24', makes: ['HONDA'], models: 'S2000 2004~2005', component: 'FUEL SYSTEM', affected: 16387,
+        defect: 'Fuel pump flange.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V749', why: [{ role: '제조사(출입처 브랜드)', beat: '혼다코리아', name: '혼다' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'nhtsa:26V765000', campaign: '26V765000', received: '2026-10-24', makes: ['HONDA'], models: 'ACCORD 2013, CIVIC 2012~2013', component: 'AIR BAGS', affected: 810592,
+        defect: 'Takata inflator.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V765', why: [{ role: '제조사(출입처 브랜드)', beat: '혼다코리아', name: '혼다' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
       { id: 'nhtsa:26V692000', campaign: '26V692000', received: '2026-10-24', makes: ['HYUNDAI'], models: 'ELANTRA 2026', component: 'SUSPENSION', affected: 24,
         defect: 'Strut fasteners.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V692', why: [{ role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }],
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }],
@@ -3069,6 +3076,8 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.match(b, /미국 리콜 26V702000/);
   assert.match(b, /미국 리콜 26V692000 접수 2026-10-24 · ELANTRA 2026 · SUSPENSION · 대상 24대/);
   assert.doesNotMatch(a + b, /26V701000/);  // 수입 브랜드 300대 → 참고(C)
+  assert.doesNotMatch(a + b, /26V749000/);  // 수입 브랜드 옛 연식 16,387대 → 참고(C)
+  assert.match(b, /미국 리콜 26V765000/);  // 옛 연식이라도 10만 대 이상은 B
   assert.match(r.text, /\[C · 참고\(접힘\)\] \d+건/);
   assert.match(a, /미국 NHTSA 예비조사\(PE\) PE26010 조사 개시 · HYUNDAI TUCSON 2025 · ELECTRICAL · 「ICCU failure」 · 개시 2026-10-24 — 조사 개시는 결함 확정 아님/);
   assert.doesNotMatch(r.text, /Old probe/);  // first-read baseline with an old date
