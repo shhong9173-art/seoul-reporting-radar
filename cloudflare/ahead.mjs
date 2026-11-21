@@ -169,8 +169,12 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       const review = [...list].reverse().find((e) => /^일몰 재심/.test(e.kind ?? ''));
       const doneAfter = (d) => list.some((e) => ['확정 관세 결정', '조사 종료(관세 안 매김)'].includes(e.kind) && e.date >= d);
       const prov = [...list].reverse().find((e) => e.kind === '잠정 관세 결정' && e.detail?.dutyTo);
+      // 특수관세부회가 같은 품목 부과를 '적당'이라 한 회의 자료(각의 결정 전 신호) — 그 뒤 확정 공고가 없을 때만
+      const council = (docs?.['jp-trade-remedy']?.council?.meetings ?? []).filter((m) => (m.items ?? []).some((i) => i.korea && i.productKo === head.productKo && i.pdf?.recommends))
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+      const cNote = council && !doneAfter(council.date) ? `특수관세부회 ${council.date} 자료에 부과 '적당'(각의 결정 전)` : '';
       if (prov && !doneAfter(prov.date) && inWin(prov.detail.dutyTo)) {
-        out.push({ ...base, date: prov.detail.dutyTo, what: '잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다', title: `${name}(잠정 관세 결정 ${prov.date})`,
+        out.push({ ...base, date: prov.detail.dutyTo, what: '잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다', title: `${name}(잠정 관세 결정 ${prov.date})`, note: cNote,
           whoNote: [prov.detail.rates && `잠정 관세율 ${prov.detail.rates}`, sg ? '세이프가드 — 모든 나라산(한국 포함)' : ''].filter(Boolean).join(' · '),
           basis: '일본 재무성 잠정 관세 결정 공고 본문의 부과 기간', url: prov.url });
       }
@@ -179,7 +183,7 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
         const date = ext ? ext.detail.until : addMonths(init.date, 12);
         if (inWin(date)) {
           out.push({ ...base, date, approx: !ext, what: ext ? `조사 기간 끝(연장 공고 ${ext.date}) — 이 날까지 확정 관세 여부 결정` : `조사 기간 끝(원칙 1년 — 연장하면 최대 ${addMonths(init.date, 18)})`,
-            title: `${name}(개시 ${init.date})`, whoNote: sg ? '세이프가드 — 모든 나라산(한국 포함)' : '',
+            title: `${name}(개시 ${init.date})`, whoNote: sg ? '세이프가드 — 모든 나라산(한국 포함)' : '', note: cNote,
             basis: ext ? '일본 재무성 조사 기간 연장 공고 본문의 날짜' : '관세정률법 — 조사는 원칙 1년 안, 필요하면 6개월까지 연장(개시일은 재무성 공고)', url: (ext ?? init).url });
         }
       }

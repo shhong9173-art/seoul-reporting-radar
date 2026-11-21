@@ -50,9 +50,32 @@ D_EXT = ('<html><body><main><p>財務省及び経済産業省は、…調査の�
          '<p>関税定率法上、調査は原則として１年以内に終了するものとされていますが、必要がある場合には６か月以内に限り延長することができます。</p></main></body></html>')
 
 
+C = "https://www.mof.go.jp/about_mof/councils/customs_foreign_exchange/sub-of_customs/proceedings_tokusyu/material/"
+
+
+def council_index(*dates):
+    rows = "".join(f'<p><a href="./kanb{d.replace("-", "")}.html">令和{int(d[:4]) - 2018}年{int(d[5:7])}月{int(d[8:])}日開催</a></p>' for d in dates)
+    return f'<html><body><main><h2>配付資料等</h2><ul><li>{rows}</li></ul></main></body></html>'
+
+
+MEETING = ('<html><body><main><h1>関税・外国為替等審議会 関税分科会 特殊関税部会 （令和８年11月20日開催）配付資料</h1><ul>'
+           '<li><a href="./20261120/kanb20261120nittei.pdf">議事日程(PDF:90KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo1-1.pdf">（資料１－１）諮問書(PDF:184KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo2-1.pdf">（資料２－１）溶融亜鉛めっき鋼帯及び鋼板産業の現状(PDF:290KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo2-2.pdf">（資料２－２）大韓民国産及び中華人民共和国産溶融亜鉛めっき鋼帯及び鋼板に対する不当廉売関税の課税(PDF:729KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo2-3.pdf">（資料２－３）調査結果報告書(PDF:3886KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo3-2.pdf">（資料３－２）大韓民国産及び台湾産ビスフェノールAに対する不当廉売関税の課税(PDF:725KB)</a></li>'
+           '<li><a href="./20261120/kanb20261120siryo4-2.pdf">（資料４－２）大韓民国産及び中華人民共和国産水酸化カリウムに対する不当廉売関税の課税期間の延長(PDF:714KB)</a></li>'
+           '</ul></main></body></html>')
+PDF_GALV = "表3 不当廉売関税率 大韓民国 POSCO 29.2% KG Dongbu サンプリング調査非対象者 30.6% … 不当廉売関税を課することが適当 … 課税期間は5年間とする"
+PDF_BPA = "不当廉売関税(韓国供給者LG Chem, Ltd.を除く)を課することが適当 KUMHO P&B CHEMICALS, INC. 7.0% … ５年間"
+PDF_KOH = "課税期間を延長することが適当 … 5年間"
+
+
 class Resp:
     def __init__(self, text, code=200):
         self.text, self.status_code, self.encoding = text, code, None
+        self.content = text.encode() if isinstance(text, str) else text
 
 
 def fake(pages, fail=()):
@@ -64,6 +87,8 @@ def fake(pages, fail=()):
             raise ConnectionError("x")
         if url in pages:
             return Resp(pages[url])
+        if url == w.COUNCIL_INDEX:
+            return Resp(council_index("2026-07-30"))   # 기본: 오래된 회의 하나(기준선)
         if url.endswith("index.html"):
             return Resp(page())   # 상계관세·세이프가드 목록: 날짜 줄 없음
         return Resp("", 404)
@@ -71,8 +96,8 @@ def fake(pages, fail=()):
     return get
 
 
-def run(listing, details=None, prev=None, now=NOW, fail=()):
-    pages = {w.INDEXES[0][2]: listing, **{F + k + ".html": v for k, v in (details or {}).items()}}
+def run(listing, details=None, prev=None, now=NOW, fail=(), extra=None):
+    pages = {w.INDEXES[0][2]: listing, **{F + k + ".html": v for k, v in (details or {}).items()}, **(extra or {})}
     get = fake(pages, fail)
     return w.run(now, prev, get=get, sleep=lambda s: None), get
 
@@ -185,6 +210,76 @@ class Run(unittest.TestCase):
         detail_calls = [u for u in get.calls if not u.endswith("index.html")]
         self.assertEqual(len(detail_calls), w.DETAIL_BUDGET)
         self.assertEqual(doc["detailPending"], 7 - w.DETAIL_BUDGET)
+
+
+class Council(unittest.TestCase):
+    def setUp(self):
+        self._pdf = w.pdf_text
+        w.pdf_text = lambda content: w.norm(content.decode())
+
+    def tearDown(self):
+        w.pdf_text = self._pdf
+
+    def test_index_and_meeting_parse(self):
+        rows = w.parse_council_index(council_index("2026-11-20", "2026-10-19"))
+        self.assertEqual(rows, [{"url": C + "kanb20261120.html", "date": "2026-11-20"}, {"url": C + "kanb20261019.html", "date": "2026-10-19"}])
+        mats = w.parse_meeting(MEETING, C + "kanb20261120.html")
+        self.assertEqual(len(mats), 7)
+        self.assertEqual(mats[3]["url"], C + "20261120/kanb20261120siryo2-2.pdf")
+        self.assertFalse(mats[3]["title"].endswith("KB)"))
+        items = w.council_items(mats)
+        self.assertEqual([(i["productKo"], i["kind"], i["beat"]) for i in items],
+                         [("용융아연도금강판", "관세 부과(확정)", True), ("비스페놀A", "관세 부과(확정)", True), ("수산화칼륨", "과세 기간 연장(일몰)", False)])
+
+    def test_facts_from_pdf_text(self):
+        g = w.council_facts(w.norm(PDF_GALV))
+        self.assertEqual((g["recommends"], g["years"]), (True, 5))
+        self.assertIn("포스코", g["companies"])
+        self.assertIn("KG스틸", g["companies"])
+        b = w.council_facts(w.norm(PDF_BPA))
+        self.assertEqual(b["excluded"], ["LG화학"])
+        self.assertIn("LG Chem", b["excludedRaw"][0])
+        self.assertEqual(b["years"], 5)
+        self.assertNotIn("금호석유화학", b["companies"])   # Kumho P&B는 계열사 — 출입처 아님
+
+    def test_recent_meeting_is_event_even_on_first_run(self):
+        extra = {w.COUNCIL_INDEX: council_index("2026-11-20", "2026-07-30"), C + "kanb20261120.html": MEETING,
+                 C + "20261120/kanb20261120siryo2-2.pdf": PDF_GALV, C + "20261120/kanb20261120siryo3-2.pdf": PDF_BPA,
+                 C + "20261120/kanb20261120siryo4-2.pdf": PDF_KOH}
+        doc, get = run(page(L_PROV), {"ka20260804": D_PROV}, extra=extra)
+        self.assertNotIn(C + "kanb20260730.html", get.calls)      # 오래된 회의는 기준선 — 열지 않는다
+        ev = [e for e in doc["events"] if e["id"].startswith("jpcouncil:")]
+        self.assertEqual(len(ev), 1)
+        self.assertEqual((ev[0]["id"], ev[0]["tier"], ev[0]["product"]), ("jpcouncil:20261120", "A", "용융아연도금강판"))
+        self.assertIn("① 용융아연도금강판 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 본문 출입처 포스코·KG스틸", ev[0]["text"])
+        self.assertIn("② 비스페놀A 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 부과 대상에서 제외 LG화학(자료 '…を除く') / ③", ev[0]["text"])
+        self.assertIn("③ 수산화칼륨 과세 기간 연장(일몰)", ev[0]["text"])
+        self.assertEqual(doc["status"], "ok")
+        self.assertEqual(doc["checks"][-1]["source"], "일본 재무성 특수관세부회 배포자료")
+        doc2, _ = run(page(L_PROV), extra=extra, prev=doc)
+        self.assertEqual(doc2["fresh"], 0)
+        self.assertEqual(len([e for e in doc2["events"] if e["id"].startswith("jpcouncil:")]), 1)
+        self.assertNotIn("updatedAt", doc2["events"][-1])
+
+    def test_pdf_failure_then_filled(self):
+        extra = {w.COUNCIL_INDEX: council_index("2026-11-20"), C + "kanb20261120.html": MEETING}
+        doc, _ = run(page(L_PROV), {"ka20260804": D_PROV}, extra=extra)
+        ev = next(e for e in doc["events"] if e["id"] == "jpcouncil:20261120")
+        self.assertIn("PDF 못 읽음(HTTP 404)", ev["text"])
+        self.assertEqual(doc["status"], "partial")
+        extra.update({C + "20261120/kanb20261120siryo2-2.pdf": PDF_GALV, C + "20261120/kanb20261120siryo3-2.pdf": PDF_BPA,
+                      C + "20261120/kanb20261120siryo4-2.pdf": PDF_KOH})
+        # 읽기 실패한 PDF는 read=False로 남아 다음 실행에 다시 읽는다
+        doc2, _ = run(page(L_PROV), extra=extra, prev=doc)
+        ev2 = next(e for e in doc2["events"] if e["id"] == "jpcouncil:20261120")
+        self.assertNotIn("PDF 못 읽음", ev2["text"])
+        self.assertIn("updatedAt", ev2)
+        self.assertEqual(ev2["detectedAt"], ev["detectedAt"])
+
+    def test_council_list_failure_is_partial_not_zero(self):
+        doc, _ = run(page(L_PROV), {"ka20260804": D_PROV}, fail=(w.COUNCIL_INDEX,))
+        self.assertEqual(doc["status"], "partial")
+        self.assertEqual(doc["checks"][-1]["status"], "failed")
 
 
 if __name__ == "__main__":

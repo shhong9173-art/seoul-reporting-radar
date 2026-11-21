@@ -58,7 +58,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install "requests>=2.31,<3"
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6"
       - name: Test announcement reading
         run: python -m unittest discover -s tests -p 'test_jp_trade_remedy_watch.py' -v
       - name: Read Japan trade remedy announcements (counts-only log)
