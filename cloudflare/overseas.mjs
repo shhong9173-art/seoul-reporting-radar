@@ -658,6 +658,16 @@ export function euOjSection(doc, q = '', limit = 5, ctx = null) {
   if (all.length > limit) out.push(`… 남은 ${all.length - limit}건`);
   if (!all.length) out.push('해당 규정·공고 없음(조회 실패는 위 원천 상태 — 미확인).');
   out.push('   검증 상태: EU 관보 본문(자동). 세율은 제1조 표에서 출입처 이름 뒤 첫 값을 읽은 것 — 기사 전 원문 표 대조. 해외 법인(포스코 베트남 등) 이름은 그 나라산 조치라는 뜻');
+  // EU 기업결합(11-21): 경쟁지 11-14 [단독] '포스코·JSW 인도 합작제철소, EU 기업결합 승인'이 이 공고였다(사전 신고 10-30·승인 11-12)
+  const mergers = (doc.mergers ?? []).filter((m) => matches(q, m.case, m.parties, (m.companies ?? []).join(' ')));
+  const ST = ['notified', 'phase2', 'withdrawn', 'prohibited', 'cleared'];
+  out.push(`\n[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고(사전 신고·승인·철회·2단계·불허), 최근 30일 목록] ${mergers.length}건${'mergers' in doc ? '' : ' · 아직 수집 전 — 미확인'}`);
+  for (const m of mergers.slice(0, limit)) {
+    const st = ST.filter((k) => m.stages?.[k]).map((k) => `${m.stages[k].date} ${m.stages[k].kind}`).join(' → ');
+    out.push(`- ${m.case} 「${m.parties}」 · 출입처 ${(m.companies ?? []).join('·')} · ${st}${m.stages?.notified?.simplified ? ' · 간이 절차 대상' : ''}`);
+    out.push(`   원문: ${m.stages?.[m.latest]?.url ?? ''}`);
+  }
+  if (mergers.length) out.push('   검증 상태: EU 관보 공고 제목(자동). 사전 신고는 심사 시작일 뿐 승인 아님 · 승인은 \'이의 없음\' 결정. 계열사(POSCO FLOW·POSCO International 등)는 뺐다. 거래 구조·지분·금액은 회사 확인');
   return out;
 }
 

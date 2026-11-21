@@ -48,12 +48,15 @@ BASE = [("32026R2345", "2026-10-23", T2345), ("32026R2391", "2026-10-29", T2391)
         ("52026XC06025", "2026-11-17", TFIB), ("02023R0265-20261021", "2026-10-21", "Commission Implementing Regulation (EU) 2023/265 (consolidated)")]
 
 
-def fake(listed, bodies=None, fail=()):
+def fake(listed, bodies=None, fail=(), mergers=()):
     calls = []
     bodies = {"32026R2547": BODY2547, "32026R2345": BODY2345, **(bodies or {})}
 
     def get(url, params=None, headers=None, timeout=None):
-        calls.append(url if not params else "SPARQL")
+        merger = bool(params) and '"concentration"' in params.get("query", "")
+        calls.append(url if not params else "SPARQL-M" if merger else "SPARQL")
+        if url == w.SPARQL and merger:
+            return R(503) if "merger" in fail else R(200, rows(*mergers))
         if url == w.SPARQL:
             return R(503) if "sparql" in fail else R(200, rows(*listed))
         celex = url.rsplit("/", 1)[-1]
@@ -77,7 +80,7 @@ class Eu(unittest.TestCase):
         # 다음 실행: 제목에 한국이 없는 냉연 확정 규정 — 본문에 포스코 베트남이 수출자
         get2, calls2 = fake(BASE + [("32026R2547", "2026-11-13", T2547)])
         doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
-        self.assertEqual(calls2, ["SPARQL", w.CELLAR + "32026R2547"])        # 본 문서는 다시 안 받는다
+        self.assertEqual(calls2, ["SPARQL", w.CELLAR + "32026R2547", "SPARQL-M"])   # 본 문서는 다시 안 받는다(마지막은 기업결합 목록)
         self.assertEqual(len(doc2["events"]), 1)
         e = doc2["events"][0]
         self.assertEqual((e["id"], e["tier"], e["kind"], e["companies"], e["number"], e["date"], e["korea"]),
@@ -89,7 +92,7 @@ class Eu(unittest.TestCase):
         self.assertEqual(e["url"], "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32026R2547")
         get3, calls3 = fake(BASE + [("32026R2547", "2026-11-13", T2547)])
         self.assertEqual(len(w.run(NOW + dt.timedelta(hours=6), doc2, get=get3, sleep=lambda s: None)["events"]), 1)
-        self.assertEqual(calls3, ["SPARQL"])
+        self.assertEqual(calls3, ["SPARQL", "SPARQL-M"])
 
     def test_beat_product_regulation_without_beat_names_is_dropped(self):
         get, _ = fake(BASE)
@@ -226,6 +229,48 @@ class Proceedings(unittest.TestCase):
         get, calls = fake(BASE, fail=("sparql",))                            # 두 번 다 503이면 실패(0건 아님)
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
         self.assertEqual((doc["status"], calls.count("SPARQL")), ("failed", 2))
+
+    def test_merger_notices_with_beat_parties(self):
+        # 탐침 11-21 실제 제목: 포스코·JSW 사전 신고(10-30)·승인 결정(11-12), POSCO FLOW(계열사)·'KIA'(인프라 펀드)는 출입처 아님
+        notify = ("52026M12449", "2026-10-30", "Prior notification of a concentration (Case M.12449 – POSCO / JSW / SAFFRON / PMH) – Candidate case for simplified procedure")
+        clear = ("32026M12449", "2026-11-12", "Commission Decision of 12/11/2026 declaring a concentration to be compatible with the common market (Case No COMP/M.12449 - POSCO / JSW / SAFFRON / PMH) according to Council Regulation (EC) No 139/2004 (Only the English text is authentic)")
+        flow = ("52026M12537", "2026-09-25", "Prior notification of a concentration (Case M.12537 – POSCO FLOW / LX PANTOS / JV) – Candidate case for simplified procedure")
+        kia = ("52026M12477", "2026-11-08", "Prior notification of a concentration (Case M.12477 – TMUS / KIA / I3 BROADBAND) – Candidate case for simplified procedure")
+        court = ("62026TJ0001", "2026-11-10", "Judgment of the General Court in Case T-1/26 concerning a concentration")
+        self.assertEqual(w.merger_parts(clear[2]), ("M.12449", "POSCO / JSW / SAFFRON / PMH"))
+        self.assertEqual(w.merger_names("POSCO / JSW / SAFFRON / PMH"), ["포스코"])
+        self.assertEqual(w.merger_names("POSCO FLOW / LX PANTOS / JV"), [])
+        self.assertEqual(w.merger_names("TMUS / KIA / I3 BROADBAND"), [])
+        self.assertEqual(w.merger_names("KIA CORPORATION / XYZ / JV"), ["기아"])
+        self.assertEqual([w.merger_kind(t[2])[0] for t in (notify, clear)], ["사전 신고", "승인(이의 없음)"])
+        get, calls = fake(BASE, mergers=[flow, kia])
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)                 # 첫 실행: 기업결합도 기준선
+        self.assertEqual((doc["mergers"], [e for e in doc["events"] if e.get("merger")]), ([], []))
+        self.assertIn("SPARQL-M", calls)
+        get2, _ = fake(BASE, mergers=[flow, kia, notify])
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        ev = [e for e in doc2["events"] if e.get("merger")]
+        self.assertEqual(len(ev), 1)
+        self.assertEqual((ev[0]["id"], ev[0]["tier"], ev[0]["companies"], ev[0]["kind"]), ("eumerger:M.12449:notified", "A", ["포스코"], "EU 기업결합(사전 신고)"))
+        self.assertIn("EU 기업결합 — 사전 신고: M.12449 「POSCO / JSW / SAFFRON / PMH」(2026-10-30) · 출입처 포스코 · 간이 절차 대상", ev[0]["text"])
+        self.assertEqual(ev[0]["url"], "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026M12449")
+        get3, _ = fake(BASE, mergers=[flow, kia, notify, clear, court])
+        doc3 = w.run(NOW + dt.timedelta(hours=6), doc2, get=get3, sleep=lambda s: None)
+        ev3 = [e for e in doc3["events"] if e.get("merger")]
+        self.assertEqual([e["id"] for e in ev3], ["eumerger:M.12449:notified", "eumerger:M.12449:cleared"])
+        self.assertIn("· 사전 신고 2026-10-30", ev3[1]["text"])
+        self.assertEqual(doc3["mergers"][0]["latest"], "cleared")
+        doc4 = w.run(NOW + dt.timedelta(hours=9), doc3, get=get3, sleep=lambda s: None)   # 같은 공고는 다시 이벤트가 되지 않는다
+        self.assertEqual(len([e for e in doc4["events"] if e.get("merger")]), 2)
+
+    def test_merger_list_failure_is_partial(self):
+        get, _ = fake(BASE)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        get2, calls = fake(BASE, fail=("merger",))
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual(doc2["status"], "partial")
+        self.assertIn("기업결합 목록 HTTP 503", doc2["checks"][0]["error"])
+        self.assertEqual(calls.count("SPARQL-M"), 2)                         # 5xx는 한 번 다시
 
     def test_history_failure_keeps_previous_calendar(self):
         get, _ = fake(BASE + HIST)

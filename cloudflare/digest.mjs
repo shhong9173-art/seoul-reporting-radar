@@ -1368,7 +1368,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   for (const e of docs['eu-trade-defence']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const pk = productKo(e.product);
-    const word = /countervail|anti-subsidy/i.test(e.text ?? '') ? '상계관세' : /safeguard/i.test(e.text ?? '') ? '세이프가드' : '반덤핑';
+    const word = e.merger ? '기업결합' : /countervail|anti-subsidy/i.test(e.text ?? '') ? '상계관세' : /safeguard/i.test(e.text ?? '') ? '세이프가드' : '반덤핑';
+    // EU 기업결합(11-21, e.merger): 회사 + EU + 기업결합 — 상대 회사 이름은 낱말로 넣지 않는다(영문 약칭이라 국내 기사와 안 맞는다)
     push(e.tier === 'A' ? 'A' : 'B', W['eu-trade-defence'], { kind: e.kind ?? 'EU 관보 무역구제', id: e.id, date: e.date || e.detectedAt,
       company: e.company || (e.korea ? '한국산' : 'EU'), fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['EU', word], [], pk?.words ?? [], [], pk?.words ?? [])
