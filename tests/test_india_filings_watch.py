@@ -128,5 +128,16 @@ class Run(unittest.TestCase):
         self.assertEqual(doc2["checks"][0]["reset"], "RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행(03:10) 뒤 20분은 못 봄")
 
 
+class RoutineNotices(unittest.TestCase):
+    def test_rta_and_investor_service_notices_are_routine_11_21(self):
+        # 11-20 실제 공시: 명의개서 대리인(RTA) 주소 변경이 B로 떴다
+        t = lambda desc, subject="Updates": w.tier_of({"subject": subject, "desc": desc})  # noqa: E731
+        self.assertEqual(t("Hyundai Motor India Limited has informed the Exchange regarding 'Intimation Regarding The Change In the address of the Corporate Office of the RTA"), "C")
+        self.assertEqual(t("Compliance Certificate under Regulation 7(3) of SEBI (LODR)"), "C")
+        self.assertEqual(t("Statement of Investor Complaints for the quarter"), "C")
+        self.assertEqual(t("Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant."), "A")
+        self.assertEqual(t("Outcome of Board Meeting held on November 04, 2026", "Outcome of Board Meeting"), "B")
+
+
 if __name__ == "__main__":
     unittest.main()
