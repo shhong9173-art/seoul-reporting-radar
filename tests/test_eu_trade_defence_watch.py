@@ -206,6 +206,27 @@ class Proceedings(unittest.TestCase):
         self.assertTrue(any("no later than nine months from the date of initiation" in t for t in p2["52026XC05780"]["schedule"]))
         self.assertTrue(any("200 days" in t for t in p2["52026XC05780"]["schedule"]))
 
+    def test_list_5xx_is_retried_once(self):
+        state, waits = {"n": 0}, []
+
+        def flaky(code):
+            def get(url, params=None, headers=None, timeout=None):
+                if url == w.SPARQL:
+                    state["n"] += 1
+                    return R(code) if state["n"] == 1 else R(200, rows(*BASE))
+                return R(200, text=BODY2345)
+            return get
+        doc = w.run(NOW, None, get=flaky(504), sleep=waits.append)
+        self.assertEqual(doc["status"], "ok")
+        self.assertIn(w.RETRY_WAIT, waits)
+        state["n"], waits[:] = 0, []
+        doc = w.run(NOW, None, get=flaky(400), sleep=waits.append)          # 4xx는 다시 묻지 않는다
+        self.assertEqual(doc["status"], "failed")
+        self.assertNotIn(w.RETRY_WAIT, waits)
+        get, calls = fake(BASE, fail=("sparql",))                            # 두 번 다 503이면 실패(0건 아님)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        self.assertEqual((doc["status"], calls.count("SPARQL")), ("failed", 2))
+
     def test_history_failure_keeps_previous_calendar(self):
         get, _ = fake(BASE + HIST)
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
