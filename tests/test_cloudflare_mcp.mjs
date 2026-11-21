@@ -2782,6 +2782,22 @@ test('trade remedies: an unusual decision-memo topic in a notice naming a beat c
   assert.match(t.text, /결정문 목차 — 출입처 이름\(관보 부록 원문\): "Comment 6: Whether to Modify POSCO's KEXIM OICP Loan Benchmark"/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'fr:2026-20778').check.terms, ['관세', '보조금']);
+  // 11-21 경쟁 속도: 최근 30일 경쟁지가 미국 관보 판정으로 쓴 단독(역추적 '먼저 잡은 후보')이 레이더 뒤 몇 시간에 나왔는지 — 관보 항목 줄에
+  const cap = (id, src, lead, pub, bid, text) => ({ articleId: id, title: `[단독] ${id}`, published: pub, source: src, companies: ['포스코'], verdict: '먼저 잡은 후보',
+    best: { source: 'trade-remedy', label: '무역구제·미국 관보', id: bid, text, seen: '2026-10-20T00:00:00+09:00', leadHours: lead, why: [] } });
+  const rev = { schema: 'reverse_check/v1', generatedAt: '2026-10-25T07:20:00+09:00', windowDays: 30, articles: [
+    cap('r1', '토요경제', 8.6, '2026-10-21T07:35:00+09:00', 'fr:a', 'Cold-Rolled … Countervailing Duty'),
+    cap('r2', '철강금속신문', 79.5, '2026-10-22T05:00:00+09:00', 'fr:b', 'Corrosion-Resistant … Countervailing'),
+    cap('r3', '토요경제', 8.6, '2026-10-23T08:35:00+09:00', 'clue:x', 'Circular Welded Pipe: Final Results of Antidumping Duty'),
+    { articleId: 'r4', title: '[단독] 노조', published: '2026-10-23T08:35:00+09:00', source: '참세상', companies: ['현대차'], verdict: '먼저 잡은 후보',
+      best: { source: 'union-notices', label: '노조 성명', id: 'un:1', text: '미승인 부품', seen: '2026-10-16T00:00:00+09:00', leadHours: 168, why: [] } }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/reverse-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(rev) }), env, {});
+  const r2 = (await call('radar_today', { hours: 72 }, opts)).text;
+  assert.match(r2, /Final Results of Countervailing Duty Administrative Review[^\n]*\n(?:   [^\n]*\n)*   〔경쟁 속도〕 최근 30일 경쟁지가 미국 관보 판정으로 쓴 단독 3건 — 레이더가 잡은 뒤 빠르면 8\.6시간, 중간 9시간\(토요경제 2·철강금속신문 1\)/);
+  assert.match((await call('scoop_desk', { days: 7 }, opts)).text, /〔경쟁 속도〕 최근 30일 경쟁지가 미국 관보 판정으로 쓴 단독 3건[^\n]*\n(?:   [^\n]*\n)*?   [^\n]*id fr:2026-20778/);
+  const { rivalPaceLine } = await import('../cloudflare/digest.mjs');
+  assert.equal(rivalPaceLine({ articles: rev.articles.slice(0, 1) }, Date.parse('2026-10-25T00:00:00Z')), '');   // 한 건이면 안 붙임
+  assert.equal(rivalPaceLine(rev, Date.parse('2026-12-30T00:00:00Z')), '');                                        // 30일 지나면 안 셈
 });
 
 test('무역구제 기사 포인트(11-08): 결정문 쟁점 한국어 풀이·품목 이름·세율 비교, 보도 대조는 품목 낱말까지', () => {
