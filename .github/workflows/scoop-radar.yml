@@ -139,7 +139,7 @@ jobs:
       cancel-in-progress: true
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - name: Checkout latest collected main
         uses: actions/checkout@v4
@@ -186,6 +186,16 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+      # 11-21 운영: 올린 직후 'No artifacts named "github-pages" were found for this workflow run'으로 배포가 두 번 연속 실패했다
+      # (업로드 단계는 성공, 다음 실행은 성공 — GitHub 쪽 일시 지연). 실패하면 45초 뒤 한 번만 다시 배포한다. 재시도도 실패하면 작업 실패.
       - name: Deploy latest site
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: Wait before one deploy retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+      - name: Deploy latest site (retry once)
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
