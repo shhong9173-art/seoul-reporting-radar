@@ -3387,7 +3387,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     // 11-10 운영: 나라 이름 없는 외신 — 제목의 라틴 고유어(HTWO)가 기사에 있어야 같은 건(MOU·회사 영문 이름은 고유어 아님)
     it('gl:htwo', { title: 'HTWO Guangzhou and Air Liquide China sign hydrogen mobility MoU', koTitle: '현대차 HTWO 광저우와 에어리퀴드 차이나, 수소 모빌리티 MOU 체결',
       beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['MOU'] }),
-    it('gl:pv5', { title: 'Kia reveals UK prices for PV5 Chassis', koTitle: '기아, PV5 Chassis 및 고성능 EV 밴 가격 공개', beatCompanies: ['기아'], titleCompanies: ['기아'], checkTerms: ['투자'] })] };
+    it('gl:pv5', { title: 'Kia reveals UK prices for PV5 Chassis', koTitle: '기아, PV5 Chassis 및 고성능 EV 밴 가격 공개', beatCompanies: ['기아'], titleCompanies: ['기아'], checkTerms: ['투자'] }),
+    // 11-22 운영: 게재 나흘 뒤에 처음 잡힌 기사(출입처 이름 검색은 7일 전까지 읽음)
+    it('gl:late', { title: 'Korea Zinc secures U.S. power supply for smelter', koTitle: '고려아연, 제련소 미국 전력 공급 확보', beatCompanies: ['고려아연'], titleCompanies: ['고려아연'],
+      checkTerms: ['제련소'], published: new Date(Date.parse(now) - 4.5 * 86400000).toISOString() })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -3396,6 +3399,8 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.doesNotMatch(b, /원문 발췌에 없는 숫자/);   // 숫자가 다 맞으면 표시 없음
   assert.doesNotMatch(r.text, /오래된 기사/);
   assert.doesNotMatch(r.text, /출입처 외신: /);   // 수집 상태 정상
+  assert.match(b, /고려아연, 제련소 미국 전력 공급 확보[^\n]*\(AI 번역·요약 — 원문 확인\) · 레이더가 처음 본 날 \d\d-\d\d\(게재 4일 뒤 — 외신 검색에 늦게 잡힘\)/);
+  assert.equal((b.match(/외신 검색에 늦게 잡힘/g) ?? []).length, 1);   // 같은 날 잡힌 기사엔 없음
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'gl:a');
   assert.deepEqual([hit.tier, hit.check.who, hit.check.terms, hit.check.alts['원자로'].includes('SMR')], ['B', '두산에너빌리티', ['원자로'], true]);
