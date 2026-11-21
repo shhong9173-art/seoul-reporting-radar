@@ -172,7 +172,9 @@ export async function governance(ctx, args) {
       (Object.keys(v.dartSpellings ?? {}).length ? ` · DART 표기 ${Object.entries(v.dartSpellings).map(([a, b]) => `${a}→${b}`).join('·')}` : ''),
     '규칙: 공개 공시이며 지분 변동 자체는 단독이 아님. 보고자 관계·개인별 지분은 원문 표에서 확인.'];
   for (const x of rows.slice(0, limit)) {
-    const delta = typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p`
+    // 첫 보고(11-22): 증감 칸이 보유 전체와 같다 — '+10%p'처럼 쓰면 10%p를 산 것으로 읽힌다
+    const delta = x.firstReport ? ' 첫 보고(직전 보고 없음 — 증감 칸은 보유 전체)'
+      : typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p`
       : (x.groupKey && typeof x.sharesChange === 'number' ? ` 순증감 ${x.sharesChange > 0 ? '+' : ''}${x.sharesChange.toLocaleString('en-US')}주` : '');
     // 5% reports state the holder group's combined ratio (보고자+특별관계자); insider reports are per person.
     const ratio = typeof x.ratio !== 'number' ? '' : x.kind === '대량보유(5%)' ? ` → 보고서 기재 보유비율 ${x.ratio}%(특별관계자 포함 가능)` : ` → ${x.ratio}%`;

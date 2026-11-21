@@ -148,6 +148,23 @@ class Governance(unittest.TestCase):
         self.assertEqual(by["20261002000013"]["tags"], [])
         self.assertFalse(by["20261002000013"]["routine"])  # controlling-group move stays visible
 
+    def test_first_report_is_not_a_full_change(self):
+        # 11-19 운영: 국민연금공단 현대제철 '10%이상주주' 첫 보고 — 증감 칸 10.00%p = 보유 10.00% → '[지분율 +10.00%p]'가 아니라 첫 보고
+        rows = [{"rcept_no": "20261119000277", "rcept_dt": "2026-11-19", "repror": "국민연금공단", "isu_exctv_rgist_at": "-",
+                 "isu_exctv_ofcps": "-", "isu_main_shrholdr": "10%이상주주", "sp_stock_lmp_cnt": "13,346,000",
+                 "sp_stock_lmp_irds_cnt": "13,346,000", "sp_stock_lmp_rate": "10.00", "sp_stock_lmp_irds_rate": "10.00"},
+                {"rcept_no": "20261119000278", "rcept_dt": "2026-11-19", "repror": "국민연금공단", "isu_exctv_rgist_at": "-",
+                 "isu_exctv_ofcps": "-", "isu_main_shrholdr": "10%이상주주", "sp_stock_lmp_cnt": "15,000,000",
+                 "sp_stock_lmp_irds_cnt": "1,654,000", "sp_stock_lmp_rate": "11.24", "sp_stock_lmp_irds_rate": "1.24"}]
+        r = self.build({("elestock.json", "00145880"): {"status": "000", "list": rows}})
+        by = {x["receiptNo"]: x for x in r["items"]}
+        first, later = by["20261119000277"], by["20261119000278"]
+        self.assertTrue(first["firstReport"])
+        self.assertEqual(first["tags"], ["[10% 이상 주주로 첫 보고 · 보유 10.00%]"])
+        self.assertFalse(first["routine"])
+        self.assertNotIn("firstReport", later)
+        self.assertEqual(later["tags"], ["[지분율 +1.24%p]"])
+
     def test_beat_name_tries_exact_dart_spelling_only(self):
         codes, missing = g.resolve_codes(["동성케미칼"], {"companies": {}}, {"동성케미컬": [["00999999", "102260"]]})
         self.assertEqual(codes["동성케미칼"], "00999999")
