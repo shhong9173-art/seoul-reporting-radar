@@ -6090,6 +6090,9 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
         findingsTitle: 'Final Findings', findingsDate: '2026-06-05' },
       'https://www.dgtr.gov.in/en/anti-dumping-cases/acrylic': { status: 'ok', initiated: '2025-10-30', initTitle: 'Initiation Notification', latest: { title: 'x', date: '2026-11-01' } },
       'https://www.dgtr.gov.in/en/anti-dumping-cases/tdi': { status: 'ok', initiated: '2026-09-30', initTitle: 'Initiation Notification', latest: { title: 'x', date: '2026-11-01' } } },
+    edis: { docs: [{ id: '905001', why: '한국산 조사 제소장·청원', tier: 'A', investigationNumber: '731-1781', documentType: 'Petition', documentTitle: 'Petition for the Imposition of Antidumping Duties',
+      investigationTitle: 'Paper File Folders from Korea', officialReceivedDate: '2026/11/10 10:02:00', companies: [], url: 'https://edis.usitc.gov/data/document/905001' },
+      { id: '905002', why: '한국산 조사 제소장·청원', tier: 'A', investigationNumber: '337-1501', documentType: 'Complaint', investigationTitle: 'Certain Widgets from Korea', officialReceivedDate: '2026/11/11 10:00:00', companies: [] }] },
     usAhead: [
       { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
@@ -6181,6 +6184,11 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /- 2027-09-30 · 인도 DGTR · 재심 종결 시한\(개시 12개월\) · Toluene DiIsocyanate-\(TDI\) \(개시 2026-09-30\)\n/);   // 명단에 이름이 없어도 품목이 출입 업종이면 업종 밖 표시 없음
   assert.doesNotMatch(t, /chisel|Nitrile Rubber/);
   assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
+  // 11-21: EDIS 한국산 반덤핑 청원(731) 접수일 → 상무부 개시 결정 20일·ITC 예비 판정 45일·상무부 예비 판정(개시+140일 어림). 337 제소장은 계산 안 함
+  assert.match(t, /- 2026-11-30 · 미국 상무부 · 조사 개시 여부 결정\(법정 — 청원 접수 20일, 업계 지지 조사 시 최대 40일\) · Paper File Folders from Korea \(731-1781, 청원 접수 2026-11-10\) \(출입 업종 품목 아님\)\n   근거: 19 U\.S\.C\. 1671a\(c\)·1673a\(c\)/);
+  assert.match(t, /- 2026-12-25 · 미국 ITC · 예비 피해 판정\(법정 — 청원 접수 45일\) · Paper File Folders from Korea/);
+  assert.match(t, /- ~2027-04-19 · 미국 상무부 · 반덤핑 예비 판정\(법정 — 개시 140일, 연장 시 190일\) · Paper File Folders from Korea/);
+  assert.doesNotMatch(t, /Certain Widgets/);
   // 11-21: 원심 조사의 상무부 최종 시한 → ITC 최종 피해 판정 법정 시한(+45일). 행정재심(대형 변압기·못)에는 붙이지 않는다
   assert.match(t, /- ~2027-05-09 · 미국 ITC · ITC 최종 피해 판정\(법정 — 상무부 최종 긍정 판정 뒤 45일 안, 상무부 최종이 부정이면 없음\) · Polytetramethylene Ether Glycol From the Republic of Korea · Preliminary Affirmative Determination of Sales at Less Than Fair Value\(상무부 최종 시한 2027-03-25\) \(출입 업종 품목 아님\)\n   근거: 19 U\.S\.C\. 1673d\(b\)\(2\)/);
   assert.doesNotMatch(t, /ITC 최종 피해 판정[^\n]*(?:Large Power|Steel Nails)/);

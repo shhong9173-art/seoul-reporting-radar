@@ -124,6 +124,29 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       }
     }
   }
+  // 미국 — 새 한국산 반덤핑·상계관세 청원(EDIS 'Petition', 701·731 조사)의 접수일에서 법정 시한(11-21). 관보 고시가 나오면 그 날짜가 우선이고
+  // 이 계산은 고시 전 며칠~몇 주의 준비용이다: 상무부 개시 결정 20일(19 U.S.C. 1671a(c)·1673a(c)), ITC 예비 판정 45일(1671b(a)·1673b(a)),
+  // 상무부 예비 판정 — 상계관세 개시+65일(1671b(b)), 반덤핑 개시+140일(1673b(b)) — 개시일은 접수+20일로 어림('~')
+  {
+    const seen = new Set();
+    for (const d of tr.edis?.docs ?? []) {
+      if (!d || d.why !== '한국산 조사 제소장·청원' || !/^(?:701|731)-/.test(String(d.investigationNumber ?? '')) || !/^Petition/i.test(d.documentType ?? '')) continue;
+      const filed = String(d.officialReceivedDate ?? '').slice(0, 10).replace(/\//g, '-');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(filed) || seen.has(d.investigationNumber)) continue;
+      seen.add(d.investigationNumber);
+      const cvd = /^701-/.test(d.investigationNumber);
+      const name = `${String(d.investigationTitle || d.documentTitle || '').slice(0, 90)} (${d.investigationNumber}, 청원 접수 ${filed})`;
+      const beat = BEAT_PRODUCT.test(d.investigationTitle ?? '') || (d.companies ?? []).length > 0;
+      const base = { country: '미국', src: 'us', beat, who: d.companies ?? [], whoNote: (d.companies ?? []).length ? 'EDIS 서면 속 출입처 이름' : '', title: name, url: d.url ?? '' };
+      const steps = [
+        { date: addDays(filed, 20), agency: '상무부', what: '조사 개시 여부 결정(법정 — 청원 접수 20일, 업계 지지 조사 시 최대 40일)', basis: '19 U.S.C. 1671a(c)·1673a(c) — EDIS 청원 접수일+20일' },
+        { date: addDays(filed, 45), agency: 'ITC', what: '예비 피해 판정(법정 — 청원 접수 45일)', basis: '19 U.S.C. 1671b(a)·1673b(a) — EDIS 청원 접수일+45일' },
+        { date: addDays(filed, 20 + (cvd ? 65 : 140)), approx: true, agency: '상무부', what: `${cvd ? '상계관세' : '반덤핑'} 예비 판정(법정 — 개시 ${cvd ? 65 : 140}일, 연장 시 ${cvd ? 130 : 190}일)`,
+          basis: `19 U.S.C. ${cvd ? '1671b(b)' : '1673b(b)'} — 개시일을 접수+20일로 어림` },
+      ];
+      for (const st of steps) if (inWin(st.date)) out.push({ ...base, ...st });
+    }
+  }
   // 인도 — DGTR 사건 페이지의 '이번 절차 개시일'에서 규칙으로 계산(진행 중이고 최종 판정문이 아직 없는 한국 관련 사건, 11-21)
   const dgSeen = new Set();
   for (const e of tr.events ?? []) {
