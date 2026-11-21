@@ -1459,6 +1459,22 @@ export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 �
 // Building permits on the same parcel as a beat company's registered factory (kr-building feed), shown under kr_official.
 // 건축허가의 공장이 지금 공장등록 목록에 없으면(이름 규칙을 좁혀 계열사·판매점 공장이 빠진 뒤) 건축허가 감시가 다음 실행에서 'orphan'을
 // 붙이기 전에도 숨긴다 — 11-22: #990 뒤에도 '포스코 · 사용승인 · 포스코스틸리온(주)도금공장 부지'가 B와 '겹친 신호'에 남았다.
+// 같은 번지·건물명·구분·허가일·연면적인 허가가 관리번호만 달리 두 줄로 오는 일(11-22: '현대자동차 옥천출고센터' 증축 3,450㎡
+// 2026-10-15가 두 줄) — 앞 줄 하나만 남기고 겹친 수를 붙인다.
+export function dedupePermits(list) {
+  const seen = new Map();
+  const out = [];
+  for (const x of list ?? []) {
+    const k = [x.factoryId, x.plot, x.bldNm, x.archGbCdNm, x.permitted, x.totArea, x.kind].map((v) => String(v ?? '')).join('|');
+    const first = seen.get(k);
+    if (first) { first.dupes = (first.dupes ?? 1) + 1; continue; }
+    const copy = { ...x };
+    seen.set(k, copy);
+    out.push(copy);
+  }
+  return out;
+}
+
 export function plantGone(docs) {
   const ids = new Set((docs['kr-official']?.factories ?? []).map((f) => f.id));
   return (x) => ids.size > 0 && Boolean(x.factoryId) && !ids.has(x.factoryId);
@@ -1483,7 +1499,7 @@ async function buildingSection(ctx, q, days, limit) {
   const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
   const plants = await readFeed(ctx, 'kr-official');
   const gone = plantGone({ 'kr-official': plants && !plants.broken ? plants : null });
-  const all = (doc.permits ?? []).filter((x) => !x.orphan && !gone(x) && (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+  const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
   // 같은 등급 안에서는 이번에 새로 잡힌 것([신규])부터 — 월간 갱신으로 새 허가가 한꺼번에 들어오면(11-22: 317건) 지난주 본 것과 섞였다
@@ -1501,7 +1517,7 @@ async function buildingSection(ctx, q, days, limit) {
   gap('번지 못 찾은 공장', doc.unresolved, (x) => `${x.company} ${x.plant ?? ''}(${x.road ?? '?'}, ${x.error ?? '?'})`);
   gap('조회 실패 번지', doc.archFailed, (x) => `${x.company} ${x.plant ?? ''}(${x.parcel ?? '?'}, ${x.error ?? '?'})`);
   for (const x of rows.slice(0, limit)) {
-    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}`);
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}${x.dupes ? ` (같은 허가 ${x.dupes}줄 — 관리번호만 다름)` : ''}`);
     out.push(`   잡힌 사실: ${buildingLine(x)}`);
     out.push(x.otherName
       ? `   검증 상태: 건물명에 다른 회사 이름('${x.otherName}') — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임(C). 건축주는 지자체(건축과) 확인`

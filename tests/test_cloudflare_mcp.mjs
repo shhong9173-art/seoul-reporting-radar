@@ -4876,7 +4876,7 @@ test('kr building: permits of a plant no longer in the plant list are hidden bef
     bldNm: null, archGbCdNm: '증축', mainPurpsCdNm: '공장', totArea: 49112, permitted: '2026-10-12', useApproved: '2026-10-30', kind: '사용승인(준공)', tier: 'B',
     firstSeen: now, changedAt: now, baseline: false, isNew: true });
   const bdoc = { schema: 'kr_building/v1', generatedAt: now, status: 'complete', plants: 2, parcelsResolved: 2, rules: [], checks: [{ source: '건축인허가', status: 'ok', returned: 2 }],
-    permits: [p('bld:own', 'fac:1', '(주)포스코'), p('bld:aff', 'fac:9', '포스코스틸리온(주)도금공장')] };
+    permits: [p('bld:own', 'fac:1', '(주)포스코'), p('bld:own2', 'fac:1', '(주)포스코'), p('bld:aff', 'fac:9', '포스코스틸리온(주)도금공장')] };
   const kdoc = { schema: 'kr_official/v1', generatedAt: now, status: 'complete', checks: [], events: [], gazette: [],
     factories: [{ id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코', rnAdres: '경상북도 포항시 남구 동해안로 6262', tags: [] }] };
   for (const [feed, doc] of [['kr-building', bdoc], ['kr-official', kdoc]]) {
@@ -4888,6 +4888,10 @@ test('kr building: permits of a plant no longer in the plant list are hidden bef
   const t = await call('kr_official', { section: 'building' }, opts);
   assert.match(t.text, /\(주\)포스코 부지/);
   assert.doesNotMatch(t.text, /포스코스틸리온/);
+  // 관리번호만 다른 같은 허가 두 줄(11-22 '현대자동차 옥천출고센터')은 한 줄로
+  assert.equal((t.text.match(/\(주\)포스코 부지/g) ?? []).length, 1);
+  assert.match(t.text, /\(같은 허가 2줄 — 관리번호만 다름\)/);
+  assert.equal((r.text.match(/\(주\)포스코 부지/g) ?? []).length, 1);
 });
 
 test('overseas registry: a new UK company with a beat parent as PSC is A; a missing key is 미설정', async () => {

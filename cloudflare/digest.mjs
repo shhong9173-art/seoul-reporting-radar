@@ -15,7 +15,7 @@ import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1119,7 +1119,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const bd = docs['kr-building'];
   const bdBase = baselineOf(bd?.permits ?? []);
   const gone = plantGone(docs);
-  for (const x of bd?.permits ?? []) {
+  for (const x of dedupePermits((bd?.permits ?? []).filter((p) => !p.orphan && !gone(p)))) {
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
