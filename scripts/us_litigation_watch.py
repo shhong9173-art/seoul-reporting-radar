@@ -299,10 +299,9 @@ def opinions(token, now, previous, budget, *, get=None, sleep=time.sleep):
         oid = f"op:{x.get('cluster_id')}"
         old = prev.get(oid, {})
         plaintiff = any(re.match(rf"^\s*(?:{rx})", x.get("caseName") or "", re.I) for c, rx in PARTIES if c in beat)
-        slip = re.search(r"Slip Op\.?\s*(\d{2}-\d{1,3})", caption)
         row = {"id": oid, "beat": beat, "court": x.get("court"), "courtId": (x.get("court_id") or "").lower(),
                "caseName": x.get("caseName") or "", "docketNumber": x.get("docketNumber"), "dateFiled": x.get("dateFiled"),
-               "slipOp": slip.group(1) if slip else old.get("slipOp"), "role": "원고" if plaintiff else "피고·참가인 등",
+               "slipOp": slip_of(caption, op.get("download_url")) or old.get("slipOp"), "role": "원고" if plaintiff else "피고·참가인 등",
                "url": CL_SITE + (x.get("absolute_url") or ""), "pdf": op.get("download_url"),
                "holding": old.get("holding"), "holdingKo": old.get("holdingKo"), "reading": old.get("reading"),
                "firstSeen": old.get("firstSeen") or now.isoformat(timespec="seconds")}
@@ -376,10 +375,22 @@ def cit_direct(now, previous, *, get=None, sleep=None):
     return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "ok", "own": len(rows)}
 
 
+def slip_of(caption, pdf=None):
+    """판결 번호(Slip Op.) — 첫머리 글에 없으면 국제무역법원 PDF 주소('…/files/26-131.pdf')에서.
+    11-21 운영: CourtListener 'POSCO v. United States' 첫머리 글에 번호가 없어 법원 목록의 같은 판결(26-131)과 두 줄로 나왔다."""
+    m = re.search(r"Slip Op\.?\s*(\d{2}-\d{1,3})", caption or "")
+    if m:
+        return m.group(1)
+    m = re.search(r"cit\.uscourts\.gov/\S*?/(\d{2}-\d{1,3})\.pdf$", str(pdf or ""), re.I)
+    return m.group(1) if m else None
+
+
 def merge_opinions(cl_rows, cit_rows):
     """One row per slip opinion: the CourtListener row (holding text) wins, but keeps the earliest firstSeen."""
     by_slip = {r["slipOp"]: r for r in cit_rows if r.get("slipOp")}
     out = []
+    # 예전에 번호 없이 저장된 CourtListener 줄도 PDF 주소로 번호를 채운다(21일 조회 창을 지나면 다시 안 읽는다)
+    cl_rows = [r if r.get("slipOp") or not slip_of("", r.get("pdf")) else {**r, "slipOp": slip_of("", r.get("pdf"))} for r in cl_rows]
     for r in cl_rows:
         c = by_slip.pop(r.get("slipOp"), None) if r.get("slipOp") else None
         if c:
