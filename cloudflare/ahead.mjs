@@ -70,6 +70,20 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
         note: `최종 권고 기한 ${fr} 지남 · 진행 목록에 남아 있음(다음 단계 ${c.milestone || '?'}) — 결정 공고(ADN) 전`, basis: AU_MINISTER });
     }
   }
+  // 영국 — TRA 사건 예정표(공개기록 'External/Case timeline', 구속력 없음, 달 단위가 많다) 가운데 잠정 판정·SEF·최종 권고·공청회(11-21)
+  const UK_KO = [[/Statement of Essential Facts|\bSEF\b/i, '필수사실 고지(SEF) 공개'], [/Final Recommendation|Final Determination/i, '최종 권고(국무장관에게)'],
+    [/Provisional/i, '잠정 판정(필요 시)'], [/hearing/i, '공청회']];
+  for (const c of tr.tra?.cases ?? []) {
+    const tl = c?.timeline;
+    for (const it of tl?.items ?? []) {
+      const ko = UK_KO.find(([rx]) => rx.test(it.label ?? ''))?.[1];
+      if (!ko || !it.to || it.to < today || it.from > until) continue;
+      const span = it.exact ? '' : ` — 예정표 '${it.when}'`;
+      out.push({ date: it.exact ? it.from : (it.from < today ? it.to : it.from), approx: !it.exact, country: '영국', agency: 'TRA', src: 'uk', beat: true,
+        what: `${ko}${span}${it.exact ? '' : '(달 단위)'}`, title: `${c.id} ${c.commodity || c.title || ''}`.trim(), who: c.beatParties ?? [],
+        whoNote: (c.beatParties ?? []).length ? '공개기록 당사자' : '', basis: `TRA 사건 예정표(구속력 없음 — ${tl.file ?? tl.title ?? '?'}, 게시 ${tl.published ?? '?'})`, url: tl.url ?? c.url ?? '' });
+    }
+  }
   // 미국 — 상무부·ITC 관보 고시에 적힌 날짜(명시·게재일+N일), 반덤핑 행정재심 예비 결과는 법정 시한(19 U.S.C. 1675(a)(3)(A), 11-20)
   const US_KO = { prelim: '예비 판정·결과 시한', final: '최종 판정·결과 시한', hearing: '공청회', vote: '표결', itcDet: '판정 시한' };
   for (const it of tr.usAhead ?? []) {

@@ -6048,6 +6048,13 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
   const lp2 = 'https://www.cbsa-asfc.gc.ca/sima-lmsi/ar-ra/lp22026/lp2202601-se-eng.html';
   assert.equal((await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [{ source: '캐나다 CBSA 사건 문서·시행 중 조치', status: 'ok' }],
+    tra: { checkedAt: recent, cases: [{ id: 'AD0092', commodity: 'Suspension polyvinylchloride (S-PVC)', url: 'https://public-file.trade-remedies.service.gov.uk/case/ad0092',
+      beatParties: ['LG화학', '한화솔루션'], timeline: { sid: '1048', title: 'Initiation documents', published: '2026-08-05', file: 'CD-01395_External Timeline (S-PVC).pdf',
+        url: 'https://afd-x.a02.azurefd.net/content/CD-01395.pdf', items: [
+          { label: 'Verification', when: 'October – December 2026', from: '2026-10-01', to: '2026-12-31', exact: false },
+          { label: 'Provisional Determination (if required)', when: 'November – December 2026', from: '2026-11-01', to: '2026-12-31', exact: false },
+          { label: 'Publication of Statement of Essential Facts', when: 'April 2027', from: '2027-04-01', to: '2027-04-30', exact: false },
+          { label: 'Final Recommendation', when: 'June 2027', from: '2027-06-01', to: '2027-06-30', exact: false }] } }], docs: [] },
     usAhead: [
       { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
@@ -6107,7 +6114,10 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.deepEqual([sg.tier, sg.company, sg.check.who, sg.check.terms], ['A', 'EU', '하이브리드차', ['EU', '세이프가드']]);
   const d = (await call('scoop_desk', {}, opts)).text;
   const block = d.slice(d.indexOf('[2-2.'), d.indexOf('\n[', d.indexOf('[2-2.') + 5) > 0 ? d.indexOf('\n[', d.indexOf('[2-2.') + 5) : undefined);
-  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 5건\n/);
+  assert.match(block, /^\[2-2\. 다가오는 해외 판정 — 한국산·출입처 사건, 앞으로 45일\(호주는 기한 지난 장관 결정 대기 포함\)\] 6건\n/);
+  // 영국 TRA 예정표: 지금 걸쳐 있는 '잠정 판정(필요 시) 11~12월'(달 단위 — 끝 날짜로), 검증(절차)은 안 올린다
+  assert.match(block, /- ~2026-12-31 · 영국 TRA · 잠정 판정\(필요 시\) — 예정표 'November – December 2026'\(달 단위\) · AD0092 Suspension polyvinylchloride \(S-PVC\) · 출입처 LG화학·한화솔루션\(공개기록 당사자\)\n   근거: TRA 사건 예정표\(구속력 없음 — CD-01395_External Timeline \(S-PVC\)\.pdf, 게시 2026-08-05\)/);
+  assert.doesNotMatch(block, /Verification/);
   // 미국 ITC 공청회(관보 명시) — 업종 밖 감열지 최종 시한은 단독 데스크에 안 올린다
   assert.match(block, /- 2026-12-29 · 미국 ITC · 공청회 · Certain Steel Wheels From the Republic of Korea · Scheduling of the Final Phase of Antidumping Duty Investigation\(관보 2026-11-18\)\n   근거: 관보 명시 — "Hearing\.-- The Commission will hold a hearing/);
   assert.doesNotMatch(block, /Thermal Paper/);
@@ -6124,9 +6134,11 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
 
   const t = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(t, /^다가오는 해외 판정 일정 — 앞으로 400일 · /);
-  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\)\. 영국·인도는 아직 일정 계산 안 함 — 미확인/);
+  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\), 영국 TRA 사건 예정표\(구속력 없음\)\. 인도는 아직 일정 계산 안 함 — 미확인/);
   assert.match(t, /- 2027-03-02 · 미국 상무부 · 최종 판정·결과 시한\(법정 — 연장 최대 180일\) · Large Power Transformers From the Republic of Korea \(2024-2025\) · Preliminary Results of Antidumping Duty Administrative Review\(관보 2026-11-02\) · 출입처 HD현대일렉트릭·LS일렉트릭\(관보 본문 속 출입처 이름\)\n   근거: 법정 시한\(게재일\+120일, 연장 최대 180일\) — "19 U\.S\.C\. 1675\(a\)\(3\)\(A\)/);
   assert.match(t, /- 2026-12-30 · 미국 상무부 · 최종 판정·결과 시한 · Thermal Paper[^\n]* \(출입 업종 품목 아님\)/);
+  assert.match(t, /- ~2027-04-01 · 영국 TRA · 필수사실 고지\(SEF\) 공개 — 예정표 'April 2027'\(달 단위\) · AD0092/);
+  assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
   assert.match(t, /- 2027-04-07 · 미국 상무부 · 최종 판정·결과 시한\(연장 추정 — 법정 120일 2026-12-08 지나도록 판정 고시 없음, 법정 최대 180일\) · Certain Steel Nails From the Republic of Korea \(2024-2025\)/);
   const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers: Dumping (Chinese Taipei and South Korea) · 출입처 HD현대일렉트릭·일진전기(시행 중 조치 SPT 한국 수출자 표)',
     '2027-03-05 · 호주 ATRC · 조사 필수사실 보고서(SEF) 공개 기한 · 사건 706', '2027-03-26 · EU 집행위 · 반덤핑 조사 잠정 관세 사전 공개', '2027-04-19 · 호주 ATRC · 조사 최종 권고(장관 보고) 기한',

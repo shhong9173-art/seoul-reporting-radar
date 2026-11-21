@@ -252,7 +252,8 @@
 - 미국(11-20): 상무부·ITC 한국산 관보 고시 본문에 적힌 날짜만 — 명시 날짜('no later than March 3, 2027', ITC 공청회 'beginning at 9:30 a.m. on January 20, 2027')와 게재일 기준 상대 날짜('no later than 135 days after the date of publication of this preliminary determination'). 반덤핑 행정재심 예비 결과는 본문에 최종 시한 문장이 없어(탐침 25: 대형 변압기 2026-22343·도금강판 2026-20698) 법정 시한 19 U.S.C. 1675(a)(3)(A) — 예비 결과 게재일+120일(연장 최대 180일)으로 적고 '(법정)'을 붙인다. 게재일보다 앞선 날짜(지난 경과·관보 오타)와 서면·출석·APO 같은 절차 기한 문장은 뺀다. 사건은 docket(A-580-…)+행정재심 기간(2024-2025)으로 묶고, 늦게 게재된 고시(연장)가 날짜를 바꾸며, 그 사건의 예비·최종 판정이 게재되면 뺀다. 관보 45일 창을 벗어나도 trade-remedy 저장분 usAhead에 남는다. 규칙을 바꾸면 SCHED_RULES를 올려 창 안 고시를 한 번 다시 읽는다.
 - 미국 연장 추정(11-20): 행정재심 연장 메모는 관보에 안 나온다(ACCESS에만). 법정 120일이 지나고 10일(서명 뒤 관보 게재 지연) 넘게 그 사건 최종 결과 고시가 없으면 '연장 추정 — 법정 최대 180일'로 바꿔 게재일+180일을 보인다(한 번만). 180일+10일이 지나면 뺀다.
 - ITC 표결일: ITC 누리집 일정표(usitc.gov/calendarpad)는 GitHub Actions에서 403(Akamai, 탐침 26 — robots.txt도 403)이라 쓰지 않는다(우회하지 않음). 관보 일정 고시의 공청회만.
-- 날짜는 누리집 표기·규정상 시한이지 발표 예정일이 아니다. 영국·인도는 아직 계산하지 않는다 — 미확인.
+- 영국(11-21): TRA는 사건마다 구속력 없는 예정표를 공개기록에 올린다(TRA 안내 'Investigations timelines': "will publish an indicative timeline on the public file"). tra_file_watch가 한국 사건의 가장 최근 예정표(제목에 timeline/timetable, 없으면 'Initiation documents' 묶음의 Timeline PDF)를 바뀔 때만 읽어 'Milestone Date' 표를 뽑는다(탐침 27: AD0092 CD-01395 — 잠정 판정(필요 시) 2026년 11~12월, SEF 2027년 4월, 최종 권고 2027년 6월). 해외 판정 일정에는 잠정 판정·SEF·최종 권고·공청회만, 달 단위는 '(달 단위)'와 예정표 원문 표기를 붙인다.
+- 날짜는 누리집 표기·규정상 시한이지 발표 예정일이 아니다. 인도는 아직 계산하지 않는다 — 미확인.
 
 ## 보도 대조 — 같은 품목 다른 이름(11-19)
 
