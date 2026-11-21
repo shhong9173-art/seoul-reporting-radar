@@ -1357,6 +1357,12 @@ test('converging signals: background (workforce project, recent permit, stopped 
   const notice = { id: 'l9', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-29', fact: '순천시 공고 「현대제철 순천공장 부지 도시계획」' };
   const both = convergence([permit, notice, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).find((x) => x.place === '순천');
   assert.deepEqual(both?.items.filter((x) => x.watch === '공장 부지 건축허가').map((x) => x.id), ['bd1']);
+  // 11-22: 새 항목이 자유 글(지방의회 발언)뿐이면 배경과 묶지 않는다 — 공장 쪽 새 신호가 함께 있으면 묶는다
+  const speech = { id: 'c1', tier: 'B', tool: 'kr_official', watch: '지방의회 회의록', company: '현대제철', date: '2026-10-29', fact: '당진시의회 회의록 · 현대제철 대목 「현대제철 당진 주변 도로 정비」' };
+  assert.ok(!convergence([speech, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '당진'));
+  const site = { id: 'l8', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-29', fact: '당진시 공고 「현대제철㈜ 당진 전기로 공유수면 점용」' };
+  assert.deepEqual(convergence([speech, site, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).find((x) => x.place === '당진')?.items.map((x) => x.id).sort(),
+    ['bg:stk:s1', 'bg:wf:p2', 'c1', 'l8'].sort());
 });
 
 test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
