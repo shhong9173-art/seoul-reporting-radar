@@ -114,6 +114,16 @@ class Partners(unittest.TestCase):
             "Jaguar Land Rover, Kia Corporation, Mazda Motor Corporation, Mitsubishi Motor Corporation, Nissan")}
         w.classify(adient)
         self.assertIn("나열", adient.get("routine", ""))
+        # 11-22: 글머리표(●) 협력사 목록도 나열(Forge Nano S-1 발췌 그대로 — 뒤 문장의 'agreements'가 같은 문장으로 붙어 A였다)
+        forge = {"phrases": ["LG Chem"], "form": "S-1", "filer": "Forge Nano Holdings, Inc.  (NANO, NANOW)", "snippet": (
+            "borations. Many but not all of our partnerships have involved direct investment into Forge Nano through successive equity raise rounds. "
+            "Some of the partners with whom we have developed products, processes and procedures include: ● Volkswagen ● Hanwha Aerospace ● "
+            "General Motors ● LG Chem ● Air Liquide ● Mitsui Kinzoku Forge Nano is party to a range of customer and material commercial agreements acr")}
+        w.classify(forge)
+        self.assertIn("나열", forge.get("routine", ""))
+        two = {"phrases": ["LG Chem"], "form": "8-K", "filer": "X", "snippet": "Our partners include: ● LG Chem ● Volkswagen under a supply agreement."}
+        w.classify(two)
+        self.assertNotIn("routine", two)  # 두세 곳은 나열로 보지 않는다
         # 두 회사 사이 거래 문장은 그대로
         deal = {"phrases": ["Doosan Enerbility"], "form": "8-K", "filer": "X-Energy, Inc.  (XE)", "snippet": (
             "Announced first procurement order with Alleima and Doosan Enerbility for long-lead steam generator components.")}
