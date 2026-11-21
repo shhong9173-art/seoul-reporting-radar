@@ -371,7 +371,16 @@ def signals(series, maker, kind, ym):
               and (yoy is None or (yoy >= SURGE_BASE and v > yoy * SURGE_RATIO))):  # 막 나온 모델이 늘어나는 것(전년 소량)은 급증이 아니다
             sig = ("급증", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {v / base:.1f}배{ytxt}")
         elif v >= NEW_MIN and all((mo.get(k) or 0) == 0 for k in mo if k < ym) and any(k < ym for k in mo):
-            sig = ("첫 판매", "B", f"{name} — 이 구분에서 처음 판매(앞선 {sum(1 for k in mo if k < ym)}개월 0)")
+            # 같은 이름 앞 세대가 그동안 팔리던 계열의 새 세대 첫 판매는 출시(대개 이미 발표) — C. 앞 세대 쪽 '세대 교체로 보임'이 B로 같은 일을 알린다
+            # (11-22 화면: 투싼 NX4→NX5 한 일이 '세대 교체' B 2줄 + '첫 판매' B 1줄, 아반떼 CN8 HEV 첫 판매도 B)
+            older = [o for o in by_scope.get(s["scope"], []) if o is not s and not o.get("total") and family(o["label"]) == fam
+                     and (_base(o["months"], ym)[1] or 0) >= 100]
+            if older:
+                prev_gen = max(older, key=lambda o: _base(o["months"], ym)[1] or 0)
+                sig = ("첫 판매", "C", f"{name} — 이 구분에서 처음 판매(앞선 {sum(1 for k in mo if k < ym)}개월 0) · 같은 이름 {prev_gen['label']}"
+                                      f"(직전 3개월 평균 {fmt(_base(prev_gen['months'], ym)[1])}대)의 새 세대 — 출시는 대개 이미 발표")
+            else:
+                sig = ("첫 판매", "B", f"{name} — 이 구분에서 처음 판매(앞선 {sum(1 for k in mo if k < ym)}개월 0)")
         if sig:
             out.append({"id": f"cs:{s['id']}:{ym}:{sig[0]}", "series": s["id"], "maker": MAKERS[maker], "signal": sig[0], "tier": sig[1],
                         "period": ym, "scope": s["scope"], "label": s["label"], "value": v, "base": None if base is None else round(base),
