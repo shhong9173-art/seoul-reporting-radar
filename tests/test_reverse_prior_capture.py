@@ -108,7 +108,21 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 27/29", buf.getvalue())   # 11-03: 새 감시 7개, 11-04: 지분·자사주 변동
+        self.assertIn("감시 읽음 34/36", buf.getvalue())   # 11-03: 새 감시 7개, 11-04: 지분·자사주 변동, 11-22: 무역구제·환경허가·정기보고서·국회 7개
+
+    def test_japan_council_item_counts_for_a_bpa_exclusive(self):
+        # 11-22 운영: 토요경제 [단독](11-21 22:12)이 '같은 회사 항목만' — 레이더는 11-20 일본 특수관세부회 자료를 A로 잡고 11-21 18:43 알림까지 보냈다
+        trace = {"generatedAt": "2026-11-22T07:20:00+09:00", "items": [
+            {"articleId": "j1", "title": "[단독] LG화학, 日 BPA 반덤핑관세 대상 제외…금호피앤비 7% 권고", "published": "2026-11-21T22:12:00+09:00",
+             "sourceName": "sateconomy.co.kr", "companies": ["LG화학"]}]}
+        docs = {"jp-trade-remedy": {"events": [
+            {"id": "jpcouncil:20261120", "kind": "일본 무역구제(특수관세부회 자료)", "tier": "A", "company": "포스코·KG스틸·LG화학", "companies": ["포스코", "KG스틸", "LG화학"],
+             "text": "일본 재무성 특수관세부회 회의 자료(2026-11-20 개최) — 한국산 안건 3건: ① 용융아연도금강판 관세 부과(확정) / ② 비스페놀A 관세 부과(확정) · 부과 대상에서 제외 LG화학",
+             "detectedAt": "2026-11-21T03:42:00+09:00", "url": "https://www.mof.go.jp/x/kanb20261120.html"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 11, 22, 7, 20, tzinfo=r.KST))
+        a = doc["articles"][0]
+        self.assertEqual((a["verdict"], a["best"]["label"], a["best"]["id"]), ("먼저 잡은 후보", "일본 무역구제 공고", "jpcouncil:20261120"))
+        self.assertIn("비스페놀A", a["best"]["why"])
 
 
     def test_plant_permit_before_the_article(self):
