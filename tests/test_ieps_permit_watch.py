@@ -127,6 +127,13 @@ class Backfill(unittest.TestCase):
         self.assertEqual((x["ieps:3301"]["tier"], x["ieps:3301"]["baseline"], x["ieps:3301"]["backfill"]), ("B", True, True))
         self.assertEqual((doc["events"], doc["counts"]["backfill"], doc["backfill"]["filled"]), ([], 1, 1))
 
+    def test_backfill_searches_are_spaced_wider(self):
+        waits = []
+        get, _ = site({1: PAGE1})
+        w.run(NOW, self.PREV, get=get, sleep=waits.append)
+        self.assertEqual(waits.count(w.BACKFILL_PAUSE), w.BACKFILL_PER_RUN)
+        self.assertGreaterEqual(w.BACKFILL_PAUSE, 5.0)
+
     def test_ignored_search_word_stops_and_says_so(self):
         get, calls = site({1: PAGE1}, search="ignored")
         doc = w.run(NOW, self.PREV, get=get, sleep=lambda s: None)

@@ -39,6 +39,7 @@ PDF_BUDGET = 2       # 검토 결과서 PDF는 수 MB(11-21 탐침: 227쪽 6.9MB
 PDF_PAGES = 8
 PAUSE = 2.0
 KEEP_DAYS = 730      # 게시판이 2025-07에 열렸다 — 출입처 사업장 허가 이력 참고용으로 2년
+BACKFILL_PAUSE = 5.0   # 검색 사이 간격(11-21: 목록 1쪽+검색 10번을 25초에 보낸 직후 다른 러너의 첫 요청이 연결 시간 초과 — 방화벽 제한일 수 있어 간격을 넓힌다)
 BACKFILL_PER_RUN = 10  # 회사 이름 검색으로 지난 글 채우기(실행당 10곳, 검색 첫 쪽 10건만, 기준선)
 SEEN_KEEP = 1500
 
@@ -300,7 +301,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
         from urllib.parse import quote
         bf_err = None
         for q in todo[:BACKFILL_PER_RUN]:
-            sleep(PAUSE)
+            sleep(BACKFILL_PAUSE)
             try:
                 r = get(SEARCH.format(quote(q)), timeout=30)
                 if r.status_code != 200:
