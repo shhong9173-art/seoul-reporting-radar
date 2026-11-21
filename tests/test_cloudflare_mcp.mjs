@@ -3966,7 +3966,8 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   const now = new Date(NOW.getTime() - 3600000).toISOString();
   const flag6 = { kind: '법정 한도: 재직 6년 초과 가능', tier: 'A', text: '재직기간 칸 「7년 2개월」 → 7년 2개월(2026년 반기(6-30 기준) 기준) — 상법 시행령 제34조⑤7호' };
   const news = { kind: '과거 논란 기사', tier: 'B', evidenceVersion: 'executive_article/v1', text: '「한빛카드, 소송 휘말려」(2025-01-02, \'소송\') — 같은 이름의 다른 사람일 수 있음, 기사 원문 확인' };
-  const doc = { schema: 'kr_exec_check/v1', generatedAt: now, status: 'complete', checks: [{ source: '현대차', status: 'ok', returned: 12 }],
+  const doc = { schema: 'kr_exec_check/v1', generatedAt: now, status: 'complete', checks: [{ source: '현대차', status: 'ok', returned: 12 },
+    { source: '개인정보위 결과의 공표', status: 'ok', posts: 26, images: 3, note: '그림 첨부 글 3건(글자 못 읽음 — 원문 열람)' }],
     counts: { people: 420, outside: 180, flagged: 2, A: 1, newEvents: 2, newsChecked: 250 },
     people: [
       { id: '현대자동차|김오래|195501', company: '현대차', name: '김오래', birth: '1955', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x1', flags: [flag6], news: [] },
@@ -3987,6 +3988,10 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.deepEqual(radar.items.find((x) => x.id === 'execc:bbbb').check.terms, ['박논란', '논란']);
   const k = await call('kr_signals', { section: 'exec' }, opts);
   assert.match(k.text, /\[문제 임원 점검 · 확인 [^\]]+\] 점검 420명\(사외·독립이사 180\) · 표시 2명\(A 1\)/);
+  // 11-21: 다시 안 여는 그림 첨부 글은 실패(미확인) 줄이 아니라 '읽지 않는 글'로, radar_today 감시 상태에는 안 뜬다
+  assert.match(k.text, /\n읽지 않는 글: 개인정보위 결과의 공표 — 그림 첨부 글 3건\(글자 못 읽음 — 원문 열람\)\n/);
+  assert.doesNotMatch(k.text, /미확인: 개인정보위/);
+  assert.doesNotMatch(r.text, /문제 임원 점검: 일부 실패/);
   assert.match(k.text, /- \[신규\] A · 현대차 · 김오래 1955년생 이사\(사외이사\) · 2026년 반기\(6-30 기준\)\n   법정 한도: 재직 6년 초과 가능: 재직기간 칸 「7년 2개월」/);
   assert.match(k.text, /- \[신규\] B · 기아 · 박논란 1960년생 사장\(미등기\)[^\n]*\n   과거 논란 기사: [^\n]+\n   기사: https:\/\/news\.example\/1/);
   assert.doesNotMatch(k.text, /이무탈/);

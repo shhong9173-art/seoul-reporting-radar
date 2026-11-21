@@ -205,6 +205,8 @@ def fss_detail(row, *, get, read_pdf=None):
 PIPC_LIST = "https://www.pipc.go.kr/np/cop/bbs/selectBoardList.do?bbsId=BS258&mCode=C010040000"
 PIPC_VIEW = "https://www.pipc.go.kr/np/cop/bbs/selectBoardArticle.do?bbsId=BS258&mCode=C010040000&nttId="
 PIPC_FILE = "https://www.pipc.go.kr/np/cmm/fms/FileDown.do?atchFileId={}&fileSn={}"
+PIPC_PUB_VERSION = 1               # 결과의 공표 읽는 법 판: 바뀌면 그림·꼴 다른 글을 다시 연다
+IMAGE_MAGIC = (b"\x89PNG", b"GIF8")
 # 탐침 184: 위반조항을 '법 제29조'로 줄여 쓴 공표도 있다('1한국연구재단법 제29조…'), 처분일 끝 점이 없는 것도('2026.1.28과징금')
 LAW = r"(?:(?:舊\s*)?(?:개인정보\s*)?보호법|법(?=\s*제\s*\d))"
 DATE = r"(20\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?!\d)\s*\.?"
@@ -441,6 +443,9 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
     다시 안 읽힐 뻔). 첨부 내려받기는 글을 연 세션 쿠키가 필요하다(탐침 181은 Session으로 성공)."""
     state = dict(state or {})
     posts = {k: v for k, v in (state.get("posts") or {}).items() if v}       # 빈 글(예전 실패)은 다시 읽는다
+    # 11-21: 첨부가 그림(PNG)뿐인 글 3건·표 꼴이 다른 글 1건을 날마다 다시 내려받아 상태가 늘 '일부 실패'였다.
+    # 같은 판에선 다시 안 연다(그림은 글자 인식 전엔 못 읽음 — 원문 열람). 읽는 법이 바뀌면(PIPC_PUB_VERSION) 다시.
+    skip = {k: v for k, v in (state.get("skip") or {}).items() if isinstance(v, dict) and v.get("v") == PIPC_PUB_VERSION}
     err, read, outcome = None, 0, {}
     try:
         ids = []
@@ -453,16 +458,21 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
             ids += got
             if all(x in posts for x in got):
                 break
-        for ntt in [x for x in ids if x not in posts][:max_posts]:
+        for ntt in [x for x in ids if x not in posts and x not in skip][:max_posts]:
             v = get(PIPC_VIEW + ntt, headers=UA, timeout=30)
             files = re.findall(r"fn_egov_downFile\w*\(\s*'([^']+)'\s*,\s*'([^']+)'", v.text)
-            recs, got_pdf = [], False
+            recs, got_pdf, images, other = [], False, 0, 0
             if not files:
                 outcome["no_file"] = outcome.get("no_file", 0) + 1
             for fid, sn in files[:3]:
                 f = get(PIPC_FILE.format(fid, sn), headers={**UA, "Referer": PIPC_VIEW + ntt}, timeout=40)
-                body = attachment_text(f.content, read_pdf) if getattr(f, "status_code", 200) == 200 else None
+                ok200 = getattr(f, "status_code", 200) == 200
+                body = attachment_text(f.content, read_pdf) if ok200 else None
                 if body is None:
+                    if ok200 and (f.content[:4] in IMAGE_MAGIC or f.content[:3] == b"\xff\xd8\xff"):
+                        images += 1
+                        continue
+                    other += 1
                     k = f"unread:{getattr(f, 'status_code', '?')}:{f.content[:4]!r}"
                     outcome[k] = outcome.get(k, 0) + 1
                     continue
@@ -475,15 +485,23 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
                 outcome["ok"] = outcome.get("ok", 0) + 1
             elif got_pdf:
                 outcome["parsed_empty"] = outcome.get("parsed_empty", 0) + 1
+                skip[ntt] = {"why": "unparsed", "v": PIPC_PUB_VERSION, "at": now.isoformat(timespec="seconds")}
+            elif images and not other:
+                outcome["image"] = outcome.get("image", 0) + 1
+                skip[ntt] = {"why": "image", "v": PIPC_PUB_VERSION, "at": now.isoformat(timespec="seconds")}
             if pause:
                 pause(0.2)
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:60]}"
-    state.update(posts=posts, checkedAt=now.isoformat(timespec="seconds"))
+    state.update(posts=posts, skip=skip, checkedAt=now.isoformat(timespec="seconds"))
     rows = sum(len(v) for v in posts.values())
-    unread = sum(v for k, v in outcome.items() if k != "ok")
+    unread = sum(v for k, v in outcome.items() if k not in ("ok", "image", "parsed_empty"))
+    n_img = sum(1 for v in skip.values() if v.get("why") == "image")
+    n_unp = sum(1 for v in skip.values() if v.get("why") == "unparsed")
+    note = " · ".join(x for x in (f"그림 첨부 글 {n_img}건(글자 못 읽음 — 원문 열람)" if n_img else "",
+                                  f"표 꼴이 달라 못 뽑은 글 {n_unp}건(원문 열람)" if n_unp else "") if x)
     return state, {"source": "개인정보위 결과의 공표", "status": "partial" if err or unread else "ok", "posts": len(posts), "read": read, "rows": rows,
-                   "outcomes": outcome, **({"error": err} if err else {})}
+                   "outcomes": outcome, **({"note": note, "images": n_img, "unparsed": n_unp} if note else {}), **({"error": err} if err else {})}
 
 
 # ---------- 공정위 ----------
