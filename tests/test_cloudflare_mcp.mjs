@@ -1505,6 +1505,17 @@ test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 �
   // 공장별로 나뉘면 자유 글은 어느 묶음에도 붙이지 않는다(11-22 운영: 같은 의회 대목이 '포항제철소'·'후판제품공장' 두 묶음에 되풀이)
   const split = splitByPlant({ company: '포스코', place: '포항', items: [...posco, po('b1', '공장 부지 건축허가', '건축허가: (주)포스코 후판제품공장 부지 증축')] });
   assert.deepEqual(split.map((g) => [g.plant, g.items.map((x) => x.id)]), [['포항제철소', ['k1', 'w1']], ['후판제품공장', ['b1', 'w1']]]);
+  // 11-22: 숫자뿐인 공장 이름('1공장 부지')은 같은 번호 공장 묶음 하나에만 — 첨단소재 여수공장 묶음에 붙지 않는다
+  const lo = (id, watch, fact) => it(id, watch, fact);
+  const yeosu = [lo('y1', '굴뚝 측정(공장 가동 신호)', '롯데케미칼㈜ 여수1공장 굴뚝 배출구 멈춤 3개'),
+    lo('y2', '굴뚝 측정(공장 가동 신호)', '롯데케미칼㈜ 첨단소재 여수공장 굴뚝 배출구 멈춤 1개'),
+    lo('y3', '공장 부지 건축허가', '사용승인(준공): 롯데케미칼(주) 1공장 부지(전남광주통합특별시 여수시 중흥동 172번지) · 증축 공장'),
+    lo('y4', '사업장 인력(국민연금)', '롯데케미칼(전남 여수시) 국민연금 가입자')];
+  assert.deepEqual(splitByPlant({ company: '롯데케미칼', place: '여수', items: yeosu }).map((g) => [g.plant, g.items.map((x) => x.id)]),
+    [['여수1공장', ['y1', 'y3', 'y4']], ['여수공장', ['y2', 'y4']]]);
+  // 같은 번호 공장이 없거나 둘 이상이면 예전처럼 모든 묶음에 붙는다
+  const two = [yeosu[0], lo('y5', '굴뚝 측정(공장 가동 신호)', '롯데케미칼㈜ 대산1공장 배출구'), lo('y6', '공장 부지 건축허가', '건축허가: 롯데케미칼(주) 1공장 부지')];
+  assert.deepEqual(splitByPlant({ company: '롯데케미칼', place: '여수', items: two }).map((g) => g.items.map((x) => x.id)), [['y1', 'y6'], ['y5', 'y6']]);
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {

@@ -1761,9 +1761,21 @@ export function splitByPlant(g) {
   if (clusters.length < 2) return [g];
   // 공장별로 나뉘면 자유 글(의회·노조 발언)은 어느 공장 묶음에도 붙이지 않는다 — 공장 이름이 아니라 시군 언급이라 묶음마다 같은 줄이 되풀이되고
   // 감시 수만 부풀린다(11-22 운영: 포항시의회 행정사무감사 대목 4줄이 '포항제철소'·'후판제품공장' 두 묶음에 똑같이 붙어 각각 감시 4곳·3곳)
-  const plain = g.items.filter((x) => !tok.get(x.id).length && !FREE_TEXT_WATCHES.has(x.watch));
+  // 숫자뿐인 공장 이름('롯데케미칼(주) 1공장 부지')은 같은 시군 묶음 안에서 같은 번호 공장('여수1공장')이 하나뿐일 때 그 묶음에만 붙인다
+  // (11-22 운영: 여수 중흥동 '1공장 부지' 사용승인이 '여수1공장'과 '첨단소재 여수공장' 두 묶음에 붙어 뒤쪽이 겹친 신호 묶음으로 잘못 생김)
+  const numbered = new Map();
+  for (const x of g.items) {
+    if (tok.get(x.id).length || FREE_TEXT_WATCHES.has(x.watch)) continue;
+    const t = String(`${x.fact ?? ''} ${x.site ?? ''}`).replace(/㈜|\(주\)|주식회사/g, ' ');
+    const nums = [...new Set([...t.matchAll(/(?:^|[^가-힣A-Za-z0-9])제?(\d{1,2})공장/g)].map((m) => m[1]))];
+    if (nums.length !== 1) continue;
+    const rx = new RegExp(`^[가-힣]+${nums[0]}공장$`);
+    const hit = clusters.filter((c) => [...c.tokens].some((k) => rx.test(k)));
+    if (hit.length === 1) numbered.set(x.id, hit[0]);
+  }
+  const plain = g.items.filter((x) => !tok.get(x.id).length && !FREE_TEXT_WATCHES.has(x.watch) && !numbered.has(x.id));
   const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
-  return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
+  return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...g.items.filter((x) => numbered.get(x.id) === c), ...plain] }));
 }
 // 신고('가동중지') 없이 측정값 0만 이어진 오래 멈춘 배출구(11-12 기자 결정). 셋 다 맞아야 센다:
 // ① 굴뚝 감시가 '사흘 넘게 멈춤'으로 표시(longStopFor — 평일 교대 공장은 일하는 시간 72시간으로 센 것),
