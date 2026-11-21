@@ -584,6 +584,10 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                 rec["kind"], rec["isNew"], rec["tier"], rec["changedAt"] = "사용승인(준공)", True, "B" if rec["tier"] in ("A", "B") else "C", stamp
             elif prev:
                 rec["changedAt"] = prev.get("changedAt")
+                # 한 번 '사용승인(준공)'으로 알린 허가는 다음 실행에도 그 종류로 둔다 — changedAt은 준공 때만 붙는다.
+                # 11-22 운영: 다음 실행이 종류를 '새 허가'로 되돌려 radar_today에 준공 허가 4건이 오늘 날짜 '건축허가'로 떴다(롯데케미칼 여수1공장 등)
+                if rec["changedAt"] and rec["useApproved"]:
+                    rec["kind"], rec["tier"] = "사용승인(준공)", "B" if rec["tier"] in ("A", "B") else "C"
             out[pid] = rec
             lot_recs.append(rec)
         # 주용도가 빈 새·최근 A·B 허가: 같은 번지 동별개요로 용도·구조를 채우고 등급을 다시 매긴다(한 번 읽으면 저장, 다시 안 읽음)

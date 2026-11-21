@@ -103,6 +103,15 @@ class Building(unittest.TestCase):
         self.assertEqual((new["bld:P1"]["kind"], new["bld:P1"]["tier"]), ("사용승인(준공)", "B"))
         self.assertEqual((new["bld:P2"]["kind"], new["bld:P2"]["tier"]), ("새 허가", "B"))
         self.assertFalse(any(u == b.JUSO for u, _ in get2.calls))  # 번지는 저장분 재사용
+        # 다음 실행에도 준공 허가는 '사용승인(준공)' 그대로(11-22 운영: 다음 실행이 '새 허가'로 되돌려 오늘 날짜 '건축허가'로 떴다)
+        third = go([("K", "good")], FACS, now=NOW + dt.timedelta(days=8), previous=second, get=get2, sleep=lambda s: None)
+        p1 = next(x for x in third["permits"] if x["id"] == "bld:P1")
+        self.assertEqual((p1["kind"], p1["tier"], p1["changedAt"], p1["isNew"]), ("사용승인(준공)", "B", new["bld:P1"]["changedAt"], False))
+        # 이미 '새 허가'로 되돌아간 저장분도 고친다
+        broken = json.loads(json.dumps(second))
+        next(x for x in broken["permits"] if x["id"] == "bld:P1")["kind"] = "새 허가"
+        fixed = go([("K", "good")], FACS, now=NOW + dt.timedelta(days=8), previous=broken, get=get2, sleep=lambda s: None)
+        self.assertEqual(next(x for x in fixed["permits"] if x["id"] == "bld:P1")["kind"], "사용승인(준공)")
 
     def test_building_named_for_another_company_is_c_and_so_is_its_use_approval(self):
         # 11-22 운영: LG화학 청주공장 본번의 다른 필지 '(주)LG생활건강 청주공장' 증축(연면적 154,848㎡) 사용승인이 B로 떴다
