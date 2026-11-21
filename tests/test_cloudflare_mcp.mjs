@@ -22,7 +22,7 @@ import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mj
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
-import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
+import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -6324,6 +6324,15 @@ test('조용한 0건(11-21): 기간 안 줄 수만 0이고 원천 목록 total�
   assert.deepEqual(w2.silent.map((x) => [x.source, x.kind]), [['인천지방법원 법인파산', 'quiet'], ['깨진 목록', 'zero']]);
   const w3 = returnedWatch(w2, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 2, total: 3123 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
   assert.deepEqual(w3.silent.map((x) => x.source), ['깨진 목록']);
+});
+
+test('외신 번역 금액 미리 바꾸기(11-21): 통화가 붙은 금액만 조·억·만 단위로 — KRW 10 billion은 100억원', () => {
+  assert.equal(prescaleMoney('Kumho Tire seeks KRW 10 billion subsidy for Hampyeong plant'), 'Kumho Tire seeks 100억원 subsidy for Hampyeong plant');
+  assert.equal(prescaleMoney('Hyundai to invest $3 billion; POSCO KRW1.93trn deal'), 'Hyundai to invest 30억달러; POSCO 1조9300억원 deal');
+  assert.equal(prescaleMoney('a US$450m order and €2 billion plan'), 'a 4억5000만달러 order and 20억유로 plan');
+  assert.equal(prescaleMoney('10 billion won fund and 1.5 trillion won bonds'), '100억원 fund and 1조5000억원 bonds');
+  assert.equal(prescaleMoney('a 10 billion parameter model sold 2 million units'), 'a 10 billion parameter model sold 2 million units');   // 통화 없음
+  assert.equal(prescaleMoney('$12.5m'), '1250만달러');
 });
 
 test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {

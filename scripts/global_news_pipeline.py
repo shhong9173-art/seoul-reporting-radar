@@ -49,7 +49,8 @@ def shortlist_with_beats(raw,*,limit=60,beat_limit=20):
 
 # AI 번역 규칙(프롬프트·매체 이름 떼기)을 바꾸면 올린다 — 예전 규칙으로 만든 번역은 다시 번역한다(11-01: v1 번역에 매체 이름·없는 사실이 섞임).
 # v3(11-01): v2는 제목의 ' – 뒤 글'을 매체 이름으로 보고 잘라 번역했다('Three in a row – Nexen Tire …' → '3연패').
-AI_TRANSLATION_VERSION=3
+# v4(11-21): 워커가 통화 금액을 모델에 보내기 전에 조·억·만 단위로 바꾼다('KRW 10 billion'이 '1조원'으로 번역됨) — 예전 번역 다시
+AI_TRANSLATION_VERSION=4
 
 
 def same_text_identity(new,old):
