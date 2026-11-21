@@ -14,6 +14,7 @@ import { beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
+import { foreignGloss } from './gloss.mjs';
 import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
@@ -739,7 +740,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         + (/^in-dgtr/.test(e.pageId) && tr?.dgtrCases?.[e.url] ? ` · ${dgtrCaseNote(tr.dgtrCases[e.url])}` : '')
         + (/^in-dgtr/.test(e.pageId) && dgtrDocNote(tr?.dgtrCases?.[e.url]) ? ` · ${dgtrDocNote(tr.dgtrCases[e.url])}` : '')
         // 영문 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py) — 누구에게 먼저 물을지. 조사 대상 수출자라는 뜻이 아니다
-        + (tr?.listingProducers?.[e.id]?.line ? ` · ${tr.listingProducers[e.id].line}` : ''), url: e.url });
+        + (tr?.listingProducers?.[e.id]?.line ? ` · ${tr.listingProducers[e.id].line}` : '')
+        // 베트남어·인도네시아어 줄은 아는 낱말만 짚는다(11-21, gloss.mjs) — 번역 아님
+        + (foreignGloss(e.pageId, e.text) ? ` · ${foreignGloss(e.pageId, e.text)}` : ''), url: e.url });
   }
   // 기사 준비(11-04): 레이더가 먼저 잡은 경쟁지 [단독] 5건 중 4건이 무역구제(철강금속신문) — 판정이 뜬 날 바로 쓸 수 있게
   // 다음 절차(미국 법정 기한)와 회사에 물을 것을 붙인다. 기한은 관보 게재일 기준 법정 기한이고, 관보 본문 날짜가 있으면 그 날짜가 우선.

@@ -7,6 +7,7 @@ import { kstMD, maintenanceMemo } from './stack_memo.mjs';
 import { clampInt, textResult, uniqueList } from './common.mjs';
 import { lastBrowserSlot } from './local_browser.mjs';
 import { AHEAD_NOTE, aheadLine, euProceedingLines, foreignAhead } from './ahead.mjs';
+import { foreignGloss } from './gloss.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -973,6 +974,7 @@ export async function tradeRemedies(ctx, args) {
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
+      if (foreignGloss(e.pageId, e.text)) out.push(`   ${foreignGloss(e.pageId, e.text)}`);
       if (doc.dgtrCases?.[e.url]) out.push(`   사건 페이지: ${dgtrCaseNote(doc.dgtrCases[e.url], true).replace(/^DGTR 사건 페이지: /, '')}`);
       const docNote = dgtrDocNote(doc.dgtrCases?.[e.url], true);
       if (docNote) out.push(`   판정문·개시 고시(PDF에서 뽑은 원문 대목): ${docNote.replace(/^DGTR 문서: /, '')}`);
