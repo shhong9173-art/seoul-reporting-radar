@@ -2790,6 +2790,11 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(a, /↳ 2026-10-23 \[bing\] LS일렉트릭, ESS 특허 폭증 https:\/\/n\/4 \(약한 근거: PTAB 없음 — 다른 건일 수 있음\)/);
   // 판정에 안 세는 앞선 기사(10-31): 미보도 후보에 맥락 한 줄
   assert.match(a, /↳ 2026-08-02 \[naver\] LS일렉트릭, 美 특허심판원 결정 불복 https:\/\/n\/3 \(앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음\)/);
+  // 11-22: 단계가 나뉘는 사건(미국 법원·무역구제)의 앞선 기사는 '옛 사건' 경고가 아니라 앞선 단계 경고
+  const desk = (await call('scoop_desk', { days: 7 }, opts)).text;
+  const lsLine = desk.split('\n- ').find((l) => l.includes('In re: LS Electric')) ?? '';
+  assert.match(lsLine, /⚠ 항목 날짜 전 기사가 있다\(2026-08-02 「LS일렉트릭, 美 특허심판원 결정 불복」\) — 진행 중인 무역구제·소송은 앞선 단계\(신청·개시·예비·의견서\) 기사일 수 있음/);
+  assert.doesNotMatch(lsLine, /임원 명단·정기보고서류/);
   // 앞 실행에서 규칙이 바뀌어 다시 본 항목이 이번 실행엔 안 보임: 한 줄로
   {
     const { pressLines } = await import('../cloudflare/digest.mjs');
