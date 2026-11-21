@@ -30,6 +30,32 @@ const SUMMARY_SYSTEM = '너는 한국 경제신문의 외신 담당 기자다. �
   + "'may·plans·reportedly·could' 같은 불확실한 표현은 '~할 수 있다·계획·~한 것으로 알려졌다'로 살린다. 요약문만 출력한다(제목·머리말·목록 기호 없이).";
 const SUMMARY_MAX_CHARS = 2600;
 
+// 금액 미리 바꾸기(11-21): 모델이 단위를 틀린다 — 11-20 Tyrepress 'Kumho Tire seeks KRW 10 billion subsidy'가 '1조원 보조금'(실제 100억원),
+// 11-10 '$3 billion'이 '3조원'. 모델에 보내기 전에 통화가 붙은 금액을 코드가 한국어 단위(조·억·만 + 원·달러·유로…)로 바꿔 넣어
+// 모델은 옮겨 적기만 하게 한다. 통화 표시가 없는 숫자('10 billion parameters')는 건드리지 않는다. 원화 환산은 하지 않는다.
+const CUR_PRE = { 'US$': '달러', $: '달러', '€': '유로', '£': '파운드', '¥': '엔', KRW: '원', '₩': '원', EUR: '유로', USD: '달러', GBP: '파운드', JPY: '엔', RMB: '위안', CNY: '위안' };
+const CUR_POST = { won: '원', dollar: '달러', dollars: '달러', euro: '유로', euros: '유로', yen: '엔', pound: '파운드', pounds: '파운드', yuan: '위안' };
+const MULT = { trillion: 1e12, trn: 1e12, tn: 1e12, billion: 1e9, bn: 1e9, b: 1e9, million: 1e6, mn: 1e6, mln: 1e6, m: 1e6 };
+const MONEY = /(US\$|\$|€|£|¥|₩|\b(?:KRW|EUR|USD|GBP|JPY|RMB|CNY))\s?(\d[\d,]*(?:\.\d+)?)\s?(trillion|billion|million|trn|tn|bn|mln|mn|b|m)\b(?:\s(won|dollars?|euros?|yen|pounds?|yuan)\b)?|(\d[\d,]*(?:\.\d+)?)\s?(trillion|billion|million|trn|tn|bn|mln|mn)\s(won|dollars?|euros?|yen|pounds?|yuan)\b/gi;
+
+export function koAmount(v) {
+  const jo = Math.floor(v / 1e12);
+  const eok = Math.floor((v % 1e12) / 1e8);
+  const man = Math.round((v % 1e8) / 1e4);
+  const parts = [jo ? `${jo}조` : '', eok ? `${eok}억` : '', man ? `${man}만` : ''].filter(Boolean);
+  return parts.length ? parts.join('') : String(Math.round(v));
+}
+
+export function prescaleMoney(text) {
+  return String(text ?? '').replace(MONEY, (all, pre, n1, m1, post1, n2, m2, post2) => {
+    const num = Number(String(n1 ?? n2).replace(/,/g, ''));
+    const mult = MULT[String(m1 ?? m2).toLowerCase()];
+    const unit = pre ? CUR_PRE[pre.toUpperCase()] ?? CUR_PRE[pre] : CUR_POST[String(post2).toLowerCase()];
+    if (!Number.isFinite(num) || !mult || !unit) return all;
+    return `${koAmount(num * mult)}${unit}`;
+  });
+}
+
 export function cleanSummary(text) {
   const lines = String(text ?? '').split('\n').map((l) => l.replace(/^\s*(?:[-•*·]|\d+[.)])\s*/, '').replace(/^(요약|한국어 요약)\s*[:：]\s*/, '').trim()).filter(Boolean);
   const t = lines.join(' ').replace(/\s+/g, ' ').trim();
@@ -81,7 +107,8 @@ export async function translateRoute(request, env) {
   for (const text of texts) {
     if (!text.trim()) { results.push({ ko: '', status: 'empty' }); continue; }
     // 요약은 언어 모델로만(번역 전용 모델로 긴 본문을 옮기면 요약이 아니라 번역이 된다)
-    results.push((await viaLlm(env, text, kind)) ?? (kind === 'title' ? await viaMt(env, text) : null) ?? { ko: '', status: 'failed' });
+    const pre = prescaleMoney(text);
+    results.push((await viaLlm(env, pre, kind)) ?? (kind === 'title' ? await viaMt(env, pre) : null) ?? { ko: '', status: 'failed' });
   }
   return Response.json({ results }, { headers: { 'Cache-Control': 'no-store' } });
 }
