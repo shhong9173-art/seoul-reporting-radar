@@ -1801,7 +1801,8 @@ export function convergence(items, { cut } = {}) {
     if (x.tier === 'C' || !x.company || !PLACE_WATCHES.has(x.tool)) continue;
     const text = `${x.fact ?? ''} ${x.company ?? ''}`;
     const places = new Set(PLACES.filter(([, rx]) => rx.test(text)).map(([name]) => name));
-    for (const [rx, name] of SITE_PLACE) if (rx.test(text)) places.add(name);
+    // 사업장 이름으로 정한 시군은 문장에 시군이 하나도 없을 때만(11-22: 두산에너빌리티(주) 화성 동탄 부지 건축허가가 '창원' 묶음에 붙었다)
+    if (!places.size) for (const [rx, name] of SITE_PLACE) if (rx.test(text)) places.add(name);
     for (const place of places) {
       const key = `${canonCompany(x.company)}|${place}`;
       if (!groups.has(key)) groups.set(key, { company: canonCompany(x.company), place, items: [] });
