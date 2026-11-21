@@ -106,6 +106,48 @@ class StackTest(unittest.TestCase):
         up = [e for e in doc2["events"] if e["kind"] == "사업장 재가동 신호"]
         self.assertEqual([(e["tier"], e["site"]) for e in up], [("B", "현대제철㈜포항2공장")])
 
+    def test_same_stop_seen_again_after_unreadable_runs_is_not_a_new_down_or_restart(self):
+        # 11-16~11-21 운영: OCI 군산공장 17번(11-15부터)·3번(11-12부터)이 매일 오전 측정 쪽 상태 글자로 값이 없어 판단 안 함 →
+        # '멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴'(재가동) → 오후 다시 0 → '사업장 가동 중단 신호' B가 엿새 연속
+        doc = None
+        for i in range(24):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t, pohang2=(20.0, 15.0) if i < 6 or i >= 22 else (0.0, 0.0))
+            if i in (12, 13, 18):  # 값 대신 '측정자료확인중'(측정 쪽 상태, 판단 안 함)
+                for x in rows:
+                    if x["fact_manage_nm"] == "현대제철㈜포항2공장":
+                        x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value="측정자료확인중")
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+            site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+            if i == 12:
+                self.assertEqual(sorted(site["stopped"]), ["1", "2"])  # 값이 없어도 멈춤이 이어지는 동안은 멈춘 배출구로 둔다
+        ev = [(e["kind"], e["detectedAt"][5:10]) for e in doc["events"] if e["site"] == "현대제철㈜포항2공장"]
+        self.assertEqual(sorted(k for k, _ in ev if k == "사업장 가동 중단 신호"), ["사업장 가동 중단 신호"])  # 처음 한 번만
+        self.assertEqual([k for k, _ in ev if k == "사업장 재가동 신호"], ["사업장 재가동 신호"])  # 실제로 값이 돌아온 마지막에만
+        up = next(e for e in doc["events"] if e["kind"] == "사업장 재가동 신호")
+        self.assertIn("멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴", up["text"])
+        self.assertGreaterEqual(up["detectedAt"], (T0 + dt.timedelta(hours=3 * 22)).isoformat(timespec="seconds"))
+
+    def test_stored_repeats_of_the_same_site_stop_are_lowered_once(self):
+        # 11-16~11-21 운영 저장분(문장 그대로): 11-17은 2번(11-16 14:00부터)이 새로 붙어 B로 두고, 11-18~21은 모두 앞서 알린 멈춤이라 C
+        base = ("오씨아이 주식회사 군산공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래 — 17번(평소 46.3→최근 0.0, 측정 2026-11-{d} 17:00, "
+                "멈춤 11-15 11:00부터, 상태 '가동중지'(처음 본 측정 11-{d} 17:00)), 3번(평소 34.4→최근 0.0, 측정 2026-11-{d} 17:00, 멈춤 11-12 14:00부터, "
+                "상태 '가동중지'(처음 본 측정 11-{d} 14:00)) · 설비 정지·정비·측정기 점검일 수 있음(회사 확인)")
+        t17 = ("오씨아이 주식회사 군산공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래 — 3번(평소 34.4→최근 0.0, 측정 2026-11-17 14:00, "
+               "멈춤 11-12 14:00부터, 상태 '가동중지'(처음 본 측정 11-17 14:00)), 2번(평소 5.7→최근 0.0, 측정 2026-11-17 14:00, 멈춤 11-16 14:00부터, "
+               "상태 '가동중지'(처음 본 측정 11-17 14:00), 최근 30일 앞선 멈춤 1번(11-15 11:00~11-16 11:00 24시간)) · 설비 정지·정비·측정기 점검일 수 있음(회사 확인)")
+        texts = {"16": base.format(d="16"), "17": t17, "18": base.format(d="18"), "21": base.format(d="21")}
+        ev = [{"id": f"stk:down:OCI:오씨아이주식회사군산공장:2026-11-{d}", "kind": "사업장 가동 중단 신호", "tier": "B",
+               "detectedAt": f"2026-11-{d}T18:20:00+09:00", "text": t} for d, t in texts.items()]
+        # 멈춤 시작 없이 적힌 배출구(방금 멈춤)가 섞이면 비교할 수 없어 그대로
+        ev.append({"id": "stk:down:OCI:오씨아이주식회사군산공장:2026-11-22", "kind": "사업장 가동 중단 신호", "tier": "B", "detectedAt": "2026-11-22T18:20:00+09:00",
+                   "text": base.format(d="22").replace(" ·", ", 20번(평소 9.0→최근 0.0, 측정 2026-11-22 17:00) ·", 1)})
+        w.retier_repeat_downs(ev)
+        w.retier_repeat_downs(ev)
+        self.assertEqual([e["tier"] for e in ev], ["B", "B", "C", "C", "B"])
+        self.assertEqual(ev[3]["text"].count("같은 멈춤을 먼저 알림"), 1)
+        self.assertIn("— 11-16에 같은 멈춤을 먼저 알림(배출구 번호·멈춤 시작 같음) — 반복이라 C로 바로잡음", ev[2]["text"])
+
     def test_one_big_stack_is_B_small_or_near_zero_stack_is_nothing(self):
         # 당진: 큰 배출구(30) 하나가 멈춤 → B(큰 배출구), 0.1인 배출구는 원래 거의 0이라 판단 안 함
         doc = series(10, at=lambda i: {"dangjin": (0.0, 8.0, 0.0)} if i >= 6 else {})

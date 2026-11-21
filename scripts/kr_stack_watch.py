@@ -292,6 +292,32 @@ def retier_status_transitions(events):
                 e["text"] = (e.get("text") or "") + STATUS_OBSERVE_NOTE
 
 
+DOWN_STACK = re.compile(r"(\S+?)번\(평소 [^()]*?멈춤 (\d\d-\d\d \d\d:\d\d)부터")
+REPEAT_DOWN_NOTE = "같은 멈춤을 먼저 알림"
+
+
+def retier_repeat_downs(events):
+    """저장된 '사업장 가동 중단 신호' 가운데 앞서 알린 멈춤(배출구 번호·멈춤 시작이 모두 같음)만 다시 적힌 것을 C로 — 측정 쪽 상태 글자로
+    판단 안 함이 됐다가 다시 멈춤으로 잡힐 때마다 새 신호가 났다(11-16~11-21 OCI 군산공장 17번 11-15부터·3번 11-12부터, 엿새 연속 B)."""
+    told = {}
+    for e in sorted(events, key=lambda e: str(e.get("detectedAt") or "")):
+        if e.get("kind") != "사업장 가동 중단 신호":
+            continue
+        sid = str(e.get("id") or "").rsplit(":", 1)[0]
+        text = str(e.get("text") or "")
+        pairs = DOWN_STACK.findall(text)
+        seen = told.setdefault(sid, {})
+        if pairs and len(pairs) == len(re.findall(r"(\S+?)번\(평소", text)) and all(c in seen and seen[c][0] == since for c, since in pairs):
+            if REPEAT_DOWN_NOTE not in text:
+                first = min(seen[c][1] for c, _ in pairs)
+                e["tier"] = "C"
+                e["text"] = text + f" — {first[5:10]}에 {REPEAT_DOWN_NOTE}(배출구 번호·멈춤 시작 같음) — 반복이라 C로 바로잡음"
+            continue
+        for c, since in pairs:
+            if c not in seen or seen[c][0] != since:
+                seen[c] = (since, str(e.get("detectedAt") or ""))
+
+
 def retier_marginal(events):
     """저장된 배출허용기준 초과 이벤트 중 기준을 5% 안쪽으로 넘은 것을 한 단계 내린다(예전 규칙으로 B·A가 된 것 바로잡기)."""
     lower = {"배출허용기준 초과(측정값)": ("B", "C"), "배출허용기준 초과 지속": ("A", "B")}
@@ -891,7 +917,10 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             meaningful = {c: b for c, (state, b) in judged.items() if state in ("running", "stopped")}
             stopped = sorted((c for c, (state, _) in judged.items() if state == "stopped"), key=lambda c: -(judged[c][1] or 0))
             was = set(s.get("stopped") or [])
-            newly = [c for c in stopped if c not in was]
+            # 같은 멈춤이 이어지는 배출구는 새로 멈춘 것이 아니다 — 측정 쪽 상태 글자('측정자료확인중' 등, 값 없음)로 한두 번 판단 안 함이
+            # 됐다가 다시 0으로 잡혀도 멈춤 시작(stoppedSince)은 그대로다(다시 움직여야 지워진다). 11-16~11-21 OCI 군산공장 17번(11-15부터)·
+            # 3번(11-12부터)이 매일 오전 판단 안 함 → 오후 다시 멈춤이 되며 '사업장 가동 중단 신호' B가 엿새 연속 났다.
+            newly = [c for c in stopped if c not in was and not stacks[c].get("stoppedSince")]
             s["stopped"], s["meaningful"] = stopped, len(meaningful)
             # 오래 멈춘 배출구(사흘 넘게): 사업장 크기와 상관없이 B 한 번. 멈춤 시작 시각은 배출구에 남긴다(관측은 4일치만 쌓여
             # 다시 셀 때마다 시작이 밀린다) — 다시 움직이면 지운다.
@@ -978,10 +1007,18 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                          f"{name}: 배출구 {len(newly)}개가 {STOP_RUNS}번 연속 평소의 10% 아래(사업장 전체 평소 움직이던 {len(meaningful)}개 중 멈춤 {len(stopped)}개) — "
                          + ", ".join(desc(c) for c in newly[:6]) + " · 정비·점검일 수 있음(회사 확인)"
                          + (f" — 같은 배출구를 {min(told[c] for c in newly)[5:16].replace('T', ' ')} '가동중지 전환'(B)으로 먼저 알려 C" if early else ""))
-            if was and len(was) >= 2 and len(stopped) <= len(was) / 2 and s.get("downFlag"):
+            # 재가동은 실제로 평소 수준 값이 돌아온 배출구로만 센다(값 없이 판단 안 함이 된 것은 재가동이 아니다 — 11-17~11-21 OCI 군산
+            # '멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴'이 매일 오전 났지만 멈춤 시작은 11-12·11-15 그대로였다).
+            back = [c for c in was if c in judged and judged[c][0] == "running"]
+            if was and len(was) >= 2 and len(back) >= len(was) / 2 and s.get("downFlag"):
                 emit(f"stk:up:{sid}:{day}", "사업장 재가동 신호", "B", comp["company"], name,
-                     f"{name}: 멈췄던 배출구 {len(was)}개 중 {len(was) - len(stopped)}개 측정값이 평소 수준으로 돌아옴")
-            s["downFlag"] = bool(len(stopped) >= 2 and share >= 0.5)
+                     f"{name}: 멈췄던 배출구 {len(was)}개 중 {len(back)}개 측정값이 평소 수준으로 돌아옴")
+            # 판단 안 함이 된 배출구도 멈춤이 이어지는 동안(멈춤 시작이 남아 있는 동안)은 멈춘 배출구로 둔다(재가동 판정의 바탕)
+            held = [c for c in was if c not in stopped and c in judged and judged[c][0] == "unknown" and stacks[c].get("stoppedSince")]
+            if held:
+                s["stopped"], s["meaningful"] = stopped + held, len(meaningful) + len(held)
+                share = len(s["stopped"]) / s["meaningful"]
+            s["downFlag"] = bool(len(s["stopped"]) >= 2 and share >= 0.5)
 
     # 목록에서 사라진 사업장(그 회사 검색을 다 읽었을 때만): 배출구 누락 횟수로 센다
     for sid, s in sites.items():
@@ -1027,6 +1064,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     annotate_late_starts(events, sites, now)
     collapse_gone_bursts(fresh + events)
     collapse_long_gone(fresh + events)
+    retier_repeat_downs(fresh + events)
     cap_tiers(fresh + events)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
