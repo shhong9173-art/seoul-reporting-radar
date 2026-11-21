@@ -65,6 +65,9 @@ NON_FIRM = re.compile(r"의료법인|재단법인|사단법인|학교법인|사�
 CORE = {"241": "1차 철강", "242": "1차 비철금속", "243": "금속 주조", "301": "자동차", "302": "차체·트레일러", "303": "자동차 부품",
         "281": "전동기·발전기·전기변환·공급제어장치", "282": "일차전지·축전지", "283": "절연선·케이블", "201": "기초 화학물질",
         "202": "합성고무·플라스틱 물질", "204": "기타 화학제품", "221": "고무제품", "192": "석유 정제품"}
+# 11-21: '기타 화학제품'(204) 안의 세제·화장품·광택제(2042)는 소비재다 — 화장품 회사(종업원 69명) 회생 개시가 A·즉시 알림으로 갔다.
+# 출입처(석유화학·정유)의 협력사가 아니라 고객 쪽 끝이라 관련 업종처럼 본다(주생산품에 출입 업종 낱말이 있을 때만 B, 없으면 C)
+CONSUMER_CHEM = {"2042": "세제·화장품·광택제"}
 RELATED = {"25": "금속가공제품", "29": "기타 기계·장비", "28": "전기장비", "222": "플라스틱 제품", "262": "전자부품", "264": "통신·방송장비"}
 PRODUCT = re.compile(r"자동차|차량|브레이크|시트|범퍼|머플러|배터리|이차전지|2차전지|양극재|음극재|전해액|분리막|변압기|차단기|개폐기|"
                      r"전선|케이블|강관|강판|철근|형강|선재|주물|주조|단조|타이어|휠|램프|와이어링|하네스|도금|열처리")
@@ -240,6 +243,9 @@ def region_rx(court):
 def factory_match(f):
     code = re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "")
     text = f"{f.get('indutyNm') or ''} {f.get('mainProductCn') or ''}"
+    for p, name in CONSUMER_CHEM.items():
+        if code.startswith(p):
+            return ("product" if PRODUCT.search(text) else "related"), name
     for p, name in CORE.items():
         if code.startswith(p):
             return "core", name
@@ -279,7 +285,15 @@ def pick(info, court):
     if not info or not info.get("cands"):
         return info
     rx = region_rx(court)
-    cands = info["cands"]
+    # 저장된 분류(캐시)도 소비재 화학(2042)은 다시 매긴다 — 캐시 판을 올리면 회사마다 공장등록을 다시 묻게 된다
+    cands = []
+    for c in info["cands"]:
+        code = str(c.get("c") or "")
+        hit = next((name for p, name in CONSUMER_CHEM.items() if code.startswith(p)), None)
+        if hit and c.get("m") == "core":
+            c = {**c, "m": "product" if PRODUCT.search(f"{c.get('i') or ''} {c.get('p') or ''}") else "related", "l": hit}
+        cands.append(c)
+    cands.sort(key=lambda c: (RANK[c["m"]], -(c.get("e") or 0)))
     local = [c for c in cands if rx and rx.search(c.get("a") or "")]
     best = local[0] if local else cands[0]
     return {"match": best["m"], "label": best["l"], "code": best["c"], "industry": best["i"], "product": best["p"], "employees": best["e"],

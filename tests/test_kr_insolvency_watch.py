@@ -110,6 +110,19 @@ class Insolvency(unittest.TestCase):
         ma = [e for e in doc["events"] if e["source"] == "회생회사 M&A 공고"]
         self.assertEqual(ma, [])  # 파이프텍코리아: 공장등록 없음, 이름 낱말 없음 → 버림
 
+    def test_consumer_chemicals_are_not_core_11_21(self):
+        # 11-19 대전회생법원 '오마샤리프화장품'(기타 화학제품, 주생산품 화장품 상표, 종업원 69명) 회생 개시가 A·즉시 알림 — 소비재 화학(2042)은 관련 업종처럼
+        f = {"rprsntvIndutyCode": "20423", "indutyNm": "화장품 제조업", "mainProductCn": "오마샤리프, 피니쉬업", "allEmplyCo": "69", "rnAdres": "충청남도 아산시"}
+        self.assertEqual(k.factory_match(f), ("related", "세제·화장품·광택제"))
+        self.assertEqual(k.factory_match({**f, "mainProductCn": "자동차용 왁스"})[0], "product")
+        self.assertEqual(k.factory_match({**f, "rprsntvIndutyCode": "20499", "indutyNm": "그 외 기타 화학제품"})[0], "core")   # 다른 기타 화학제품은 그대로
+        # 저장된 분류(캐시가 core로 들고 있는 것)도 다시 매긴다
+        cached = {"v": k.CACHE_VERSION, "match": "core", "factories": 1, "owners": 1,
+                  "cands": [{"m": "core", "l": "기타 화학제품", "c": "20423", "i": "화장품 제조업", "p": "오마샤리프, 피니쉬업", "e": 69, "a": "충청남도 아산시 …"}]}
+        got = k.pick(cached, "대전회생법원")
+        self.assertEqual((got["match"], got["label"]), ("related", "세제·화장품·광택제"))
+        self.assertEqual(k.tier_of("start", got["match"], None, got), "C")
+
     def test_baseline_then_new_and_cache(self):
         post, get, calls = fakes()
         first = k.run("key", now=NOW, previous=None, post=post, get=get, sleep=lambda s: None, watchlist={})
