@@ -128,6 +128,12 @@ LIST_CUE = re.compile(r"\b(?:including|such as|customers?\b|OEMs?\b|partners?\b|
 BULLET = re.compile(r"[●•▪◦■]")
 
 
+# 보증 표(보증 기관·종류·금액·수혜자 칸)의 수혜자 칸에 출입처가 든 것 — 고객 계약에 딸린 이행·하자·선급금 보증 줄이다(11-16 Evolution
+# Metals 10-Q 'SGI (Seoul Guarantee Insurance) Contract Performance Guarantee 13 LS ELECTRIC Co., Ltd. … 37 Hyundai Motor Company'; 같은
+# 표가 10-05 S-1에도 있었다). 표 줄이 두 개 넘게 이어질 때만.
+GUARANTEE_ROW = re.compile(r"(?:Performance|Payment|Defects?(?:\s+Liability)?|Warranty|Bid)\s+Guarantee(?:\s+Insurance)?\s+[\d,.]+\s+[A-Z]", re.I)
+
+
 def name_list(sent):
     """쉼표나 글머리표(●)로 회사 이름 여럿을 늘어놓은 문장(고객·거래처·협력사 목록) — 출입처는 그중 하나.
     11-22: Forge Nano S-1 'partners … include: ● Volkswagen ● Hanwha Aerospace ● General Motors ● LG Chem ● Air Liquide ●
@@ -159,6 +165,9 @@ def classify(it):
         if all(name_list(x) for x in sents):
             it["routine"] = "여러 회사 이름 나열(고객사·거래처 목록) 속 하나 — 출입처와의 새 거래 문구 아님"
             return
+    if len(GUARANTEE_ROW.findall(sn)) >= 3:
+        it["routine"] = "보증 표(보증 종류·금액·수혜자 칸) 속 수혜자 이름 — 고객 계약에 딸린 이행·하자 보증 줄, 새 거래 문구 아님"
+        return
     if FIN_GROUP.search(str(it.get("filer") or "")) and str(it.get("form") or "").upper().startswith("6-K"):
         it["routine"] = "한국 금융지주 재무 표(대출·투자·관계사 거래 줄) — 출입처와의 새 거래 아님"
         return

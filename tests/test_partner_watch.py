@@ -121,6 +121,17 @@ class Partners(unittest.TestCase):
             "General Motors ● LG Chem ● Air Liquide ● Mitsui Kinzoku Forge Nano is party to a range of customer and material commercial agreements acr")}
         w.classify(forge)
         self.assertIn("나열", forge.get("routine", ""))
+        # 11-16 Evolution Metals 10-Q 보증 표(발췌 그대로) — 수혜자 칸의 출입처
+        emat = {"phrases": ["LS ELECTRIC", "Hyundai Motor"], "form": "10-Q", "filer": "Evolution Metals & Technologies Corp.  (EMAT)", "snippet": (
+            "…r Robot Industry Advancement (KIRIA) SGI (Seoul Guarantee Insurance) Contract Performance Guarantee 13 LS ELECTRIC Co., Ltd. SGI (Seoul "
+            "Guarantee Insurance) Contract Performance Guarantee 12 EG Tech Co., Ltd. SGI (Seoul Guarantee Insurance) Advance Payment Guarantee Insurance 37 "
+            "Hyundai Motor Company SGI (Seoul Guarantee Insurance) Contract Performance Guarantee 18 Hyundai Motor Company SGI (Seoul…")}
+        w.classify(emat)
+        self.assertIn("보증 표", emat.get("routine", ""))
+        one = {"phrases": ["Hyundai Motor"], "form": "8-K", "filer": "X", "snippet": (
+            "We entered into a supply agreement with Hyundai Motor Company and provided a Contract Performance Guarantee 18 Hyundai Motor Company may draw.")}
+        w.classify(one)
+        self.assertNotIn("routine", one)  # 보증 줄 하나는 표가 아니다
         two = {"phrases": ["LG Chem"], "form": "8-K", "filer": "X", "snippet": "Our partners include: ● LG Chem ● Volkswagen under a supply agreement."}
         w.classify(two)
         self.assertNotIn("routine", two)  # 두세 곳은 나열로 보지 않는다
