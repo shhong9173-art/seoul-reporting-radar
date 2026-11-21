@@ -23,13 +23,17 @@ KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "reverse_check/v1"
 WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
+NEW_FEEDS = ["jp-trade-remedy", "eu-trade-defence", "uk-trade-notices", "th-trade-remedy", "ieps-permits", "kr-report-notes", "assembly-minutes"]
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
          "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
          "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks",
          # 11-03 추가 감시(이벤트 모양이 같다: id·company·kind·text|title·detectedAt·url) — 역추적·기자 기사 대조가 이 감시들도 본다
          "us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes",
          # 11-04: 지분·자사주 변동(임원 집단 보고·자기주식 처분 결정) — KG스틸 자사주 임직원 보상 기사가 '없음'이었다
-         "governance"]
+         "governance",
+         # 11-22: 11-15 뒤 더한 감시(이벤트 모양이 같다). 11-21 22:12 토요경제 [단독] 「LG화학, 日 BPA 반덤핑관세 대상 제외…금호피앤비 7% 권고」를
+         # 레이더가 11-20 일본 특수관세부회 자료(A·11-21 18:43 즉시 알림)로 먼저 잡았는데, 일본 무역구제 감시를 안 읽어 '같은 회사 항목만'으로 셌다
+         *NEW_FEEDS]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
@@ -38,6 +42,8 @@ LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 �
          "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)",
          "us-osha": "미국 OSHA 점검·위반", "us-state-env": "미국 주 환경 허가·공고", "kr-labor": "노동위 회의", "india-filings": "인도 법인 공시",
          "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록",
+         "jp-trade-remedy": "일본 무역구제 공고", "eu-trade-defence": "EU 관보 무역구제", "uk-trade-notices": "영국 무역구제 고시",
+         "th-trade-remedy": "태국 무역구제 공고", "ieps-permits": "통합환경허가 공개", "kr-report-notes": "정기보고서 숨은 대목", "assembly-minutes": "국회 회의록",
          "governance": "지분·자사주 변동", "ktc": "국내 무역위원회"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"한국타이어앤테크놀로지": "한국타이어", "S-Oil": "S-OIL", "현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
@@ -110,6 +116,7 @@ SPECIFICS = [("강관", r"강관", r"\bpipe|tube|tubular"), ("후판", r"후판"
              ("스테인리스", r"스테인리스", r"stainless"), ("전선", r"전선|케이블", r"\bcable|\bwire\b"), ("타이어", r"타이어", r"\btires?\b"),
              ("탄소배출권", r"탄소배출권|배출권", r"\bKAUs?\b|K-?ETS|emission (?:permit|allowance)"), ("전기요금", r"전기요금|전력요금", r"electricity"),
              ("특별시장상황", r"특별시장상황|PMS", r"particular market situation"),
+             ("비스페놀A", r"BPA|비스페놀", r"\bBPA\b|비스페놀|bisphenol"),
              # 11-11 기자 기사 대조: 「금호석유화학, 특수가스 자회사 흡수합병 마무리」(11-11)가 전날 DART '합병등종료보고서(합병)' 단서와
              # '합병' 개념 하나만 겹쳐 '같은 회사 항목만'이었다. 합병을 끝냈다는 기사 ↔ 합병 종료 보고서는 같은 사건.
              ("합병 종료", r"합병.{0,12}(?:마무리|완료|종료|마쳐|마친|매듭)", r"합병등\s*종료\s*보고서|합병\s*종료")]
@@ -476,7 +483,7 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
             ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues),
-            ("governance", _governance), *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes")]]
+            ("governance", _governance), *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes", *NEW_FEEDS)]]
 
 
 # 기사 제목 숫자 ↔ 레이더 글 숫자(11-09) — 보도 대조와 같은 규칙이라 title_numbers에 둔다
