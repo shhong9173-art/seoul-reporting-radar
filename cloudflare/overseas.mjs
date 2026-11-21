@@ -1313,7 +1313,7 @@ const clipText = (v, n) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim
 export function usLinkLine(us) {
   if (!us) return '';
   const span = `${(us.models ?? []).join('·')} ${(us.years ?? []).join('·')}년형`;
-  if (us.status === 'no-model') return '미국 리콜 대조: 미국 판매 이름을 모르는 차종(국내 전용·수입차) — 조회 안 함';
+  if (us.status === 'no-model') return '미국 리콜 대조: 미국 판매 이름을 모르는 차종(국내 전용·BMW·벤츠 등 차명이 다른 수입차) — 조회 안 함';
   if (us.status === 'no-years') return '미국 리콜 대조: 생산기간이 없어 연식을 못 정함 — 조회 안 함';
   if (us.status === 'failed') return `미국 리콜 대조 실패(${us.error ?? '조회 오류'}) — 미확인, 다음 실행에서 다시`;
   const head = `미국 리콜 대조(자동 · NHTSA ${span} · 국내 부품 낱말 ${(us.parts ?? []).join('·') || '없음'})`;

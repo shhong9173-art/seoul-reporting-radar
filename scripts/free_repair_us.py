@@ -26,6 +26,7 @@ GAP = 1.0            # 조회 사이 간격(초)
 TRIES = 3            # 실패한 공지는 이 횟수까지 다음 실행이 다시
 MAX_MODELS, MAX_YEARS, MAX_MATCHES = 2, 3, 3
 LEAD_DAYS = 60       # 미국 리콜이 국내 공지보다 이만큼 앞서면 A(kr_free_repair.classify)
+MODEL_VERSION = 2    # 차종 목록 판: 바뀌면 '조회 안 함'(no-model)으로 적은 공지를 다시 본다(2: 11-22 혼다·한국GM·폭스바겐·아우디)
 
 # (국내 차명 규칙, 미국 제조사, 미국 차명, 하이브리드 차명, 전기차 차명). 국내 전용 차종(그랜저·캐스퍼·스타리아·레이·모닝·K8·K9·타스만 등)은 없다.
 US_MODELS = [
@@ -56,6 +57,25 @@ US_MODELS = [
     (r"(?<![A-Z0-9])GV60(?![0-9])", "GENESIS", "GV60", None, None),
     (r"(?<![A-Z0-9])GV70(?![0-9])", "GENESIS", "GV70", None, "ELECTRIFIED GV70"),
     (r"(?<![A-Z0-9])GV80(?![0-9])", "GENESIS", "GV80", None, None),
+    # 11-22: 미국에서 만들거나 미국에도 파는 수입·한국GM 차종 — 혼다(어코드·CR-V·파일럿·오딧세이는 미국 생산), 한국GM 수출 차종, 폭스바겐·아우디 일부.
+    # BMW·벤츠는 국내 차명(520i·E 300)과 미국 차명(530I·E350)이 달라 뺐다.
+    (r"어코드|ACCORD", "HONDA", "ACCORD", "ACCORD HYBRID", None),
+    (r"(?<![A-Z])CR-?V(?![A-Z0-9])", "HONDA", "CR-V", "CR-V HYBRID", None),
+    (r"(?<![A-Z])HR-?V(?![A-Z0-9])", "HONDA", "HR-V", None, None),
+    (r"파일럿|PILOT", "HONDA", "PILOT", None, None),
+    (r"오딧세이|오디세이|ODYSSEY", "HONDA", "ODYSSEY", None, None),
+    (r"시빅|CIVIC", "HONDA", "CIVIC", "CIVIC HYBRID", None),
+    (r"프롤로그|PROLOGUE", "HONDA", "PROLOGUE", None, None),
+    (r"트랙스|TRAX", "CHEVROLET", "TRAX", None, None),
+    (r"트레일블레이저|TRAILBLAZER", "CHEVROLET", "TRAILBLAZER", None, None),
+    (r"이쿼녹스|EQUINOX", "CHEVROLET", "EQUINOX", None, "EQUINOX EV"),
+    (r"타호|TAHOE", "CHEVROLET", "TAHOE", None, None),
+    (r"콜로라도|COLORADO", "CHEVROLET", "COLORADO", None, None),
+    (r"아틀라스|ATLAS", "VOLKSWAGEN", "ATLAS", None, None),
+    (r"티구안|TIGUAN", "VOLKSWAGEN", "TIGUAN", None, None),
+    (r"제타|JETTA", "VOLKSWAGEN", "JETTA", None, None),
+    (r"(?<![A-Z])ID\.?\s*4(?![0-9])", "VOLKSWAGEN", "ID.4", None, None),
+    (r"Q4\s*(?:\d{2}\s*)?(?:Sportback\s*)?e-?tron", "AUDI", "Q4 E-TRON", None, None),
 ]
 HYBRID = re.compile(r"하이브리드|HEV(?!\w)|\bHybrid\b", re.I)
 ELECTRIC = re.compile(r"일렉트릭|전기차|(?<![A-Z])EV(?![0-9A-Z])|Electric", re.I)
@@ -103,10 +123,18 @@ _MODELS = [(re.compile(p, re.I), make, base, hyb, ev) for p, make, base, hyb, ev
 SEGMENT = re.compile(r"\s-\s(.+?)(?:\s관련)?\s*무상(?:수리|점검)")
 
 
+# 미국 제조사 → 공지의 출입처(kr_free_repair.BRANDS 이름). 다른 브랜드 공지에 든 낱말('아틀라스' 배터리 등)로 엉뚱한 차종을 조회하지 않게.
+MAKER_OF = {"HYUNDAI": "현대차", "GENESIS": "현대차", "KIA": "기아", "HONDA": "혼다코리아", "CHEVROLET": "한국GM",
+            "VOLKSWAGEN": "폭스바겐코리아", "AUDI": "아우디코리아"}
+
+
 def us_models(item):
-    """(제조사, [미국 차명 ≤2]) 또는 None. 차명 칸·제목에서 찾는다."""
+    """(제조사, [미국 차명 ≤2]) 또는 None. 차명 칸·제목에서 찾는다. 공지에 출입처가 적혀 있으면 그 브랜드 차종만."""
     text = f"{item.get('model') or ''} {item.get('title') or ''}"
+    company = item.get("company")
     for rx, make, base, hyb, ev in _MODELS:
+        if company and MAKER_OF.get(make) != company:
+            continue
         if not rx.search(text):
             continue
         names = [base]
@@ -214,13 +242,14 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
             us.pop("error", None)
             us.pop("tries", None)
     todo = [x for x in items if x.get("company") and x.get("detail") == "ok"
-            and (not x.get("us") or (x["us"].get("status") == "failed" and (x["us"].get("tries") or 0) < TRIES))]
+            and (not x.get("us") or (x["us"].get("status") == "failed" and (x["us"].get("tries") or 0) < TRIES)
+                 or (x["us"].get("status") == "no-model" and x["us"].get("v") != MODEL_VERSION))]
     todo.sort(key=lambda x: (x.get("date") or "", int(x.get("no") or 0)), reverse=True)
     calls = checked = linked = failed = waiting = 0
     for x in todo:
         found = us_models(x)
         if not found:
-            x["us"] = {"at": stamp, "status": "no-model"}
+            x["us"] = {"at": stamp, "status": "no-model", "v": MODEL_VERSION}
             continue
         years = model_years(x.get("produced"))
         if not years:
