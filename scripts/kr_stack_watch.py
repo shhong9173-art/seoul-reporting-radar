@@ -294,6 +294,7 @@ def retier_status_transitions(events):
 
 DOWN_STACK = re.compile(r"(\S+?)번\(평소 [^()]*?멈춤 (\d\d-\d\d \d\d:\d\d)부터")
 REPEAT_DOWN_NOTE = "같은 멈춤을 먼저 알림"
+PARTIAL_DOWN_NOTE = "앞서 알린 멈춤 다시 적힘"
 
 
 def retier_repeat_downs(events):
@@ -313,6 +314,14 @@ def retier_repeat_downs(events):
                 e["tier"] = "C"
                 e["text"] = text + f" — {first[5:10]}에 {REPEAT_DOWN_NOTE}(배출구 번호·멈춤 시작 같음) — 반복이라 C로 바로잡음"
             continue
+        # 일부만 반복: B는 그대로 두고 무엇이 새것인지 적는다(11-22 운영: KG스틸 당진 11-21·11-22 B — 8번·6번은 같은 멈춤, 새로 멈춘 것은 13번)
+        codes_all = re.findall(r"(\S+?)번\(평소", text)
+        rep = [c for c, since in pairs if c in seen and seen[c][0] == since]
+        if rep and len(rep) < len(codes_all) and PARTIAL_DOWN_NOTE not in text:
+            first = min(seen[c][1] for c in rep)
+            new = [c for c in codes_all if c not in rep]
+            e["text"] = text + (f" — {PARTIAL_DOWN_NOTE}: {'·'.join(f'{c}번' for c in rep)}({first[5:10]}에 먼저 알림) · 새로 멈춘 배출구 "
+                                f"{'·'.join(f'{c}번' for c in new)}")
         for c, since in pairs:
             if c not in seen or seen[c][0] != since:
                 seen[c] = (since, str(e.get("detectedAt") or ""))

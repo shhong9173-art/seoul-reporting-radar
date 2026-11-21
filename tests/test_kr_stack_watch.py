@@ -147,6 +147,10 @@ class StackTest(unittest.TestCase):
         self.assertEqual([e["tier"] for e in ev], ["B", "B", "C", "C", "B"])
         self.assertEqual(ev[3]["text"].count("같은 멈춤을 먼저 알림"), 1)
         self.assertIn("— 11-16에 같은 멈춤을 먼저 알림(배출구 번호·멈춤 시작 같음) — 반복이라 C로 바로잡음", ev[2]["text"])
+        # 일부만 반복이면 B 그대로 두고 무엇이 새것인지 적는다(11-22 KG스틸 당진 꼴)
+        self.assertTrue(ev[1]["text"].endswith(" — 앞서 알린 멈춤 다시 적힘: 3번(11-16에 먼저 알림) · 새로 멈춘 배출구 2번"))
+        self.assertTrue(ev[4]["text"].endswith(" — 앞서 알린 멈춤 다시 적힘: 17번·3번(11-16에 먼저 알림) · 새로 멈춘 배출구 20번"))
+        self.assertEqual(ev[4]["text"].count("앞서 알린 멈춤 다시 적힘"), 1)
 
     def test_one_big_stack_is_B_small_or_near_zero_stack_is_nothing(self):
         # 당진: 큰 배출구(30) 하나가 멈춤 → B(큰 배출구), 0.1인 배출구는 원래 거의 0이라 판단 안 함
