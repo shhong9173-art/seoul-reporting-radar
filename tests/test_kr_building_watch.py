@@ -125,6 +125,15 @@ class Building(unittest.TestCase):
         self.assertIsNone(b.other_company("제강공장", "LG화학", names))      # 법인 표기 없으면 판단 안 함
         self.assertIsNone(b.other_company("(주)아무개", "모르는회사", names))   # 설정에 없는 회사는 판단 안 함
 
+    def test_small_permit_with_no_purpose_anywhere_is_c(self):
+        # 11-22 운영(월간 갱신분): '(주)포스코 부지 · 용도 미기재 · 연면적 342㎡'·'(주)엘지화학 용성1-1단지 · 용도 미기재 · 324㎡'가 B
+        base = {"archGbCdNm": "신축", "mainPurpsCdNm": None, "sameLot": True}
+        self.assertEqual(b.tier_of(dict(base, totArea=342.0)), "C")
+        self.assertEqual(b.tier_of(dict(base, totArea=342.0, dongs=[])), "C")
+        self.assertEqual(b.tier_of(dict(base, totArea=342.0, dongs=[{"purpose": "공장"}])), "B")      # 동별 용도가 공장이면 다시 B
+        self.assertEqual(b.tier_of(dict(base, totArea=7866.0)), "A")                                  # 1,000㎡ 넘는 신축은 그대로
+        self.assertEqual(b.tier_of(dict(base, totArea=500.0, mainPurpsCdNm="공장")), "B")
+
     def test_permit_without_main_purpose_gets_dong_purposes_and_temporary_is_c(self):
         get = fake({"0001": [permit("P1")]})
         first = go([("K", "good")], FACS[:1], now=NOW, previous=None, get=get)

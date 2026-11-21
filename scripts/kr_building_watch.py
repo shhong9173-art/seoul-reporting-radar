@@ -389,6 +389,10 @@ def tier_of(p):
     dongs = p.get("dongs") or []
     if dongs and all(TEMPORARY.search(d.get("purpose") or "") for d in dongs):
         return "C"  # 가설건축물(공사 현장 사무실·창고 등)만 — 공장 신·증설이 아니다
+    # 주용도가 비고 동별 용도도 모르는 1,000㎡ 미만 — 11-22 월간 갱신분 A·B 29건 중 13건이 324·342·432㎡ 같은 '용도 미기재'였다
+    # (탐침 110: 주용도가 빈 허가는 컨테이너·강파이프 가설건축물). 동별 용도를 읽어 공장이면 다시 매긴다.
+    if not p.get("mainPurpsCdNm") and not any(d.get("purpose") for d in dongs) and a < BIG_AREA:
+        return "C"
     t = "A" if p.get("archGbCdNm") == "신축" and a >= BIG_AREA else "B"  # 증축: totArea is the whole building, not the addition
     if p.get("sameLot") is False:  # same 본번, another 부번: may be a neighbour's building
         t = {"A": "B", "B": "C"}[t]
