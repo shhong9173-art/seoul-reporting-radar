@@ -1,7 +1,7 @@
 // Judgments and the weekly quality review. A judgment is stored with what the item was when judged
 // (watch, kind such as 'DART 채무보증', tier, '일상' flag) so the review can show which watches and filing types
 // the reporter actually uses or kills. It only shows counts — weights and tier rules never change automatically.
-import { storeOp, candidateFeedback } from './store.mjs';
+import { storeOp, candidateFeedback, packageLinks } from './store.mjs';
 import { itemIndex, WATCHES } from './digest.mjs';
 import { clampInt, kstStamp, textResult } from './common.mjs';
 import { readFeed, ageNote } from './screen.mjs';
@@ -177,6 +177,26 @@ export function watchByPrefix(id) {
   return WATCHES.find((w) => w.feed === feed)?.label;
 }
 
+// 처리 기록 패키지(package_save) 이름으로 남은 판정(11-21: 'uk-tra-pvc-korea-pms-1113'(씀) 등 미상 11건 전부) — 패키지 본문의 레이더 id·원문 주소로 감시를 짐작한다
+const URL_WATCH = [[/trade-remedies\.service\.gov\.uk|edis\.usitc\.gov|federalregister\.gov|kotc\.go\.kr|ktc\.go\.kr|trade\.gov\/|mof\.go\.jp\/policy\/customs_tariff|eur-lex\.europa\.eu/, 'trade-remedy'],
+  [/osha\.gov/, 'us-osha'], [/opportunitylouisiana\.gov|deq\.louisiana\.gov|epd\.georgia\.gov|gaepd\.org|adem\.alabama\.gov/, 'us-state-env'],
+  [/courtlistener\.com|cit\.uscourts\.gov/, 'us-litigation'], [/nhtsa\.gov/, 'us-recalls'], [/factoryon\.go\.kr/, 'kr-official'], [/dart\.fss\.or\.kr/, 'scoop-screen'],
+  [/ieps\.nier\.go\.kr/, 'ieps-permits'], [/nlrc\.go\.kr/, 'kr-labor'], [/kmwu\.kr|kctfu\.org/, 'union-notices'], [/clik\.nanet\.go\.kr/, 'council-minutes']];
+export function watchFromPackage(row, index = new Map()) {
+  if (!row) return undefined;
+  const links = packageLinks(row.name, row.body);
+  for (const id of links.ids ?? []) {
+    const w = index.get(id)?.watch || watchByPrefix(id);
+    if (w) return w;
+  }
+  for (const u of links.urls ?? []) {
+    const hit = URL_WATCH.find(([rx]) => rx.test(u));
+    const label = hit && WATCHES.find((w) => w.feed === hit[1])?.label;
+    if (label) return label;
+  }
+  return undefined;
+}
+
 export async function weeklyReview(ctx, args) {
   const days = clampInt(args.days, 1, 60, 7);
   const since = new Date(ctx.now.getTime() - days * 86400000).toISOString();
@@ -186,11 +206,20 @@ export async function weeklyReview(ctx, args) {
   for (const r of rows) if (!latest.has(r.item_id)) latest.set(r.item_id, r);
   let items = [...latest.values()];
   const index = items.some((r) => !r.watch) ? await safeIndex(ctx) : new Map();
+  // 패키지 이름으로 남은 판정은 패키지 본문으로 감시를 짐작한다(앞말이 없는 '영문-낱말' 이름만, 20건까지)
+  const pkgWatch = new Map();
+  for (const r of items.filter((x) => !x.watch && !index.get(x.item_id) && !watchByPrefix(x.item_id) && /^[a-z0-9][a-z0-9-]{3,}$/.test(String(x.item_id))).slice(0, 20)) {
+    try {
+      const { row } = await storeOp(ctx, 'packages.get', { name: r.item_id });
+      const w = watchFromPackage(row, index);
+      if (w) pkgWatch.set(r.item_id, w);
+    } catch { /* 패키지를 못 읽으면 미상으로 둔다 */ }
+  }
   items = items.map((r) => {
     if (r.watch) return r;
     const m = index.get(r.item_id);
     if (m) return { ...r, ...m, labelled: 'now' };
-    const guess = watchByPrefix(r.item_id);
+    const guess = watchByPrefix(r.item_id) ?? pkgWatch.get(r.item_id);
     return { ...r, watch: String(r.item_id).startsWith('#') ? '제출 후보' : guess ?? '감시 미상(지금 목록에 없음)', kind: '', tier: '', flag: '', title: '',
       ...(guess ? { guessed: true } : {}) };
   });
@@ -216,7 +245,7 @@ export async function weeklyReview(ctx, args) {
       const order = { 씀: 0, 보류: 1, 봤음: 2, 킬: 3 };
       const ids = [...rs].sort((a, b) => (order[a.verdict] ?? 9) - (order[b.verdict] ?? 9)).map((r) => `${r.item_id}(${r.verdict})`);
       out.push(`   id: ${ids.slice(0, 6).join(', ')}${ids.length > 6 ? ` … ${ids.length - 6}건 더` : ''}`);
-    } else if (rs.some((r) => r.guessed)) out.push(`   (그중 ${rs.filter((r) => r.guessed).length}건은 판정 때 감시 이름이 없어 id 앞말로 짐작)`);
+    } else if (rs.some((r) => r.guessed)) out.push(`   (그중 ${rs.filter((r) => r.guessed).length}건은 판정 때 감시 이름이 없어 id 앞말·처리 기록 패키지의 원문으로 짐작)`);
     const killed = rs.filter((r) => r.verdict === '킬').length;
     if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(killNote(watch, rs, killed, watch));
   }
