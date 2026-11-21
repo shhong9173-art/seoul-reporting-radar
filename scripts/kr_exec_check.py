@@ -940,20 +940,15 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
 
 
 def annotate(doc):
-    def mask(s):
-        s = str(s or "")
-        return s[:1] + "*" * max(0, len(s) - 1)
+    """격리 검증(공개 로그): 건수만 — 11-22까지는 표시된 사람의 회사·직위·가린 이름·제재 내용 문장을 찍어 누구인지 알 수 있었다."""
     print(f"::notice title=kr-exec-check-summary::{json.dumps(doc['counts'], ensure_ascii=False)} · 실패 "
           + ", ".join(f"{c['source']}({c.get('error', c['status'])})" for c in doc["checks"] if c["status"] not in ("ok", "no_data")))
-    rows = []
+    by = {}
     for p in doc["people"]:
         for f in p["flags"]:
-            t = f["text"]
-            for h in p.get("news") or []:
-                t = t.replace(h["title"], "(기사 제목)")
-            rows.append(f"{f['tier']} {p['company']} {p['ofcps']}({p['reg']}) {mask(p['name'])} · {f['kind']} · {t.replace(p['name'], mask(p['name']))[:200]}")
-    for i, line in enumerate(sorted(rows)[:40]):
-        print(f"::notice title=kr-exec-check-{i + 1}::{line}")
+            k = f"{f['tier']} {f['kind']}"
+            by[k] = by.get(k, 0) + 1
+    print(f"::notice title=kr-exec-check-flags::표시 {sum(by.values())}건" + (" — " + ", ".join(f"{k} {n}" for k, n in sorted(by.items())) if by else ""))
 
 
 def requests_get():

@@ -390,7 +390,11 @@ class Annotate(unittest.TestCase):
             sys.stdout = old
         text = out.getvalue()
         self.assertNotIn("한영입", text)
-        self.assertIn("한**", text)
+        self.assertNotIn("한**", text)            # 11-22: 가린 이름도 찍지 않는다 — 건수만
+        self.assertRegex(text, r"kr-exec-events::A·B 항목 \d+건")
+        for e in doc["events"]:
+            if e["tier"] in ("A", "B"):
+                self.assertNotIn(e["text"][:30], text)
 
 
 if __name__ == "__main__":

@@ -826,19 +826,12 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
 
 
 def annotate(doc):
-    def mask(s):
-        s = str(s or "")
-        return s[:1] + "*" * max(0, len(s) - 1)
     c = doc["counts"]
     print(f"::notice title=kr-exec-market-summary::{json.dumps(c, ensure_ascii=False)} · " + " ; ".join(
         f"{k['source']} {k['status']}({k.get('returned', '')}{', ' + k['error'] if k.get('error') else ''})" for k in doc["checks"]))
-    shown = [e for e in doc["events"] if e.get("detectedAt") == doc["generatedAt"]][:40]
-    for i, e in enumerate(shown):
-        p = e.get("person") or {}
-        text = e["text"]
-        for n in {p.get("name")} - {None, ""}:
-            text = text.replace(n, mask(n))
-        print(f"::notice title=kr-exec-market-{e['tier']}-{i + 1}::{e['kind']} · {text[:260]} · 표시: {'; '.join(f['text'][:80] for f in e.get('flags') or [])}")
+    # 11-22: 공개 로그에는 건수만 — 사람·회사·직위·표시 문장은 기자 전용 저장소에만
+    from kr_exec_watch import event_counts
+    print(f"::notice title=kr-exec-market-events::이번 {event_counts([e for e in doc['events'] if e.get('detectedAt') == doc['generatedAt']])}")
 
 
 def main():

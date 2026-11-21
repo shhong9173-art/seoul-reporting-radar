@@ -801,22 +801,26 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
     }
 
 
+def event_counts(events):
+    """A·B 항목 수를 등급·종류별로만(공개 로그용)."""
+    by = {}
+    for e in events or []:
+        if e.get("tier") in ("A", "B"):
+            k = f"{e['tier']} {e.get('kind') or '?'}"
+            by[k] = by.get(k, 0) + 1
+    return "A·B 항목 " + str(sum(by.values())) + "건" + (" — " + ", ".join(f"{k} {n}" for k, n in sorted(by.items())) if by else "")
+
+
 def annotate(doc):
-    """격리 검증: 공개 로그라 이름은 첫 글자만, 출생년월·경력 원문은 줄여서."""
-    def mask(s):
-        s = str(s or "")
-        return s[:1] + "*" * max(0, len(s) - 1)
+    """격리 검증: 공개 로그라 건수만(사람·회사·표시 문장은 기자 전용 저장소에만)."""
     print(f"::notice title=kr-exec-summary::{doc['period']['label']} ← {doc['period']['base']['label']} · {json.dumps(doc['counts'], ensure_ascii=False)}"
           f" · 미해결 {doc['unresolvedCompanies']}")
     lines = [f"{c['source']}|{c['status']}|{c.get('coverage', c.get('note', c.get('error', c.get('reason', ''))))}|새{c.get('new', '-')} 빠짐{c.get('gone', '-')} 변경{c.get('changed', '-')}"
              for c in doc["checks"]]
     for i in range(0, len(lines), 8):
         print(f"::notice title=kr-exec-checks-{i // 8 + 1}::" + " ;; ".join(lines[i:i + 8]))
-    shown = [e for e in doc["events"] if e["tier"] in ("A", "B")][:40]
-    for i, e in enumerate(shown):
-        p = e.get("person") or {}
-        text = e["text"].replace(p.get("name") or "\0", mask(p.get("name"))) if p.get("name") else e["text"]
-        print(f"::notice title=kr-exec-{e['tier']}-{i + 1}::{e['kind']} · {text[:260]} · 표시: {'; '.join(f['text'][:80] for f in e.get('flags') or [])}")
+    # 11-22: 공개 로그에는 건수만 — 사람·회사·직위·표시 문장은 이름을 가려도 누구인지 알 수 있다(기자 전용 저장소에만)
+    print(f"::notice title=kr-exec-events::{event_counts(doc['events'])}")
 
 
 def main():
