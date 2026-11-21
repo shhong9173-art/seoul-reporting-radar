@@ -137,7 +137,7 @@ export function ledgerEntries(packages = [], feedback = []) {
     const links = Array.isArray(p.ids) ? p : packageLinks(p.name, p.body);
     const m = /^alert-(\d{4})(\d{2})(\d{2})$/.exec(p.name);
     if (m) {
-      for (const id of links.sent ?? []) alerted.set(id, `${m[2]}-${m[3]}`);
+      for (const id of links.sent ?? []) alerted.set(id, `${m[2]}-${m[3]}${links.sentAt?.[id] ? ` ${links.sentAt[id]}` : ''}`);
       for (const id of links.excluded ?? []) if (!alerted.has(id)) skipped.set(id, `${m[2]}-${m[3]}`);
       continue;
     }
@@ -313,14 +313,23 @@ const entryLabelOf = (e) => `[${e.state}${e.tag && e.tag !== e.state && e.tag !=
 // 즉시 알림을 보낸 레이더 항목을 경쟁지가 그 뒤 [단독]으로 쓴 것(11-21: 냉연강판 상계관세 예비 — 11-20 알림, 11-21 07:35 토요경제 단독).
 // alerted 값은 알림 보낸 날(MM-DD)뿐이라 기사 날(KST)과 같거나 앞설 때만 '알림 뒤'로 본다. 같은 날이면 앞뒤를 모른다고 적는다.
 export function alertBeforeArticle(alerted, itemId, publishedIso) {
-  const day = alerted?.get?.(String(itemId));
+  const val = alerted?.get?.(String(itemId));
   const t = Date.parse(publishedIso ?? '');
-  if (!day || !Number.isFinite(t)) return '';
+  if (!val || !Number.isFinite(t)) return '';
+  const [day, hm] = String(val).split(' ');
   const kst = new Date(t + 9 * 3600000);
   const art = `${String(kst.getUTCMonth() + 1).padStart(2, '0')}-${String(kst.getUTCDate()).padStart(2, '0')}`;
   // 12월 알림 ↔ 1월 기사처럼 해를 넘긴 경우: 월이 기사보다 크면 지난해로 본다
-  const before = day <= art || (Number(day.slice(0, 2)) - Number(art.slice(0, 2)) > 6);
-  if (!before) return '';
+  const lastYear = Number(day.slice(0, 2)) - Number(art.slice(0, 2)) > 6;
+  if (hm) {
+    // 알림 시각이 있으면(묶음 '[단독 후보 알림 HH:MM]') 시각으로 앞뒤와 간격을 잰다
+    const y = kst.getUTCFullYear() - (lastYear ? 1 : 0);
+    const at = Date.parse(`${y}-${day}T${hm}:00+09:00`);
+    if (!Number.isFinite(at) || at >= t) return '';
+    const h = (t - at) / 3600000;
+    return ` 〔즉시 알림 보냄 ${day} ${hm} — ${h < 1 ? `${Math.round(h * 60)}분` : `${Math.round(h * 10) / 10}시간`} 뒤 경쟁지 단독〕`;
+  }
+  if (!(day <= art || lastYear)) return '';
   return day === art ? ` 〔같은 날(${day}) 즉시 알림 보냄 — 알림·기사 앞뒤는 알림 기록 시각으로 확인〕` : ` 〔즉시 알림 보냄 ${day} — 그 뒤 경쟁지 단독〕`;
 }
 

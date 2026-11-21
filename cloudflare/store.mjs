@@ -17,7 +17,18 @@ export function packageLinks(name, body) {
     // '제외 id:'(11-15): 알림이 원문·보도 대조까지 하고 "이미 기사 있음"으로 뺀 항목 — 다음 알림이 같은 것을 다시 검토하지 않게 한다
     const skip = text.split('\n').reverse().find((l) => /^제외 id\s*:/.test(l.trim()));
     const list = (l) => (l ?? '').replace(/^.*?:/, '').split(',').map((x) => x.trim()).filter(Boolean);
-    return { ids: [], urls: [], sent: list(line), excluded: list(skip) };
+    // 알림 시각(11-21): 'id …'가 처음 나온 '[단독 후보 알림 HH:MM]' 묶음의 시각 — 경쟁지 단독과 앞뒤를 시각으로 견준다(같은 날 비교 불가 해소).
+    // 끝의 '보낸 id:'·'제외 id:' 줄은 누적 목록이라 시각을 매기지 않는다
+    const sentAt = {};
+    let cur = null;
+    for (const raw of text.split('\n')) {
+      const l = raw.trim();
+      const h = /^\[단독 후보 알림 (\d{1,2}):(\d{2})\]/.exec(l);
+      if (h) { cur = `${h[1].padStart(2, '0')}:${h[2]}`; continue; }
+      if (!cur || /^(?:보낸|제외) id\s*:/.test(l)) continue;
+      for (const m of l.matchAll(/(?:^|[\s·(])id[ :]+([A-Za-z][A-Za-z0-9_-]*:[^\s,)〕]+|[0-9a-f]{16})/g)) if (!(m[1] in sentAt)) sentAt[m[1]] = cur;
+    }
+    return { ids: [], urls: [], sent: list(line), excluded: list(skip), sentAt };
   }
   const ids = new Set();
   const line = text.split('\n').reverse().find((l) => l.startsWith(LINK_LINE));
@@ -100,7 +111,7 @@ export class RadarStore {
       // 처리 장부(handled.mjs)용: 자동 기록(아침·오후 체크)은 빼고 제목·상태와 본문 앞부분만. 알림 기록(alert-날짜)은 끝의 '보낸 id:' 줄을 읽으려고 뒷부분.
       case 'packages.digest':
         return { rows: this.all(`SELECT name, title, state, created_at, updated_at,
-            CASE WHEN name GLOB 'alert-[0-9]*' THEN substr(body, -3000) ELSE substr(body, 1, 6000) END AS body
+            CASE WHEN name GLOB 'alert-[0-9]*' THEN substr(body, -8000) ELSE substr(body, 1, 6000) END AS body
           FROM packages WHERE name NOT GLOB 'morning-[0-9]*' AND name NOT GLOB 'afternoon-[0-9]*' ORDER BY updated_at DESC LIMIT 300`)
           .map(({ body, ...r }) => ({ ...r, ...packageLinks(r.name, body) })) };
       case 'packages.save': {
