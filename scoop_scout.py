@@ -937,7 +937,9 @@ def build_lead_signals(primary, data, now, limit=12):
         group=source_group(x)
         if group=="기타" and not x.get("officialLabel"):
             diag["untrusted_source"]+=1; continue
-        if group=="조달" and re.search(r"청소년|진로|체험|기부|후원|사회공헌|달력|홍보|주간 입찰",title,re.I):
+        # 11-22: 후보 경로(procurement_noise)는 학교·유치원·어린이 조달을 버리는데 단서 경로는 안 버려, '색동유치원 어린이전용 통학차량
+        # 현대자동차 카운티 29인승 버스 구매 입찰공고'가 같은 실행에서 procurement_noise이자 leadSignals[0](radar_clues 자동차 칸)이었다
+        if group=="조달" and re.search(r"청소년|진로|체험|기부|후원|사회공헌|달력|홍보|주간 입찰|유치원|어린이|학교|교육청|교육지원청|통학",title,re.I):
             diag["noise"]+=1; continue
         matched=hits[0][0] if hits else ("수주·발주" if direct_procurement else "산업 신호")
         signal_terms=[term for label,terms in hits for term in terms if term.lower() in body.lower()]

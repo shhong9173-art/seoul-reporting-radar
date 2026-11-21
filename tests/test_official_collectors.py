@@ -7,7 +7,7 @@ import unittest
 import urllib.error
 import urllib.parse
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from correction_cases import CorrectionTests
 from pathlib import Path
 from unittest.mock import patch
@@ -376,6 +376,18 @@ class IrisRegressionTests(unittest.TestCase):
             leads, lead_diag = scoops.build_lead_signals(rows, [], self.now)
             self.assertEqual(leads, [])
             self.assertEqual(lead_diag["out_of_beat"], 1)
+
+
+class LeadProcurementNoise(unittest.TestCase):
+    def test_kindergarten_bus_tender_is_not_a_lead(self):
+        # 11-22 운영: 같은 실행에서 후보 경로는 procurement_noise로 버렸는데 단서 경로 leadSignals[0]으로 radar_clues 자동차 칸에 올라갔다
+        now = datetime(2026, 11, 21, 9, 0, tzinfo=timezone(timedelta(hours=9)))
+        row = {"title": "색동유치원 어린이전용 통학차량 현대자동차 카운티 29인승 버스 구매 입찰공고 - 나라장터", "url": "https://news.google.com/rss/articles/x",
+               "querySite": "g2b.go.kr", "sourceName": "나라장터", "published": "2026-11-20T10:00:00+09:00", "companies": ["현대차"],
+               "summary": "색동유치원 어린이전용 통학차량 현대자동차 카운티 29인승 버스 구매 입찰공고 나라장터"}
+        leads, diag = scoops.build_lead_signals([row], [], now)
+        self.assertEqual(leads, [])
+        self.assertEqual(diag["noise"], 1)
 
 
 if __name__ == "__main__":
