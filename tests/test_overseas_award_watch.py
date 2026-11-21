@@ -325,6 +325,35 @@ class Award(unittest.TestCase):
         self.assertEqual((x["company"], x["buyerCountry"], x["currency"], x["value"]), ("효성중공업", "Iraq", "USD", 38410000.0))
         self.assertEqual(x["winners"], ["HYOSUNG HEAVY INDUSTRIES CORPORATION"])
 
+    def test_fts_page_is_retried_once_after_timeout(self):
+        # 11-05~11-21: 14번 중 4번 'Read timed out' — 한 쪽마다 한 번만 더(15초 뒤), 두 번째도 실패하면 미확인
+        get, _, calls = fakes()
+        state = {"n": 0}
+
+        def flaky(url, params=None, headers=None, timeout=None):
+            if url.startswith(w.FTS_API) and state["n"] == 0:
+                state["n"] += 1
+                raise type("ReadTimeout", (Exception,), {})("Read timed out")
+            return get(url, params=params, headers=headers, timeout=timeout)
+        waits = []
+        items, checks = w.fts(dt.datetime(2026, 11, 1), get=flaky, sleep=waits.append)
+        self.assertEqual(checks[0]["status"], "ok")
+        self.assertIn(w.FTS_RETRY_WAIT, waits)
+        self.assertTrue(items)
+
+        def down(url, params=None, headers=None, timeout=None):
+            calls["fts"] += 1
+            raise type("ReadTimeout", (Exception,), {})("Read timed out")
+        calls["fts"] = 0
+        items, checks = w.fts(dt.datetime(2026, 11, 1), get=down, sleep=lambda s: None)
+        self.assertEqual((items, checks[0]["status"], calls["fts"]), ([], "failed", 2))
+
+        # 4xx(429 밖)는 다시 묻지 않는다
+        calls["fts"] = 0
+        r404 = type("R", (), {"status_code": 404, "json": lambda self: {}})()
+        items, checks = w.fts(dt.datetime(2026, 11, 1), get=lambda *a, **k: (calls.__setitem__("fts", calls["fts"] + 1), r404)[1], sleep=lambda s: None)
+        self.assertEqual((checks[0]["status"], calls["fts"]), ("failed", 1))
+
     def test_fts_supplier_names_and_korean_address(self):
         got = w.fts_items([FTS_REL, FTS_UK_ONLY])
         self.assertEqual(len(got), 1)

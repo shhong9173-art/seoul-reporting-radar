@@ -56,6 +56,7 @@ TED_PAUSE = 2.0
 TED_PAGES = 3
 FTS_API = "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages"
 FTS_PAGES = 40
+FTS_RETRY_WAIT = 15  # 쪽 하나가 지연·5xx면 한 번만 더 묻기 전 쉬는 시간(초)
 WB_API = "https://search.worldbank.org/api/v2/procnotices"
 BH_LIST = "https://www.tenderboard.gov.bh/Tenders/AwardedTenders/"
 BH_SITE = "https://www.tenderboard.gov.bh"
@@ -336,9 +337,24 @@ def fts_items(releases):
 def fts(since, *, get=None, sleep=time.sleep):
     params = {"stages": "award", "updatedFrom": since.strftime("%Y-%m-%dT%H:%M:%S"), "limit": 100}
     url, releases, pages = FTS_API, [], 0
+
+    def page(u, p):
+        # 11-21: 11-05~11-21 실행 14번 중 4번이 'Read timed out'(60초)으로 0/1 — 일시 지연. 한 쪽마다 한 번만 더(15초 뒤).
+        # 빠진 기간은 다음 실행의 겹침(OVERLAP_DAYS)으로도 다시 읽지만, 상태 줄 '일부 실패'와 하루 늦음을 줄인다.
+        for attempt in (0, 1):
+            try:
+                r = _get(get, u, params=p)
+                if r.status_code == 200 or attempt or not (r.status_code == 429 or r.status_code >= 500):
+                    return r
+            except Exception:  # noqa: BLE001 — 연결·읽기 지연
+                if attempt:
+                    raise
+            sleep(FTS_RETRY_WAIT)
+        return r
+
     try:
         while pages < FTS_PAGES:
-            r = _get(get, url, params=params if pages == 0 else None)
+            r = page(url, params if pages == 0 else None)
             if r.status_code != 200:
                 raise RuntimeError(f"HTTP {r.status_code}")
             d = r.json()
