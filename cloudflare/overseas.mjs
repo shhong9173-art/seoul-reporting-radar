@@ -1947,7 +1947,7 @@ export async function krOfficial(ctx, args) {
     }
     if (!ev.length) out.push('이 기간 감지된 변화 없음(조회 실패 회사는 미확인).');
     const facs = (doc.factories ?? []).filter((f) => matches(q, f.company, f.cmpnyNm, f.rnAdres, f.mainProductCn));
-    // 한 번 빠진 공장은 다음 날 실행에서도 없을 때만 '목록에서 빠짐'(11-22: 빠짐 9건 중 7건이 1~2일 뒤 다시 나옴)
+    // 한 번 빠진 공장은 다음 날 실행에서도 없을 때만 '목록에서 빠짐'(11-22: 빠짐 8건 중 6건이 1~2일 뒤 다시 나옴)
     const pending = facs.filter((f) => f.missingSince);
     if (pending.length) out.push(`(조회 목록에서 한 번 빠진 공장 ${pending.length}곳 — 다음 날 실행에서도 없으면 '목록에서 빠짐': ${pending.slice(0, 5).map((f) => `${f.cmpnyNm} ${String(f.missingSince).slice(5, 10)}`).join(', ')}${pending.length > 5 ? ' 등' : ''})`);
     const recent = facs.filter((f) => (f.tags ?? []).some((t) => t.startsWith('[최근 등록')));
