@@ -1714,7 +1714,8 @@ export async function iepsSection(ctx, q, days, limit) {
   if (bf && Number.isFinite(bf.total)) out.push(`지난 글 채우기(회사 이름 검색 첫 쪽, 기준선·알림 없음): ${bf.total}곳 중 ${(bf.doneNames ?? []).length}곳 검색 · 채운 글 ${bf.filled ?? 0}건`
     + `${bf.error ? ` · 멈춤: ${bf.error}` : ''}${bf.done ? ' · 다 채움' : ' · 평일 실행마다 10곳'}`);
   const older = (doc.items ?? []).filter((x) => String(x.date ?? '') < from && matches(q, x.company, x.site, x.industry, x.kind)).length;
-  if (older) out.push(`(게시 ${days}일보다 옛 출입처 글 ${older}건 더 — days=400으로 보기)`);
+  // 보관은 2년(게시판 2025-07 개설) — 최대 days에서도 옛 글이 남으면 그렇게 적는다(11-21: days=400 화면이 'days=400으로 보기'라고 했다)
+  if (older) out.push(days < 730 ? `(게시 ${days}일보다 옛 출입처 글 ${older}건 더 — days=730으로 보기)` : `(게시 ${days}일보다 옛 출입처 글 ${older}건 — 보관 2년 밖)`);
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.tier} · 게시 ${x.date} · ${x.kind}${x.industry ? `(${x.industry})` : ''} · ${x.company}${x.related ? '(관련 기업)' : ''} · ${x.site}${x.no ? ` · 허가번호 ${x.no}` : ''}${x.backfill ? ' [기준선·검색 채움]' : x.baseline ? ' [기준선]' : String(x.firstSeen ?? '') === String(doc.generatedAt) ? ' [신규]' : ''}`);
     if ((x.history ?? []).length) out.push(`   허가 이력(검토 결과서): ${x.history.slice(0, 6).map(([d, k]) => `${d} ${k}`).join(', ')}`);
@@ -1891,7 +1892,7 @@ export async function stacksSection(ctx, q, days, limit) {
 export async function krOfficial(ctx, args) {
   const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council', 'assembly', 'ieps'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
-  if (section === 'ieps') return textResult((await iepsSection(ctx, q, clampInt(args.days, 1, 400, 180), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'ieps') return textResult((await iepsSection(ctx, q, clampInt(args.days, 1, 730, 180), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
@@ -1913,7 +1914,7 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await assemblySection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
-  if (!section) insolvency.push(...await iepsSection(ctx, q, clampInt(args.days, 1, 400, 180), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await iepsSection(ctx, q, clampInt(args.days, 1, 730, 180), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
