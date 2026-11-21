@@ -479,6 +479,10 @@ export function kitaSection(ki, events, q = '', limit = 15, fromIso = '') {
   for (const c of recent.slice(0, limit)) {
     out.push(`  ${c.updated ?? '?'} · ${c.country} ${c.type} · ${c.item} · ${c.status}${c.category ? ` · ${c.category}` : ''}${c.latestStage ? ` · 최신 ${String(c.latestStage).replace('|', ' ')}` : ''}`);
   }
+  // 11-21: 이 DB의 갱신 날짜는 몰려 있다(운영: 9-27~29, 10-26~29 — 10-29 뒤 3주 갱신 없음). 오래 갱신이 없으면 '감지 0건'을 새 사건 없음으로 읽지 않게 적는다
+  const last = Object.values(ki.cases ?? {}).map((c) => String(c.updated ?? '')).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+  const gap = last && ki.checkedAt ? Math.floor((Date.parse(String(ki.checkedAt).slice(0, 10)) - Date.parse(last)) / 86400000) : null;
+  if (gap !== null && gap >= 14) out.push(`   주의: 이 DB의 가장 최근 갱신이 ${last}(확인일 기준 ${gap}일 전) — 그 뒤 고친 사건이 없다. 갱신이 며칠에 몰려 나오는 편이라 그 사이 '감지 0건'은 새 사건이 없다는 뜻이 아니다. 각국 원천 감시(일본·태국·EU·영국·인도·캐나다·호주·베트남 등)를 본다`);
   out.push('   검증 상태: 무역협회가 각국 조치를 정리한 2차 자료(자동). 마진·판정·대상 업체는 단계마다 붙은 원문(관보·WTO 통보 등)으로 확인. 미국 사건은 관보 감시가 먼저 잡는다');
   return out;
 }
