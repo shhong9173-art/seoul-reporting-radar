@@ -7,7 +7,7 @@
 //  ④ 기자가 실제로 단독을 쓴 유형부터 보여 준다.
 // 유형 표(DESK_TYPES)의 근거는 기자의 판정 기록이다 — 바꾸는 건 기자가 정한다.
 import { clampInt, textResult } from './common.mjs';
-import { clipAt, kstStamp, ledgerMark, pressLines, radarTodayData } from './digest.mjs';
+import { clipAt, kstStamp, ledgerMark, pressLines, radarTodayData, rivalPaceLine } from './digest.mjs';
 import { EXCLUDING, companiesIn, entryLabel } from './handled.mjs';
 import { AHEAD_NOTE, aheadLine, foreignAhead } from './ahead.mjs';
 
@@ -159,6 +159,8 @@ export async function scoopDesk(ctx, args) {
     if (type.why) out.push(`   〔이 유형 실적〕 ${type.why}`);
     if (type.note) out.push(`   〔볼 것〕 ${type.note}`);
     if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
+    const pace = /^fr:/.test(String(x.id)) ? rivalPaceLine(d.rev, nowMs) : '';
+    if (pace) out.push(`   ${pace}`);
     if (x.ask) out.push(`   물을 것: ${x.ask}`);
     const press = pressLines(r.rec, kstStamp(d.press?.generatedAt), d.press?.generatedAt);
     if (press.length) out.push(...press); else out.push('   보도 대조(자동): 아직 대조 전 — news_check로 직접(낱말 바꿔 2~3번)');

@@ -1968,6 +1968,22 @@ export async function radarTodayData(ctx, args) {
 }
 
 // 처리 장부 표시(줄 끝): 숨기지 않고 보여 줄 때의 처리 상태, 처리한 뒤 새로 잡힌 비슷한 항목, 앞서 추천한 패키지, 즉시 알림으로 이미 보낸 것
+// 경쟁 속도(11-21): 최근 30일 경쟁지가 미국 관보 판정(상무부 반덤핑·상계관세 고시)을 근거로 쓴 단독이 레이더가 잡은 뒤 몇 시간 만에 나왔는지.
+// 11-21 냉연강판 상계관세 예비 — 레이더 11-20 23:00·알림 23:43 → 토요경제 [단독] 11-21 07:35. 관보 사전 공개 문서는 다음 날 아침 전에 기사가 된다.
+// 역추적 '먼저 잡은 후보' 가운데 레이더 항목이 관보 판정(fr:… 또는 단서 글의 Antidumping·Countervailing)인 것만 센다.
+export function rivalPaceLine(rev, nowMs = Date.now()) {
+  const from = nowMs - 30 * 86400000;
+  const rows = (rev?.articles ?? []).filter((a) => a.verdict === '먼저 잡은 후보' && a.best && Date.parse(a.published) >= from
+    && (/^fr:/.test(String(a.best.id)) || /Antidumping|Countervailing|Anti-Dumping/i.test(String(a.best.text ?? ''))));
+  if (rows.length < 2) return '';
+  const lead = rows.map((a) => Number(a.best.leadHours)).filter(Number.isFinite).sort((p, q) => p - q);
+  const med = lead.length % 2 ? lead[(lead.length - 1) / 2] : (lead[lead.length / 2 - 1] + lead[lead.length / 2]) / 2;
+  const by = {};
+  for (const a of rows) by[a.source ?? '?'] = (by[a.source ?? '?'] ?? 0) + 1;
+  return `〔경쟁 속도〕 최근 30일 경쟁지가 미국 관보 판정으로 쓴 단독 ${rows.length}건 — 레이더가 잡은 뒤 빠르면 ${Math.round(lead[0] * 10) / 10}시간, 중간 ${Math.round(med)}시간(`
+    + `${Object.entries(by).sort((p, q) => q[1] - p[1]).map(([k, n]) => `${k} ${n}`).join('·')})`;
+}
+
 export const ledgerMark = (x) => `${x.handled ? ` 〔이미 처리: ${entryLabel(x.handled.entry)} — 단독 추천에서 뺀다〕` : ''}`
   + `${x.similar ? ` 〔비슷한 건 처리 이력: ${entryLabel(x.similar)} — 새 사실인지 확인〕` : ''}`
   + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}${x.alertSkip ? ` 〔알림 검토 ${x.alertSkip}: 이미 기사 있어 안 보냄〕` : ''}`;
@@ -2008,6 +2024,7 @@ export async function radarTodayText(ctx, args) {
       out.push(`   ${x.fact}`);
       // 기사 준비(무역구제 등): 다음 절차·회사에 물을 것
       if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
+      if (/^fr:/.test(String(x.id)) && (x.tier === 'A' || x.tier === 'B') && rivalPaceLine(rev, d.now.getTime())) out.push(`   ${rivalPaceLine(rev, d.now.getTime())}`);
       if (x.next) out.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
       if (x.ask) out.push(`   물을 것: ${x.ask}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt), press?.generatedAt));
