@@ -38,7 +38,19 @@ const TH = [
   [/ทบทวน/, '재심'],
   [/เกาหลี/, '한국'], [/จีน/, '중국'], [/ญี่ปุ่น/, '일본'], [/ไต้หวัน/, '대만'], [/เวียดนาม/, '베트남'],
 ];
-const LANG = { 'vn-trav': ['베트남어', VI], 'id-kadi': ['인도네시아어', ID], 'th-trade': ['태국어', TH] };
+// 튀르키예어(11-21): 관보 무역구제 고시(tr-rg)는 제목에 나라·품목이 없고 본문 대목만 튀르키예어로 보인다
+const TR = [
+  [/Haks[ıi]z\s+Rekabetin\s+[ÖO]nlenmesi/i, '무역구제(불공정 수입 방지) 고시'], [/Korunma\s+[ÖO]nlem/i, '세이프가드'],
+  [/s[üu]resinin\s+sona\s+ermesi|nihai\s+g[öo]zden\s+ge[çc]irme/i, '일몰(종료) 재심'], [/g[öo]zden\s+ge[çc]irme/i, '재심'],
+  [/soru[şs]turma\s+a[çc][ıi]lmas/i, '조사 개시'], [/ge[çc]ici/i, '잠정'], [/nihai/i, '최종'], [/[öo]nlem/i, '조치'],
+  [/dampinge\s+kar[şs][ıi]\s+vergi/i, '반덤핑 관세'], [/damping/i, '덤핑'], [/s[üu]bvansiyon|telafi\s+edici/i, '보조금(상계관세)'],
+  [/s[ıi]cak\s+haddelenmi[şs]/i, '열연'], [/so[ğg]uk\s+haddelenmi[şs]/i, '냉연'], [/paslanmaz/i, '스테인리스'], [/galvaniz|kapl[ıi]/i, '도금'],
+  [/yass[ıi]/i, '판재'], [/[çc]elik/i, '철강'], [/polietilen\s+tereftalat|\bPET\b/i, 'PET'], [/polivinil\s+kl[oö]r[üu]r|\bPVC\b/i, 'PVC'],
+  [/lastik/i, '타이어'], [/kablo/i, '케이블'], [/polyester/i, '폴리에스터'], [/men[şs]e(?:li|yli)/i, '원산지(~산)'],
+  [/Kore/i, '한국'], [/[ÇC]in\s+Halk/i, '중국'], [/Hindistan/i, '인도'], [/Endonezya/i, '인도네시아'], [/Vietnam/i, '베트남'],
+  [/Tayland/i, '태국'], [/Malezya/i, '말레이시아'], [/Tayvan/i, '대만'], [/Japonya/i, '일본'],
+];
+const LANG = { 'vn-trav': ['베트남어', VI], 'id-kadi': ['인도네시아어', ID], 'th-trade': ['태국어', TH], 'tr-rg': ['튀르키예어', TR] };
 
 // pageId·글 → '베트남어 낱말 풀이: 범위 재심(대상 품목 범위) · 신청서 접수 · 반덤핑 · 도금강판 · 한국 · 중국' (없으면 '')
 export function foreignGloss(pageId, text) {
@@ -49,6 +61,7 @@ export function foreignGloss(pageId, text) {
   for (const [rx, ko] of lang[1]) if (rx.test(t) && !got.includes(ko)) got.push(ko);
   // '재심'은 더 구체적인 재심(범위·일몰·행정)이 있으면 뺀다
   const steel = /도금|냉연|열연|스테인리스|강연선|형강|컬러강판/;
-  const words = got.filter((w) => !(w === '재심' && got.some((x) => /재심/.test(x) && x !== '재심')) && !(w === '철강' && got.some((x) => steel.test(x))));
+  const words = got.filter((w) => !(w === '재심' && got.some((x) => /재심/.test(x) && x !== '재심')) && !(w === '철강' && got.some((x) => steel.test(x)))
+    && !(w === '덤핑' && got.includes('반덤핑 관세')));
   return words.length ? `${lang[0]} 낱말 풀이: ${words.join(' · ')} (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)` : '';
 }

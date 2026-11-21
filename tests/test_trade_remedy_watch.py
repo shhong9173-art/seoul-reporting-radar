@@ -353,6 +353,68 @@ class ForeignPages(unittest.TestCase):
         self.assertEqual(doc["status"], "partial")
 
 
+class TR:
+    def __init__(self, content, status=200):
+        self.status_code, self.content, self.text = status, content, content.decode("utf-8", "replace")
+
+
+class TurkeyGazette(unittest.TestCase):
+    """11-21 탐침 실제 꼴: 관보 목록 제목엔 나라가 없고(Tebliğ No만) 본문에 'Kore Cumhuriyeti menşeli'."""
+    PAGE = {"id": "tr-rg", "country": "튀르키예", "label": "튀르키예 관보 무역구제 고시", "url": "https://www.resmigazete.gov.tr/", "via": "tr-gazette"}
+    INDEX = ('<html><a href="20261111-1.htm">Kamu İhale Tebliği</a>'
+             '<a href="20261111-3.htm">–– İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2025/4)</a>'
+             '<a href="20261111-4.htm">–– İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2026/32)</a></html>')
+    KOR = "<p>Kore Cumhuriyeti menşeli 7210.49 gümrük tarife pozisyonu altında sınıflandırılan sıcak daldırma galvanizli yassı çelik ürünlerinin ithalatında</p>"
+    OTHER = "<p>Çin Halk Cumhuriyeti, Endonezya Cumhuriyeti, Hindistan Cumhuriyeti menşeli polyester ipliği</p>"
+
+    def site(self, index_days=("20261111",), calls=None):
+        def get(url, headers=None, timeout=None, params=None):
+            if calls is not None:
+                calls.append(url)
+            for d in index_days:
+                if url.endswith(f"/{d}.htm"):
+                    return TR(self.INDEX.encode("utf-8"))
+            if url.endswith("-3.htm"):
+                return TR(self.KOR.encode("windows-1254"))
+            if url.endswith("-4.htm"):
+                return TR(self.OTHER.encode("utf-8"))
+            return TR(b"nf", 404)
+        return get
+
+    def test_korea_tebligs_only_baseline_then_new(self):
+        now = dt.datetime(2026, 11, 12, 9, 0, tzinfo=KST)
+        calls = []
+        pages, ev = w.foreign_pages([self.PAGE], None, now, get=self.site(calls=calls), sleep=lambda s: None)
+        p = pages[0]
+        self.assertEqual((p["status"], ev), ("ok", []))                                   # 첫 실행은 기준선
+        (line, url), = p["lines"].items()
+        self.assertTrue(line.startswith("2026-11-11 튀르키예 관보 「İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2025/4)」 — …Kore Cumhuriyeti menşeli"))
+        self.assertIn("galvanizli yassı çelik", line)                                     # windows-1254 본문도 읽는다
+        self.assertEqual(url, "https://www.resmigazete.gov.tr/eskiler/2026/11/20261111-3.htm")
+        self.assertIn("관보 목록 1일 · 새로 연 무역구제 고시 2건", p["note"])
+        self.assertFalse(any("-1.htm" in u for u in calls))                                 # 무역구제 아닌 고시는 안 연다
+        # 다음 날: 이미 연 고시는 다시 안 열고, 새 Kore 고시만 새 줄
+        idx2 = self.INDEX.replace("20261111-3", "20261112-3").replace("2025/4", "2026/40")
+        calls2 = []
+
+        def get2(url, headers=None, timeout=None, params=None):
+            calls2.append(url)
+            if url.endswith("/20261112.htm"):
+                return TR(idx2.encode())
+            return self.site()(url)
+        pages2, ev2 = w.foreign_pages([self.PAGE], {"pages": pages}, now + dt.timedelta(days=1), get=get2, sleep=lambda s: None)
+        self.assertEqual(len(ev2), 1)
+        self.assertTrue(ev2[0]["text"].startswith("2026-11-12 튀르키예 관보 「İthalatta Haksız Rekabetin"))
+        self.assertIn("(Tebliğ No: 2026/40)", ev2[0]["text"])
+        self.assertEqual(ev2[0]["url"], "https://www.resmigazete.gov.tr/eskiler/2026/11/20261112-3.htm")
+        self.assertEqual(sum(1 for u in calls2 if u.endswith("20261111-4.htm")), 0)
+
+    def test_unreadable_gazette_is_failed_not_zero(self):
+        now = dt.datetime(2026, 11, 12, 9, 0, tzinfo=KST)
+        pages, ev = w.foreign_pages([self.PAGE], None, now, get=self.site(index_days=()), sleep=lambda s: None)
+        self.assertEqual((pages[0]["status"], ev), ("failed", []))
+
+
 class PetrochemNames(unittest.TestCase):
     """11-01 석유화학·정유 출입처: 자회사·비슷한 낱말은 걸지 않는다."""
 

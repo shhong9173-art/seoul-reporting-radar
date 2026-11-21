@@ -1029,3 +1029,10 @@
 - 격리 실행(11-21, 저장 안 함): 최근 50줄 중 출입처 3건(모두 통합허가 C). 앞 3쪽을 새 글로 보면 출입처 2건.
 - 화면: radar_today '통합환경허가 공개'(B만 보도 대조 — 회사+사업장 지명+환경·허가), `kr_official section=ieps`(게시 최근 180일, 허가 이력·변경 항목·첨부 이름·원문). 게시는 허가 뒤 몇 달~몇 년 늦을 수 있다 — 허가일·변경 내용·생산 규모는 결과서 원문과 회사·지방환경청으로 확인.
 
+## 튀르키예 관보 무역구제 고시(trade_remedies section=notices, 11-21)
+
+- 왜: 11-21 기자 "너 추천대로 멈추지말고 계속 업데이트". 해외 무역구제 문서는 기자가 단독을 쓴 갈래인데 튀르키예는 원천이 없었다(무역협회 DB는 한 달에 몰아서 고침). 브라질 gov.br(연결 끊김)·멕시코 DOF(SSL 오류)는 이 서버에서 막혀 넣지 않았다.
+- 원천: Resmî Gazete 날짜별 목록(`eskiler/YYYY/MM/YYYYMMDD.htm`) — 무역부 고시는 제목이 'İthalatta Haksız Rekabetin Önlenmesine İlişkin Tebliğ (Tebliğ No: 2026/32)'처럼 나라·품목이 없어, 무역구제 고시(Haksız Rekabet·Korunma Önlemleri·Sübvansiyon·Damping)만 열어 본문에 'Kore'가 있으면 줄로 남긴다. 탐침(11-21): 평일 12일에 무역구제 고시 2건, 그중 1건(2025/4 개정) 본문에 Kore.
+- 수집: `trade_remedy_watch.py`의 해외 목록(`tr-rg`, via `tr-gazette`) — 실행마다 오늘 포함 3일 목록(관보는 토·일에도 나옴), 이미 연 고시는 다시 안 엶, 404(그날 관보 없음)는 실패로 안 셈, 사흘 다 못 읽으면 실패. 본문은 utf-8, 안 되면 windows-1254. 첫 실행은 기준선.
+- 화면: radar_today·`trade_remedies section=notices` 줄 `YYYY-MM-DD 튀르키예 관보 「제목」 — …본문 대목(Kore 앞뒤)…`, 아래 '튀르키예어 낱말 풀이'(무역구제 고시·조사 개시·잠정·최종·재심·일몰 재심·반덤핑 관세·보조금·세이프가드·열연·냉연·스테인리스·도금·판재·PET·PVC·나라 이름 — 번역 아님).
+
