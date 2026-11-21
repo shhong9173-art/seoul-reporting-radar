@@ -78,13 +78,19 @@ def candidates(items, *, now, limit=MAX_ITEMS):
 
 
 def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
-    """대조 범위(72시간)를 지난 항목 중 이미 대조한 적 있고, 그때 질의와 지금 질의가 다른 것(대조 규칙이 바뀜) — A 먼저, 최근 먼저."""
+    """대조 범위(72시간)를 지난 항목 중 이미 대조한 적 있고, 그때 질의와 지금 질의가 다른 것(대조 규칙이 바뀜) — A 먼저, 최근 먼저.
+    11-22: 한 번도 대조하지 못한 A 항목도 한 번 본다(late) — 대조 낱말이 나중에 생겼거나(11-21 해외 공식 페이지 연식·차명) 연휴로
+    실행이 비어 72시간 범위를 지난 A가 '아직 대조 전'으로 남았다(11-20 제네시스 미국 홈 '2028 G80'·즉시 알림 보냄). B는 그대로 새로 안 본다."""
     prev = {str(r.get("id")): r for r in (previous or {}).get("items", []) if isinstance(r, dict)}
     out = []
     for r in candidates([x for x in older or [] if str(x.get("id")) not in recent_ids], now=now, limit=len(older or [])):
         old = prev.get(r["id"])
-        if old is None or list(old.get("queries") or []) == ss.queries(r):
-            continue   # 대조한 적 없는 오래된 항목은 새로 보지 않는다 · 규칙이 같으면 결과도 같다
+        if old is None:
+            if r["tier"] == "A":
+                out.append({**r, "late": True})
+            continue   # 대조한 적 없는 오래된 B는 새로 보지 않는다
+        if list(old.get("queries") or []) == ss.queries(r):
+            continue   # 규칙이 같으면 결과도 같다
         out.append({**r, "recheck": True})
     return out[:limit]
 
@@ -102,14 +108,15 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
                     "since": r["since"], "queries": r["queries"], "verdict": r["verdict"], "evidence": r["evidence"],
                     "channels": r["channels"], "checkedAt": stamp,
                     "firstVerdict": old.get("firstVerdict") or r["verdict"], "firstCheckedAt": old.get("firstCheckedAt") or stamp,
-                    **({"recheck": True, "prevQueries": old.get("queries")} if r.get("recheck") else {})})
+                    **({"recheck": True, "prevQueries": old.get("queries")} if r.get("recheck") else {}),
+                    **({"late": True} if r.get("late") else {})})
     have = {r["id"] for r in out}
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     out += [r for i, r in prev.items() if i not in have and str(r.get("checkedAt") or "") >= keep_from]
     counts = {v: sum(1 for r in out if r.get("checkedAt") == stamp and r["verdict"] == v)
               for v in ("미보도 후보", "관련 보도 있음", "같은 수치 선행", "미확인")}
     return {"schema": SCHEMA, "generatedAt": stamp, "hours": HOURS, "leadDays": LEAD_DAYS, "received": len(items),
-            "screened": len(rows), "rechecked": sum(1 for r in rows if r.get("recheck")), "counts": counts, "items": out,
+            "screened": len(rows), "rechecked": sum(1 for r in rows if r.get("recheck")), "late": sum(1 for r in rows if r.get("late")), "counts": counts, "items": out,
             "rules": ["오늘의 레이더 A·B 항목 중 대조 낱말이 있는 것만(회사·법안 이름 + 사건 낱말). 낱말은 검색어일 뿐 사실이 아니다.",
                       "관련 보도 있음은 기사 제목에 회사와 사건 낱말이 함께 있을 때(법안은 본문의 법 이름). 본문에만 있으면 약한 근거로만 붙이고 판정은 바꾸지 않는다.",
                       "시·군·나라 이름은 검색을 좁히는 낱말일 뿐, 회사+지명만 겹친 제목은 같은 사건으로 치지 않는다(사건 낱말이 있어야 함).",
@@ -162,7 +169,7 @@ def main():
     ch = {k: sum(1 for r in doc["items"] if r.get("checkedAt") == doc["generatedAt"] and r["channels"].get(k, {}).get("status") == "ok")
           for k in ("naver", "bing", "google")}
     # Public log: counts only — never companies, titles or queries.
-    print(f"::notice title=radar-check::항목 {doc['received']} · 대조 {doc['screened']}(규칙 바뀌어 다시 {doc['rechecked']}) · "
+    print(f"::notice title=radar-check::항목 {doc['received']} · 대조 {doc['screened']}(규칙 바뀌어 다시 {doc['rechecked']} · 늦게 처음 {doc['late']}) · "
           + " · ".join(f"{k} {v}" for k, v in doc["counts"].items())
           + f" · 채널 정상 naver {ch['naver']} bing {ch['bing']} google {ch['google']}")
     if doc["screened"] and not any(ch.values()):
