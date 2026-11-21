@@ -110,7 +110,12 @@ export function wordsOf(subject, companies = new Set()) {
 // 한글 지명 ↔ 원문 영문 표기(미국 주 정부·OSHA 자료는 영문뿐이다)
 const PLACE_EN = { 조지아: 'georgia', 앨라배마: 'alabama', 테네시: 'tennessee', 루이지애나: 'louisiana', 텍사스: 'texas', 인디애나: 'indiana', 미시간: 'michigan',
   오하이오: 'ohio', 켄터키: 'kentucky', 영국: 'united kingdom', 호주: 'australia', 캐나다: 'canada', 인도네시아: 'indonesia', 베트남: 'vietnam' };
-const rare = (w) => !COMMON.has(w) && !AGENCY.has(w.toUpperCase());
+// 차종·동력 이름: 맞아도 흔한 낱말로 센다 — 같은 차종의 다른 결함이 많다(11-22 운영: 4886 싼타페 도어 웨더스트립 무상수리가
+// '싼타페'·'하이브리드' 두 낱말로 '투싼·싼타페 하이브리드 美 EGR 결빙 캠페인' 접음 패키지의 비슷한 건 처리 이력으로 찍혔다). 같은 결함은 부품 낱말이 맞춘다.
+const VEHICLE = new Set(['아반떼', '쏘나타', '그랜저', '싼타페', '팰리세이드', '캐스퍼', '스타리아', '아이오닉', '엑시언트', '쏠라티', '파비스', '제네시스',
+  '쏘렌토', '스포티지', '카니발', '셀토스', '타스만', '토레스', '액티언', '티볼리', '렉스턴', '코란도', '콜레오스', '아르카나', '그랑콜레오스', '트랙스',
+  '트레일블레이저', '하이브리드', '전기차', '플러그인', '디젤', '가솔린', 'HEV', 'PHEV', 'BEV', 'EREV', 'MHEV']);
+const rare = (w) => !COMMON.has(w) && !AGENCY.has(w.toUpperCase()) && !VEHICLE.has(w) && !VEHICLE.has(w.toUpperCase());
 // 영문 낱말은 낱말 경계로만 맞춘다 — 붙여 쓴 글에서 찾으면 'Cat'이 'Application'에 걸린다(11-13 운영: 기아 조지아 OSHA 건이 대기 허가 기준선 줄에 붙음)
 const latinRe = (w) => new RegExp(`(?<![a-z])${escRe(w.toLowerCase()).replace(/\s+/g, '\\s+')}(?![a-z])`);
 // 장부 줄마다 정규식을 한 번만 만든다(항목마다 다시 만들지 않는다)
