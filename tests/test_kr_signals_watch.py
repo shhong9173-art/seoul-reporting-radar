@@ -612,8 +612,12 @@ class BriefingLabor(unittest.TestCase):
         topic = re.compile(next(m["topic"] for m in CFG["briefing"]["ministries"] if m["name"] == "고용노동부"))
         for title in ("고용노동부, 현대제철 당진제철소 특별감독 결과 발표", "(참고) 여수지청, 석유화학단지 사망사고 사업장 작업중지 명령", "울산지청, 완성차 협력사 불법파견 감독"):
             self.assertIsNotNone(topic.search(title), title)
-        for title in ("「2026 울산 공공기관 합동 혁신 경진대회」 개최", "(참고) '26.10월 취업자수는 13.9만명 증가하여 4개월 연속 두 자릿수 증가"):
+        for title in ("「2026 울산 공공기관 합동 혁신 경진대회」 개최", "(참고) '26.10월 취업자수는 13.9만명 증가하여 4개월 연속 두 자릿수 증가",
+                      # 11-22 운영 첫 새 줄(11-16): 협회 이름 속 '자동차' — 출입 업종 고용 문제가 아니다
+                      "노사발전재단-한국자동차진단보증협회, '자동차 진단평가 분야 광역형 특화 고용서비스' 맞손"):
             self.assertIsNone(topic.search(title), title)
+        for title in ("자동차 부품업계 고용위기 대응 지원", "자동차산업 노사 상생 협약"):
+            self.assertIsNotNone(topic.search(title), title)
         # 출입처 이름이 제목에 있으면 업종 낱말이 없어도 둔다
         named = brief_page([brief_row("156790200", "포스코 광양제철소 산업안전 감독 결과 발표", "2026-11-20", "고용노동부", "A00001")])
         routes = briefing_routes()
