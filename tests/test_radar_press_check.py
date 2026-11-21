@@ -232,6 +232,21 @@ class Run(unittest.TestCase):
             again = rpc.run([], now=NOW + dt.timedelta(hours=4), previous=doc, older=[page], get=channels({}), sleep=lambda s: None)
         self.assertEqual(again["late"], 0)                                              # 한 번 본 뒤에는 질의가 같아 안 봄
 
+    def test_never_checked_items_go_first_when_over_the_cap(self):
+        # 11-22: 항목 53·상한 40 — 날짜 순으로만 자르면 늦게 잡힌 옛 날짜 항목이 실행마다 밀린다
+        def item(i, date, tier="B"):
+            return {"tier": tier, "watch": "공장 부지 건축허가", "id": f"bld:{i}", "date": date, "company": "현대차", "fact": "x",
+                    "check": {"who": "현대차", "terms": ["공장", "증설"]}}
+        fresh = [item(i, "2026-11-21") for i in range(rpc.MAX_ITEMS + 5)]
+        old = [item(100 + i, "2026-10-15") for i in range(3)]
+        prev = {"items": [{"id": f"bld:{i}", "queries": ["현대차 공장"], "checkedAt": "2026-11-21T18:50:00+09:00"} for i in range(rpc.MAX_ITEMS + 5)]}
+        seen = []
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run(fresh + old, now=NOW, previous=prev, get=channels({}, seen), sleep=lambda s: None)
+        checked = {r["id"] for r in doc["items"] if r.get("checkedAt") == NOW.isoformat(timespec="seconds")}
+        self.assertTrue({"bld:100", "bld:101", "bld:102"} <= checked)
+        self.assertEqual(doc["screened"], rpc.MAX_ITEMS)
+
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
                  "check": {"who": "현대제철", "terms": ["관세", "판정"]}} for i in range(12)]
