@@ -100,7 +100,9 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
 
 # 한국어 요약(11-01 기자 요청: 외신을 한국어로 요약·번역). 매체 RSS 본문 발췌(articleText)가 있는 항목만 — 본문이 없으면 요약하지 않는다.
 # 같은 주소·같은 제목·같은 요약 규칙 버전이면 지난 요약을 다시 쓴다. 영어 본문(articleText)은 결과에서 지운다(공개 저장소에 원문을 싣지 않게).
-SUMMARY_VERSION=1
+# v2(11-21): 워커가 통화 금액을 모델에 보내기 전에 조·억·만 단위로 바꾼다(#929). 제목(AI_TRANSLATION_VERSION 4)만 다시 번역되고
+# 요약은 v1 그대로 남아 Tyrepress 'KRW 10 billion' 요약이 계속 '1조원'(실제 100억원)으로 보였다 — 예전 요약 다시
+SUMMARY_VERSION=2
 
 
 def summarize_selected(rows,summarizer,*,previous=None,workers=2):

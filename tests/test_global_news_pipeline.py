@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from global_news_pipeline import AI_TRANSLATION_VERSION,shortlist,summarize_selected,translate_selected
+from global_news_pipeline import AI_TRANSLATION_VERSION,SUMMARY_VERSION,shortlist,summarize_selected,translate_selected
 
 
 def item(title,url,score=70,published="2026-10-16T09:00:00+09:00",summary="Original context"):
@@ -263,6 +263,18 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual(unmatched_numbers("4억 4900만 유로 공장, 약 449억원",'Vingroup to build a €449-million EV plant'),["449억원"])
         self.assertEqual(unmatched_numbers("보급률 거의 100% 수준",'electric buses near-ubiquitous'),["100%"])
 
+    def test_old_rule_summaries_are_summarized_again(self):
+        # 11-21: 통화 금액 단위 바꾸기(#929) 전 요약 'KRW 10 billion' → '1조원'이 v1으로 남아 다시 안 만들어졌다
+        row={**item("Kumho Tire seeks KRW 10 billion subsidy for Hampyeong plant","https://e/k",summary=""),
+             "articleText":"Kumho Tire plans to claim a KRW 10 billion cash subsidy."}
+        old=[{**row,"koSummary":"1조원 보조금","summaryTranslationStatus":"summarized_ai","summaryVersion":SUMMARY_VERSION-1}]
+        old[0].pop("articleText")
+        out=summarize_selected([dict(row)],lambda t,x:"100억원 보조금",previous=old,workers=1)
+        self.assertEqual((out[0]["koSummary"],out[0]["summaryVersion"]),("100억원 보조금",SUMMARY_VERSION))
+        self.assertGreaterEqual(SUMMARY_VERSION,2)
+        same=[{**old[0],"summaryVersion":SUMMARY_VERSION}]
+        self.assertEqual(summarize_selected([dict(row)],lambda t,x:"새 요약",previous=same,workers=1)[0]["koSummary"],"1조원 보조금")   # 같은 판은 다시 씀
+
     def test_summarize_step_records_numbers_not_in_source(self):
         rows=[{**item("Hyundai to invest US$450m in Alabama","https://e/a",summary="",published="2026-10-30T09:00:00+09:00"),
                "koTitle":"현대차, 앨라배마에 4억5000만달러 투자","articleText":"Hyundai will invest US$450m in its Alabama plant."},
@@ -446,7 +458,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             return "현대차가 앨라배마 공장에 4억5000만달러를 투자한다."
         out=summarize_selected(rows,summarizer,previous=[],workers=1)
         self.assertEqual(calls,[("A","Body A text.")])                          # 본문 없는 항목은 요약하지 않는다
-        self.assertEqual((out[0]["summaryTranslationStatus"],out[0]["summaryVersion"]),("summarized_ai",1))
+        self.assertEqual((out[0]["summaryTranslationStatus"],out[0]["summaryVersion"]),("summarized_ai",SUMMARY_VERSION))
         self.assertNotIn("articleText",out[0]); self.assertNotIn("articleText",out[1])   # 영어 본문은 저장하지 않는다
         self.assertFalse(out[1].get("koSummary"))
         again=summarize_selected([{**item("A","https://e/a",summary=""),"articleText":"Body A text."}],summarizer,previous=out,workers=1)
