@@ -18,10 +18,10 @@ const W = { screen: '단독 후보 심사', official: '공장등록·관보', si
   workforce: '사업장 인력(국민연금)', stacks: '굴뚝 측정(공장 가동 신호)', labor: '노동위 회의(조정·심판)', union: '노조 성명·보도자료', council: '지방의회 회의록',
   india: '인도 법인 공시(현대차 인도)', counter: '타사 공시 속 출입처(거래상대)', gov: '지분·자사주 변동', exec: '임원 명단 변화(정기보고서)',
   execm: '수시 임원 공시·타사 임원 명단', execc: '문제 임원 점검', global: '출입처 외신', uknotice: '영국 무역구제 고시', euoj: 'EU 관보 무역구제',
-  thtr: '태국 무역구제 공고' };
+  thtr: '태국 무역구제 공고', jptr: '일본 무역구제 공고' };
 
 const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제|영국 TRA)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C')
-  || ([W.uknotice, W.euoj, W.thtr].includes(x.watch) && x.tier !== 'C');   // 11-19 영국 정부 무역구제 고시·EU 관보 규정(최종 결정·업체별 세율)
+  || ([W.uknotice, W.euoj, W.thtr, W.jptr].includes(x.watch) && x.tier !== 'C');   // 11-19 영국 정부 무역구제 고시·EU 관보 규정(최종 결정·업체별 세율)
 const GOV = /한국 정부|대한민국 정부|산업통상부|Government of (?:the Republic of )?Korea|Korean [Gg]overnment|MOTIE/;
 // 줄 끝에 붙는 사업보고서 단서('품목 낱말이 나온 출입처 …', listing_producers.py)는 문서에 출입처 이름이 나온 것이 아니다 — 떼고 본다
 // 사건 페이지 줄('DGTR 사건 페이지: …', dgtr_cases.py)의 이해관계자 명단 이름도 같다 — 목록 줄의 유형을 바꾸지 않는다
@@ -47,7 +47,7 @@ export const DESK_TYPES = [
   { key: 'foreignlist', strength: 'normal', label: '해외 무역구제 목록 새 줄(한국산)', why: '',
     // 11-14 확인: 인도 DGTR '페놀' 줄(11-14 01:51 감지)은 3-19에 개시한 조사였다 — 사건 페이지에 11-13 '이메일 주소 변경' 공지가 붙어 목록에 다시 떴다
     note: "목록에 줄이 새로 보였다는 것뿐 — 새 조사가 아닐 수 있다(진행 중인 조사에 절차 공지만 붙어도 목록에 다시 뜬다). 원문 사건 페이지에서 개시 고시 날짜와 가장 최근 문서부터 확인. 그다음 그 품목을 만드는 출입처(〔출입처 단서〕가 있으면 그 회사에 먼저). 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
-    test: (x) => foreignDoc(x) && ![W.uknotice, W.euoj, W.thtr].includes(x.watch) },   // 영국 정부 고시·EU 관보 규정은 목록 줄이 아니라 문서
+    test: (x) => foreignDoc(x) && ![W.uknotice, W.euoj, W.thtr, W.jptr].includes(x.watch) },   // 영국 정부 고시·EU 관보 규정은 목록 줄이 아니라 문서
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
     // 공시(DART)에서 나온 단서만 — 조달청 입찰공고 같은 다른 공개 단서는 '그 밖'(11-15 운영: LS일렉트릭 워크스테이션 구매 입찰공고가 이 유형 맨 위에 떴다)
     test: (x) => x.watch === W.screen && x.tier === 'A' && /dart\.fss\.or\.kr/.test(x.url ?? '') },

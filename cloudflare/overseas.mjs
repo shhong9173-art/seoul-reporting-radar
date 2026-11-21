@@ -582,6 +582,44 @@ export function thSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
   return out;
 }
 
+// 일본 무역구제 공고(jp-trade-remedy feed, 11-21): 재무성 관세제도 누리집의 반덤핑·상계관세(제목에 한국)·세이프가드(출입 업종 품목) 결정 목록.
+// 사건(원산지+품목)마다 가장 최근 공고와 보도자료 본문의 세율 범위·기간. 업체별 세율은 관보 정령·조사 보고서 원문.
+export function jpSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
+  if (!doc) return ['\n[일본 무역구제 공고(재무성)] 아직 수집 전 — 미확인'];
+  const checks = doc.checks ?? [];
+  const entries = (doc.entries ?? []).filter((x) => matches(q, x.title, x.productKo ?? '', x.kind ?? '', (x.detail?.companies ?? []).join(' ')));
+  const cases = new Map();
+  for (const x of [...entries].sort((a, b) => String(b.date).localeCompare(String(a.date)))) {
+    if (!cases.has(x.case)) cases.set(x.case, []);
+    cases.get(x.case).push(x);
+  }
+  const out = [`\n[일본 무역구제 공고 · 재무성 반덤핑·상계관세(한국산)·세이프가드(출입 업종 품목) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] 사건 ${cases.size}건`
+    + ` · 원천 ${checks.map((c) => `${String(c.source).replace('일본 재무성 ', '')} ${c.status}(${c.returned ?? 0}건 중 ${c.korea ?? 0}${c.error ? `, ${c.error}` : ''})`).join(' · ')}`
+    + `${doc.detailPending ? ` · 상세 쪽 못 읽은 공고 ${doc.detailPending}건` : ''}${doc.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''}`];
+  for (const list of [...cases.values()].slice(0, limit)) {
+    const x = list[0];
+    out.push(`- ${x.productKo ?? '출입 업종 밖'}${x.index === 'SG' ? ' 세이프가드' : x.index === 'CVD' ? ' 상계관세' : ' 반덤핑'} · 가장 최근 ${x.date} ${x.kind}`
+      + `${list.length > 1 ? ` · 지난 공고 ${list.slice(1, 4).map((e) => `${e.date} ${e.kind}`).join(' / ')}` : ''}`);
+    out.push(`   「${String(x.title).slice(0, 150)}」`);
+    const det = list.map((e) => e.detail ?? {});
+    const facts = [det.find((d) => d.rates)?.rates && `세율 ${det.find((d) => d.rates).rates}(보도자료 본문)`, det.find((d) => d.dutyTo)?.dutyTo && `관세 부과 ${det.find((d) => d.dutyTo).dutyTo}까지`,
+      det.find((d) => d.until)?.until && `조사 기간 ${det.find((d) => d.until).until}까지`, det.find((d) => d.applicants)?.applicants && `신청 ${det.find((d) => d.applicants).applicants}`,
+      det.find((d) => (d.companies ?? []).length) && `본문에 출입처 ${det.find((d) => (d.companies ?? []).length).companies.join('·')}`].filter(Boolean);
+    if (facts.length) out.push(`   ${facts.join(' · ')}`);
+    if (!x.detail?.read) out.push(`   상세 쪽 아직 못 읽음${x.detail?.error ? `(${x.detail.error})` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (cases.size > limit) out.push(`… 남은 ${cases.size - limit}건`);
+  const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= String(fromIso) && matches(q, e.text, e.product));
+  out.push(`새 공고(감지일 기준): ${ev.length}건`);
+  for (const e of ev.slice(-limit).reverse()) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.text}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  out.push('   검증 상태: 일본 재무성 누리집 목록·보도자료 본문(자동, 일본어). 공고 종류는 제목 낱말로 가른 것. 세율은 보도자료의 범위 — 업체별 세율은 관보 정령·조사 보고서 원문. 회사 입장은 회사 확인');
+  return out;
+}
+
 // EU 관보 무역구제(eu-trade-defence feed, 11-19): 집행위원회 시행규정·공고. 출입처 해외 법인이 수출자로 나온 규정은 그 나라산 조치다.
 export function euOjSection(doc, q = '', limit = 5, ctx = null) {
   if (!doc) return ['\n[EU 관보 무역구제] 아직 수집 전 — 미확인'];
@@ -825,7 +863,7 @@ export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au', 'th', 'ahead'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'eu', 'notices', 'ktc', 'kita', 'edis', 'tra', 'cbsa', 'au', 'th', 'jp', 'ahead'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -836,10 +874,11 @@ export async function tradeRemedies(ctx, args) {
   if (section === 'ahead') {
     const eu = await readFeed(ctx, 'eu-trade-defence');
     const span = clampInt(args.days, 1, 400, 90);
-    const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu, 'th-trade-remedy': await readFeed(ctx, 'th-trade-remedy') }, ctx.now.getTime(), { days: span })
+    const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu, 'th-trade-remedy': await readFeed(ctx, 'th-trade-remedy'),
+      'jp-trade-remedy': await readFeed(ctx, 'jp-trade-remedy') }, ctx.now.getTime(), { days: span })
       .filter((a) => matches(q, a.title, a.what, (a.who ?? []).join(' '), a.country));
     const out = [`다가오는 해외 판정 일정 — 앞으로 ${span}일 · 무역구제 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`
-      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한), 태국 사건 쪽 징수·담보 끝 날짜·단계 표, 미국 관보(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한), 영국 TRA 사건 예정표(구속력 없음), 인도 DGTR 개시일+규칙(Rule 17·23). 우회 조사는 계산 안 함.`];
+      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한), 태국 사건 쪽 징수·담보 끝 날짜·단계 표, 일본 재무성 공고(잠정 관세 기간·조사 연장 날짜, 없으면 개시+1년), 미국 관보(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한), 영국 TRA 사건 예정표(구속력 없음), 인도 DGTR 개시일+규칙(Rule 17·23). 우회 조사는 계산 안 함.`];
     out.push(`\n[날짜순] ${items.length}건`);
     for (const a of items.slice(0, Math.max(limit, 30))) out.push(...aheadLine(a).map((l, i) => (i === 0 && !a.beat ? `${l} (출입 업종 품목 아님)` : l)));
     if (!items.length) out.push('없음(수집을 못 읽었으면 미확인)');
@@ -896,6 +935,8 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'tra') out.push(...traSection(doc.tra, q, section === 'tra' ? limit : Math.min(limit, 6), showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
   if (!section || section === 'th') out.push(...thSection(await readFeed(ctx, 'th-trade-remedy'), q, section === 'th' ? limit : Math.min(limit, 4), ctx,
     new Date(ctx.now.getTime() - (section === 'th' && !args.days ? 60 : days) * 86400000).toISOString()));
+  if (!section || section === 'jp') out.push(...jpSection(await readFeed(ctx, 'jp-trade-remedy'), q, section === 'jp' ? limit : Math.min(limit, 4), ctx,
+    new Date(ctx.now.getTime() - (section === 'jp' && !args.days ? 90 : days) * 86400000).toISOString()));
   if (!section || section === 'cbsa') out.push(...cbsaSection(doc.cbsa, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 5), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));
 
   if (!section || section === 'cbsa') out.push(...cittSection(doc.citt, doc.events, q, section === 'cbsa' ? limit : Math.min(limit, 3), showAll, new Date(ctx.now.getTime() - (section === 'cbsa' && !args.days ? 180 : days) * 86400000).toISOString()));

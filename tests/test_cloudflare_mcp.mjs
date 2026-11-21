@@ -2042,7 +2042,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 41개/);
+  assert.match(r.text, /기자 전용 감시 42개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2369,7 +2369,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 41개/);
+  assert.match(r.text, /기자 전용 감시 42개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2455,7 +2455,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 41개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 42개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -6223,6 +6223,60 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
   assert.doesNotMatch(dk, /8\.1\.2/);
   const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(a, /- 2027-11-12 · 태국 반덤핑위 · 재심 중 담보 기간 끝\(최종 결정이 먼저 나오면 앞당겨짐\) · AD1044 크롬도금강판 · 한국 세율 0-17\.06%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 징수 끝 날짜 · 원문: https:\/\/thaitr\.dft\.go\.th\/th\/search\/AD1044/);
+});
+
+test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {
+  const at = new Date('2026-11-21T03:00:00Z');   // 12:00 KST
+  const opts = { ...PRIVATE(), now: at };
+  const recent = new Date(at.getTime() - 20 * 60000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], events: [], checks: [] });
+  const F = 'https://www.mof.go.jp/policy/customs_tariff/trade/plan/futou/';
+  const GALV = '大韓民国産及び中華人民共和国産溶融亜鉛めっき鋼帯及び鋼板';
+  const BPA = '大韓民国産並びに台湾、澎湖諸島、金門及び馬祖から成る独立の関税地域産ビスフェノールＡ';
+  const HR = '大韓民国産、中華人民共和国産並びに台湾、澎湖諸島、金門及び馬祖から成る独立の関税地域産熱延鋼帯及び鋼板';
+  const KOH = '大韓民国産及び中華人民共和国産水酸化カリウム';
+  const e = (slug, title, date, kind, productKo, beat, cas, detail = { read: true }) => ({ url: `${F}${slug}.html`, title, date, index: 'AD', indexLabel: '반덤핑(不当廉売関税)',
+    kind, korea: true, productKo, productWords: [], beat, tier: beat ? 'A' : 'B', case: cas, detail });
+  const bpaText = `일본 재무성 무역구제 공고(반덤핑(不当廉売関税)) — 예비 판정(가결정): 「${BPA}に対する…（仮の決定）をしました」 · 품목 비스페놀A · 공표 2026-11-20 (일본 재무성·경제산업성 공표 — 세율·대상 업체는 원문 확인)`;
+  assert.equal((await post('jp-trade-remedy', { schema: 'jp_trade_remedy/v1', generatedAt: recent, status: 'ok', detailPending: 0,
+    checks: [{ source: '일본 재무성 반덤핑(不当廉売関税)', status: 'ok', returned: 22, korea: 11 }, { source: '일본 재무성 상계관세(相殺関税)', status: 'ok', returned: 3, korea: 0 },
+      { source: '일본 재무성 세이프가드(緊急関税)', status: 'ok', returned: 2, korea: 0 }],
+    entries: [
+      e('ka20261120', `${BPA}に対する不当廉売関税の課税に関する調査において…（仮の決定）をしました`, '2026-11-20', '예비 판정(가결정)', '비스페놀A', true, BPA),
+      e('ka20260804', `${GALV}に対する暫定的な不当廉売関税の課税を決定しました`, '2026-08-04', '잠정 관세 결정', '용융아연도금강판', true, GALV,
+        { read: true, rates: '29.2~55.3%', dutyTo: '2026-12-07', until: '', applicants: '', companies: [] }),
+      e('ka20260724-2', `${GALV}に対する不当廉売関税の課税に関する調査の期間を延長します`, '2026-07-24', '조사 기간 연장', '용융아연도금강판', true, GALV,
+        { read: true, until: '2026-12-12', companies: [] }),
+      e('ka20260601-1', `${HR}に対する不当廉売関税の課税に関する調査を開始します`, '2026-06-01', '조사 개시', '열연강판', true, HR,
+        { read: true, applicants: '日本製鉄株式会社、JFEスチール株式会社', companies: [] }),
+      e('ka20251225', `${KOH}に対する不当廉売関税の課税期間の延長に関する調査を開始します`, '2025-12-25', '일몰 재심(과세 기간 연장 조사) 개시', '수산화칼륨', false, KOH),
+      e('ka20250813', `${GALV}に対する不当廉売関税の課税に関する調査を開始します`, '2025-08-13', '조사 개시', '용융아연도금강판', true, GALV)],
+    events: [{ id: 'jptr:ka20261120', kind: '일본 무역구제(예비 판정(가결정))', tier: 'A', index: 'AD', product: '비스페놀A', productWords: ['비스페놀', 'BPA'], korea: true,
+      company: '', companies: [], case: BPA, date: '2026-11-20', url: `${F}ka20261120.html`, text: bpaText, detectedAt: recent }] })).status, 200);
+
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
+  const it = items.items.find((x) => x.id === 'jptr:ka20261120');
+  assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms], ['A', '한국산', '비스페놀A', ['일본', '반덤핑']]);
+  assert.match((await call('radar_today', {}, opts)).text, /일본 무역구제 공고 · 한국산\n   일본 재무성 무역구제 공고\(반덤핑\(不当廉売関税\)\) — 예비 판정\(가결정\): /);
+
+  const t = (await call('trade_remedies', { section: 'jp' }, opts)).text;
+  assert.match(t, /\[일본 무역구제 공고 · 재무성 반덤핑·상계관세\(한국산\)·세이프가드\(출입 업종 품목\) · 확인 [^\]]+\] 사건 4건 · 원천 반덤핑\(不当廉売関税\) ok\(22건 중 11\) · /);
+  assert.match(t, /- 용융아연도금강판 반덤핑 · 가장 최근 2026-08-04 잠정 관세 결정 · 지난 공고 2026-07-24 조사 기간 연장 \/ 2025-08-13 조사 개시\n   「大韓民国産[^」]*」\n   세율 29\.2~55\.3%\(보도자료 본문\) · 관세 부과 2026-12-07까지 · 조사 기간 2026-12-12까지\n   원문: https:\/\/www\.mof\.go\.jp\/policy\/customs_tariff\/trade\/plan\/futou\/ka20260804\.html/);
+  assert.match(t, /- 열연강판 반덤핑 · 가장 최근 2026-06-01 조사 개시\n   「[^」]*」\n   신청 日本製鉄株式会社、JFEスチール株式会社\n/);
+  assert.match(t, /새 공고\(감지일 기준\): 1건\n- A · [^\n]* · 일본 재무성 무역구제 공고[^\n]*\n   원문: https:\/\/www\.mof\.go\.jp\/[^\n]*ka20261120\.html/);
+  assert.doesNotMatch(t, /\[태국 무역구제 공고/);
+  assert.match((await call('trade_remedies', {}, opts)).text, /\[일본 무역구제 공고 · /);
+
+  // 도금강판: 잠정 관세 끝(12-07)·조사 끝(연장 공고 날짜 12-12)은 45일 안 — 단독 데스크 2-2구역. 수산화칼륨(업종 밖)은 데스크에 안 올린다
+  const dk = (await call('scoop_desk', {}, opts)).text;
+  assert.match(dk, /- 2026-12-07 · 일본 재무성·경산성 · 잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다 · 용융아연도금강판 반덤핑\(잠정 관세 결정 2026-08-04\) · 잠정 관세율 29\.2~55\.3%\n   근거: 일본 재무성 잠정 관세 결정 공고 본문의 부과 기간/);
+  assert.match(dk, /- 2026-12-12 · 일본 재무성·경산성 · 조사 기간 끝\(연장 공고 2026-07-24\) — 이 날까지 확정 관세 여부 결정 · 용융아연도금강판 반덤핑\(개시 2025-08-13\)\n   근거: 일본 재무성 조사 기간 연장 공고 본문의 날짜 · 원문: [^\n]*ka20260724-2\.html/);
+  assert.doesNotMatch(dk, /수산화칼륨/);
+  const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
+  assert.match(a, /- ~2027-06-01 · 일본 재무성·경산성 · 조사 기간 끝\(원칙 1년 — 연장하면 최대 2027-12-01\) · 열연강판 반덤핑\(개시 2026-06-01\)\n   근거: 관세정률법/);
+  assert.match(a, /- ~2026-12-25 · 일본 재무성·경산성 · 일몰 재심\(과세 기간 연장 조사\) 결론\(원칙 1년\) · 수산화칼륨 반덤핑\(재심 개시 2025-12-25\) \(출입 업종 품목 아님\)/);
+  assert.match(a, /원천: [^\n]*일본 재무성 공고\(잠정 관세 기간·조사 연장 날짜, 없으면 개시\+1년\)/);
 });
 
 test('무역위 사건 상세 칸이 원문부터 빈 사건(11-20): 목록 제목의 나라·유형 칸 비어 있음 표시', async () => {

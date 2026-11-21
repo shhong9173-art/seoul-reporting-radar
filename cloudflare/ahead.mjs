@@ -150,6 +150,48 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
         basis: '태국 무역구제과 사건 쪽 조사 단계 표(태국어 단계 이름 — 무엇의 마감인지는 원문)', url: x.url ?? '' });
     }
   }
+  // 일본 — 재무성 공고(jp_trade_remedy_watch.py, 11-21). 사건(원산지+품목)마다: 잠정 관세 끝(공고 본문), 조사 끝(연장 공고 본문의 날짜, 없으면
+  // 개시+1년 — 관세정률법: 조사는 원칙 1년, 필요하면 6개월까지 연장), 일몰 재심(과세 기간 연장 조사) 결론(개시+1년, 원칙). 확정·종료 공고가 나온 사건은 뺀다
+  {
+    const groups = new Map();
+    for (const e of docs?.['jp-trade-remedy']?.entries ?? []) {
+      if (!e?.case || !(e.korea || e.index === 'SG')) continue;
+      if (!groups.has(e.case)) groups.set(e.case, []);
+      groups.get(e.case).push(e);
+    }
+    for (const list of groups.values()) {
+      list.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const head = list[list.length - 1];
+      const name = `${head.productKo ?? String(head.case).slice(0, 40)}${head.index === 'SG' ? ' 세이프가드' : head.index === 'CVD' ? ' 상계관세' : ' 반덤핑'}`;
+      const sg = head.index === 'SG' && !head.korea;
+      const base = { country: '일본', agency: '재무성·경산성', src: 'jp', beat: Boolean(head.beat), who: [], safeguard: sg };
+      const init = [...list].reverse().find((e) => e.kind === '조사 개시');
+      const review = [...list].reverse().find((e) => /^일몰 재심/.test(e.kind ?? ''));
+      const doneAfter = (d) => list.some((e) => ['확정 관세 결정', '조사 종료(관세 안 매김)'].includes(e.kind) && e.date >= d);
+      const prov = [...list].reverse().find((e) => e.kind === '잠정 관세 결정' && e.detail?.dutyTo);
+      if (prov && !doneAfter(prov.date) && inWin(prov.detail.dutyTo)) {
+        out.push({ ...base, date: prov.detail.dutyTo, what: '잠정 관세 끝 — 그 전에 확정 관세를 정하지 않으면 잠정 관세가 끝난다', title: `${name}(잠정 관세 결정 ${prov.date})`,
+          whoNote: [prov.detail.rates && `잠정 관세율 ${prov.detail.rates}`, sg ? '세이프가드 — 모든 나라산(한국 포함)' : ''].filter(Boolean).join(' · '),
+          basis: '일본 재무성 잠정 관세 결정 공고 본문의 부과 기간', url: prov.url });
+      }
+      if (init && !doneAfter(init.date)) {
+        const ext = [...list].reverse().find((e) => e.kind === '조사 기간 연장' && e.detail?.until && e.date >= init.date);
+        const date = ext ? ext.detail.until : addMonths(init.date, 12);
+        if (inWin(date)) {
+          out.push({ ...base, date, approx: !ext, what: ext ? `조사 기간 끝(연장 공고 ${ext.date}) — 이 날까지 확정 관세 여부 결정` : `조사 기간 끝(원칙 1년 — 연장하면 최대 ${addMonths(init.date, 18)})`,
+            title: `${name}(개시 ${init.date})`, whoNote: sg ? '세이프가드 — 모든 나라산(한국 포함)' : '',
+            basis: ext ? '일본 재무성 조사 기간 연장 공고 본문의 날짜' : '관세정률법 — 조사는 원칙 1년 안, 필요하면 6개월까지 연장(개시일은 재무성 공고)', url: (ext ?? init).url });
+        }
+      }
+      if (review && !list.some((e) => /^과세 기간 연장 (결정|안 함)/.test(e.kind ?? '') && e.date >= review.date)) {
+        const date = addMonths(review.date, 12);
+        if (inWin(date)) {
+          out.push({ ...base, date, approx: true, what: '일몰 재심(과세 기간 연장 조사) 결론(원칙 1년)', title: `${name}(재심 개시 ${review.date})`, whoNote: '',
+            basis: '관세정률법 — 과세 기간 연장 조사는 원칙 1년 안(개시일은 재무성 공고)', url: review.url });
+        }
+      }
+    }
+  }
   // EU — 개시 공고에서 규정으로 계산한 시한(진행 사건만)
   for (const p of docs?.['eu-trade-defence']?.proceedings ?? []) {
     if (!p || p.stage === 'done') continue;
