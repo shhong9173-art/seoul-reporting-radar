@@ -164,6 +164,10 @@ class Run(unittest.TestCase):
         dk = "보시면법인동○○○감면된취득세가152억원이잖아요. ○세무과장 김복섭 예,동국제강입니다."
         self.assertTrue(w.hits(dk, rx["동국제강"])[1])
         self.assertTrue(w.hits("현대제철 당진제철소 주민 민원이 계속 들어옵니다", rx["현대제철"])[1])
+        # 11-21 운영(포항시의회 본회의 10-30 안건 보고): 기관 이름 '한국지방세연구원'의 '지방세'는 사건 낱말이 아니다
+        agenda = "2027년도 한국지방세연구원 출연안 등 3건을 원안 가결하였다는 보고가 있었으며, 10월 15일 경제산업위원장으로부터 경북-포스코 혁신성장 벤처펀드 출연안 등 8건을 원안 가결"
+        self.assertFalse(w.hits(agenda, rx["포스코"])[1])
+        self.assertTrue(w.hits("포스코 지방세 감면 연장 문제를 질의합니다", rx["포스코"])[1])
         get, _ = fake({})
         doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)
         body = "<p>세아제강을 저희가 2023년도에 시설보조금을 줬거든요. 그때는 MOU가 안 됐었습니까?</p>"
