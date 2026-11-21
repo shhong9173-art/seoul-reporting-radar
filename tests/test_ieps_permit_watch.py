@@ -4,6 +4,7 @@ import datetime as dt
 import sys
 import unittest
 from pathlib import Path
+from urllib.parse import unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import ieps_permit_watch as w  # noqa: E402
@@ -36,7 +37,7 @@ PDF = ("2021.12.28. 통 합 허 가\n2023.4.25.\n2023.12.00. < 변경신고 > �
        "1. 배출시설 및 방지시설 추가\n2. 폐수처리공정 변경\n「환경오염시설의 통합관리에 관한 법률」 제6조 배출시설 변경")
 
 
-def site(pages, fail=()):
+def site(pages, fail=(), search=None):
     calls = []
 
     def get(url, timeout=None, headers=None):
@@ -44,6 +45,11 @@ def site(pages, fail=()):
         if any(f in url for f in fail):
             raise type("ReadTimeout", (Exception,), {})("x")
         if "searchWord=" in url:
+            word = unquote(url.rsplit("searchWord=", 1)[1])
+            if search == "ignored":                                          # 검색어를 무시하고 목록 1쪽을 돌려주는 꼴
+                return R(text=pages.get(1, ""))
+            if search is not None:
+                return R(text=search.get(word, "<table></table>"))
             return R(text=pages.get("search", "<table></table>"))
         if "/web/board/7?" in url:
             n = int(url.rsplit("page=", 1)[1])
@@ -90,6 +96,45 @@ class Parse(unittest.TestCase):
         self.assertEqual(lines, ["배출시설 및 방지시설 , 배출구 변경", "신규 오염물질 추가", "배출시설 및 방지시설 추가", "폐수처리공정 변경"])
 
 
+class Backfill(unittest.TestCase):
+    """11-21 첫 채우기 실행: 공장등록 목록 순서대로 완성차·부품 10곳만 검색해 0건(검색 꼴은 탐침으로 확인 — '현대제철' 10줄 중 9줄 일치)."""
+    PREV = {"schema": w.SCHEMA, "baselineAt": "2026-11-21T22:56:00+09:00", "seen": ["3643", "3640", "3498", "3486", "3446"], "events": [], "items": [],
+            "backfill": {"next": 10}}
+
+    def test_order_puts_steel_chemical_refining_first_and_old_index_state_carries_over(self):
+        names = w.backfill_names()
+        self.assertEqual(set(names), set(w.raw_names()))
+        self.assertLess(names.index("현대제철"), names.index("현대자동차"))
+        self.assertLess(names.index("에쓰-오일"), names.index("기아"))
+        self.assertGreater(names.index("LS전선"), names.index("LG화학"))
+        get, calls = site({1: PAGE1})
+        doc = w.run(NOW, self.PREV, get=get, sleep=lambda s: None)
+        searched = [unquote(u.rsplit("searchWord=", 1)[1]) for u in calls if "searchWord=" in u]
+        self.assertEqual(len(searched), w.BACKFILL_PER_RUN)
+        self.assertFalse(set(searched) & set(w.raw_names()[:10]))                                # #954 판에서 이미 검색한 10곳은 건너뛴다
+        self.assertEqual(searched[0], "한국타이어앤테크놀로지")
+        self.assertEqual(len(doc["backfill"]["doneNames"]), 20)
+        self.assertFalse(doc["backfill"]["done"])
+
+    def test_search_rows_fill_baseline_items_without_events(self):
+        hit = ("<table>" + row(3301, "[변경허가, 철강]현대제철(주)당진제철소 정보공개(제0520-03호)", "2026-03-02")
+               + row(3290, "[통합허가, 철강]현대스틸파이프(주) 울산공장 정보공개(제0300-01호)", "2026-02-10") + "</table>")
+        get, _ = site({1: PAGE1}, search={"현대제철": hit})
+        doc = w.run(NOW, self.PREV, get=get, sleep=lambda s: None)
+        x = {i["id"]: i for i in doc["items"]}
+        self.assertIn("ieps:3301", x)
+        self.assertNotIn("ieps:3290", x)                                                          # 계열사는 채우지 않는다
+        self.assertEqual((x["ieps:3301"]["tier"], x["ieps:3301"]["baseline"], x["ieps:3301"]["backfill"]), ("B", True, True))
+        self.assertEqual((doc["events"], doc["counts"]["backfill"], doc["backfill"]["filled"]), ([], 1, 1))
+
+    def test_ignored_search_word_stops_and_says_so(self):
+        get, calls = site({1: PAGE1}, search="ignored")
+        doc = w.run(NOW, self.PREV, get=get, sleep=lambda s: None)
+        self.assertEqual(sum(1 for u in calls if "searchWord=" in u), 1)                          # 헛검색을 10번 보내지 않는다
+        self.assertIn("검색어가 반영되지 않음", doc["backfill"]["error"])
+        self.assertEqual(len(doc["backfill"]["doneNames"]), 10)
+
+
 class Run(unittest.TestCase):
     def test_first_run_is_baseline_then_new_change_permit_is_b_with_document_lines(self):
         get, calls = site({1: PAGE1})
@@ -130,9 +175,9 @@ class Run(unittest.TestCase):
                   + row(3486, "[연간보고서]현대제철(주)당진제철소_2023(2022년 기준)", "2025-09-08") + "</table>")
         get, calls = site({1: PAGE1, "search": search})
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
-        self.assertEqual(doc["backfill"], {"next": 0})                                          # 첫 실행(기준선)엔 채우지 않는다
+        self.assertEqual((doc["backfill"]["doneNames"], doc["backfill"]["filled"]), ([], 0))     # 첫 실행(기준선)엔 채우지 않는다
         doc2 = w.run(NOW + dt.timedelta(hours=1), doc, get=get, sleep=lambda s: None, read_pdf=lambda raw: (PDF, 3))
-        self.assertEqual(doc2["backfill"]["next"], w.BACKFILL_PER_RUN)
+        self.assertEqual(len(doc2["backfill"]["doneNames"]), w.BACKFILL_PER_RUN)
         self.assertEqual(sum(1 for u in calls if "searchWord=" in u), w.BACKFILL_PER_RUN)
         x = next(i for i in doc2["items"] if i["id"] == "ieps:3445")
         self.assertEqual((x["baseline"], x["backfill"], x["tier"]), (True, True, "C"))
@@ -140,7 +185,7 @@ class Run(unittest.TestCase):
         names = w.backfill_names()
         self.assertIn("현대자동차", names)
         self.assertFalse(any("효성" in n for n in names))
-        done = dict(doc2, backfill={"next": len(names)})
+        done = dict(doc2, backfill={"doneNames": names})
         calls.clear()
         doc3 = w.run(NOW + dt.timedelta(hours=2), done, get=get, sleep=lambda s: None)
         self.assertEqual((doc3["backfill"]["done"], sum(1 for u in calls if "searchWord=" in u)), (True, 0))
