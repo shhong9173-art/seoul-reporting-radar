@@ -6095,6 +6095,8 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
         title: 'Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025',
         url: 'https://www.federalregister.gov/d/2026-22343', named: ['HD현대일렉트릭', 'LS일렉트릭'], beat: true },
+      { case: 'A-580-920', kind: 'final', date: '2027-03-25', how: '관보 게재일+135일', pub: '2026-11-10', quote: 'Accordingly, Commerce will make its final determination no later than 135 days after the date of publication of this preliminary determination',
+        title: 'Polytetramethylene Ether Glycol From the Republic of Korea: Preliminary Affirmative Determination of Sales at Less Than Fair Value, Postponement of Final Determination', url: 'https://www.federalregister.gov/d/2026-22941', named: [], beat: false },
       { case: 'A-580-917', kind: 'hearing', date: '2026-12-29', how: '관보 명시', pub: '2026-11-18', quote: 'Hearing.-- The Commission will hold a hearing … beginning at 9:30 a.m. on December 29, 2026.',
         title: 'Certain Steel Wheels From the Republic of Korea; Scheduling of the Final Phase of Antidumping Duty Investigation', url: 'https://www.federalregister.gov/d/2026-9', named: [], beat: true },
       { case: 'A-580-881:2024-2025', kind: 'final', date: '2027-04-07', first: '2026-12-08', extended: true, statutory: true, pub: '2026-08-10',
@@ -6179,6 +6181,9 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /- 2027-09-30 · 인도 DGTR · 재심 종결 시한\(개시 12개월\) · Toluene DiIsocyanate-\(TDI\) \(개시 2026-09-30\)\n/);   // 명단에 이름이 없어도 품목이 출입 업종이면 업종 밖 표시 없음
   assert.doesNotMatch(t, /chisel|Nitrile Rubber/);
   assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
+  // 11-21: 원심 조사의 상무부 최종 시한 → ITC 최종 피해 판정 법정 시한(+45일). 행정재심(대형 변압기·못)에는 붙이지 않는다
+  assert.match(t, /- ~2027-05-09 · 미국 ITC · ITC 최종 피해 판정\(법정 — 상무부 최종 긍정 판정 뒤 45일 안, 상무부 최종이 부정이면 없음\) · Polytetramethylene Ether Glycol From the Republic of Korea · Preliminary Affirmative Determination of Sales at Less Than Fair Value\(상무부 최종 시한 2027-03-25\) \(출입 업종 품목 아님\)\n   근거: 19 U\.S\.C\. 1673d\(b\)\(2\)/);
+  assert.doesNotMatch(t, /ITC 최종 피해 판정[^\n]*(?:Large Power|Steel Nails)/);
   assert.match(t, /- 2027-04-07 · 미국 상무부 · 최종 판정·결과 시한\(연장 추정 — 법정 120일 2026-12-08 지나도록 판정 고시 없음, 법정 최대 180일\) · Certain Steel Nails From the Republic of Korea \(2024-2025\)/);
   const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers: Dumping (Chinese Taipei and South Korea) · 출입처 HD현대일렉트릭·일진전기(시행 중 조치 SPT 한국 수출자 표)',
     '2027-03-05 · 호주 ATRC · 조사 필수사실 보고서(SEF) 공개 기한 · 사건 706', '2027-03-26 · EU 집행위 · 반덤핑 조사 잠정 관세 사전 공개', '2027-04-19 · 호주 ATRC · 조사 최종 권고(장관 보고) 기한',
