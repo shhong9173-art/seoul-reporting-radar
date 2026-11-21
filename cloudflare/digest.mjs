@@ -968,7 +968,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : '')
         // 외화 금액의 원화(11-11): 한국은행 매매기준율로 코드가 계산(달러·유로·엔·파운드·위안). 기사에 쓸 땐 작성일 환율로 다시
-        + gbKrw(x.krw),
+        + gbKrw(x.krw)
+        // 게재 사흘 넘게 뒤에 처음 잡힌 기사(출입처 이름 검색은 7일 전 기사까지 읽는다) — 11-22 운영: upi 11-17 고려아연 기사가 11-21 이후 '새 항목' B
+        + (Date.parse(x.firstSeen) - Date.parse(x.published) > 3 * 86400000
+          ? ` · 레이더가 처음 본 날 ${kstDate(Date.parse(x.firstSeen)).slice(5)}(게재 ${Math.floor((Date.parse(x.firstSeen) - Date.parse(x.published)) / 86400000)}일 뒤 — 외신 검색에 늦게 잡힘)` : ''),
       url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published, x.koTitle) : undefined });
   }
 
