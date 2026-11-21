@@ -47,6 +47,20 @@ class Tender(unittest.TestCase):
   self.assertEqual(out["confirmedScoops"],0)
   self.assertEqual(len(out["notices"]),2)
   self.assertTrue(all(not x["namedSupplierVerified"] for x in out["notices"]))
+ def test_school_and_education_office_notices_are_skipped(self):
+  # 11-22 운영: 11-20 공고 16건 중 7건이 초·중·고·교육지원청 배전반·충전기·실습 장비
+  def one(title,dmin,ntce="조달청"):
+   return {"response":{"header":{"resultCode":"00"},"body":{"totalCount":1,"items":[{"bidNtceNo":"R26BK01845530","bidNtceOrd":"000",
+          "bidNtceNm":title,"ntceInsttNm":ntce,"dminsttNm":dmin,"bidNtceDtlUrl":"https://www.g2b.go.kr/"}]}}}
+  q=lambda t,d,n="조달청":p.query("goods","fake","202611200000","202611202359",get=lambda _:one(t,d,n))
+  rows,check=q("솔터초 전기용량증설 전기공사 관급자재(배전반) 구매","경기도교육청 경기도김포교육지원청")
+  self.assertEqual((rows,check["skippedSchools"]),([],1))
+  self.assertEqual(q("2026년 한국기술부사관고등학교 주상변압기 실습장치 및 소프트웨어 구매","전북특별자치도교육청 한국기술부사관고등학교")[0],[])
+  self.assertEqual(q("참샘초 외 18교 전기차 충전시설 설치 전기공사 입찰공고","세종특별자치시교육청")[0],[])
+  # 학교 아닌 발주처는 그대로(진도군 발전소 변압기·한전)
+  self.assertEqual(len(q("서거차도발전소 노후변압기 교체공사 관급자재 구매","전남광주통합특별시 진도군")[0]),1)
+  self.assertEqual(len(q("초고압 변압기 장비 구매","한국전력","한국전력")[0]),1)
+  self.assertEqual(len(q("최고 효율 변압기 및 중고 배전반 교체","한국수자원공사")[0]),1)   # 제목의 '고 '·'중고'로는 빼지 않는다
  def test_no_results_are_valid_only_with_provider_zero(self):
   rows,checked=p.query("goods","fake","202610130000","202610132359",get=lambda _:{"response":{"header":{"resultCode":"00"},"body":{"items":[],"totalCount":0}}})
   self.assertEqual(rows,[])
