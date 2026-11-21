@@ -4843,6 +4843,13 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.match(t.text, /번지 못 찾은 공장 1곳\(허가 미확인\): 세아 세아베스틸\(전북특별자치도 군산시 동장산로 1, 지번 못 찾음\)/);
   assert.match(t.text, /조회 실패 번지 1곳\(허가 미확인\): LS일렉트릭 엘에스일렉트릭\(주\)청주1공장\(충청북도 청주시 흥덕구 송정동 1, 빈 응답\)/);
   assert.match(t.text, /검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음\(건물명 '이웃산업\(주\) 공장'\)/);
+  // 주 1회(월) 수집 — 평일 재시도는 실패 번지가 없으면 건너뛰어 저장 시각이 며칠 묵는 것이 정상(11-22: 84시간 전인데 '최근 실행 실패 가능'이 떴다)
+  for (const [h, warn] of [[100, false], [200, true]]) {
+    const aged = { ...doc, generatedAt: new Date(NOW.getTime() - h * 3600000).toISOString() };
+    await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(aged) }), env, {});
+    const head = (await call('kr_official', { section: 'building' }, opts)).text.split('\n').find((l) => l.startsWith('[공장 부지 건축허가'));
+    assert.equal(/최근 실행 실패 가능/.test(head), warn, `${h}시간: ${head}`);
+  }
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.terms, ['당진', '공장', '신설']);
   const unset = { ...doc, status: 'unset', permits: [], checks: [{ source: '주소 변환', status: 'unset', error: 'JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요' },
