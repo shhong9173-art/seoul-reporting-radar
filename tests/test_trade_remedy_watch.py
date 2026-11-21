@@ -85,17 +85,19 @@ class R:
         return self.body
 
 
-def fake(au=AU_NEW, taric_down=False, fr_down=False, calls=None):
+def fake(au=AU_NEW, taric_down=False, fr_down=False, calls=None, list_empty=False, detail_bad=()):
     def get(url, params=None, headers=None, timeout=None):
         if calls is not None:
             calls.append((url, dict(params) if isinstance(params, dict) else params))
         if "quota_list.jsp" in url:
             if taric_down:
                 return R(503)
-            return R(text=LIST if params["Origin"] == "KR" and params["Offset"] == 0 else list_html([]))
+            return R(text=LIST if params["Origin"] == "KR" and params["Offset"] == 0 and not list_empty else list_html([]))
         if "quota_tariff_details.jsp" in url:
             if taric_down:
                 return R(503)
+            if params["Code"] in detail_bad:
+                return R(text="<html>maintenance</html>")
             key = (params["Code"], params["StartDate"])
             return R(text=DETAILS[key]) if key in DETAILS else R(text="<html>No data</html>")
         if url == w.FR_API:
@@ -165,6 +167,18 @@ class Taric(unittest.TestCase):
         self.assertIn("[직전 확인 대비 +50.0%p]", q["099843"]["tags"])
         last_q_calls = [c for c in calls if "quota_tariff_details" in c[0] and c[1]["StartDate"] == "2026-07-01"]
         self.assertEqual(last_q_calls, [])  # last quarter is final and cached
+
+    def test_partial_taric_does_not_drop_known_orders_or_refire_exhaustion(self):
+        # 운영 11-21(토) 09:30: 목록이 비고 099843 상세가 형식 불일치 — 저장분이 30개에서 3개로 줄었다. 다음 정상 실행에서 이미 소진된
+        # 쿼터가 '새로 소진'으로 다시 알림되면 안 되고, 목록이 비어도 이번 분기에 알던 쿼터는 다시 조회해야 한다
+        cfg = {"pages": PAGES, "taricSeeds": []}
+        first = w.run(cfg, now=NOW, previous=None, get=fake(), sleep=lambda s: None)
+        bad = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=first, get=fake(list_empty=True, detail_bad=("099843",)), sleep=lambda s: None)
+        q = {x["order"]: x for x in bad["quotas"]}
+        self.assertEqual(sorted(q), ["099507", "099843", "099854"])            # 목록이 비어도 알던 쿼터를 조회
+        self.assertEqual((q["099843"]["status"], q["099843"]["error"]), ("failed", "형식 불일치"))
+        again = w.run(cfg, now=NOW + dt.timedelta(days=2), previous=bad, get=fake(), sleep=lambda s: None)
+        self.assertEqual([e["id"] for e in again["events"] if e["pageId"] == "taric"], [])   # 10-10 소진은 첫 실행 때 이미 알던 것
 
     def test_taric_down_keeps_last_quotas_marked_stale(self):
         first = run()

@@ -204,10 +204,15 @@ def taric(now, seeds, previous, *, get=None, sleep=time.sleep):
     start = quarter_start(now.date() if isinstance(now, dt.datetime) else now)
     last_start = previous_quarter(start)
     orders, errors, pages = taric_orders(start.year, start, get=get, sleep=sleep)
-    orders = sorted(set(orders) | set(seeds))
     prev = {q["order"]: q for q in (previous or {}).get("quotas", []) if isinstance(q, dict) and q.get("status") == "ok"}
     history = {k: dict(v) for k, v in ((previous or {}).get("quotaHistory") or {}).items() if isinstance(v, dict)}
-    had_state = bool(prev)
+    # 운영 11-21(토) 09:30: 목록이 비어(유지보수 화면으로 보임) 저장분이 30개 → 3개(시드)로 줄었다. 이번 분기에 이미 알던 쿼터(직전 저장분·이력)는
+    # 목록에 안 나와도 다시 조회한다
+    known = {q["order"] for q in (previous or {}).get("quotas", []) if isinstance(q, dict) and q.get("periodStart") == start.isoformat() and q.get("order")}
+    known |= {o for o, h in history.items() if start.isoformat() in h}
+    orders = sorted(set(orders) | set(seeds) | known)
+    had_state = bool(prev) or any(start.isoformat() in h for h in history.values())
+    seen_before = {o: dict(h.get(start.isoformat()) or {}) for o, h in history.items()}   # 이번 실행이 이력을 고치기 전
     out = []
 
     def detail(order, period):
@@ -238,7 +243,9 @@ def taric(now, seeds, previous, *, get=None, sleep=time.sleep):
                  url=f"{TARIC}/quota_tariff_details.jsp?Lang=en&StartDate={start.isoformat()}&Code={o}",
                  prevUsedPct=p.get("usedPct") if same else None)
         d["tags"] = quota_tags(d)
-        d["newlyExhausted"] = had_state and bool(d.get("exhaustedOn")) and not (same and p.get("exhaustedOn"))
+        # 직전 저장분에 없더라도(직전 실행 조회 실패) 이력에 이번 분기 소진일이 있으면 새 소진이 아니다
+        seen_exhausted = p.get("exhaustedOn") if same else (seen_before.get(o) or {}).get("exhaustedOn")
+        d["newlyExhausted"] = had_state and bool(d.get("exhaustedOn")) and not seen_exhausted
         history.setdefault(o, {})[start.isoformat()] = {k: d.get(k) for k in ("initialT", "balanceT", "usedPct", "exhaustedOn", "daysToExhaust")}
         out.append(d)
     keep = {start.isoformat(), last_start.isoformat(), previous_quarter(last_start).isoformat()}
