@@ -33,6 +33,8 @@ BASE = "https://www.nlrc.go.kr"
 UA = "seoul-reporting-radar (newsroom research; labor commission public schedule)"
 PAUSE = 2.0
 WIDGET_RETRY_WAIT = 10.0  # 첫 화면 한 번 더 묻기 전 쉬는 시간(초)
+WIDGET_RETRY_TIMEOUT = 60  # 첫 화면 두 번째 물음의 응답 대기(초)
+WIDGET_RETRY_BUDGET = 4  # 한 실행에서 첫 화면을 다시 묻는 위원회 수 상한
 KEEP_DAYS = 120
 SEEN_DAYS = 14
 WIDGET_CAP = 5
@@ -212,6 +214,7 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
         for k in ("details", "cases", "조정 사건"):
             counts[k] = int((prev.get("counts") or {}).get(k) or 0)
     first = True
+    retries = WIDGET_RETRY_BUDGET  # 사이트가 통째로 느리면 위원회마다 다시 묻다 작업 한도(15분)를 넘는다 — 한 실행 다시 묻기 횟수 상한
     for slug, cname in COMMISSIONS:
         if not first:
             sleep(PAUSE)
@@ -222,10 +225,16 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
         # 11-21: 11-06~11-20 실행 절반가량에서 위원회 1~2곳 첫 화면이 ReadTimeout(30초)으로 빠졌다(매번 다른 곳 — 일시 지연).
         # 회의 상세처럼 한 번만 더(10초 뒤) 묻는다. 두 번째도 실패하면 미확인으로 둔다.
         for attempt, wait in enumerate((0.0, WIDGET_RETRY_WAIT)):
+            if attempt:
+                if retries <= 0:
+                    widget_error += " · 이번 실행 다시 묻기 상한(사이트 전체 지연 의심)"
+                    break
+                retries -= 1
             if wait:
                 sleep(wait)
             try:
-                r = get(url, timeout=30)
+                # 11-21 첫 적용 실행(#931): 충북지노위가 30초 ReadTimeout을 두 번 — 응답이 30초를 넘기는 화면이다. 두 번째는 60초까지 기다린다
+                r = get(url, timeout=30 if not attempt else WIDGET_RETRY_TIMEOUT)
                 if r.status_code != 200:
                     raise RuntimeError(f"HTTP {r.status_code}")
                 ms = meetings_of(r.text)

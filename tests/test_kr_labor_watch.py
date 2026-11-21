@@ -267,15 +267,20 @@ class Run(unittest.TestCase):
         get, calls = site()
         flaky = {"n": 0}
 
+        timeouts = []
+
         def get2(url, timeout=None):
-            if url.endswith("gyeongbuk/main.do") and flaky["n"] == 0:
-                flaky["n"] += 1
-                raise type("ReadTimeout", (Exception,), {})("x")
+            if url.endswith("gyeongbuk/main.do"):
+                timeouts.append(timeout)
+                if flaky["n"] == 0:
+                    flaky["n"] += 1
+                    raise type("ReadTimeout", (Exception,), {})("x")
             return get(url, timeout=timeout)
         waits = []
         doc = w.run(NOW, None, get=get2, sleep=waits.append)
         self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
         self.assertIn(w.WIDGET_RETRY_WAIT, waits)
+        self.assertEqual(timeouts, [30, w.WIDGET_RETRY_TIMEOUT])  # 두 번째는 더 오래 기다린다
         self.assertEqual(doc["status"], "complete")
         # 두 번 다 실패하면 미확인 — 다시 물었다는 것도 적는다(세 번째는 묻지 않는다)
         get3, calls3 = site(fail=("gyeongbuk/main.do",))
@@ -292,8 +297,13 @@ class Run(unittest.TestCase):
         self.assertIn("5건 상한", by["중앙노동위원회"]["note"])
         self.assertEqual(by["서울지방노동위원회"]["status"], "failed")
         self.assertEqual(doc["status"], "partial")
-        get3, _ = site(fail=("nlrc.go.kr",))
-        self.assertEqual(w.run(NOW, None, get=get3, sleep=lambda s: None)["status"], "failed")
+        get3, calls3 = site(fail=("nlrc.go.kr",))
+        doc3 = w.run(NOW, None, get=get3, sleep=lambda s: None)
+        self.assertEqual(doc3["status"], "failed")
+        # 사이트 전체가 느리면 다시 묻기는 한 실행 상한까지만(작업 한도 15분)
+        mains = [u for u in calls3 if u.endswith("/main.do") or u == "https://www.nlrc.go.kr/"]
+        self.assertEqual(len(mains), len(w.COMMISSIONS) + w.WIDGET_RETRY_BUDGET)
+        self.assertTrue(any("다시 묻기 상한" in c["error"] for c in doc3["checks"]))
 
 
 if __name__ == "__main__":
