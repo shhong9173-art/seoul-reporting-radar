@@ -1947,6 +1947,9 @@ export async function krOfficial(ctx, args) {
     }
     if (!ev.length) out.push('이 기간 감지된 변화 없음(조회 실패 회사는 미확인).');
     const facs = (doc.factories ?? []).filter((f) => matches(q, f.company, f.cmpnyNm, f.rnAdres, f.mainProductCn));
+    // 한 번 빠진 공장은 다음 날 실행에서도 없을 때만 '목록에서 빠짐'(11-22: 빠짐 9건 중 7건이 1~2일 뒤 다시 나옴)
+    const pending = facs.filter((f) => f.missingSince);
+    if (pending.length) out.push(`(조회 목록에서 한 번 빠진 공장 ${pending.length}곳 — 다음 날 실행에서도 없으면 '목록에서 빠짐': ${pending.slice(0, 5).map((f) => `${f.cmpnyNm} ${String(f.missingSince).slice(5, 10)}`).join(', ')}${pending.length > 5 ? ' 등' : ''})`);
     const recent = facs.filter((f) => (f.tags ?? []).some((t) => t.startsWith('[최근 등록')));
     out.push(`\n[최근 120일 등록 공장 · 등록일 기준] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
     for (const f of recent.slice(0, limit)) {
@@ -1955,7 +1958,7 @@ export async function krOfficial(ctx, args) {
     }
     if (args.show_all === true || args.show_all === 'true') {
       out.push('\n[출입처 공장 목록]');
-      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
+      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${f.missingSince ? ` · ⚠ ${String(f.missingSince).slice(5, 10)} 조회 목록에 없음(다음 실행 확인)` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
     }
     out.push('   검증 상태: 지자체 공장등록 신고값(자동). 가동·투자 규모는 회사·지자체 확인 필요');
   }

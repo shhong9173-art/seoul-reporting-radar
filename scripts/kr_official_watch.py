@@ -364,21 +364,32 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
     # factories that disappeared from a company whose queries all completed
     # 회사 전체 공장 수 변화를 함께 적는다 — 11-03 대한전선: 당진 공장 3곳이 한꺼번에 빠지고 남은 등록은 '대한전선(주)' 송악읍 1곳
     # (같은 날 탐침에서 '대한전선' 조회 총 1건 확인). 여러 곳이 한꺼번에 빠지면 통합 등록·정정일 수도 있다.
+    # 한 번 빠진 공장은 바로 알리지 않는다 — 다음 날 실행에서도 없을 때만 '목록에서 빠짐'. 11-22 운영 기준선 뒤 빠짐 9건 중 7건이
+    # 1~2일 뒤 다시 나왔다(현대위아 창원2 10-28→10-30, 대한전선 당진 3곳 11-03→11-04, 포스코 11-04→11-05, LS전선 인동 11-19→11-20).
+    # 처음 빠진 실행은 기록에 빠진 때(missingSince)만 적어 남겨 두고, 같은 날 다시 돈 실행(낮 재시도·배포)도 첫 누락으로 본다.
     before_n = {co: sum(1 for o in prev.values() if o.get("company") == co) for co in complete_companies}
     after_n = {co: sum(1 for f in out.values() if f.get("company") == co) for co in complete_companies}
+    confirmed = []
+    for fid, old in prev.items():
+        if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
+            first = str(old.get("missingSince") or "")
+            if not first or first[:10] >= stamp[:10]:
+                out[fid] = dict(old, missingSince=first or stamp)
+            else:
+                confirmed.append((fid, old))
     gone_n = {}
+    for fid, old in confirmed:
+        gone_n[old.get("company")] = gone_n.get(old.get("company"), 0) + 1
+    confirmed = {fid for fid, _ in confirmed}
     for fid, old in prev.items():
-        if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
-            gone_n[old.get("company")] = gone_n.get(old.get("company"), 0) + 1
-    for fid, old in prev.items():
-        if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
+        if fid in confirmed:
             co = old.get("company")
             many = f" · 이 회사 조회 공장 {before_n[co]}→{after_n[co]}곳({gone_n[co]}곳 한꺼번에 빠짐 — 통합 등록·정정일 수도 있음)" if gone_n[co] >= 2 else \
                 f" · 이 회사 조회 공장 {before_n[co]}→{after_n[co]}곳"
             # 회사 공장이 하나도 안 잡힌 '정상' 응답은 조회 쪽 이상일 가능성이 크다 — C로 남기고 다음 실행에서 다시 본다
             empty = after_n[co] == 0
             events.append({"id": f"{fid}:gone:{stamp[:10]}", "kind": "목록에서 빠짐", "company": co, "factoryId": fid,
-                           "name": old.get("cmpnyNm"), "text": f"{old.get('cmpnyNm')} · {old.get('rnAdres')} — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)" + many
+                           "name": old.get("cmpnyNm"), "text": f"{old.get('cmpnyNm')} · {old.get('rnAdres')} — {str(old['missingSince'])[5:10]}부터 두 번 연속 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)" + many
                            + (" — 이 회사 공장이 하나도 안 잡혀 조회 이상일 수 있음(C, 다음 실행에서 다시 나오는지 확인)" if empty else ""),
                            **({"tier": "C"} if empty else {}), "detectedAt": stamp})
         elif fid not in out and old.get("company") not in complete_companies:
