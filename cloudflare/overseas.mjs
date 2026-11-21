@@ -839,7 +839,7 @@ export async function tradeRemedies(ctx, args) {
     const items = foreignAhead({ 'trade-remedy': doc, 'eu-trade-defence': eu, 'th-trade-remedy': await readFeed(ctx, 'th-trade-remedy') }, ctx.now.getTime(), { days: span })
       .filter((a) => matches(q, a.title, a.what, (a.who ?? []).join(' '), a.country));
     const out = [`다가오는 해외 판정 일정 — 앞으로 ${span}일 · 무역구제 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`
-      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한), 태국 사건 쪽 징수·담보 끝 날짜·단계 표, 미국 관보(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한), 영국 TRA 사건 예정표(구속력 없음). 인도는 아직 일정 계산 안 함 — 미확인.`];
+      + ` · EU 관보 ${eu ? `${String(eu.generatedAt ?? '').slice(0, 16)}` : '수집 전'}`, `원천: 캐나다 CBSA·CITT, 호주 ATRC 사건 페이지, EU 개시 공고(규정상 시한), 태국 사건 쪽 징수·담보 끝 날짜·단계 표, 미국 관보(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한), 영국 TRA 사건 예정표(구속력 없음), 인도 DGTR 개시일+규칙(Rule 17·23). 우회 조사는 계산 안 함.`];
     out.push(`\n[날짜순] ${items.length}건`);
     for (const a of items.slice(0, Math.max(limit, 30))) out.push(...aheadLine(a).map((l, i) => (i === 0 && !a.beat ? `${l} (출입 업종 품목 아님)` : l)));
     if (!items.length) out.push('없음(수집을 못 읽었으면 미확인)');

@@ -14,6 +14,15 @@ const AU_MINISTER = '호주 관세법(2011 개정 Customs Amendment (Anti-dumpin
 
 const kstDay = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
 const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const addMonths = (iso, n) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), Math.min(d, last))).toISOString().slice(0, 10);
+};
+// 인도 반덤핑 규칙(Customs Tariff Anti-Dumping Rules 1995): 조사는 개시 1년 안 최종 판정(Rule 17(1), 중앙정부가 6개월 연장 가능),
+// 재심은 개시 12개월 안 종결(Rule 23(2)). 우회 조사는 계산하지 않는다(11-21 — 규정 확인 전)
+const DGTR_RULE = { original: 'Rule 17(1) — 개시 1년 안 최종 판정, 중앙정부가 6개월 연장 가능', review: 'Rule 23(2) — 재심은 개시 12개월 안 종결' };
 // 호주 사건 페이지 날짜('31 March 2027', '5 March 2027') → ISO. 못 읽으면 ''
 export function dmyIso(s) {
   const m = String(s ?? '').match(/\b(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\b/);
@@ -99,6 +108,28 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       title: `${head.trim().slice(0, 90)}${per ? ` (${per})` : ''}${stage ? ` · ${stage.slice(0, 70)}` : ''}(관보 ${it.pub})`,
       who: it.named ?? [], whoNote: (it.named ?? []).length ? '관보 본문 속 출입처 이름' : '',
       basis: `${it.how} — "${String(it.quote ?? '').slice(0, 200)}"`, url: it.url ?? '' });
+  }
+  // 인도 — DGTR 사건 페이지의 '이번 절차 개시일'에서 규칙으로 계산(진행 중이고 최종 판정문이 아직 없는 한국 관련 사건, 11-21)
+  const dgSeen = new Set();
+  for (const e of tr.events ?? []) {
+    const c = /^in-dgtr/.test(e?.pageId ?? '') ? tr.dgtrCases?.[e.url] : null;
+    if (!c || dgSeen.has(e.url) || !c.initiated) continue;
+    dgSeen.add(e.url);
+    const t = `${c.initTitle ?? ''} ${e.text ?? ''}`;
+    if (/circumvention/i.test(t)) continue;
+    if (/final\s+finding/i.test(c.findingsTitle ?? '') && String(c.findingsDate ?? '') >= c.initiated) continue;   // 최종 판정문이 나왔다
+    const kind = /sunset|review|\bSSR\b|\bMTR\b/i.test(t) ? 'review' : 'original';
+    const due = addMonths(c.initiated, 12);
+    const late = due < today;
+    if (late && kind === 'review') continue;
+    const date = late ? addMonths(c.initiated, 18) : due;
+    if (!inWin(date)) continue;
+    const beatNames = c.parties?.beat ?? [];
+    const prod = (String(e.text ?? '').match(/imports? of\s+[“"]?(.+?)[”"]?\s+(?:from|originating)/i) ?? [])[1];
+    out.push({ date, country: '인도', agency: 'DGTR', src: 'in', beat: beatNames.length > 0,
+      what: late ? `최종 판정 시한 지남 → 연장 시 최대(개시 18개월) — 최종 판정문 아직 안 보임` : `${kind === 'review' ? '재심 종결 시한(개시 12개월)' : '최종 판정 시한(개시 1년, 연장 최대 18개월 ' + addMonths(c.initiated, 18) + ')'}`,
+      title: `${prod ? prod.slice(0, 70) : String(e.url).split('/').pop().slice(0, 70)} (개시 ${c.initiated})`, who: beatNames,
+      whoNote: beatNames.length ? '이해관계자 명단 속 출입처 영문 이름' : '', basis: `인도 반덤핑 규칙 ${DGTR_RULE[kind]} · 개시일은 DGTR 사건 페이지 표기`, url: e.url });
   }
   // 태국 — 재심 중 담보(징수) 끝 날짜(사건 쪽 표기). 11-15 다른 매체 단독(석도·크롬도금 재심, KG스틸)이 '최장 2027-11-12까지'로 쓴 날짜
   for (const x of docs?.['th-trade-remedy']?.cases ?? []) {
