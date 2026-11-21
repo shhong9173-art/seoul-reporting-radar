@@ -110,6 +110,19 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
       title: `${head.trim().slice(0, 90)}${per ? ` (${per})` : ''}${stage ? ` · ${stage.slice(0, 70)}` : ''}(관보 ${it.pub})`,
       who: it.named ?? [], whoNote: (it.named ?? []).length ? '관보 본문 속 출입처 이름' : '',
       basis: `${it.how} — "${String(it.quote ?? '').slice(0, 200)}"`, url: it.url ?? '' });
+    // 11-21: ITC 표결 날짜는 관보에 없다(Sunshine Act 공고가 2026-06 뒤 관보에 0건, usitc.gov 일정표 403). 원심 조사(LTFV·상계 판정)의
+    // 상무부 최종 시한이 있으면 ITC 최종 피해 판정의 법정 시한을 덧붙인다 — 상무부 최종 긍정 판정 뒤 45일 안(19 U.S.C. 1673d(b)(2)·1671d(b)(2)).
+    // 상무부 최종이 부정이면 ITC 판정은 없다. 행정재심·일몰재심에는 붙이지 않는다
+    if (it.kind === 'final' && !itc && /Less Than Fair Value|Countervailable Subsid/i.test(t) && !/Administrative Review|Sunset|Five-Year/i.test(t)) {
+      const d45 = addDays(it.date, 45);
+      if (inWin(d45)) {
+        out.push({ date: d45, approx: true, country: '미국', agency: 'ITC', src: 'us', beat: Boolean(it.beat),
+          what: 'ITC 최종 피해 판정(법정 — 상무부 최종 긍정 판정 뒤 45일 안, 상무부 최종이 부정이면 없음)',
+          title: `${head.trim().slice(0, 90)}${stage ? ` · ${stage.slice(0, 70)}` : ''}(상무부 최종 시한 ${it.date})`,
+          who: it.named ?? [], whoNote: (it.named ?? []).length ? '관보 본문 속 출입처 이름' : '',
+          basis: '19 U.S.C. 1673d(b)(2)·1671d(b)(2) — 상무부 최종 시한(관보 고시)+45일로 계산한 최대치. ITC 표결일은 관보에 공고되지 않는다', url: it.url ?? '' });
+      }
+    }
   }
   // 인도 — DGTR 사건 페이지의 '이번 절차 개시일'에서 규칙으로 계산(진행 중이고 최종 판정문이 아직 없는 한국 관련 사건, 11-21)
   const dgSeen = new Set();
