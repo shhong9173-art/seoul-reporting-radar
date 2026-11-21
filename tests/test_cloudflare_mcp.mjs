@@ -2161,6 +2161,13 @@ test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, r
   assert.doesNotMatch(t.text, /EU 철강 쿼터|미국 상무부/);
   const q = await call('trade_remedies', { section: 'kita', company: '포스코' }, opts);
   assert.match(q.text, /감지 1건/);
+  // 11-21: 가장 최근 갱신이 확인일보다 14일 넘게 앞이면 '감지 0건'을 새 사건 없음으로 읽지 말라고 적는다
+  const stale = { ...doc, kita: { ...doc.kita, checkedAt: '2026-11-21T17:21:00+09:00' }, events: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(stale) }), env, {})).status, 200);
+  assert.match((await call('trade_remedies', { section: 'kita' }, opts)).text, /   주의: 이 DB의 가장 최근 갱신이 2026-10-29\(확인일 기준 23일 전\) — 그 뒤 고친 사건이 없다\./);
+  const fresh = { ...doc, kita: { ...doc.kita, checkedAt: '2026-11-05T07:40:00+09:00' }, events: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(fresh) }), env, {})).status, 200);
+  assert.doesNotMatch((await call('trade_remedies', { section: 'kita' }, opts)).text, /주의: 이 DB의 가장 최근 갱신/);
 });
 
 test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unless show_all, token note, radar_today A/B with ITC check, notices skip edis', async () => {
