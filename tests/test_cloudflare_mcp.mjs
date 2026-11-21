@@ -3154,6 +3154,10 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
     [{ role: '제조사(출입처 브랜드)', name: '제네시스' }, { role: '부품 공급사(원보고서, 한국 소재)', name: 'NIDEC MOBILITY KOREA CORPORATION' }]);
   assert.deepEqual([g80.who, g80.terms, g80.must], ['제네시스', ['G80', '리콜'], ['G80', '94,622', '94622', '9만4622', '9만4,622', '9만 4622']]);
   assert.deepEqual(usRecallModels('HYUNDAI ELANTRA 2026, TUCSON HYBRID 2026'), ['아반떼', '엘란트라', '투싼']);
+  // 11-22: 광역시 구 주소·전남광주통합특별시 옛 광주 구는 광역시 이름으로
+  assert.deepEqual(workforceHint({ kind: '가입자 감소', company: '현대모비스', text: '현대모비스(울산광역시 북구 염포동) 가입자 1,200→1,100명' }).must, ['울산']);
+  assert.deepEqual(workforceHint({ kind: '가입자 증가', company: '기아', text: '기아(전남광주통합특별시 서구 내방동) 가입자 100→120명' }).must, ['광주']);
+  assert.deepEqual(workforceHint({ kind: '가입자 증가', company: '롯데케미칼', text: '롯데케미칼(전남광주통합특별시 여수시 중흥동) 가입자 100→120명' }).must, ['여수']);
   assert.deepEqual(countForms(999), []);
   // 11-22: 혼다 차명은 한글로, 10만 대 넘으면 '81만'도 같은 리콜 표시로
   assert.deepEqual(usRecallModels('ACCORD 2013, CIVIC 2012~2013, CR-V 2012~2013, ILX 2013, RDX 2013'), ['어코드', '시빅', 'CR-V']);
@@ -4989,6 +4993,7 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   }
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.terms, ['당진', '공장', '신설']);
+  assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.must, ['당진']);   // 11-22: 시·군 없는 기사(베트남 공장 증설)는 다른 허가
   const unset = { ...doc, status: 'unset', permits: [], checks: [{ source: '주소 변환', status: 'unset', error: 'JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요' },
     { source: '건축인허가', status: 'unset', error: '조회할 번지 없음 — 주소 변환 활용신청 후' }] };
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
