@@ -1573,6 +1573,17 @@ test('radar_today shows converging signals above the tiers', async () => {
   assert.match(conv, /A · \[미보도 후보\] \d{4}-\d\d-\d\d · 지자체 고시·공고: 당진시/);
   assert.match(conv, /A · \[관련 보도 있음\] [^\n]*지자체 고시·공고: 화성시/);
   assert.doesNotMatch(conv, /현대제철 · 당진 — [^\n]*관련 보도 있음/);
+  // 11-22: 기자가 접은 건(처리 장부)과 같은 배경은 묶음에 넣지 않는다 — LG화학 대산 공사 현장(사실무근) 꼴
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202610', sites: [], checks: [], events: [],
+    projects: [{ id: 'lgd', company: 'LG화학', title: '엘지화학 대산 HPM BR A Line 변성 SSBR 설비 구축 공', sites: 1, tier: 'A', firstSeen: '2026-10-20T09:43:00+09:00', addr: '충청남도 서산시 대산읍 독곶1로' }] });   // 패키지(저장 시각 = 시험 시계) 앞
+  await post('kr-local', { schema: 'kr_local/v1', generatedAt: recent, checks: [], items: [
+    { id: 'local:서산시:9', city: '서산시', company: 'LG화학', tier: 'B', title: '(주)엘지화학 대산공장 도로점용 허가', date: recent.slice(0, 10), firstSeen: recent, url: 'https://e/9' }] });
+  const before = (await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env })).text;
+  assert.match(before, /LG화학 · 서산 — 감시 2곳/);
+  await call('package_save', { name: 'lgchem-daesan-ssbr', state: '접음', title: "[접음] LG화학 대산 'HPM BR A Line 변성 SSBR 설비 구축' 공사 현장",
+    body: 'LG화학 사실무근 답변 — 대산 BR A라인 변성 SSBR 공사 현장명 다시 내지 않음' }, { path: `/mcp/${TOKEN}`, env });
+  const after = (await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env })).text;
+  assert.doesNotMatch(after, /LG화학 · 서산 — 감시/);
   // 한 줄 요약은 ' · ' 구분에서 자른다(10-31 운영: '… · 취 · id')
   const line = "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 · 취득물건명 전라남도 함평군 빛그린국가산업단지";
   assert.equal(clipAt(line, 110), "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 …");

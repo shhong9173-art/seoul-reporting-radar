@@ -2020,7 +2020,10 @@ export async function radarTodayData(ctx, args) {
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
   const span = nowMs - 14 * 86400000;
-  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged) && !(!showJudged && handledOf(x))), ...background(docs, nowMs)]
+  // 배경도 처리 장부와 맞춘다(11-22 운영: 기자가 'LG화학 사실무근'으로 접은 대산 'HPM BR A Line 변성 SSBR' 공사 현장이 국민연금 배경으로 'LG화학 · 서산' 묶음을 만들었다).
+  // 장부의 시간 조건(패키지 뒤에 새로 생긴 배경은 '비슷한 건'일 뿐)이 그대로라 처리 뒤 새로 멈춘 굴뚝 같은 배경은 남는다.
+  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged) && !(!showJudged && handledOf(x))),
+    ...background(docs, nowMs).filter((x) => showJudged || !handledOf(x))]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
   // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
