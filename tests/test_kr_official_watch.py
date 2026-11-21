@@ -96,12 +96,21 @@ class Factory(unittest.TestCase):
         doc = run(previous=first, posco=changed, now=NOW + dt.timedelta(days=1))
         kinds = {(e["kind"], e["factoryId"]) for e in doc["events"]}
         self.assertIn(("새 공장", "fac:5"), kinds)
-        self.assertIn(("목록에서 빠짐", "fac:4"), kinds)
-        gone = next(e for e in doc["events"] if e["kind"] == "목록에서 빠짐")
-        self.assertRegex(gone["text"], r"이 회사 조회 공장 \d+→\d+곳$")
+        # 한 번 빠진 공장은 바로 알리지 않고 빠진 때만 적어 남긴다 — 다음 날에도 없으면 '목록에서 빠짐'
+        self.assertNotIn(("목록에서 빠짐", "fac:4"), kinds)
+        held = next(f for f in doc["factories"] if f["id"] == "fac:4")
+        self.assertEqual(held["missingSince"], doc["generatedAt"])
+        doc2 = run(previous=doc, posco=changed, now=NOW + dt.timedelta(days=2))
+        gone = next(e for e in doc2["events"] if e["kind"] == "목록에서 빠짐")
+        self.assertEqual(gone["factoryId"], "fac:4")
+        self.assertIn("10-28부터 두 번 연속 조회 목록에 없음", gone["text"])
+        self.assertRegex(gone["text"], r"이 회사 조회 공장 3→2곳$")
         self.assertNotIn("tier", gone)
+        self.assertNotIn("fac:4", {f["id"] for f in doc2["factories"]})
         # 11-03 대한전선: 여러 곳이 한꺼번에 빠지면 그렇게 적고, 하나도 안 잡히면(정상 응답 0건) 조회 이상일 수 있어 C
         empty = run(previous=first, posco=[], now=NOW + dt.timedelta(days=1))
+        self.assertFalse(any(e["kind"] == "목록에서 빠짐" for e in empty["events"]))
+        empty = run(previous=empty, posco=[], now=NOW + dt.timedelta(days=2))
         gone = [e for e in empty["events"] if e["kind"] == "목록에서 빠짐" and e["company"] == "포스코"]
         self.assertTrue(gone and all("한꺼번에 빠짐" in e["text"] and e["tier"] == "C" for e in gone))
         ch = next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")
@@ -167,10 +176,13 @@ class Factory(unittest.TestCase):
         self.assertEqual(w.retier(by["fac:x:2026-10-29"]), by["fac:x:2026-10-29"])  # 두 번 판정하지 않음
 
     def test_factory_that_comes_back_is_not_a_new_factory(self):
-        # 운영 10-28 '목록에서 빠짐' → 10-30 '새 공장': 현대위아(주)창원2공장(등록 1993-08-18)
+        # 운영 10-28 '목록에서 빠짐' → 10-30 '새 공장': 현대위아(주)창원2공장(등록 1993-08-18) — 예전 규칙(한 번 빠지면 바로 알림)이
+        # 저장한 '목록에서 빠짐'에 공장이 다시 나오면 둘 다 C
         first = run()
-        gone = run(previous=first, posco=[f for f in POSCO if f["fctryManageNo"] != "4"], now=NOW + dt.timedelta(days=1))
-        self.assertIn(("목록에서 빠짐", "fac:4"), {(e["kind"], e["factoryId"]) for e in gone["events"]})
+        gone = dict(first, factories=[f for f in first["factories"] if f["id"] != "fac:4"],
+                    events=[{"id": "fac:4:gone:2026-10-28", "kind": "목록에서 빠짐", "company": "포스코", "factoryId": "fac:4",
+                             "name": "(주)포스코 광양제철소", "text": "(주)포스코 광양제철소 · 전라남도 광양시 폭포사랑길 20-26 — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)",
+                             "detectedAt": (NOW + dt.timedelta(days=1)).isoformat(timespec="seconds")}])
         back = run(previous=gone, now=NOW + dt.timedelta(days=3))
         by = {(e["kind"], e["factoryId"]): e for e in back["events"]}
         self.assertNotIn(("새 공장", "fac:4"), by)
@@ -185,6 +197,38 @@ class Factory(unittest.TestCase):
         again = run(previous=back, now=NOW + dt.timedelta(days=4))  # 다시 판정하지 않음(문장이 두 번 붙지 않음)
         g = next(e for e in again["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4")
         self.assertEqual(g["text"].count("다시 나옴"), 1)
+
+    def test_one_day_flap_is_silent(self):
+        # 운영 11-19 '목록에서 빠짐' → 11-20 '목록에 다시 나옴': LS전선(주)인동공장(등록 2000-04-18). 'LS전선'·'엘에스전선' 두 질의 모두 정상이었다.
+        cfg = {"companies": [{"company": "LS전선", "queries": ["엘에스전선", "LS전선"], "accept": "^(?:엘에스|LS)전선"}]}
+        ls = [fac("31", "LS전선(주)", addr="강원특별자치도 동해시 대동로 215, 송정일반산업단지 (송정동)", emp="504", reg="20100113"),
+              fac("32", "LS전선(주)인동공장", addr="경상북도 구미시 3공단2로 238 (진평동, 엘에스전선주식회사인동공장)", emp="335", reg="20000418",
+                  product="광케이블 등, 자동차전선 등"),
+              fac("33", "엘에스전선(주)", addr="경상북도 구미시 수출대로 228, (총 4필지)(공단동, LS전선 구미공장)", emp="701", reg="20000429"),
+              fac("34", "엘에스전선(주)", addr="경기도 군포시 공단로140번길 27 (당정동)", emp="0", reg="20200511")]
+
+        def day(rows, when, previous):
+            def get(url, params=None, headers=None, timeout=None):
+                if url == w.FACTORY_API:
+                    return R(text=xml([r for r in rows if r["cmpnyNm"].startswith(params["cmpnyNm"])]))
+                return fake()(url, params, headers, timeout)
+            return w.run(cfg, "k", now=when, previous=previous, get=get, sleep=lambda s: None)
+
+        d18 = day(ls, dt.datetime(2026, 11, 18, 8, 10, tzinfo=KST), None)
+        d19 = day([r for r in ls if r["fctryManageNo"] != "32"], dt.datetime(2026, 11, 19, 8, 10, tzinfo=KST), d18)
+        self.assertEqual(d19["events"], [])
+        self.assertEqual(next(f for f in d19["factories"] if f["id"] == "fac:32")["missingSince"], "2026-11-19T08:10:00+09:00")
+        retry = day([r for r in ls if r["fctryManageNo"] != "32"], dt.datetime(2026, 11, 19, 13, 10, tzinfo=KST), d19)  # 같은 날 낮 재시도
+        self.assertEqual(retry["events"], [])
+        d20 = day(ls, dt.datetime(2026, 11, 20, 8, 10, tzinfo=KST), retry)
+        self.assertEqual(d20["events"], [])  # '새 공장'·'목록에 다시 나옴'도 없음
+        self.assertNotIn("missingSince", next(f for f in d20["factories"] if f["id"] == "fac:32"))
+        # 다음 날에도 없으면 그때 알린다(첫 누락 날짜를 적는다)
+        d20b = day([r for r in ls if r["fctryManageNo"] != "32"], dt.datetime(2026, 11, 20, 8, 10, tzinfo=KST), retry)
+        g = next(e for e in d20b["events"] if e["kind"] == "목록에서 빠짐")
+        self.assertEqual((g["factoryId"], g["id"]), ("fac:32", "fac:32:gone:2026-11-20"))
+        self.assertIn("11-19부터 두 번 연속 조회 목록에 없음", g["text"])
+        self.assertIn("이 회사 조회 공장 4→3곳", g["text"])
 
     def test_old_registration_first_seen_is_b_and_products_are_deduplicated(self):
         first = run()

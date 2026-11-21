@@ -1609,7 +1609,9 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
     factories: [
       { id: 'fac:12', company: '현대차', cmpnyNm: '현대자동차(주)울산EV공장', rnAdres: '울산광역시 북구 염포로 700', registeredOn: '2026-09-15', employees: 2000,
         mainProductCn: '전기자동차', indutyNm: '승용차 제조업', tags: ['[최근 등록 2026-09-15]'] },
-      { id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코 포항제철소', rnAdres: '경상북도 포항시', registeredOn: '1973-07-03', employees: 8000, tags: [] }],
+      { id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코 포항제철소', rnAdres: '경상북도 포항시', registeredOn: '1973-07-03', employees: 8000, tags: [] },
+      { id: 'fac:32', company: 'LS전선', cmpnyNm: 'LS전선(주)인동공장', rnAdres: '경상북도 구미시 3공단2로 238', registeredOn: '2000-04-18', employees: 335, tags: [],
+        missingSince: '2026-11-19T08:10:00+09:00' }],
     gazette: [{ id: 'gz:I2', date: '2026-10-24', org: '국토교통부', teams: ['자동차'], title: '국토교통부공고제2026-1500호(「자동차관리법 시행규칙」일부개정령안 입법예고)',
       url: 'https://gwanbo.go.kr/ezpdf/customLayout.jsp?contentId=C', isNew: true }],
     events: [{ id: 'fac:1:x', kind: '등록 내용 변경', company: '포스코', factoryId: 'fac:1', name: '(주)포스코 포항제철소', text: '고용 9,000→8,000명', detectedAt: recent }] };
@@ -1619,13 +1621,16 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
   const r = await call('kr_official', {}, opts);
   assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): 관보 입법예고\(HTTP 500\)/);
   assert.match(r.text, /포스코 · 등록 내용 변경\n   잡힌 사실: \(주\)포스코 포항제철소 · 경상북도 포항시 — 고용 9,000→8,000명/);
-  assert.match(r.text, /\[최근 120일 등록 공장 · 등록일 기준\] 1곳 \(출입처 공장 전체 2곳\)/);
+  assert.match(r.text, /\[최근 120일 등록 공장 · 등록일 기준\] 1곳 \(출입처 공장 전체 3곳\)/);
+  // 한 번 빠진 공장은 다음 날 실행 확인 대기로 한 줄만(이벤트 아님)
+  assert.match(r.text, /\(조회 목록에서 한 번 빠진 공장 1곳 — 다음 날 실행에서도 없으면 '목록에서 빠짐': LS전선\(주\)인동공장 11-19\)/);
   assert.match(r.text, /\(기준선 2026-10-26 이후 감지된 새 공장/);
   assert.match(r.text, /2026-09-15 · 현대차 · 현대자동차\(주\)울산EV공장/);
   assert.match(r.text, /\[신규\] 2026-10-24 · 국토교통부 · 자동차/);
   assert.doesNotMatch(r.text.split('[최근 120일 등록 공장')[1].split('[관보')[0], /포항제철소/);  // 1973 registration is not recent
   const all = await call('kr_official', { section: 'factory', show_all: true }, opts);
   assert.match(all.text, /포스코 · \(주\)포스코 포항제철소 · 경상북도 포항시 · 고용 8000/);
+  assert.match(all.text, /LS전선\(주\)인동공장 · 경상북도 구미시 3공단2로 238 · 고용 335 · 등록 2000-04-18 · ⚠ 11-19 조회 목록에 없음\(다음 실행 확인\)/);
   assert.doesNotMatch(all.text, /관보 입법예고 · 출입처/);
   assert.ok((await call('kr_official', {}, PRIVATE())).isError);
 });
