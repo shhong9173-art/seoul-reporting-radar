@@ -234,6 +234,13 @@ class Run(unittest.TestCase):
         self.assertIs(w.in_region(reg, "현대차", "울산광역시의회"), True)
         self.assertIs(w.in_region(reg, "현대제철", "충청남도 당진시의회"), True)
         self.assertIsNone(w.in_region(reg, "기아", "화성시의회"))                  # 공장 주소 모름 — 규칙 안 씀
+        # 11-22: 도로명 주소가 빈 공장 등록은 민원 담당 기관 이름('시·도 시·군' 꼴일 때만)으로 지역을 잡는다
+        blank = facs + [{"company": "현대제철", "rnAdres": "", "cvplChrgOrgnztNm": "전남광주통합특별시 순천시"},
+                        {"company": "현대제철", "rnAdres": "", "cvplChrgOrgnztNm": "광양만권경제자유구역청"}]
+        reg2 = w.regions_from_factories(blank)
+        self.assertIs(w.in_region(reg2, "현대제철", "전남광주통합특별시 순천시의회"), True)
+        self.assertIs(w.in_region(reg, "현대제철", "전남광주통합특별시 순천시의회"), False)
+        self.assertNotIn(("c", "광양만권경제자유구역청"), reg2["현대제철"])
         # 실제 대목(밀양시의회 총무위원회 2026-09-14) — 사건 낱말('사고')이 있어도 공장 없는 지역이라 C, 앞서 낸 A 이벤트도 C로
         get, _ = fake({})
         doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)

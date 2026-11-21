@@ -77,11 +77,18 @@ def _stem(tok):
     return re.sub(r"(특별자치도|특별자치시|통합특별시|광역시|특별시|도|시|군|구)$", "", tok or "")
 
 
+# 도로명 주소가 빈 공장 등록(11-22: 포스코 '주식회사 포스코' 고용 6,222명 등 3곳)은 민원 담당 기관('경상북도 포항시' 꼴)으로 지역을 잡는다 —
+# 그 꼴이 아니면 쓰지 않는다.
+AGENCY = re.compile(r"^\S+(?:도|광역시|특별시|특별자치시|통합특별시)\s+\S+(?:시|군|구)$")
+
+
 def regions_from_factories(factories):
-    """{회사: {("p", 시·도), ("c", 시·군)}} — 공장 도로명 주소 앞 두 낱말."""
+    """{회사: {("p", 시·도), ("c", 시·군)}} — 공장 도로명 주소 앞 두 낱말(주소가 비면 민원 담당 기관 이름)."""
     out = {}
     for f in factories or []:
-        parts = str(f.get("rnAdres") or "").split()
+        road = str(f.get("rnAdres") or "").strip()
+        agency = str(f.get("cvplChrgOrgnztNm") or "").strip()
+        parts = (road or (agency if AGENCY.match(agency) else "")).split()
         if not parts or not f.get("company"):
             continue
         r = out.setdefault(f["company"], set())
@@ -324,7 +331,11 @@ def main():
     regions = None
     if token:
         try:   # 출입처 공장 주소(공장등록 감시) — 못 읽으면 지역 규칙 없이(전과 같이) 돈다
-            regions = regions_from_factories((private_store.get("kr-official", token) or {}).get("factories"))
+            facs = (private_store.get("kr-official", token) or {}).get("factories") or []
+            regions = regions_from_factories(facs)
+            blank = [f for f in facs if not str(f.get("rnAdres") or "").strip()]
+            print(f"::notice title=council-minutes-regions::공장 {len(facs)}곳 · 도로명 주소 빈 공장 {len(blank)}곳 중 담당 기관으로 지역 잡음 "
+                  f"{sum(1 for f in blank if AGENCY.match(str(f.get('cvplChrgOrgnztNm') or '').strip()))}곳")   # 건수만
         except Exception as e:  # noqa: BLE001
             print(f"::warning title=council-minutes-regions::공장 주소 조회 실패({type(e).__name__}) — 지역 규칙 없이")
     doc = run(now, previous, regions=regions)
