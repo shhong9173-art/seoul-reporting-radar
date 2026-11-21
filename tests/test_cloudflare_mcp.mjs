@@ -10,7 +10,7 @@ import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
-import { watchByPrefix } from '../cloudflare/review.mjs';
+import { watchByPrefix, watchFromPackage } from '../cloudflare/review.mjs';
 import { deskType } from '../cloudflare/desk.mjs';
 import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
@@ -1937,7 +1937,7 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   assert.match(later.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4/);
   // 11-21: 목록에서 빠진 'clue:late'는 id 앞말(clue)로 단독 후보 심사로 짐작 — 앞말을 모르는 'gone:1'만 미상
   assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
-  assert.match(later.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1[^\n]*\n   \(그중 1건은 판정 때 감시 이름이 없어 id 앞말로 짐작\)/);
+  assert.match(later.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1[^\n]*\n   \(그중 1건은 판정 때 감시 이름이 없어 id 앞말·처리 기록 패키지의 원문으로 짐작\)/);
 });
 
 test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 감시에 사유·제안, 이미 바꾼 기준(굴뚝 11-04)은 바뀐 뒤 판정만 본다', async () => {
@@ -5474,6 +5474,24 @@ test('주간 판정(11-21): 목록에서 빠진 항목도 id 앞말로 감시를
   assert.equal(watchByPrefix('briefing:156790102'), '공정위·한전·원자재');
   assert.equal(watchByPrefix('ins:000321:2026'), '협력사 회생·파산');
   assert.equal(watchByPrefix('a1b2c3d4e5f6'), undefined);                       // 해시 id(단서)는 짐작하지 않는다
+  // 패키지 이름으로 남은 판정(11-21 미상 11건 전부 — 'uk-tra-pvc-korea-pms-1113'(씀) 등): 패키지 본문의 레이더 id·원문 주소로
+  assert.equal(watchFromPackage({ name: 'uk-tra-pvc-korea-pms-1113', body: '원문 https://public-file.trade-remedies.service.gov.uk/case/ad0092/submission/1201 확인' }), '무역구제');
+  assert.equal(watchFromPackage({ name: 'kia-georgia-osha-fatcat-0901', body: '원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811' }), '미국 OSHA 점검·위반');
+  assert.equal(watchFromPackage({ name: 'x-pkg', body: '근거 id stk:down:현대제철:현대제철(주)순천공장:2026-11-18' }), '굴뚝 측정(공장 가동 신호)');
+  assert.equal(watchFromPackage({ name: 'hpls-louisiana-quality-jobs-1029', body: 'https://www.opportunitylouisiana.gov/docs/default-source/board-of-commerce-and-industry/2026-10-29.pdf' }), '미국 주 환경 허가·공고');
+  assert.equal(watchFromPackage({ name: 'memo', body: '메모만' }), undefined);
+  assert.equal(watchFromPackage(null), undefined);
+});
+
+test('주간 판정(11-21): 패키지 이름으로 남은 판정은 패키지 본문 원문으로 감시를 짐작한다', async () => {
+  const opts = PRIVATE();
+  await call('package_save', { name: 'uk-tra-pvc-korea-pms-1113', title: '[단독 작성] 영국 한국산 PVC 특별시장상황(PMS) 주장', state: '발제함',
+    body: '근거 https://public-file.trade-remedies.service.gov.uk/case/ad0092/submission/1201 (TRA 공개기록)' }, opts);
+  await call('candidate_feedback', { item_id: 'uk-tra-pvc-korea-pms-1113', verdict: '씀', reason: '단독 작성' }, opts);
+  await call('candidate_feedback', { item_id: 'memo-only-pkg', verdict: '킬', reason: '메모' }, opts);
+  const r = (await call('candidate_weekly_review', {}, opts)).text;
+  assert.match(r, /- 무역구제 1 — 씀 1\n   \(그중 1건은 판정 때 감시 이름이 없어 id 앞말·처리 기록 패키지의 원문으로 짐작\)/);
+  assert.match(r, /- 감시 미상\(지금 목록에 없음\) 1 — 킬 1\n   id: memo-only-pkg\(킬\)/);
 });
 
 test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {
