@@ -511,7 +511,10 @@ def exceedances(x):
 
 
 GONE_BURST_NOTE = (" — 같은 실행에 이 사업장 배출구 {n}개가 한꺼번에 빠져 측정 자료 지연일 수 있어 C로 바로잡음"
-                   "(이 API는 멈춘 배출구도 '가동중지' 상태 글자로 싣는다. 11-03 09:20 고려아연 온산 15개가 같은 날 오전 값과 함께 다시 나옴)")
+                   "(이 API는 멈춘 배출구도 '가동중지' 상태 글자로 싣는다. 11-03 09:20 한 제련소에서 이렇게 빠진 15개가 같은 날 오전 값과 함께 다시 나옴)")
+# 11-22: 예시에 다른 회사 이름('고려아연 온산')이 있으면 radar_today 회사 거르기(고려아연)에 포스코 광양 줄이 걸려 나왔다 — 저장분도 바꾼다
+OLD_BURST_EXAMPLE = "11-03 09:20 고려아연 온산 15개가 같은 날 오전 값과 함께 다시 나옴"
+NEW_BURST_EXAMPLE = "11-03 09:20 한 제련소에서 이렇게 빠진 15개가 같은 날 오전 값과 함께 다시 나옴"
 
 
 GONE_ID = re.compile(r"^stk:gone:(.+):([^:]+):(\d{4}-\d{2}-\d{2})(?::work)?$")
@@ -555,6 +558,8 @@ def fold_gone_bursts(events):
         else:
             if str(eid or "").startswith("stk:goneburst:"):
                 e["tier"] = "C"
+            if OLD_BURST_EXAMPLE in (e.get("text") or ""):
+                e["text"] = e["text"].replace(OLD_BURST_EXAMPLE, NEW_BURST_EXAMPLE)
             out.append(e)
     return out
 

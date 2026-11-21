@@ -732,6 +732,10 @@ class StackTest(unittest.TestCase):
         self.assertEqual(w.fold_gone_bursts(out), out)    # 두 번 접지 않음
         # 둘뿐이면(BURST 미만) 그대로
         self.assertEqual(len(w.fold_gone_bursts(ev[:2])), 2)
+        # 안내 예시에 다른 회사 이름을 두지 않는다(회사 거르기에 걸림) — 저장분 문구도 바꾼다
+        self.assertNotIn("고려아연", out[1]["text"])
+        old = {**out[1], "text": out[1]["text"] + " (11-03 09:20 고려아연 온산 15개가 같은 날 오전 값과 함께 다시 나옴)"}
+        self.assertNotIn("고려아연", w.fold_gone_bursts([old])[0]["text"])
 
     def test_stack_misses_do_not_carry_over_a_whole_site_absence(self):
         five = (20.0, 15.0, 12.0, 10.0, 9.0)
