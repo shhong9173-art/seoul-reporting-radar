@@ -5421,6 +5421,26 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
 });
 
+test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {
+  // 11-21 운영(#958 뒤): EU 기업결합 M.12449(포스코·JSW 인도 합작) 줄이 'steel'·'지분'으로 中 합작사 지분 이관 접음 패키지에 붙었다
+  const L = ledgerEntries([{ name: 'posco-cn-jv-transfer', title: '[접음] 포스코홀딩스→포스코 中 합작사(BX STEEL POSCO 냉연 등 2곳) 지분 이관', state: '접음',
+    updated_at: '2026-11-16T05:00:00Z', created_at: '2026-11-16T05:00:00Z', body: '' }], []);
+  const block = ['[EU 기업결합 · 당사자에 출입처 영문 이름이 든 관보 공고(사전 신고·승인·철회·2단계·불허), 최근 30일 목록] 1건',
+    '- M.12449 「POSCO / JSW / SAFFRON / PMH」 · 출입처 포스코 · 2026-10-30 사전 신고 → 2026-11-12 승인(이의 없음) · 간이 절차 대상',
+    '   신고 접수 2026-10-19 · 제3자 의견 마감 2026-11-09',
+    '   당사자(공고 원문): POSCO Holdings, Inc. (Republic of Korea) / JSW Steel Limited (India) / Saffron Resources Private Limited (India)',
+    '   거래(원문): 「POSCO and JSW will acquire within the meaning of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron.」',
+    '   사업 내용(원문): 「— POSCO is a global steel and materials company, — JSW is engaged in the production and supply of steel」',
+    '   원문: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32026M12449',
+    "   검증 상태: EU 관보 공고 제목(자동). 사전 신고는 심사 시작일 뿐 승인 아님. 거래 구조·지분·금액은 회사 확인"].join('\n');
+  assert.equal(annotateHandled(block, L).marked, 0);
+  const ev = { id: 'eumerger:M.12449:notified', watch: 'EU 관보 무역구제', kind: 'EU 기업결합(사전 신고)', company: '포스코', date: '2026-10-30',
+    fact: "EU 기업결합 — 사전 신고: M.12449 「POSCO / JSW / SAFFRON / PMH」(2026-10-30) · 출입처 포스코 · 당사자: POSCO Holdings, Inc. (Republic of Korea) / JSW Steel Limited (India) · 거래(원문): 「POSCO and JSW will acquire joint control of Saffron.」 · 사업 내용(원문): 「— POSCO is a global steel and materials company」 (거래 구조·지분·금액은 회사 확인)" };
+  assert.equal(matchHandled(ev, L), null);
+  // 같은 패키지의 실제 건(중국 합작사 지분 이관)은 그대로 맞는다
+  assert.equal(annotateHandled('- 2026-11-14 · 포스코 · BX STEEL POSCO 냉연 합작사 지분 이관(포스코홀딩스→포스코)', L).marked, 1);
+});
+
 test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패키지와 이어진 항목은 radar_today에서 숨기고 구역 도구엔 〔이미 처리〕를 붙인다', async () => {
   // 실제 패키지 제목(11-13 운영)과 실제 항목 글 발췌
   const pk = (name, title, state, updated_at, body = '') => ({ name, title, state, updated_at, created_at: updated_at, body });
