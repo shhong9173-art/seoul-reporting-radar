@@ -160,6 +160,8 @@ export const SLOTS = [
   { at: '18:10', workflow: 'kr-energy.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },
+  // 11-21 기자 "응 돌려": 주말에 잡힌 A(11-21 일본 특수관세부회 자료 등)가 21:43 즉시 알림에 '대조 전'으로 나가지 않게 토·일 저녁 한 번
+  { at: '21:00', workflow: 'radar-press-check.yml', days: [6, 0] },
   { at: '20:40', workflow: 'dart-beat-monitor.yml', daily: true },
   // 굴뚝 자동측정(3시간 칸, 주말 포함): GitHub 예약('23 */3 * * *')이 10-30~11-01에 4~10시간 간격으로만 돌아 평일 '2번 연속 빠짐'
   // 확인(동국제강 포항·KG스틸 당진·세아제강 창원)이 반나절 늦었다. 늦게 온 GitHub 예약은 스크립트가 100분 간격 규칙으로 건너뛴다.

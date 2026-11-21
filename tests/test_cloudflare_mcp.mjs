@@ -1773,6 +1773,10 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml', 'trademark-watch.yml']);  // Tue 07:10 KST(상표는 실패한 회사만 재시도)
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
+  // 11-21: 보도 대조 주말 21:00(토·일만) — 평일 21:00엔 없다
+  assert.ok(dueAt(new Date('2026-11-21T12:00:20Z')).includes('radar-press-check.yml'));   // 토 21:00 KST
+  assert.ok(dueAt(new Date('2026-11-22T12:00:20Z')).includes('radar-press-check.yml'));   // 일 21:00 KST
+  assert.ok(!dueAt(new Date('2026-11-23T12:00:20Z')).includes('radar-press-check.yml'));  // 월 21:00 KST
   // 11-15: 무역구제 평일 저녁 칸은 23:00(미국 관보 사전 공개 22:45 KST 직후). 21:30 칸은 없앴다. 토요일 밤에는 돌지 않는다
   assert.ok(dueAt(new Date('2026-10-27T14:00:30Z')).includes('trade-remedy.yml'));       // Tue 23:00 KST
   assert.ok(!dueAt(new Date('2026-10-27T12:30:00Z')).includes('trade-remedy.yml'));      // Tue 21:30 KST
@@ -2718,7 +2722,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
   const none = await call('radar_today', {}, PRIVATE());
-  assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·12:50·18:50 실행 확인\)/);
+  assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·12:50·18:50·주말 21:00 실행 확인\)/);
 });
 
 test('press check is dispatched after the morning watches and after the evening page watch', () => {
