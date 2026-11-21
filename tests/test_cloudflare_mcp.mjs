@@ -1925,7 +1925,8 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   assert.match(r.text, /- 단독 후보 심사 · DART 소송판결 1 — 씀 1/);
   assert.match(r.text, /- 단독 후보 심사 · DART 주요사항보고서\(유상증자결정\) 1 — 보류 1/);  // unsupported type grouped by report name
   assert.match(r.text, /- 단독 후보 심사 · 특허 1 — 봤음 1/);                           // labelled from the current list
-  assert.match(r.text, /\[점검 후보\][\s\S]*단독 후보 심사 · DART 채무보증: 5개 중 킬 4 — 등급·문턱 점검 후보/);
+  // 11-21: 씀이 있는 묶음은 등급 내림을 제안하지 않는다(그 묶음에서 단독이 나왔다)
+  assert.match(r.text, /\[점검 후보\][\s\S]*단독 후보 심사 · DART 채무보증: 5개 중 킬 4 · 씀 1 — 이 묶음에서 단독이 나왔다\. 등급 내림은 제안하지 않음/);
   assert.match(r.text, /일상\(B\)으로 내렸는데 씀: HD현대일렉트릭 · 타인에대한채무보증결정 5 — 일상 판정 규칙 점검 후보/);
   assert.match(r.text, /킬 사유 상위: 자회사 보증 갱신\(4\)/);
   assert.match(r.text, /\[씀\] 단독 후보 심사 · DART 소송판결 · A · 고려아연 · 소송등의판결ㆍ결정 \(단서\) — 판결 단신 \(id clue:kz\)/);
@@ -5497,6 +5498,22 @@ test('주간 판정(11-21): 패키지 이름으로 남은 판정은 패키지 �
   const r = (await call('candidate_weekly_review', {}, opts)).text;
   assert.match(r, /- 무역구제 1 — 씀 1\n   \(그중 1건은 판정 때 감시 이름이 없어 id 앞말·처리 기록 패키지의 원문으로 짐작\)/);
   assert.match(r, /- 감시 미상\(지금 목록에 없음\) 1 — 킬 1\n   id: memo-only-pkg\(킬\)/);
+});
+
+test('주간 판정(11-21): 씀이 있는 묶음은 킬이 많아도 등급 내림을 제안하지 않는다', async () => {
+  const opts = PRIVATE();
+  await call('package_save', { name: 'uk-tra-pvc-korea-pms-1113', title: '[보강 메모] 영국 S-PVC(AD0092) PMS', state: '접음', body: 'CD-01887' }, opts);
+  for (const [n, t] of [['uk-tra-a-ad0071', '영국 AD0071 후판'], ['uk-tra-b-ad0072', '영국 AD0072 반덤핑'], ['uk-tra-c-ad0073', '영국 AD0073 반덤핑']]) {
+    await call('package_save', { name: n, title: t, state: '접음', body: '메모' }, opts);
+    await call('candidate_feedback', { item_id: n, verdict: '킬', reason: '판 작음' }, opts);
+  }
+  await call('package_save', { name: 'hanwha-itc-1494-x', title: '한화 ITC 337-1494', state: '보류', body: '메모' }, opts);
+  await call('candidate_feedback', { item_id: 'hanwha-itc-1494-x', verdict: '보류', reason: '예약' }, opts);
+  await call('candidate_feedback', { item_id: 'uk-tra-pvc-korea-pms-1113', verdict: '씀', reason: '단독 작성' }, opts);
+  const r = (await call('candidate_weekly_review', {}, opts)).text;
+  assert.match(r, /- 무역구제 5 — 씀 1 · 킬 3 · 보류 1/);
+  assert.match(r, /- 무역구제: 5개 중 킬 3 · 씀 1 — 이 묶음에서 단독이 나왔다\. 등급 내림은 제안하지 않음/);
+  assert.doesNotMatch(r, /- 무역구제: 5개 중 킬 3 — 등급·문턱 점검 후보/);
 });
 
 test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {

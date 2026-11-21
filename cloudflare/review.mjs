@@ -36,6 +36,9 @@ function killNote(label, rs, killed, watch) {
     if (ak / after.length < KILL_SHARE) return `${label}: 바뀐 기준(${d.since.slice(5, 10)}) 뒤 판정 ${after.length}건 중 킬 ${ak} — 기준 변경 뒤 나아짐`;
     return `${label}: 바뀐 기준(${d.since.slice(5, 10)}) 뒤에도 ${after.length}건 중 킬 ${ak} — 더 좁힐지 점검 · 킬 사유 ${topReasons(after)}`;
   }
+  // 11-21: 패키지 판정을 감시에 잇자 '무역구제 5개 중 킬 3'에 등급 내림 제안이 붙었다 — 그 묶음에 기자가 쓴 단독(씀)이 있다. 씀이 있는 묶음은 내림을 제안하지 않는다
+  const wrote = rs.filter((r) => r.verdict === '씀').length;
+  if (wrote) return `${label}: ${rs.length}개 중 킬 ${killed} · 씀 ${wrote} — 이 묶음에서 단독이 나왔다. 등급 내림은 제안하지 않음(킬 사유 ${topReasons(rs)}만 참고)`;
   return `${label}: ${rs.length}개 중 킬 ${killed} — 등급·문턱 점검 후보 · 킬 사유 ${topReasons(rs)} · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만(굴뚝 11-04 방식) 또는 등급 한 단계 내림 — 바꿀지는 기자가 정함`;
 }
 
