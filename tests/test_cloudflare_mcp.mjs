@@ -1694,7 +1694,7 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   assert.match(a, /현대제철 당진 설비 변경/);
   assert.match(a, /새 공장: \(주\)포스코 수소환원 공장/);
   assert.match(a, /공장 등록 에이치엘만도\(주\)/);
-  assert.match(a, /EU 쿼터 099843 컬러강판\(한국 전용\) 소진/);
+  assert.doesNotMatch(a, /EU 쿼터 099843/);   // 11-21: EU 쿼터 소진은 참고(C) — 기자 '일반 통상 통계 발제는 패스'
   assert.match(a, /국제무역법원\(무역구제 소송\) · 원고: CIT 「SeAH Steel Corporation v\. United States」/);
   assert.doesNotMatch(a, /킬한 후보|Old v\. POSCO|Old v\. United States/);
   assert.match(a, /국제무역법원 판결 「POSCO v\. United States」\(포스코 원고\) — 요지\(원문\) "Sustaining the Department of Commerce's second remand[^"]*" \(풀이: 유지\) · 원고 쪽 청구가/);
@@ -1704,7 +1704,7 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   assert.match(b, /Hyundai Motor Group → EPA 의견서/);
   assert.doesNotMatch(r.text, /Lotte Chemical California|Kia America → EPA/);
   assert.doesNotMatch(r.text, /오래된 고시|오래된 공고/);
-  assert.match(r.text, /\[C · 참고\(접힘\)\] 3건/);
+  assert.match(r.text, /\[C · 참고\(접힘\)\] 4건/);
   const narrowed = await call('radar_today', { hours: 24, company: '세아' }, opts);
   assert.match(narrowed.text, /최근 24시간/);
   assert.match(narrowed.text, /SeAH Steel Corporation/);
