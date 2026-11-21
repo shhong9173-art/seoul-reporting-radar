@@ -138,6 +138,19 @@ class Insolvency(unittest.TestCase):
         self.assertGreater(n_calls, 0)
         self.assertEqual(second["windowStart"], "2026-10-27")
 
+    def test_weekend_and_holiday_court_checks_are_rest_days(self):
+        # 11-22: 토요일 실행의 '기간 안 새 글 0'이 조용한 0 감시('새 글 없음 연속')에 걸렸다 — 쉬는 날 실행은 restDay로 적는다
+        self.assertTrue(k.rest_day(dt.datetime(2026, 11, 21, 7, 20, tzinfo=KST), frozenset()))      # 토
+        self.assertTrue(k.rest_day(dt.datetime(2026, 11, 22, 7, 20, tzinfo=KST), frozenset()))      # 일
+        self.assertFalse(k.rest_day(dt.datetime(2026, 11, 23, 7, 20, tzinfo=KST), frozenset()))     # 월
+        self.assertTrue(k.rest_day(dt.datetime(2026, 12, 25, 7, 20, tzinfo=KST), frozenset({"2026-12-25"})))
+        post, get, _ = fakes()
+        sat = k.run("key", now=dt.datetime(2026, 10, 31, 7, 20, tzinfo=KST), previous=None, post=post, get=get, sleep=lambda s: None, watchlist={})
+        courts = [c for c in sat["checks"] if "법원" in c["source"] and "M&A" not in c["source"]]
+        self.assertTrue(courts and all(c.get("restDay") for c in courts))
+        wed = k.run("key", now=NOW, previous=None, post=post, get=get, sleep=lambda s: None, watchlist={})   # 10-29 목
+        self.assertFalse(any(c.get("restDay") for c in wed["checks"]))
+
     def test_same_name_elsewhere_is_downgraded(self):
         suwon = [notice("000249", "20262920000227", "삼보산업 주식회사", "회생절차 개시결정 공고", "26"),
                  notice("000249", "20262920000228", "주식회사 서우", "회생절차 개시결정 공고", "26"),

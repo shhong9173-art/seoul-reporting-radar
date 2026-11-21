@@ -382,6 +382,20 @@ def since_of(previous, now):
         return floor.date().isoformat()
 
 
+HOLIDAYS_FILE = Path(__file__).resolve().parent.parent / "data" / "kr_holidays.json"
+
+
+def rest_day(now, holidays=None):
+    """토·일·공휴일(KST) — 법원 공고가 안 올라오는 날. 이런 날 실행의 '기간 안 새 글 0'은 조용한 0 감시(screen.mjs returnedWatch)에 세지 않는다
+    (11-22 radar_today: 토요일부터 '협력사 회생·파산: 새 글 없음 연속 1곳(인천지방법원 법인파산 …)'이 수집 상태 맨 위에 떴다)."""
+    if holidays is None:
+        try:
+            holidays = frozenset(json.loads(HOLIDAYS_FILE.read_text(encoding="utf-8")).get("dates") or [])
+        except (OSError, ValueError):
+            holidays = frozenset()
+    return now.weekday() >= 5 or now.strftime("%Y-%m-%d") in holidays
+
+
 def court_since(previous, now, source):
     """법원 업무별 조회 시작일: 그 법원 업무를 마지막으로 다 읽은 때 − 겹침(10-30 07:20 대법원 접속 불가 실행이 전체 성공 시각을
     앞당겨 다음 실행 범위가 줄 수 있었다). 기록이 없으면 전체 기준(since_of)."""
@@ -401,6 +415,9 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     since_day = since_of(None if baseline else previous, now)
     watch = load_watchlist() if watchlist is None else watchlist
     notices, checks = court_notices(lambda source: since_day if baseline else court_since(previous, now, source), post=post, sleep=sleep, deadline=deadline)
+    if rest_day(now.astimezone(KST) if now.tzinfo else now):
+        for c in checks:
+            c["restDay"] = True
     court_last = dict((previous or {}).get("courtLastOk") or {})
     court_last.update({c["source"]: stamp for c in checks if c["status"] == "ok"})
     since_day = min([c["since"] for c in checks if c.get("since")] or [since_day])
