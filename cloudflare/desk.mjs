@@ -79,6 +79,11 @@ export const DESK_TYPES = [
 // 취재 단서(11-18 기자 결정 '추천대로'): 정기보고서 숨은 대목·임원 명단·굴뚝·노조 성명·노동위·지방의회·국회 회의록·국민연금(digest.mjs LEAD_FEEDS) —
 // 감시 등급과 상관없이 단독 추천 유형으로 올리지 않는다. 최근 30일 판정 85건 중 킬 80, 그중 59건이 정기보고서 숨은 대목·굴뚝·임원 명단이었다.
 // 이미 약한 유형(굴뚝·지방의회·국민연금 등)에 맞으면 그 유형 이름과 킬 근거를 그대로 쓰고, 아니면 '취재 단서' 한 유형으로 묶는다(강한·보통 유형으로는 안 감)
+// 단계가 나뉘어 나오는 사건(무역위·미국 법원·관보 판정·해외 무역구제): 항목 날짜 전 기사는 '늦게 나온 옛 사건'이 아니라 같은 사건의 앞선 단계일 때가 많다
+// (11-22 운영: 일본 특수관세부회 도금강판 부과 '적당'(11-20)에 10-13 「포스코, 일본 반덤핑 관세에 반박 의견서」가 붙어 '옛 사건일 수 있음(임원 명단·정기보고서류)' 경고).
+// 경고 문구를 단계에 맞추고, 같은 유형 안에서 뒤로 미루지 않는다.
+const STAGED = new Set(['ktc', 'uscourt', 'usfr', 'foreigndoc', 'foreignlist']);
+const oldCase = (r) => Boolean(r.before) && !STAGED.has(r.type.key);
 export const LEAD_TYPE = { key: 'lead', strength: 'weak', label: '취재 단서(단독 추천 안 함)', why: '11-18 기자 결정 — 최근 30일 판정 85건 중 씀 1·킬 80(킬 59건이 정기보고서 숨은 대목·굴뚝·임원 명단)' };
 
 export function deskType(x) {
@@ -128,7 +133,7 @@ export async function scoopDesk(ctx, args) {
   const isMinor = (r) => r.type.strength === 'normal' && r.x.tier === 'C' && !r.x.prior;
   const minor = open.filter(isMinor);
   const main = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && !isMinor(r))
-    .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || Number(Boolean(a.before)) - Number(Boolean(b.before))
+    .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || Number(oldCase(a)) - Number(oldCase(b))
       || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0) || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
   // 같은 날 같은 감시·회사·종류는 두 줄까지만(같은 회의록·같은 사업장 반복)
   const seen = new Map();
@@ -164,7 +169,8 @@ export async function scoopDesk(ctx, args) {
     if (x.ask) out.push(`   물을 것: ${x.ask}`);
     const press = pressLines(r.rec, kstStamp(d.press?.generatedAt), d.press?.generatedAt);
     if (press.length) out.push(...press); else out.push('   보도 대조(자동): 아직 대조 전 — news_check로 직접(낱말 바꿔 2~3번)');
-    if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
+    if (r.before && STAGED.has(type.key)) out.push(`   ⚠ 항목 날짜 전 기사가 있다(${r.before.date ?? '?'} 「${clipAt(r.before.title ?? '', 50)}」) — 진행 중인 무역구제·소송은 앞선 단계(신청·개시·예비·의견서) 기사일 수 있음. 이번 단계(판정·부과 결정·항소 등)가 그 기사에 이미 있는지 열어 볼 것`);
+    else if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
     out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${ledgerMark(x)}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
     return out;
   };
@@ -188,7 +194,7 @@ export async function scoopDesk(ctx, args) {
     for (const r of first.slice(0, limit)) o.push(...candLines(r));
     if (first.length > limit) o.push(`… 남은 ${first.length - limit}건(다음 알림에서)`);
     o.push(`\n〈2. 그 밖 A — 한 줄씩만〉 ${rest.length}건`);
-    for (const r of rest.slice(0, 3)) o.push(`- ${r.x.watch}${r.x.company ? ` · ${r.x.company}` : ''} · ${clipAt(r.x.fact, 170)}${r.before ? ' ⚠ 항목 날짜 전 기사 있음(옛 일일 수 있음)' : ''} · 자세히: ${r.x.tool} · id ${r.x.id}`);
+    for (const r of rest.slice(0, 3)) o.push(`- ${r.x.watch}${r.x.company ? ` · ${r.x.company}` : ''} · ${clipAt(r.x.fact, 170)}${r.before ? (STAGED.has(r.type.key) ? ' ⚠ 항목 날짜 전 기사 있음(같은 사건 앞선 단계일 수 있음)' : ' ⚠ 항목 날짜 전 기사 있음(옛 일일 수 있음)') : ''} · 자세히: ${r.x.tool} · id ${r.x.id}`);
     if (rest.length > 3) o.push(`… 남은 ${rest.length - 3}건(radar_today·scoop_desk에서)`);
     if (!d.ledger) o.push('⚠ 처리 장부를 읽지 못했다 — 이미 처리한 건·이미 보낸 알림이 섞였을 수 있다(scoop_packages로 직접 확인).');
     o.push("규칙: 여기 뜬 것도 단독 확정이 아니다 — '미보도 후보'는 검색 범위 결과일 뿐이고 수집 실패는 미보도의 증거가 아니다. 관계자 발언을 만들지 않는다.");
