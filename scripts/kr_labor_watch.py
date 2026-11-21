@@ -27,6 +27,20 @@ import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+HOLIDAYS_FILE = ROOT / "data" / "kr_holidays.json"
+
+
+def load_holidays(path=HOLIDAYS_FILE):
+    try:
+        return frozenset(json.loads(Path(path).read_text(encoding="utf-8")).get("dates") or [])
+    except (OSError, ValueError):
+        return frozenset()
+
+
+def rest_day(now, holidays=None):
+    """토·일·공휴일(KST): 위원회 첫 화면 '오늘 회의' 칸이 비는 게 정상인 날."""
+    hol = load_holidays() if holidays is None else holidays
+    return now.weekday() >= 5 or now.strftime("%Y-%m-%d") in hol
 KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "kr_labor/v1"
 BASE = "https://www.nlrc.go.kr"
@@ -188,7 +202,7 @@ def line(n):
             " · 노동위 회의 일정(공개) — 사건명은 신청 주장, 내용·결정은 위원회·당사자 확인")
 
 
-def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None):
+def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None, holidays=None):
     if get is None:
         import requests
         session = requests.Session()
@@ -214,6 +228,7 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
         for k in ("details", "cases", "조정 사건"):
             counts[k] = int((prev.get("counts") or {}).get(k) or 0)
     first = True
+    rest = rest_day(now, holidays)
     retries = WIDGET_RETRY_BUDGET  # 사이트가 통째로 느리면 위원회마다 다시 묻다 작업 한도(15분)를 넘는다 — 한 실행 다시 묻기 횟수 상한
     for slug, cname in COMMISSIONS:
         if not first:
@@ -314,6 +329,8 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
         if widget_error:
             bad_note = f"첫 화면 조회 실패({widget_error}) — 달력 회의만 읽음" + (f", 회의 상세 {bad}건 읽기 실패" if bad else "")
         checks.append({"source": cname, "status": "ok" if not bad and not widget_error else "partial", "returned": widget,
+                       # 11-21 토요일 push 실행: 첫 화면 0줄이 '형식 변경 의심 6곳'으로 떴다 — 쉬는 날 0줄은 형식 감시에 안 센다(screen.mjs returnedWatch)
+                       **({"restDay": True} if rest else {}),
                        **({"calendar": len(cal.get(cname, []))} if covered else {}),
                        **({"calendarOnly": True} if widget_error and covered else {}),
                        **({"note": f"첫 화면 {WIDGET_CAP}건 상한 — 뒤 회의가 빠졌을 수 있음"} if capped else {}),

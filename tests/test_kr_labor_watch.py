@@ -290,6 +290,17 @@ class Run(unittest.TestCase):
         self.assertIn("10초 뒤 다시 물어도 실패", gb["error"])
         self.assertEqual(sum(1 for u in calls3 if u.endswith("gyeongbuk/main.do")), 2)
 
+    def test_rest_day_runs_are_marked_for_format_watch(self):
+        # 11-21 토요일 push 실행: 첫 화면 '오늘 회의' 0줄이 '형식 변경 의심 6곳'으로 떴다 — 쉬는 날 실행은 restDay로 표시
+        sat = dt.datetime(2026, 11, 21, 21, 30, tzinfo=KST)
+        doc = w.run(sat, None, get=site()[0], sleep=lambda s: None, holidays=frozenset())
+        self.assertTrue(all(c.get("restDay") for c in doc["checks"]))
+        doc = w.run(NOW, None, get=site()[0], sleep=lambda s: None, holidays=frozenset({"2026-11-03"}))   # 공휴일
+        self.assertTrue(all(c.get("restDay") for c in doc["checks"]))
+        doc = w.run(NOW, None, get=site()[0], sleep=lambda s: None, holidays=frozenset())
+        self.assertFalse(any(c.get("restDay") for c in doc["checks"]))
+        self.assertTrue(w.rest_day(dt.datetime(2026, 12, 25, 9, 0, tzinfo=KST)))  # 저장소 공휴일 파일(성탄절)
+
     def test_cap_and_failures_are_marked(self):
         get, _ = site(five=True, fail=("/nlrc/seoul/main.do",))
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)

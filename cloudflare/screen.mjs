@@ -161,6 +161,15 @@ export function returnedWatch(prev, doc, nowIso) {
     if (!source || Object.hasOwn(hist, source)) continue;
     const n = typeof c.returned === 'number' ? c.returned : typeof c.listed === 'number' ? c.listed : null;
     const before = (Array.isArray(hist0[source]) ? hist0[source] : []).filter(Number.isFinite);
+    // 쉬는 날(토·일·공휴일) 실행(11-21 노동위 토요일 push 실행: 첫 화면 '오늘 회의' 0줄이 '형식 변경 의심 6곳'): 이력에 안 넣는다.
+    // 토·일(KST)에 잡힌 의심은 쉬는 날 0줄로 생긴 것이라 내리고, 평일에 잡힌 의심은 그대로 이어 간다
+    if (c.restDay) {
+      if (before.length) hist[source] = before.slice(0, RW_KEEP);
+      const old = was.get(source);
+      const dow = old ? new Date(Date.parse(old.since) + 9 * 3600000).getUTCDay() : null;
+      if (old && !(dow === 0 || dow === 6)) silent.push(old);
+      continue;
+    }
     if (n === null || c.status !== 'ok' || c.note) {          // 실패·일부·사유 있는 0은 이력에 넣지 않고 지난 이력만 이어 간다
       if (before.length) hist[source] = before.slice(0, RW_KEEP);
       if (was.has(source)) silent.push(was.get(source));

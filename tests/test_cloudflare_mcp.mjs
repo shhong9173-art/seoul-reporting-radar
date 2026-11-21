@@ -4916,6 +4916,16 @@ test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급�
   assert.equal(noted.silent, undefined);  // 감시가 이유를 적은 0은 세지 않는다
   assert.deepEqual(noted.hist['국민연금'], [6, 5, 6, 5]);
   assert.equal(run(null, [{ source: 'x', status: 'ok' }]), null);                      // 줄 수 없는 원천만 있으면 붙이지 않음
+  // 11-21 노동위 토요일 push 실행: 쉬는 날 실행은 이력에 안 넣는다. 토·일에 잡힌 의심은 내리고, 평일에 잡힌 의심은 이어 간다
+  const C = '중앙노동위원회';
+  const restOnly = [0, 0].reduce((rw) => run(rw, [{ source: C, status: 'ok', returned: 0, restDay: true }]), seq(C, [5, 5, 5, 5]));
+  assert.equal(restOnly.silent, undefined);
+  assert.deepEqual(restOnly.hist[C], [5, 5, 5, 5]);                                // 토·일 실행은 이력에 안 들어감
+  const sat = returnedWatch(seq(C, [5, 5, 5, 5, 0]), { checks: [{ source: C, status: 'ok', returned: 0 }] }, '2026-11-21T12:30:00Z');  // 고치기 전 토요일 실행
+  assert.equal(sat.silent[0].kind, 'zero');
+  assert.equal(run(sat, [{ source: C, status: 'ok', returned: 0, restDay: true }]).silent, undefined);      // 토요일에 잡힌 의심은 내림
+  const weekday = seq(C, [5, 5, 5, 5, 0, 0]);
+  assert.equal(run(weekday, [{ source: C, status: 'ok', returned: 0, restDay: true }]).silent.length, 1);  // 평일에 잡힌 의심은 이어 감
   // 저장: 원래 글자는 그대로 두고 끝에 덧붙인다(파이썬 감시가 다시 읽을 때 1.0 → 1처럼 바뀌지 않게) → radar_today 수집 상태
   const opts = PRIVATE();
   const post = async (n, at) => {
