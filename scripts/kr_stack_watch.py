@@ -514,18 +514,57 @@ GONE_BURST_NOTE = (" — 같은 실행에 이 사업장 배출구 {n}개가 한�
                    "(이 API는 멈춘 배출구도 '가동중지' 상태 글자로 싣는다. 11-03 09:20 고려아연 온산 15개가 같은 날 오전 값과 함께 다시 나옴)")
 
 
-def collapse_gone_bursts(events):
-    """배출구 '목록에서 빠짐'이 같은 사업장·같은 실행에 BURST개 이상이면 모두 C로(목록이 한꺼번에 줄어든 것 — 자료 지연)."""
+GONE_ID = re.compile(r"^stk:gone:(.+):([^:]+):(\d{4}-\d{2}-\d{2})(?::work)?$")
+BACK_TAIL = re.compile(r" — 이후 \d+개 다시 나타남(?:\([^)]*\))?$")
+
+
+def _code_key(c):
+    return (0, int(c), "") if str(c).isdigit() else (1, 0, str(c))
+
+
+def fold_gone_bursts(events):
+    """배출구 '목록에서 빠짐'이 같은 사업장·같은 실행에 BURST개 이상이면 C 한 줄(stk:goneburst)로 접는다 — 목록이 한꺼번에 줄어든 것(자료 지연).
+    11-21 20:25 운영: 포스코 광양제철소 배출구 102개가 한꺼번에 빠져 C 102줄이 생겼다 — 레이더 C 목록을 덮고, 저장 이벤트 상한(300)에서
+    다른 이벤트를 밀어낼 수 있었다. 접은 줄은 원래 id(ids)·번호(codes)를 지녀 같은 날 다시 만들지 않고, 다시 나타난 번호를 센다."""
     groups = {}
     for e in events:
-        if e.get("kind") == "배출구 목록에서 빠짐":
+        if e.get("kind") == "배출구 목록에서 빠짐" and GONE_ID.match(str(e.get("id", ""))):
             groups.setdefault((e.get("company"), e.get("site"), e.get("detectedAt")), []).append(e)
-    for es in groups.values():
+    first, members = {}, {}
+    for key, es in groups.items():
         if len(es) < BURST:
             continue
-        for e in es:
-            if "한꺼번에 빠져" not in (e.get("text") or ""):
-                e["text"] = (e.get("text") or "") + GONE_BURST_NOTE.format(n=len(es))
+        ms = [GONE_ID.match(e["id"]) for e in es]
+        codes = sorted({m.group(2) for m in ms}, key=_code_key)
+        back = sorted({m.group(2) for m, e in zip(ms, es) if "다시 나타남" in (e.get("text") or "")}, key=_code_key)
+        company, site, at = key
+        folded = {"id": f"stk:goneburst:{ms[0].group(1)}:{at}", "kind": "배출구 목록에서 빠짐", "tier": "C", "company": company, "site": site,
+                  "detectedAt": at, "codes": codes, "ids": sorted(e["id"] for e in es), "backCodes": back,
+                  "text": f"{site} 배출구 {len(codes)}개가 같은 실행에 한꺼번에 굴뚝 자동측정 목록에서 빠짐({', '.join(codes[:12])}{' 외' if len(codes) > 12 else ''})"
+                          + GONE_BURST_NOTE.format(n=len(codes)).replace("C로 바로잡음", "C 한 줄로 접음")
+                          + (f" — 이후 {len(back)}개 다시 나타남" if back else "")}
+        first[es[0]["id"]] = folded
+        members.update({e["id"]: key for e in es})
+    out = []
+    for e in events:
+        eid = e.get("id")
+        if eid in first:
+            out.append(first[eid])
+        elif eid in members:
+            continue
+        else:
+            if str(eid or "").startswith("stk:goneburst:"):
+                e["tier"] = "C"
+            out.append(e)
+    return out
+
+
+def settle_burst(events, sid, code, when):
+    """접은 '한꺼번에 빠짐' 줄의 번호가 다시 보이면 센다(한 번만)."""
+    for e in events:
+        if str(e.get("id", "")).startswith(f"stk:goneburst:{sid}:") and code in (e.get("codes") or []) and code not in (e.get("backCodes") or []):
+            e["backCodes"] = sorted({*(e.get("backCodes") or []), code}, key=_code_key)
+            e["text"] = BACK_TAIL.sub("", e.get("text") or "") + f" — 이후 {len(e['backCodes'])}개 다시 나타남(마지막 측정 {when})"
             e["tier"] = "C"
 
 
@@ -694,7 +733,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     known_companies = {s.get("company") for s in (prev.get("sites") or []) if isinstance(s, dict)}
     sites = {s["id"]: s for s in prev.get("sites") or [] if isinstance(s, dict) and s.get("id")}
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
-    events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
+    events = fold_gone_bursts(collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]))
     retier_new(events, sites, prev.get("baselineSince"))
     weekday_companies = {c["company"] for c in cfg["companies"] if c.get("schedule") == "weekday"}
     restore_size_retier(events)
@@ -704,7 +743,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     retier_restart_exceed(events, sites, now)
     retier_status_transitions(events)
     retier_maintenance_stops(events)
-    known = {e["id"] for e in events}
+    known = {e["id"] for e in events} | {i for e in events for i in e.get("ids") or []}   # 접은 줄의 원래 id도(같은 날 다시 만들지 않게)
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
 
@@ -786,6 +825,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 st = stacks.get(code)
                 if st is not None:  # 빠졌다던 배출구가 지금 있으면(예전 저장본에서 이미 돌아온 것도) 그 이벤트에 '다시 나타남'
                     settle(f"stk:gone:{sid}:{code}", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')}, 일시적 누락)")
+                    settle_burst(fresh + events, sid, code, x.get("mesure_dt"))
                     if st.get("longGoneFor"):
                         settle(f"stk:longgone:{sid}:{code}", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')})")
                         st.pop("longGoneFor", None)
@@ -1062,17 +1102,17 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             s.pop("workMissing", None)
 
     annotate_late_starts(events, sites, now)
-    collapse_gone_bursts(fresh + events)
-    collapse_long_gone(fresh + events)
-    retier_repeat_downs(fresh + events)
-    cap_tiers(fresh + events)
+    allev = fold_gone_bursts(fresh + events)
+    collapse_long_gone(allev)
+    retier_repeat_downs(allev)
+    cap_tiers(allev)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
     checks = [{"source": "굴뚝 자동측정(CleanSYS)", "status": "ok" if not errors else ("failed" if not ok_terms else "partial"),
                "returned": len(seen_sites), "terms": f"{ok_terms}/{total_terms}", **({"error": "; ".join(errors[:5])} if errors else {})}]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks,
             "baselineSince": prev.get("baselineSince") or stamp,
-            "sites": sorted(sites.values(), key=lambda s: (s["company"], s["name"])), "events": (fresh + events)[:300],
+            "sites": sorted(sites.values(), key=lambda s: (s["company"], s["name"])), "events": allev[:300],
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
                       "등급 상한(11-08 기자 판정 — 굴뚝 항목 16건 모두 킬): 실시간 신호만으로는 A를 주지 않는다. 배출구 하나하나의 기준 초과·멈춤·'가동중지' 전환·목록 빠짐은 C로 이 화면에만 남긴다. 레이더 B로 남는 것은 사업장 가동 중단 신호·새 배출구·새 사업장·사업장 오래 빠짐·약 하루(실행 8번) 넘게 기준의 1.5배 넘게 이어진 '장기 초과'뿐이다. 아래 규칙의 A·B는 이 상한 전 등급이다.",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
@@ -1081,7 +1121,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
                       "숫자로 돌던 배출구가 '가동중지'(사업장이 보낸 시설 멈춤 신고)로 바뀐 순간을 알린다(연속 가동 사업장만): 멈춤 B와 같은 사업장 크기 기준(5%·최소 2개, 큰 배출구, 평소 값 합 10%)이면 B, 아니면 3개 이상일 때 C. 거꾸로 다시 숫자를 보내면 '해제'(같은 기준). 먼저 B로 알린 배출구의 멈춤 신호(3번 연속)는 C. 11-03 확인: '가동중지'는 2시간 뒤에도 17개 중 16개 그대로였다.",
-                      "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
+                      "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C 한 줄로 접는다(멈춘 배출구는 목록에 '가동중지'로 남는다). 다시 나타난 번호 수를 그 줄에 센다.",
                       "배출구·사업장이 사흘(평일 교대 공장은 일하는 시간 72시간) 넘게 목록에 없으면 '오래 빠짐' B 한 번 — 멈춘 배출구는 '가동중지'로 남으므로 측정 대상에서 빠진 것(폐쇄·철거·측정 대상 변경)일 수 있다. 같은 사업장 같은 실행 3개 이상이면 한 줄만 B. 다시 나타나면 C.",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",

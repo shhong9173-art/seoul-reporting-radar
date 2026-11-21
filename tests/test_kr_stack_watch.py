@@ -704,16 +704,34 @@ class StackTest(unittest.TestCase):
             rows = [x for x in world(t, pohang2=five) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("2", "3", "4"))]
             doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
         gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
-        self.assertEqual(sorted(e["tier"] for e in gone), ["C", "C", "C"])
-        self.assertIn("배출구 3개가 한꺼번에 빠져 측정 자료 지연일 수 있어 C로 바로잡음", gone[0]["text"])
-        # 저장된 B 묶음도 다음 실행에 C로(한 번만 붙임)
-        for e in gone:
-            e["tier"] = "B"
+        # 11-21 운영(포스코 광양 102개가 C 102줄): 한 줄로 접는다 — 원래 id·번호를 지닌다
+        self.assertEqual(len(gone), 1)
+        self.assertEqual((gone[0]["tier"], gone[0]["codes"], len(gone[0]["ids"])), ("C", ["2", "3", "4"], 3))
+        self.assertTrue(gone[0]["id"].startswith("stk:goneburst:현대제철:"))
+        self.assertIn("배출구 3개가 같은 실행에 한꺼번에 굴뚝 자동측정 목록에서 빠짐(2, 3, 4) — 같은 실행에 이 사업장 배출구 3개가 한꺼번에 빠져 측정 자료 지연일 수 있어 C 한 줄로 접음", gone[0]["text"])
+        # 저장된 줄을 B로 바꿔도 다음 실행에 C로, 다시 나타난 번호를 센다(한 번만)
+        gone[0]["tier"] = "B"
         t = dt.datetime(2026, 11, 2, 15, 0, tzinfo=KST)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, pohang2=five)), sleep=lambda s: None)
         gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
-        self.assertEqual([e["tier"] for e in gone], ["C", "C", "C"])
-        self.assertTrue(all(e["text"].count("한꺼번에 빠져") == 1 and "다시 나타남" in e["text"] for e in gone))
+        self.assertEqual([e["tier"] for e in gone], ["C"])
+        self.assertEqual(gone[0]["backCodes"], ["2", "3", "4"])
+        self.assertEqual(gone[0]["text"].count("다시 나타남"), 1)
+        self.assertRegex(gone[0]["text"], r" — 이후 3개 다시 나타남\(마지막 측정 [^)]*\)$")
+
+    def test_stored_per_stack_gone_bursts_are_folded_once(self):
+        # 11-21 20:25 저장분 꼴: 같은 사업장·같은 실행 '목록에서 빠짐' C 여러 줄 → 다음 실행이 한 줄로 접고, 같은 날 다시 만들지 않는다
+        at = "2026-11-21T20:25:00+09:00"
+        ev = [{"id": f"stk:gone:포스코:(주)포스코광양제철소:{c}:2026-11-21", "kind": "배출구 목록에서 빠짐", "tier": "C", "company": "포스코",
+               "site": "㈜포스코 광양제철소", "detectedAt": at, "text": "빠짐" + (" — 이후 다시 나타남(측정 m)" if c == "101" else "")} for c in ("100", "101", "102", "99")]
+        other = {"id": "stk:down:포스코:x:2026-11-21", "kind": "사업장 가동 중단 신호", "tier": "B", "company": "포스코", "site": "s", "detectedAt": at, "text": "멈춤"}
+        out = w.fold_gone_bursts([other] + ev)
+        self.assertEqual([e["id"] for e in out], [other["id"], "stk:goneburst:포스코:(주)포스코광양제철소:" + at])
+        self.assertEqual((out[1]["codes"], out[1]["backCodes"]), (["99", "100", "101", "102"], ["101"]))
+        self.assertIn(" — 이후 1개 다시 나타남", out[1]["text"])
+        self.assertEqual(w.fold_gone_bursts(out), out)    # 두 번 접지 않음
+        # 둘뿐이면(BURST 미만) 그대로
+        self.assertEqual(len(w.fold_gone_bursts(ev[:2])), 2)
 
     def test_stack_misses_do_not_carry_over_a_whole_site_absence(self):
         five = (20.0, 15.0, 12.0, 10.0, 9.0)
