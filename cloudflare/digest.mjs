@@ -1562,7 +1562,8 @@ function health(ctx, docs) {
     const unset = (d.checks ?? []).filter((c) => c.status === 'unset');
     const issues = [];
     if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(rawH)}시간 전 결과`);
-    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => c.source ?? c.company ?? c.target).join(', ')})`);
+    // 11-21: 노동위 첫 화면만 실패하고 달력(기자 컴퓨터 수집) 회의는 읽은 곳은 그렇게 적는다 — 빠진 건 달력 수집 뒤 새로 잡힌 회의뿐
+    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => `${c.source ?? c.company ?? c.target}${c.calendarOnly ? '(첫 화면만 실패 — 달력 회의는 읽음)' : ''}`).join(', ')})`);
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);

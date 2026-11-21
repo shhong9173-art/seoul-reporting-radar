@@ -3373,7 +3373,8 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
   const doc = { schema: 'kr_labor/v1', generatedAt: now, status: 'complete',
     checks: [{ source: '중앙노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' }, { source: '충남지방노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' },
       { source: '경북지방노동위원회', status: 'ok', returned: 3 }, { source: '서울지방노동위원회', status: 'failed', error: 'ConnectTimeout: x' },
-      { source: '경남지방노동위원회', status: 'partial', returned: 4, error: '회의 상세 1건 읽기 실패' }],
+      { source: '경남지방노동위원회', status: 'partial', returned: 4, error: '회의 상세 1건 읽기 실패' },
+      { source: '부산지방노동위원회', status: 'partial', returned: 0, calendar: 12, calendarOnly: true, error: '첫 화면 조회 실패(ReadTimeout: x · 10초 뒤 다시 물어도 실패) — 달력 회의만 읽음' }],
     counts: { meetings: 43, details: 43, cases: 87, '조정 사건': 5 }, seen: {}, notices,
     events: [
       { id: notices[0].id, tier: 'A', kind: '노동위 조정 회의', company: '포스코', commission: '경북지방노동위원회', caseNo: '2026조정88', word: '노동쟁의', url: notices[0].url, detectedAt: now,
@@ -3390,10 +3391,12 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.alts['노동쟁의'].slice(0, 2)], ['포스코', ['노동쟁의'], ['쟁의', '파업']]);
   const k = await call('kr_official', { section: 'labor' }, opts);
   assert.match(k.text, /\[노동위 회의\(조정·심판\) · 출입처가 사건 당사자 · 확인 [^\]]+\]/);
-  assert.match(k.text, /원천: 노동위원회 3\/5곳 정상 · 이번 실행 첫 화면 회의 43건 · 오늘 읽은 회의 상세 43건\(사건 87, 조정 5\) · 미확인\(0건 아님\): 서울지방노동위원회 · 일부 미확인: 경남지노위\(회의 상세 1건 읽기 실패\) · 첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 중노위, 충남지노위/);
+  assert.match(k.text, /원천: 노동위원회 3\/6곳 정상 · 이번 실행 첫 화면 회의 43건 · 오늘 읽은 회의 상세 43건\(사건 87, 조정 5\) · 미확인\(0건 아님\): 서울지방노동위원회 · 일부 미확인: 경남지노위\(회의 상세 1건 읽기 실패\), 부산지노위\(첫 화면 조회 실패\(ReadTimeout: x · 10초 뒤 다시 물어도 실패\) — 달력 회의만 읽음\) · 첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 중노위, 충남지노위/);
   assert.match(k.text, /- 출입처 사건 · 최근 30일 2건\n  A · 2026-10-26 14:00 · 포스코 · 경북지방노동위원회 1차조정회의 · 사건 2026조정88 「주식회사 포스코 노동쟁의 조정신청사건」\n     원문: https:\/\/www\.nlrc\.go\.kr\/nlrc\/gyeongbuk\/meetingSche\/detail\.do\?mtgId=2026조정88/);
   assert.match((await call('kr_official', {}, opts)).text, /\[노동위 회의\(조정·심판\)/);   // section 없이도 붙는다
   assert.doesNotMatch((await call('kr_official', { section: 'labor', company: '포스코' }, opts)).text, /현대자동차 주식회사/);
+  // 11-21: 첫 화면만 실패하고 달력 회의는 읽은 위원회는 radar_today 감시 상태 줄에 그렇게 적는다(빠진 건 달력 수집 뒤 새로 잡힌 회의뿐)
+  assert.match(r.text, /노동위 회의\(조정·심판\): 일부 실패 3건\(서울지방노동위원회, 경남지방노동위원회, 부산지방노동위원회\(첫 화면만 실패 — 달력 회의는 읽음\)\)/);
 });
 
 test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B, 대조 낱말에 인도 필수, partner_filings 구역(NSE)', async () => {

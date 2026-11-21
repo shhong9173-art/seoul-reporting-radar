@@ -230,7 +230,8 @@ class Run(unittest.TestCase):
         doc = w.run(NOW, None, get=base, sleep=lambda s: None, browser=browser)
         gb = next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")
         self.assertEqual(gb["status"], "partial")
-        self.assertIn("첫 화면 조회 실패(ConnectTimeout: x) — 달력 회의만 읽음", gb["error"])
+        self.assertIn("첫 화면 조회 실패(ConnectTimeout: x · 10초 뒤 다시 물어도 실패) — 달력 회의만 읽음", gb["error"])
+        self.assertTrue(gb["calendarOnly"])
         self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
         doc = w.run(NOW, None, get=site(fail=("gyeongbuk/main.do",))[0], sleep=lambda s: None)
         self.assertEqual(next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")["status"], "failed")
@@ -260,6 +261,29 @@ class Run(unittest.TestCase):
         self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
         self.assertIn(5.0, waits)
         self.assertEqual(doc["status"], "complete")
+
+    def test_widget_read_is_retried_once_after_timeout(self):
+        # 11-06~11-20: 실행 절반가량에서 위원회 1~2곳 첫 화면 ReadTimeout — 매번 다른 곳(일시 지연)
+        get, calls = site()
+        flaky = {"n": 0}
+
+        def get2(url, timeout=None):
+            if url.endswith("gyeongbuk/main.do") and flaky["n"] == 0:
+                flaky["n"] += 1
+                raise type("ReadTimeout", (Exception,), {})("x")
+            return get(url, timeout=timeout)
+        waits = []
+        doc = w.run(NOW, None, get=get2, sleep=waits.append)
+        self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
+        self.assertIn(w.WIDGET_RETRY_WAIT, waits)
+        self.assertEqual(doc["status"], "complete")
+        # 두 번 다 실패하면 미확인 — 다시 물었다는 것도 적는다(세 번째는 묻지 않는다)
+        get3, calls3 = site(fail=("gyeongbuk/main.do",))
+        doc = w.run(NOW, None, get=get3, sleep=lambda s: None)
+        gb = next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")
+        self.assertEqual(gb["status"], "failed")
+        self.assertIn("10초 뒤 다시 물어도 실패", gb["error"])
+        self.assertEqual(sum(1 for u in calls3 if u.endswith("gyeongbuk/main.do")), 2)
 
     def test_cap_and_failures_are_marked(self):
         get, _ = site(five=True, fail=("/nlrc/seoul/main.do",))
