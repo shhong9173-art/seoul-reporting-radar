@@ -205,6 +205,15 @@ class Partners(unittest.TestCase):
                            "phrases": ["POSCO"], "beat": ["포스코"], "snippet": "our Memorandum of Understanding with POSCO and"}]}
         doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=lambda *a, **k: R(404), sleep=lambda s: None)
         self.assertEqual([x["id"] for x in doc["items"]], ["edgar:y-1:q.htm"])
+        # 11-21 운영: Factorial 8-K 'partnership with POSCO Future M'(계열사)·KB 표 'POSCO INTERNATIONAL Corporation 733'은 포스코가 아니다
+        aff = {"items": [{"id": "edgar:z-1:f.htm", "source": "EDGAR", "date": "2026-11-10", "firstSeen": "2026-11-10T07:00:00+09:00", "phrases": ["POSCO"],
+                          "beat": ["포스코"], "snippet": "This builds on our partnership with POSCO Future M, a leading cathode and anode materials provider in Korea."},
+                         {"id": "edgar:z-2:g.htm", "source": "EDGAR", "date": "2026-11-10", "firstSeen": "2026-11-10T07:00:00+09:00", "phrases": ["POSCO"],
+                          "beat": ["포스코"], "snippet": "Hanwha Solutions Corporation 735 POSCO INTERNATIONAL Corporation 733 Samsung SDI"},
+                         {"id": "edgar:z-3:h.htm", "source": "EDGAR", "date": "2026-11-10", "firstSeen": "2026-11-10T07:00:00+09:00", "phrases": ["POSCO"],
+                          "beat": ["포스코"], "snippet": "a supply agreement with POSCO Holdings Inc. and POSCO Future M"}]}
+        doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=aff, get=lambda *a, **k: R(404), sleep=lambda s: None)
+        self.assertEqual([x["id"] for x in doc["items"]], ["edgar:z-3:h.htm"])          # 포스코홀딩스가 함께 나오면 남긴다
 
     def test_previous_items_keep_first_seen_and_expire(self):
         prev = {"items": [{"id": "edgar:0001193125-26-111111:d111d8k.htm", "source": "EDGAR", "date": "2026-10-21", "firstSeen": "2026-10-21T07:00:00+09:00",

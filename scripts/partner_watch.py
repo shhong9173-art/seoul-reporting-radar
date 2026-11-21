@@ -31,7 +31,10 @@ BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, 
 SEC_UA = os.environ.get("SEC_USER_AGENT", "").strip() or "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"
 FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
 # Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
-UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I),
+# 11-21 partner_filings 실제 화면: Factorial 8-K 'our partnership with POSCO Future M'이 포스코로 떴다 — 포스코퓨처엠·포스코인터내셔널 등
+# 계열사는 출입처가 아니다(AGENTS.md). 그 이름으로만 나오면 무관한 뜻으로 센다(POSCO Holdings는 출입처라 뺀다)
+UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower|Future\s*M\b|FUTURE\s*M\b|International|INTERNATIONAL|E&C|DX|Flow|FLOW|"
+                                 r"M-?Tech|A&C|Wide|Chemtech|ICT|Mobility\s+Solution|Steeleon|Energy|ENERGY)", re.I),
              # EDGAR 전문 검색은 대소문자를 가리지 않아 말레이시아·싱가포르 성씨 'Seah'도 걸린다(10-29 Global Engine Group 20-F → '세아' A).
              # 세아는 'SeAH'로만 쓴다 — 다른 대소문자 'Seah·SEAH'는 무관한 뜻으로 센다.
              "SeAH": re.compile(r"\b(?!SeAH\b)[Ss][Ee][Aa][Hh]\b")}
