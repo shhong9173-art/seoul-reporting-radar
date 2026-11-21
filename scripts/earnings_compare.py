@@ -540,8 +540,8 @@ def annotate(report):
                      f"|설비투자%={(c.get('capex') or {}).get('changePct')}|{c.get('warning', '')}{c.get('error', '')}")
     for i in range(0, len(lines), 6):
         print("::notice title=earnings-%d::%s" % (i // 6 + 1, " ;; ".join(lines[i:i + 6])))
-    for i, x in enumerate((report.get("peers") or {}).get("leads", [])[:6]):
-        print(f"::notice title=earnings-peer-{i + 1}::{x['text']}")
+    # 11-22: 동종사 비교 단서 문장은 공개 로그에 찍지 않는다(건수만 — 문장은 기자 전용 저장소에)
+    print(f"::notice title=earnings-peer::동종사 비교 단서 {len((report.get('peers') or {}).get('leads', []))}건")
     odd = []
     for c in report["companies"]:
         e = c.get("employees") or {}
