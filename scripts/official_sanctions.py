@@ -311,22 +311,50 @@ def refresh_pipc_decisions(state, *, get, now, pause=None, front_pages=3, backfi
                 pause(0.5)
             v = get(PIPC_AGENDA_VIEW + idx, headers=UA, timeout=30)
             files = list(dict.fromkeys(re.findall(r"fn_egov_downFileCnv\(\s*'([^']+)'\s*,\s*'(\d+)'\s*,\s*'pdf'", v.text)))
+            # 11-21 탐침: 2020~2023년 결정문 화면은 변환(Cnv) 링크 없이 원본 첨부 링크만 있다(javascript:fn_egov_downFile('…','…','…'))
+            # — 그동안 '첨부 없음'으로 줄에 21건이 쌓여 날마다 다시 열었다. 원본(PDF·HWP·HWPX)을 내려받아 읽는다.
+            # 변환 PDF가 안내 쪽(HTML)으로 오면 같은 첨부의 원본으로 한 번 더.
+            raw_links = list(dict.fromkeys(re.findall(r"fn_egov_downFile\(\s*'([^']+)'\s*,\s*'(\d+)'", v.text)))
             recs, ok = [], False
-            for fid, sn in files[:4]:
-                f = get(PIPC_FILE_DL, params={"atchFileId": fid, "fileSn": sn, "fileExtsn": "pdf", "cnvCnt": "1"},
-                        headers={**UA, "Referer": PIPC_AGENDA_VIEW + idx}, timeout=60)
-                raw = getattr(f, "content", b"") or b""
-                if getattr(f, "status_code", 200) != 200 or raw[:4] != b"%PDF":
+
+            def texts():
+                tried = set()
+                for fid, sn in files[:4]:
+                    f = get(PIPC_FILE_DL, params={"atchFileId": fid, "fileSn": sn, "fileExtsn": "pdf", "cnvCnt": "1"},
+                            headers={**UA, "Referer": PIPC_AGENDA_VIEW + idx}, timeout=60)
+                    raw = getattr(f, "content", b"") or b""
+                    if getattr(f, "status_code", 200) == 200 and raw[:4] == b"%PDF":
+                        tried.add((fid, sn))
+                        yield (read_pdf or pdf_text)(raw, 40)
+                        continue
                     k = f"unread:{getattr(f, 'status_code', '?')}:{raw[:4]!r}"
                     outcome[k] = outcome.get(k, 0) + 1
-                    continue
+                    if (fid, sn) not in raw_links:
+                        raw_links.append((fid, sn))
+                for fid, sn in [x for x in raw_links if x not in tried][:4]:
+                    f = get(PIPC_FILE.format(fid, sn), headers={**UA, "Referer": PIPC_AGENDA_VIEW + idx}, timeout=60)
+                    raw = getattr(f, "content", b"") or b""
+                    body = attachment_text(raw, lambda b, n: (read_pdf or pdf_text)(b, 40)) if getattr(f, "status_code", 200) == 200 else None
+                    if body is None:
+                        k = f"unread_original:{getattr(f, 'status_code', '?')}:{raw[:4]!r}"
+                        outcome[k] = outcome.get(k, 0) + 1
+                        continue
+                    outcome["original"] = outcome.get("original", 0) + 1
+                    yield body
+
+            for body in texts():
                 ok = True
-                for x in pipc_decision((read_pdf or pdf_text)(raw, 40)):
+                for x in pipc_decision(body):
                     recs.append({"agency": "개인정보위", "id": f"pipcd:{x['case']}", "org": x["org"], "date": x["date"],
                                  "what": f"결정문 {x['case']}", "inst": ", ".join(f"{k} {x[k2]}" for k, k2 in (("과징금", "fine"), ("과태료", "penalty")) if x.get(k2)),
                                  "major": bool(x.get("fine")), "url": PIPC_AGENDA_VIEW + idx})
-            if not files:
+            if not files and not raw_links:
                 outcome["no_file"] = outcome.get("no_file", 0) + 1
+                # 의결 30일이 지나도 첨부가 없는 결정문(삭제·미첨부)은 줄에서 뺀다 — 날마다 다시 열지 않는다(판이 바뀌면 다시)
+                if queue[idx].get("date", "9999") < (now - dt.timedelta(days=30)).strftime("%Y-%m-%d"):
+                    empty[idx] = {"v": PIPC_DECISION_VERSION, "noFile": True, **queue[idx]}
+                    queue.pop(idx, None)
+                    continue
             if recs:
                 read[idx] = recs
                 queue.pop(idx, None)

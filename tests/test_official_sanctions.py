@@ -218,9 +218,49 @@ class Parse(unittest.TestCase):
         self.assertEqual((c4["read"], st4["empty"]), (1, {}))
         st5, c5 = osn.refresh_pipc_decisions(dict(st, read={}), get=get, now=NOW, read_pdf=lambda raw, n: "꼴 아님")
         self.assertEqual(st5["empty"]["2026-0723"]["v"], osn.PIPC_DECISION_VERSION)          # 같은 판에선 다시 안 읽음
-        bad = lambda url, params=None, **kw: R(content=b"<!DO") if url == osn.PIPC_FILE_DL else get(url, params)
+        orig = osn.PIPC_FILE.format("CYLFILE_1", "3")
+        bad = lambda url, params=None, **kw: R(content=b"<!DO") if url in (osn.PIPC_FILE_DL, orig) else get(url, params)
         st3, c3 = osn.refresh_pipc_decisions(None, get=bad, now=NOW, read_pdf=lambda raw, n: real)
-        self.assertEqual((c3["status"], c3["queued"], list(c3["outcomes"])), ("partial", 1, ["unread:200:b'<!DO'"]))
+        self.assertEqual((c3["status"], c3["queued"], sorted(c3["outcomes"])), ("partial", 1, ["unread:200:b'<!DO'", "unread_original:200:b'<!DO'"]))
+        self.assertNotIn("error", c3)
+        # 11-21: 변환 PDF가 안내 쪽(HTML)이면 같은 첨부의 원본으로 한 번 더(탐침: 2건)
+        half = lambda url, params=None, **kw: R(content=b"<!DO") if url == osn.PIPC_FILE_DL else R(content=b"%PDF-1.4") if url == orig else get(url, params)
+        st6, c6 = osn.refresh_pipc_decisions(None, get=half, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual((c6["status"], c6["read"], c6["outcomes"].get("original")), ("ok", 1, 1))
+
+    def test_pipc_old_decisions_with_original_links_only(self):
+        # 11-21 탐침: 2020~2023년 결정문 화면은 변환 링크 없이 javascript:fn_egov_downFile('…','…','…')만 — 줄에 21건이 '첨부 없음'으로 쌓였다
+        real = ("안 건 번 호 제2021-007-062호 안 건 명 개인정보보호 법규 위반행위에 대한 시정조치에 관한 건 피 심 인 한빛상사㈜ (사업자등록번호 : ) "
+                "대표자 의결연월일 2021. 4. 28. 주 문 가. 과 태 료 : 6,000,000원 이 유")
+        listing = ('<table><tr><td>1</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2021-0101">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건</a></td>'
+                   '<td>2021-04-28</td></tr>'
+                   '<tr><td>2</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2021-0102">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건</a></td>'
+                   '<td>2021-04-28</td></tr>'
+                   '<tr><td>3</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0900">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건</a></td>'
+                   f'<td>{(NOW - dt.timedelta(days=3)).strftime("%Y-%m-%d")}</td></tr></table>')
+        script = "<script>function fn_egov_downFileCnv(atchFileId, fileSn, fileExtsn) { }</script>"
+        views = {"2021-0101": script + "<a href=\"javascript:fn_egov_downFile('FILE_000000000077001','0','x')\">결정문.pdf</a>",
+                 "2021-0102": script + "<p>첨부 없음</p>", "2026-0900": script}
+        calls = []
+
+        def get(url, params=None, **kw):
+            calls.append(url)
+            if url.startswith(osn.PIPC_AGENDA_VIEW):
+                return R(text=views[url.split("idxId=")[1]])
+            if url == osn.PIPC_FILE.format("FILE_000000000077001", "0"):
+                return R(content=b"%PDF-1.4")
+            if url == osn.PIPC_FILE_DL:
+                raise AssertionError("변환 링크가 없는데 변환 내려받기")
+            return R(text=listing if params["page"] == 1 else "<table></table>")
+        st, c = osn.refresh_pipc_decisions({"done": True}, get=get, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual([r["org"] for r in osn.pipc_decision_records(st)], ["한빛상사"])
+        self.assertEqual(c["outcomes"], {"original": 1, "ok": 1, "no_file": 2})
+        # 의결 30일 지난 첨부 없는 결정문은 줄에서 빼고(다시 안 엶), 최근 결정문은 첨부가 붙을 수 있어 줄에 남긴다
+        self.assertEqual((sorted(st["queue"]), st["empty"]["2021-0102"]["noFile"]), (["2026-0900"], True))
+        self.assertEqual(c["status"], "partial")
+        calls.clear()
+        st2, _ = osn.refresh_pipc_decisions(st, get=get, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual(sum(1 for u in calls if "2021-0102" in u), 0)
 
     def test_pipc_probe184_variants(self):
         t = ("처분내용1한빛연구재단법 제29조안전조치의무위반2026.1.28과징금, 시정명령,공표명령, 징계권고, 개선권고법 제34조제1항유출통지의무 위반2026.1.28과태료, 시정명령"
