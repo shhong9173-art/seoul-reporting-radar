@@ -167,9 +167,16 @@ export function returnedWatch(prev, doc, nowIso) {
       continue;
     }
     hist[source] = [n, ...before].slice(0, RW_KEEP);
-    // 기간 안 줄 수(returned)만 0이고 원천 목록 자체(total)는 비지 않았으면 형식 변경이 아니라 그 기간 새 글이 없는 것(11-21 운영:
-    // 인천지방법원 법인파산 '정상 응답인데 0줄, 이전 5·5·5·5줄' — 토요일 실행, 대법원 목록 total은 그대로). 의심도 풀어 준다
-    if (typeof c.total === 'number' && c.total > 0) continue;
+    // 기간 안 줄 수(returned)만 0이고 원천 목록 자체(total)는 비지 않았으면 형식 변경이 아니라 그 기간 새 글이 없는 것일 수 있다(11-21 운영:
+    // 인천지방법원 법인파산 '정상 응답인데 0줄, 이전 5·5·5·5줄', 대법원 목록 total은 응답). 다만 공고가 다른 법원 번호로 옮겨 갔어도
+    // 옛 목록 total은 남는다 — 지우지 않고 '새 글 없음(quiet)'으로 낮춰 적는다(⚠ 형식 변경 의심 아님)
+    if (typeof c.total === 'number' && c.total > 0) {
+      const prevQ = was.get(source);
+      if (n === 0 && (prevQ || (before[0] === 0 && before.slice(1, 5).length >= 4 && before.slice(1, 5).every((x) => x >= RW_FLOOR)))) {
+        silent.push({ source, kind: 'quiet', now: 0, before: prevQ?.before ?? before.slice(1, 5), limit: 0, total: c.total, since: prevQ?.since ?? nowIso });
+      }
+      continue;
+    }
     const old = was.get(source);
     if (old && n <= (old.limit ?? 0)) { silent.push({ ...old, now: n }); continue; }
     const ref = before.slice(1, 5);

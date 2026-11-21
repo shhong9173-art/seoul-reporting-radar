@@ -1566,10 +1566,16 @@ function health(ctx, docs) {
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
     // 조용한 0건(screen.mjs returnedWatch): 감시는 '정상'인데 원천이 두 번 연달아 0줄·급감 — 사이트 형식이 바뀌었을 수 있다
-    const silent = Array.isArray(d._returnedWatch?.silent) ? d._returnedWatch.silent : [];
+    const silentAll = Array.isArray(d._returnedWatch?.silent) ? d._returnedWatch.silent : [];
+    const silent = silentAll.filter((x) => x.kind !== 'quiet');
+    const quiet = silentAll.filter((x) => x.kind === 'quiet');
     if (silent.length) {
       issues.push(`⚠ 형식 변경 의심 ${silent.length}곳(${silent.slice(0, 3).map((x) => `${x.source}: ${x.kind === 'zero' ? '정상 응답인데 0줄' : `${x.now}줄로 급감`}`
         + `, 이전 ${(x.before ?? []).join('·')}줄`).join(' / ')}) — 원문 사이트 목록이 보이는지 확인`);
+    }
+    // 11-21: 기간 안 새 글만 0이고 목록 전체(total)는 응답 — 한산한 기간일 수 있다(공고가 다른 번호로 옮겨 간 경우도 total은 남는다)
+    if (quiet.length) {
+      issues.push(`새 글 없음 연속 ${quiet.length}곳(${quiet.slice(0, 3).map((x) => `${x.source}: 이전 ${(x.before ?? []).join('·')}줄 → 0, 목록 전체 ${Number(x.total).toLocaleString('en-US')}건은 응답`).join(' / ')}) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음`);
     }
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
     // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
