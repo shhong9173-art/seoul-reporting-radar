@@ -522,6 +522,7 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
     out.push(`   제출 ${x.firmOrganization || x.filedBy}${party} · ${x.why}${(x.companies ?? []).length ? ` · 출입처 ${x.companies.join('·')}` : ''}`);
     out.push(`   사건: ${x.investigationTitle} (${x.investigationPhase}·${x.investigationStatus})`);
     if ((x.snippets ?? []).length) out.push(`   본문(${x.pages}쪽, 공개본 첫 첨부) 발췌: ${x.snippets.map((t) => `"${t}"`).join(' / ')}`);
+    if ((x.schedule ?? []).length) out.push(`   본문 속 기한: ${x.schedule.map((s) => `${s.date}("${String(s.quote ?? '').slice(0, 140)}")`).join(' / ')}`);
     else if (x.bodyError) out.push(`   본문 미확인(${x.bodyError})`);
     else if (String(x.securityLevel).toLowerCase() !== 'public') out.push('   비공개 문서 — 본문 없음(공개본은 뒤에 따로 올라온다)');
     out.push(`   원문: ${x.url} (EDIS 문서 번호 ${x.id})`);
