@@ -2129,6 +2129,8 @@ async function execCheckSection(ctx, q, limit) {
   const extra = [[2, 'C(본문 언급·공식 제재)'], [3, '기사 미확인'], [4, '참고']].filter(([k]) => n[k]).map(([k, t]) => ` · ${t} ${n[k]}명`).join('');
   const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${n[0] + n[1]}명${q ? '' : `(A ${n[0]})`}${extra}`,
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
+    // 11-21: 같은 판에선 다시 안 여는 원천 글(그림 첨부·꼴 다른 표) — 실패 줄이 아니라 범위 밖 표시(그 글의 회사는 대조 안 됨)
+    ...(doc.checks ?? []).filter((k) => k.note && ['ok', 'no_data'].includes(k.status)).map((k) => `읽지 않는 글: ${k.source} — ${k.note}`),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
     out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${LABEL[rank(p)]} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);

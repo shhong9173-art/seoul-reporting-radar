@@ -400,5 +400,41 @@ class Refresh(unittest.TestCase):
         st2, c2 = osn.refresh_pipc(st, get=ok, now=NOW, read_pdf=lambda raw, pages: PIPC)
         self.assertEqual((c2["status"], c2["rows"]), ("ok", 2))
 
+    def test_pipc_image_and_unparsed_posts_are_not_reopened(self):
+        # 11-21 운영 로그: 그림(PNG) 첨부 글 3건·표 꼴이 다른 글 1건을 날마다 다시 내려받아 상태가 늘 '일부 실패'
+        listing = "".join(f'<a href="/np/cop/bbs/selectBoardArticle.do?bbsId=BS258&amp;mCode=C010040000&amp;nttId={n}">공표</a>' for n in (12658, 12700, 12701))
+        view = "<a href=\"javascript:fn_egov_downFileCnv('FILE_{n}','0','pdf')\">다운로드</a>"
+        calls = []
+
+        def get(url, **kw):
+            calls.append(url)
+            if "selectBoardList" in url:
+                return R(listing if url.endswith("pageIndex=1") else "")
+            if "selectBoardArticle" in url:
+                return R(view.replace("{n}", url.rsplit("=", 1)[1]))
+            if "FILE_12658" in url:
+                return R(content=b"\x89PNG\r\n")
+            if "FILE_12700" in url:
+                return R(content=b"%PDF-1.4 other")
+            return R(content=b"%PDF-1.4")
+        read = lambda raw, pages: "다른 꼴의 안내문" if b"other" in raw else PIPC
+        st, c = osn.refresh_pipc(None, get=get, now=NOW, read_pdf=read)
+        self.assertEqual((c["status"], c["rows"], c["images"], c["unparsed"]), ("ok", 2, 1, 1))
+        self.assertEqual(c["note"], "그림 첨부 글 1건(글자 못 읽음 — 원문 열람) · 표 꼴이 달라 못 뽑은 글 1건(원문 열람)")
+        calls.clear()
+        st2, c2 = osn.refresh_pipc(st, get=get, now=NOW, read_pdf=read)
+        self.assertFalse(any("selectBoardArticle" in u or "FileDown" in u for u in calls))      # 같은 판에선 다시 안 연다
+        self.assertEqual((c2["status"], c2["images"]), ("ok", 1))
+        with patch.object(osn, "PIPC_PUB_VERSION", 2):                                    # 읽는 법이 바뀌면 다시
+            calls.clear()
+            osn.refresh_pipc(st2, get=get, now=NOW, read_pdf=read)
+        self.assertEqual(sum(1 for u in calls if "selectBoardArticle" in u), 2)
+        # 그림과 HTML 안내가 섞이면 실패(다음 실행에 다시)
+        mixed = lambda url, **kw: R(content=b"<html>") if "FILE_12658" in url and "fileSn=1" in url else get(url, **kw)
+        view2 = "<a href=\"javascript:fn_egov_downFile('FILE_12658','0')\">a</a><a href=\"javascript:fn_egov_downFile('FILE_12658','1')\">b</a>"
+        g3 = lambda url, **kw: R(view2) if "selectBoardArticle" in url and "12658" in url else mixed(url, **kw)
+        st3, c3 = osn.refresh_pipc(None, get=g3, now=NOW, read_pdf=read)
+        self.assertEqual((c3["status"], "12658" in st3["skip"]), ("partial", False))
+
 if __name__ == "__main__":
     unittest.main()
