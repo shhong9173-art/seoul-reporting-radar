@@ -38,7 +38,10 @@ A_WORDS = re.compile(r"acqui|amalgamat|merger|scheme of arrangement|expansion|ca
                      r"capital expenditure|capex|royalt|related party|joint venture|investment in", re.I)
 C_WORDS = re.compile(r"transcript|trading window|newspaper|analysts?/institutional investor meet|investor meet|investor presentation|"
                      r"loss of share|duplicate share|certificate under reg|reg(?:ulation)? 74|copy of newspaper|audio recording|"
-                     r"shareholders? meeting|postal ballot|book closure|record date|esop|esos", re.I)
+                     r"shareholders? meeting|postal ballot|book closure|record date|esop|esos|"
+                     # 11-21: '…Change In the address of the Corporate Office of the RTA'(명의개서 대리인 주소 변경)가 B — 주주 사무 대리인 공지는 일상
+                     r"\bRTA\b|registrar (?:and|&) (?:share )?transfer agent|share transfer agent|investor complaints?|compliance certificate|"
+                     r"reg(?:ulation)?\.? ?40\s*\(\s*9\s*\)|reg(?:ulation)?\.? ?7\s*\(\s*3\s*\)", re.I)
 
 
 def ist_time(s):
