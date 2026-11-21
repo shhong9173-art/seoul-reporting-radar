@@ -1315,6 +1315,13 @@ test('converging signals: same beat company and same city from two or more watch
   assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 3, true], ['현대제철', '당진', 2, true]]);
   assert.ok(!g[0].items.some((x) => x.id === 'x1'));  // 미국 리콜은 장소 묶음 대상이 아님
   assert.ok(!g.some((x) => x.company === '포스코'));  // C는 세지 않아 감시 한 곳뿐
+  // 사업장 이름으로 정한 시군(두산에너빌리티(주) → 창원)은 문장에 다른 시군이 적혀 있으면 쓰지 않는다(11-22 화성 동탄 부지 허가가 창원 묶음에 붙음)
+  const dsn = [
+    { id: 'd1', tier: 'B', tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: '두산에너빌리티', date: t(1), fact: '두산에너빌리티(주): 평소 움직이던 배출구 5개 중 3개가 3번 연속 평소의 10% 아래' },
+    { id: 'd2', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '두산에너빌리티', date: '2026-10-29', fact: '건축허가: 두산에너빌리티(주) 부지(경기도 화성시 동탄구 석우동 2-3번지) · 대수선 공장' },
+    { id: 'd3', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '두산에너빌리티', date: '2026-10-29', fact: '창원시 공고 「두산에너빌리티(주) 공장 증설」' }];
+  const dg = convergence(dsn, { cut: Date.parse('2026-10-29T15:00:00Z') });
+  assert.deepEqual(dg.map((x) => [x.place, x.items.map((y) => y.id).sort()]), [['창원', ['d1', 'd3']]]);   // 화성 허가는 창원 묶음에 없음(화성은 감시 한 곳뿐)
 });
 
 test('converging signals: background (workforce project, recent permit, stopped stack) joins a fresh item but never forms a group alone', () => {
