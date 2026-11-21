@@ -48,7 +48,9 @@ RULES = [("현대차", r"HYUNDAI MOTOR (?:MANUFACTURING|GROUP METAPLANT|AMERICA)
          ("세아제강", r"SEAH STEEL|\bSEAH (?:USA|AMERICA)"), ("동국제강·동국씨엠", r"DONGKUK"), ("고려아연", r"KOREA ZINC"),
          ("HD현대일렉트릭", r"HYUNDAI POWER TRANSFORMERS|HD HYUNDAI ELECTRIC"), ("LS일렉트릭", r"\bLS ELECTRIC"),
          ("LS전선", r"\bLS CABLE|LS GREENLINK"), ("LS전선(자회사)", r"SUPERIOR ESSEX"), ("대한전선", r"TAIHAN"),
-         ("두산에너빌리티", r"DOOSAN (?:ENERBILITY|HEAVY)"),
+         # 11-22: Doosan Turbomachinery Services(휴스턴, 가스터빈 정비) — 2019 두산중공업 미국 법인(DHIA)이 ACT Independent Turbo Service를
+         # 인수해 바꾼 이름(turbomachinerymag.com 인수 완료 기사). OSHA 이름 검색 '빼낸 사업장' 칸에 2건 있었다.
+         ("두산에너빌리티", r"DOOSAN (?:ENERBILITY|HEAVY|TURBOMACHINERY)"),
          ("한화솔루션", r"HANWHA Q ?CELLS|\bQCELLS\b|HANWHA SOLUTIONS|HANWHA ADVANCED MATERIALS"),
          ("OCI", r"MISSION SOLAR|\bOCI ENERGY"), ("효성중공업(관련)", r"HYOSUNG"),
          # 11-01 기자 명시: 석유화학(미국 사업장 — LG화학 테네시 양극재, 롯데케미칼 루이지애나)

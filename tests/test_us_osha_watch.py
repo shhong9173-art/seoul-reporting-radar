@@ -177,6 +177,9 @@ class Run(unittest.TestCase):
         self.assertIsNone(w.company_of("HYUNDAI OF WESLEY CHAPEL"))
         self.assertIsNone(w.company_of("POSCO INTERNATIONAL AMERICA"))
         self.assertEqual(w.company_of("LS GREENLINK USA INC"), "LS전선")
+        # 11-22: 두산에너빌리티 미국 손자회사(가스터빈 정비) — OSHA '빼낸 사업장' 칸 이름 그대로
+        self.assertEqual(w.company_of("DOOSAN TURBOMACHINERY SERVICES, INC."), "두산에너빌리티")
+        self.assertIsNone(w.company_of("DOOSAN BOBCAT NORTH AMERICA"))
 
 
 if __name__ == "__main__":
