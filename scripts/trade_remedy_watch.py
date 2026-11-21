@@ -1246,6 +1246,9 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
     events += [e for e in fresh if e["id"] not in seen]
+    if tra:
+        import tra_file_watch
+        tra_file_watch.retier_stored(events, tra)   # 규칙을 고친 뒤 남은 옛 등급(내리기만)
     if cbsa:
         import cbsa_cases
         cbsa_cases.retract_stale(events, cbsa, now)   # 잘못 나간 옛 사건 '새 사건' 표시는 화면에서 뺀다(지우지 않음)
