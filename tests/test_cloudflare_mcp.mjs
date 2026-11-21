@@ -4907,20 +4907,27 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
       // 기본개요에 주용도가 없어 수집기가 동별개요로 채운 허가(11-02 탐침 110)
       p('bld:6', { bldNm: null, mainPurpsCdNm: null, totArea: 1950, dongs: [{ purpose: '기타공장', structure: '경량철골구조', area: 1950 }], purposeFrom: '동별개요' }),
       // 11-22 운영 꼴: 허가 석 달 뒤 월간 갱신에 처음 잡힌 허가
-      p('bld:8', { plot: '충청남도 당진시 송악읍 고대리 1-1번지', bldNm: '늦게 올라온 허가', archGbCdNm: '증축', permitted: '2026-07-20', tier: 'B' })] };
+      p('bld:8', { plot: '충청남도 당진시 송악읍 고대리 1-1번지', bldNm: '늦게 올라온 허가', archGbCdNm: '증축', permitted: '2026-07-20', tier: 'B' }),
+      // 11-22 운영 꼴: 사용승인 한 달 넘게 뒤에 준공으로 처음 잡힘 / 엿새 뒤에 잡힌 준공은 그대로
+      p('bld:9', { bldNm: '늦게 올라온 준공', archGbCdNm: '증축', permitted: '2026-08-12', useApproved: '2026-09-15', kind: '사용승인(준공)', tier: 'B',
+        firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-26T07:45:00+09:00' }),
+      p('bld:10', { bldNm: '바로 올라온 준공', archGbCdNm: '증축', permitted: '2026-08-12', useApproved: '2026-10-20', kind: '사용승인(준공)', tier: 'B',
+        firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-26T07:45:00+09:00' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72 }, opts);
   assert.match(r.text, /허가 2026-07-20[^\n]* · 레이더가 처음 본 날 10-26\(허가 98일 뒤 — 건축 인허가 자료에 늦게 올라옴\) — 건축주 미표기/);
   assert.doesNotMatch(r.text, /허가 2026-10-20[^\n]*늦게 올라옴/);    // 엿새 뒤에 잡힌 허가는 그대로
+  assert.match(r.text, /사용승인 2026-09-15 · 레이더가 준공을 처음 본 날 10-26\(사용승인 41일 뒤 — 건축 인허가 자료에 늦게 올라옴\) — 건축주 미표기/);
+  assert.doesNotMatch(r.text, /사용승인 2026-10-20[^\n]*늦게 올라옴/);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /건축허가: 케이지스틸 주식회사 부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 공장 · 연면적 12,501㎡ · 허가 2026-10-20 · 착공예정 2026-12-01 — 건축주 미표기\(공장과 같은 번지\)/);
   assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\) · 증축 공장 · 연면적 12,501㎡\(건물 전체일 수 있음, 증축분 아님\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
   assert.doesNotMatch(r.text, /첫 조회 번지의 옛 허가|공장 목록에서 빠진 공장/);
   assert.match(r.text, /부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 동별 기타공장 1동 · 연면적 1,950㎡/);
   const t = await call('kr_official', { section: 'building' }, opts);
-  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 4건\(이번에 새로 잡힘 3\) · 참고\(C: 소규모·가설·이웃 건물\) 2건/);
+  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 6건\(이번에 새로 잡힘 5\) · 참고\(C: 소규모·가설·이웃 건물\) 2건/);
   // 같은 등급 안에서 새로 잡힌 것부터(지난주 기준선 bld:0은 A 맨 뒤)
   const order = [...t.text.matchAll(/^- (\[신규\] )?\S+ · KG스틸/gm)].map((m) => !!m[1]);
-  assert.deepEqual(order, [true, true, false, true]);
+  assert.deepEqual(order, [true, true, false, true, true, true]);   // 11-22: 준공 두 건(bld:9·bld:10)이 B 뒤에
   assert.doesNotMatch(t.text, /공장 목록에서 빠진 공장/);
   const named = await call('kr_official', { section: 'building', company: '이웃화학' }, opts);  // C는 낱말로 좁힐 때만
   assert.match(named.text, /검증 상태: 건물명에 다른 회사 이름\('이웃화학'\) — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임\(C\)/);

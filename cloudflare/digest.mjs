@@ -1146,8 +1146,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // 허가 한참 뒤에 자료에 올라온 허가(11-22 운영: 건축HUB 월간 갱신으로 08-19 허가가 11-22에 처음 잡힘) — 처음 본 날을 밝힌다
     const pT = Date.parse(`${x.permitted ?? ''}T00:00:00+09:00`), fT = Date.parse(x.firstSeen ?? '');
     const lateDays = !x.changedAt && Number.isFinite(pT) && Number.isFinite(fT) && fT - pT > 30 * 86400000 ? Math.floor((fT - pT) / 86400000) : 0;
+    // 사용승인도 같다(11-22 운영: 10-06 사용승인이 11-22에 '사용승인(준공)'으로 처음 잡혀 오늘 준공처럼 보였다) — 준공을 처음 본 날(changedAt)과 사용승인일
+    const uT = Date.parse(`${x.useApproved ?? ''}T00:00:00+09:00`), cT = Date.parse(x.changedAt ?? '');
+    const useLate = x.changedAt && Number.isFinite(uT) && Number.isFinite(cT) && cT - uT > 30 * 86400000 ? Math.floor((cT - uT) / 86400000) : 0;
+    const late = lateDays ? ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)`
+      : useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
-      fact: `${buildingLine(x)}${lateDays ? ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : ''} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
+      fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
       check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)]) });
   }
 
