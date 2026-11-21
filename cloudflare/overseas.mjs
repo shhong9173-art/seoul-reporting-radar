@@ -1696,6 +1696,33 @@ export function mediationFollowupLine(n, fb) {
 }
 
 // 노동위원회 회의(kr-labor feed): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것. Shown under kr_official.
+// 통합환경허가 정보공개(ieps-permits feed, 11-21): 국립환경과학원 통합환경허가시스템 '정보공개 > 통합허가' 게시판의 출입처 사업장 글.
+// 변경허가는 설비·공정 변경의 공식 기록(B) — 게시가 허가 뒤 늦을 수 있어 허가일·내용은 검토 결과서 원문으로 본다.
+export async function iepsSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'ieps-permits');
+  if (!doc) return ['\n[통합환경허가 정보공개] 아직 수집 전 — 미확인(평일 13:40)'];
+  if (doc.broken) return ['\n[통합환경허가 정보공개] 저장 결과 형식 오류 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString().slice(0, 10);
+  const rows = (doc.items ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.company, x.site, x.industry, x.kind));
+  const n = (k) => rows.filter((x) => String(x.kind).startsWith(k)).length;
+  const out = [`\n[통합환경허가 정보공개 · 국립환경과학원 게시판(통합허가) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}] 게시 최근 ${days}일 출입처 글 ${rows.length}건(변경허가 ${n('변경')} · 통합허가 ${n('통합')})`,
+    `원천: ${c.source ?? '통합환경허가 정보공개(게시판)'} ${c.status ?? '?'}(목록 ${c.returned ?? 0}줄·${c.pages ?? 0}쪽${c.error ? `, ${c.error}` : ''})`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.tier} · 게시 ${x.date} · ${x.kind}${x.industry ? `(${x.industry})` : ''} · ${x.company}${x.related ? '(관련 기업)' : ''} · ${x.site}${x.no ? ` · 허가번호 ${x.no}` : ''}${x.baseline ? ' [기준선]' : String(x.firstSeen ?? '') === String(doc.generatedAt) ? ' [신규]' : ''}`);
+    if ((x.history ?? []).length) out.push(`   허가 이력(검토 결과서): ${x.history.slice(0, 6).map(([d, k]) => `${d} ${k}`).join(', ')}`);
+    if ((x.changes ?? []).length) out.push(`   변경 항목(검토 결과서 앞쪽, 자동 추출): ${x.changes.slice(0, 5).join(' / ')}`);
+    if (x.pdfError) out.push(`   검토 결과서 못 읽음(${x.pdfError}) — 원문에서 확인`);
+    if ((x.files ?? []).length) out.push(`   첨부: ${x.files.slice(0, 3).join(' · ')}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  if (!rows.length) out.push('조건에 맞는 출입처 글 없음(조회 실패면 미확인).');
+  out.push('   검증 상태: 국립환경과학원 공개 게시판(자동). 게시는 허가 뒤 늦을 수 있다 — 허가일·변경 내용·생산 규모는 검토 결과서 원문과 회사·지방환경청으로 확인');
+  return out;
+}
+
 export async function laborSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-labor');
   if (!doc) return ['\n[노동위 회의(조정·심판)] 결과 없음 — 미확인(평일 08:20 실행 확인)'];
@@ -1856,8 +1883,9 @@ export async function stacksSection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council', 'assembly'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council', 'assembly', 'ieps'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
+  if (section === 'ieps') return textResult((await iepsSection(ctx, q, clampInt(args.days, 1, 400, 180), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
@@ -1879,6 +1907,7 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await assemblySection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await iepsSection(ctx, q, clampInt(args.days, 1, 400, 180), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);

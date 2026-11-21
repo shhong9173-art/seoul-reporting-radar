@@ -2047,7 +2047,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 42개/);
+  assert.match(r.text, /기자 전용 감시 43개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2381,7 +2381,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 42개/);
+  assert.match(r.text, /기자 전용 감시 43개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2467,7 +2467,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 42개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 43개\([^)]*상표 출원, 해외 특허 공개\(EP·WO\), 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 통합환경허가 공개, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 국회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -3413,6 +3413,36 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
   assert.doesNotMatch((await call('kr_official', { section: 'labor', company: '포스코' }, opts)).text, /현대자동차 주식회사/);
   // 11-21: 첫 화면만 실패하고 달력 회의는 읽은 위원회는 radar_today 감시 상태 줄에 그렇게 적는다(빠진 건 달력 수집 뒤 새로 잡힌 회의뿐)
   assert.match(r.text, /노동위 회의\(조정·심판\): 일부 실패 3건\(서울지방노동위원회, 경남지방노동위원회, 부산지방노동위원회\(첫 화면만 실패 — 달력 회의는 읽음\)\)/);
+});
+
+test('통합환경허가 정보공개(ieps-permits, 11-21): 변경허가 B·통합허가 C, radar_today·kr_official section=ieps, 보도 대조 낱말', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const text = '통합환경허가 정보공개 · 변경허가(석유정제) · 에쓰-오일(주) 온산공장 · 허가번호 제0400-02호 · 게시 2026-10-25 · 허가 이력(검토 결과서): 2021-12-28 통합허가, 2023-12 변경신고'
+    + ' · 변경 항목(검토 결과서 앞쪽): 배출시설 및 방지시설 추가 / 폐수처리공정 변경 · 게시는 허가 뒤 늦을 수 있다 — 허가일·변경 내용·규모는 결과서 원문과 회사로 확인';
+  const items = [
+    { id: 'ieps:3700', company: 'S-OIL', related: false, kind: '변경허가', industry: '석유정제', site: '에쓰-오일(주) 온산공장', no: '제0400-02호', date: '2026-10-25',
+      url: 'https://ieps.nier.go.kr/web/board/7/3700/?pMENUMST_ID=176', tier: 'B', firstSeen: now, baseline: false,
+      history: [['2021-12-28', '통합허가'], ['2023-12', '변경신고']], changes: ['배출시설 및 방지시설 추가', '폐수처리공정 변경'], files: ['400-02 검토결과서.pdf'] },
+    { id: 'ieps:3640', company: '금호석유화학', related: false, kind: '통합허가', industry: '무기화학', site: '금호석유화학(주) 율촌CNT공장', no: '제0733-01호', date: '2026-10-24',
+      url: 'https://ieps.nier.go.kr/web/board/7/3640/?pMENUMST_ID=176', tier: 'C', firstSeen: '2026-10-25T17:20:00+09:00', baseline: true }];
+  const doc = { schema: 'ieps_permits/v1', generatedAt: now, status: 'ok', baselineAt: '2026-10-25T17:20:00+09:00',
+    checks: [{ source: '통합환경허가 정보공개(게시판)', status: 'ok', returned: 30, pages: 3 }], counts: {}, seen: [], items,
+    events: [{ id: 'ieps:3700', tier: 'B', kind: '통합환경허가 변경허가', company: 'S-OIL', site: '에쓰-오일(주) 온산공장', industry: '석유정제', no: '제0400-02호',
+      date: '2026-10-25', url: items[0].url, text, detectedAt: now }],
+    rules: ['변경허가 = B(설비·공정 변경의 공식 기록), 통합허가(첫 허가·전환) = C, 연간보고서는 저장하지 않는다.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/ieps-permits', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /통합환경허가 공개 · S-OIL\n   통합환경허가 정보공개 · 변경허가\(석유정제\) · 에쓰-오일\(주\) 온산공장 · 허가번호 제0400-02호/);
+  const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual([radar.items.find((x) => x.id === 'ieps:3700').check.who, radar.items.find((x) => x.id === 'ieps:3700').check.terms], ['S-OIL', ['온산', '환경', '허가']]);
+  const k = (await call('kr_official', { section: 'ieps' }, opts)).text;
+  assert.match(k, /\[통합환경허가 정보공개 · 국립환경과학원 게시판\(통합허가\) · 확인 [^\]]+\] 게시 최근 180일 출입처 글 2건\(변경허가 1 · 통합허가 1\)/);
+  assert.match(k, /- B · 게시 2026-10-25 · 변경허가\(석유정제\) · S-OIL · 에쓰-오일\(주\) 온산공장 · 허가번호 제0400-02호 \[신규\]\n   허가 이력\(검토 결과서\): 2021-12-28 통합허가, 2023-12 변경신고\n   변경 항목\(검토 결과서 앞쪽, 자동 추출\): 배출시설 및 방지시설 추가 \/ 폐수처리공정 변경/);
+  assert.match(k, /- C · 게시 2026-10-24 · 통합허가\(무기화학\) · 금호석유화학 · 금호석유화학\(주\) 율촌CNT공장 · 허가번호 제0733-01호 \[기준선\]/);
+  assert.match((await call('kr_official', {}, opts)).text, /\[통합환경허가 정보공개 · /);     // section 없이도 붙는다
+  assert.doesNotMatch((await call('kr_official', { section: 'ieps', company: '금호' }, opts)).text, /에쓰-오일/);
 });
 
 test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B, 대조 낱말에 인도 필수, partner_filings 구역(NSE)', async () => {
