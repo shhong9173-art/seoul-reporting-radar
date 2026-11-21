@@ -2495,6 +2495,14 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match((await call('trademarks', { show_all: true, days: 120 }, opts)).text, /PLEOS/);
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
+  // 11-22: 같은 날 이어진 번호의 도형 상표(상품류마다 한 줄)는 한 줄로 — 번호가 떨어진 도형은 따로
+  const { foldFigurative } = await import('../cloudflare/trademarks.mjs');
+  const fig = (n, c) => ({ company: '현대자동차', title: '(문자 없는 도형 상표)', applicationDate: '2026-10-30', applicationNumbers: [String(n)], classes: [c], coreClasses: c === '12' ? ['12'] : [], statuses: ['출원'], tier: 'C', isNew: true });
+  const folded = foldFigurative([fig(4020260230657, '03'), fig(4020260230658, '09'), fig(4020260230659, '12'), fig(4020260239999, '25'), filing('현대자동차', 'X', '2026-10-30', ['12'])]);
+  assert.equal(folded.length, 3);
+  assert.match(folded[0].title, /^\(문자 없는 도형 상표\) · 같은 날 이어진 출원번호 3건 — 같은 도형일 수 있음\(견본 이미지 확인\)$/);
+  assert.deepEqual([folded[0].classes, folded[0].coreClasses, folded[0].applicationNumbers.length], [['03', '09', '12'], ['12'], 3]);
+  assert.equal(folded[1].applicationNumbers[0], '4020260239999');
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /기자 전용 감시 43개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);

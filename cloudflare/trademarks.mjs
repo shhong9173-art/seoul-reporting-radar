@@ -15,6 +15,33 @@ const REASON = { provider_22_cooldown: '제공기관 응답 22 뒤 72시간 대�
   trademark_limit_reached: '이번 달 상표 호출 몫 소진', monthly_limit_reached: 'KIPRIS 월 900회 소진', ledger_invalid_manual_review: '호출 장부 손상 — 수동 확인' };
 export const waitReason = (r) => REASON[r] ?? r ?? '대기';
 
+// 글자 없는 도형 상표는 수집기가 출원번호마다 따로 둔다(다른 도형일 수 있어서). 같은 회사·같은 날·같은 등급이고 출원번호가 붙어 있으면
+// (사이 간격 3 이하) 한 줄로 접는다 — 11-22 화면: 현대자동차 10-30 도형 상표 상품류 8개(4020260230657~666)가 8줄로 새 출원 19건 중 8줄을 채웠다.
+export const FIGURE = '(문자 없는 도형 상표)';
+export function foldFigurative(rows) {
+  const out = [];
+  const groups = new Map();
+  for (const f of rows) {
+    if (f.title !== FIGURE || (f.applicationNumbers ?? []).length !== 1) { out.push(f); continue; }
+    const k = `${f.company}|${f.applicationDate}|${f.tier ?? ''}`;
+    if (!groups.has(k)) { groups.set(k, []); out.push(k); }
+    groups.get(k).push(f);
+  }
+  return out.flatMap((x) => {
+    if (typeof x !== 'string') return [x];
+    const fs = groups.get(x).sort((a, b) => String(a.applicationNumbers[0]).localeCompare(String(b.applicationNumbers[0])));
+    const runs = [];
+    for (const f of fs) {
+      const last = runs.at(-1);
+      const gap = last ? Number(f.applicationNumbers[0]) - Number(last.at(-1).applicationNumbers[0]) : Infinity;
+      if (last && gap >= 0 && gap <= 3) last.push(f); else runs.push([f]);
+    }
+    return runs.map((r) => (r.length === 1 ? r[0] : { ...r[0], title: `${FIGURE} · 같은 날 이어진 출원번호 ${r.length}건 — 같은 도형일 수 있음(견본 이미지 확인)`,
+      applicationNumbers: r.flatMap((f) => f.applicationNumbers), classes: [...new Set(r.flatMap((f) => f.classes ?? []))].sort(),
+      coreClasses: [...new Set(r.flatMap((f) => f.coreClasses ?? []))].sort(), statuses: [...new Set(r.flatMap((f) => f.statuses ?? []))] }));
+  });
+}
+
 export async function trademarks(ctx, args) {
   const doc = await readFeed(ctx, 'trademarks');
   if (!doc) return textResult('상표 출원 감시 결과가 아직 없음 — 첫 정기 실행(월 07:10)과 GitHub Secrets(MCP_ACCESS_TOKEN·KIPRIS_SERVICE_KEY)를 확인. 0건이 아니라 미확인.', true);
@@ -44,10 +71,10 @@ export async function trademarks(ctx, args) {
   const others = checks.filter((c) => c.status === 'ok' && !c.kept && c.otherApplicants && c.note);
   if (others.length) out.push(`이름 일부만 같은 다른 출원인만 나온 곳(이 회사 0건): ${others.map((c) => `${c.source.replace('상표 ', '')}(${String(c.note).replace(/^응답 \d+건은 이름 일부만 같은 다른 출원인\(|\) — 이 회사 출원 없음$/g, '')})`).join(', ')}`);
 
-  const rows = (doc.filings ?? [])
+  const rows = foldFigurative((doc.filings ?? [])
     .filter((f) => all || f.isNew)
     .filter((f) => String(f.addedClassesAt ?? f.firstSeen ?? '').slice(0, 10) >= from || (all && String(f.applicationDate ?? '') >= from))
-    .filter((f) => matches(q, f.company) && matches(name, f.title) && (!args.class || (f.classes ?? []).includes(cls)))
+    .filter((f) => matches(q, f.company) && matches(name, f.title) && (!args.class || (f.classes ?? []).includes(cls))))
     .sort((a, b) => (a.tier ?? 'Z').localeCompare(b.tier ?? 'Z') || String(b.applicationDate).localeCompare(String(a.applicationDate)));
   out.push(`\n[${all ? '저장된 출원' : '새로 본 출원'} · 최근 ${days}일${q ? ` · ${q}` : ''}${name ? ` · 이름 "${name}"` : ''}${args.class ? ` · ${classLabel(cls)}` : ''}] ${rows.length}건(같은 날 같은 이름은 한 건)`);
   for (const f of rows.slice(0, limit)) {
