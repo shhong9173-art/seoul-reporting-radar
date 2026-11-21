@@ -6055,6 +6055,23 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
           { label: 'Provisional Determination (if required)', when: 'November – December 2026', from: '2026-11-01', to: '2026-12-31', exact: false },
           { label: 'Publication of Statement of Essential Facts', when: 'April 2027', from: '2027-04-01', to: '2027-04-30', exact: false },
           { label: 'Final Recommendation', when: 'June 2027', from: '2027-06-01', to: '2027-06-30', exact: false }] } }], docs: [] },
+    events: [
+      { id: 'in-dgtr-ad:1', pageId: 'in-dgtr-ad', country: '인도', label: '인도 DGTR 반덤핑 조사', detectedAt: recent,
+        text: 'Anti-dumping investigation concerning imports of “Phenol” from Saudi Arabia, Singapore, South Africa, South Korea, Taiwan, Thailand and United States of America.',
+        url: 'https://www.dgtr.gov.in/en/anti-dumping-cases/phenol' },
+      { id: 'in-dgtr-ad:2', pageId: 'in-dgtr-ad', country: '인도', label: '인도 DGTR 반덤핑 조사', detectedAt: recent,
+        text: 'Anti-dumping investigation concerning imports of "alloy steel chisel/ tool" originating in or exported from China PR and Korea RP', url: 'https://www.dgtr.gov.in/en/anti-dumping-cases/chisel' },
+      { id: 'in-dgtr-ad:3', pageId: 'in-dgtr-ad', country: '인도', label: '인도 DGTR 반덤핑 조사', detectedAt: recent,
+        text: 'Anti-dumping investigation concerning imports of Nitrile Rubber from Korea RP', url: 'https://www.dgtr.gov.in/en/anti-dumping-cases/nbr' },
+      { id: 'in-dgtr-ad:4', pageId: 'in-dgtr-ad', country: '인도', label: '인도 DGTR 반덤핑 조사', detectedAt: recent,
+        text: 'Anti-dumping investigation concerning imports of Acrylic Fibre from Korea RP', url: 'https://www.dgtr.gov.in/en/anti-dumping-cases/acrylic' }],
+    dgtrCases: {
+      'https://www.dgtr.gov.in/en/anti-dumping-cases/phenol': { status: 'ok', initiated: '2026-03-19', initTitle: 'Initiation Notification', latest: { title: 'Updation of E-mail ID', date: '2026-11-13' },
+        parties: { status: 'ok', beat: ['LG화학'] } },
+      'https://www.dgtr.gov.in/en/anti-dumping-cases/chisel': { status: 'ok', initiated: '2026-09-28', initTitle: 'Anti-Circumvention - Initiation Notification', latest: { title: 'x', date: '2026-11-12' } },
+      'https://www.dgtr.gov.in/en/anti-dumping-cases/nbr': { status: 'ok', initiated: '2025-06-10', initTitle: 'Initiation Notification', latest: { title: 'x', date: '2026-11-01' },
+        findingsTitle: 'Final Findings', findingsDate: '2026-06-05' },
+      'https://www.dgtr.gov.in/en/anti-dumping-cases/acrylic': { status: 'ok', initiated: '2025-10-30', initTitle: 'Initiation Notification', latest: { title: 'x', date: '2026-11-01' } } },
     usAhead: [
       { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
@@ -6134,10 +6151,14 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
 
   const t = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(t, /^다가오는 해외 판정 일정 — 앞으로 400일 · /);
-  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\), 영국 TRA 사건 예정표\(구속력 없음\)\. 인도는 아직 일정 계산 안 함 — 미확인/);
+  assert.match(t, /미국 관보\(상무부·ITC 고시에 적힌 날짜, 행정재심 예비 결과는 법정 시한\), 영국 TRA 사건 예정표\(구속력 없음\), 인도 DGTR 개시일\+규칙\(Rule 17·23\)\. 우회 조사는 계산 안 함/);
   assert.match(t, /- 2027-03-02 · 미국 상무부 · 최종 판정·결과 시한\(법정 — 연장 최대 180일\) · Large Power Transformers From the Republic of Korea \(2024-2025\) · Preliminary Results of Antidumping Duty Administrative Review\(관보 2026-11-02\) · 출입처 HD현대일렉트릭·LS일렉트릭\(관보 본문 속 출입처 이름\)\n   근거: 법정 시한\(게재일\+120일, 연장 최대 180일\) — "19 U\.S\.C\. 1675\(a\)\(3\)\(A\)/);
   assert.match(t, /- 2026-12-30 · 미국 상무부 · 최종 판정·결과 시한 · Thermal Paper[^\n]* \(출입 업종 품목 아님\)/);
   assert.match(t, /- ~2027-04-01 · 영국 TRA · 필수사실 고지\(SEF\) 공개 — 예정표 'April 2027'\(달 단위\) · AD0092/);
+  // 인도: 페놀(개시 2026-03-19) 1년 시한, 최종 판정문이 나온 NBR·우회 조사(끌)는 뺀다, 아크릴 섬유는 업종 밖 표시
+  assert.match(t, /- 2027-03-19 · 인도 DGTR · 최종 판정 시한\(개시 1년, 연장 최대 18개월 2027-09-19\) · Phenol \(개시 2026-03-19\) · 출입처 LG화학\(이해관계자 명단 속 출입처 영문 이름\)\n   근거: 인도 반덤핑 규칙 Rule 17\(1\)/);
+  assert.match(t, /- 2027-04-30 · 인도 DGTR · 최종 판정 시한 지남 → 연장 시 최대\(개시 18개월\) — 최종 판정문 아직 안 보임 · Acrylic Fibre \(개시 2025-10-30\) \(출입 업종 품목 아님\)/);
+  assert.doesNotMatch(t, /chisel|Nitrile Rubber/);
   assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
   assert.match(t, /- 2027-04-07 · 미국 상무부 · 최종 판정·결과 시한\(연장 추정 — 법정 120일 2026-12-08 지나도록 판정 고시 없음, 법정 최대 180일\) · Certain Steel Nails From the Republic of Korea \(2024-2025\)/);
   const order = ['2026-12-14 · 캐나다 CBSA', '~2026-12-16 · 호주 ATRC', '2026-12-20 · EU', '2026-12-21 · EU', '2027-02-26 · 캐나다 CBSA · 종료재심 결론 예정 · Small Power Transformers: Dumping (Chinese Taipei and South Korea) · 출입처 HD현대일렉트릭·일진전기(시행 중 조치 SPT 한국 수출자 표)',
