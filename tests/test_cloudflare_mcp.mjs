@@ -1492,6 +1492,9 @@ test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 �
     po('w1', '사업장 인력(국민연금)', '포스코(경상북도 포항시) 국민연금 가입자')];
   const pparts = splitByPlant({ company: '포스코', place: '포항', items: posco });
   assert.deepEqual(pparts.map((g) => g.items.map((x) => x.id)), [['k1', 'c1', 'w1']]);
+  // 공장별로 나뉘면 자유 글은 어느 묶음에도 붙이지 않는다(11-22 운영: 같은 의회 대목이 '포항제철소'·'후판제품공장' 두 묶음에 되풀이)
+  const split = splitByPlant({ company: '포스코', place: '포항', items: [...posco, po('b1', '공장 부지 건축허가', '건축허가: (주)포스코 후판제품공장 부지 증축')] });
+  assert.deepEqual(split.map((g) => [g.plant, g.items.map((x) => x.id)]), [['포항제철소', ['k1', 'w1']], ['후판제품공장', ['b1', 'w1']]]);
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {
