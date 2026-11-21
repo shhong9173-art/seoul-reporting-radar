@@ -122,6 +122,9 @@ export const SLOTS = [
   // 태국 무역구제 공고(11-19): 태국 근무 시간(한국 11~19시) 공고 — 12:43·15:43·18:43 알림 전, 밤 한 번
   { at: '12:10', workflow: 'th-trade-remedy.yml' }, { at: '14:50', workflow: 'th-trade-remedy.yml' }, { at: '17:00', workflow: 'th-trade-remedy.yml' },
   { at: '21:20', workflow: 'th-trade-remedy.yml' },
+  // 일본 무역구제 공고(11-21): 재무성 보도자료는 일본 근무 시간(한국과 같은 시각) — 12:43·15:43·18:43 알림 전, 저녁 한 번
+  { at: '11:50', workflow: 'jp-trade-remedy.yml' }, { at: '14:20', workflow: 'jp-trade-remedy.yml' }, { at: '16:40', workflow: 'jp-trade-remedy.yml' },
+  { at: '19:20', workflow: 'jp-trade-remedy.yml' },
   // EU 관보 무역구제(11-19): 관보는 브뤼셀 오전(한국 16~18시)에 나오고 출판청 목록에 곧 오른다 — 18:43·21:43 알림 전, 그리고 아침 08:43 알림 전
   { at: '17:50', workflow: 'eu-trade-defence.yml', daily: true }, { at: '21:10', workflow: 'eu-trade-defence.yml', daily: true },
   { at: '07:00', workflow: 'eu-trade-defence.yml', daily: true },

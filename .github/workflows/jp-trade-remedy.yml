@@ -1,0 +1,73 @@
+name: Japan Trade Remedies (Korea)
+# 일본 재무성 관세제도 누리집의 반덤핑·상계관세·긴급관세 결정 목록 — 한국산 새 공고(11-21 기자 "다음 업데이트 계속 진행해":
+# 도금강판 잠정 관세 08-08~12-07·조사 12-12까지, 열연·냉연 06-01 개시). 평일 11:50·14:20·16:40·19:20 KST(Cloudflare 요청)
+# + GitHub 예약 평일 20:10 KST(대비용, 3시간 안 정시 요청 성공이면 건너뜀). 결과는 기자 전용 저장소(jp-trade-remedy)에만 — 공개 로그에는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/jp_trade_remedy_watch.py'
+      - 'tests/test_jp_trade_remedy_watch.py'
+      - '.github/workflows/jp-trade-remedy.yml'
+  schedule:
+    - cron: '10 11 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 건수만'
+        required: false
+        default: 'true'
+permissions:
+  contents: read
+concurrency:
+  group: jp-trade-remedy
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: jp-trade-remedy.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::3시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  notices:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test announcement reading
+        run: python -m unittest discover -s tests -p 'test_jp_trade_remedy_watch.py' -v
+      - name: Read Japan trade remedy announcements (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          PUBLISH: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'false' }}
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/jp_trade_remedy_watch.py
+          else
+            python scripts/jp_trade_remedy_watch.py --dry-run
+          fi

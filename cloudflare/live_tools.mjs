@@ -325,6 +325,8 @@ const ALLOWED_SUFFIXES = [
   '.gov.in', '.gc.ca', '.gov.uk', '.go.id', '.gov.vn',
   // 11-19: 태국 무역구제과(th-trade-remedy 감시 원천)만 — '.go.th' 전체는 열지 않는다
   'thaitr.dft.go.th',
+  // 11-21: 일본 재무성(jp-trade-remedy 감시 원천)만 — '.go.jp' 전체는 열지 않는다
+  'www.mof.go.jp',
   // direct-beat company and IR sites
   'hyundai.com', 'kia.com', 'mobis.com', 'hyundai-wia.com', 'hlmando.com', 'gm-korea.co.kr', 'kg-mobility.com',
   'renault.co.kr', 'mercedes-benz.co.kr', 'bmw.co.kr', 'volkswagen.co.kr', 'audi.co.kr', 'honda.co.kr',

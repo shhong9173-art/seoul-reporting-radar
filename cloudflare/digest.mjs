@@ -42,6 +42,9 @@ export const WATCHES = [
   // 태국 무역구제 공고(th_trade_remedy_watch.py, 11-19 기자 "단독을 위해서 더 노력해봐"): 11-15 다른 매체 단독 'TCC스틸·KG스틸, 태국 반덤핑 재심 대상'
   // (11-11 관보 — 석도강판 AD1212·크롬도금강판 AD1044 재심 중 담보 요구, 공고 PDF에 KG Steel)을 레이더가 못 봤다. 태국 오후(한국 12~19시) 공고
   { feed: 'th-trade-remedy', label: '태국 무역구제 공고', tool: 'trade_remedies', schedule: '평일 12:10·14:50·17:00·21:20' },
+  // 일본 무역구제 공고(jp_trade_remedy_watch.py, 11-21 기자 "다음 업데이트 계속 진행해"): 재무성·경제산업성의 한국산 철강 조사가 잇달았다
+  // (도금강판 잠정 관세 08-08~12-07·조사 12-12까지, 열연·냉연 06-01 개시). 무역협회 수입규제DB는 한 달에 한 번 몰아서 고친다
+  { feed: 'jp-trade-remedy', label: '일본 무역구제 공고', tool: 'trade_remedies', schedule: '평일 11:50·14:20·16:40·19:20' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
@@ -1346,6 +1349,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       company: e.company || (e.korea ? '한국산' : '태국'), fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['태국', word], [], words, [], words)
         : words.length ? hint(String(e.product ?? '').replace(/\(.*?\)/g, ''), ['태국', word], [], e.korea ? ['한국'] : [], [], []) : undefined });
+  }
+  // 일본 무역구제 공고(11-21): 등급은 수집기(한국산·세이프가드 출입 업종 품목의 개시·가결정·잠정·확정·종료·일몰 재심 A, 조사 기간 연장 B).
+  // 보도 대조는 회사(상세 쪽에 나왔을 때) 또는 품목 + 일본 + 반덤핑
+  for (const e of docs['jp-trade-remedy']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const words = e.productWords ?? [];
+    const word = e.index === 'CVD' ? '상계관세' : e.index === 'SG' ? '세이프가드' : '반덤핑';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['jp-trade-remedy'], { kind: e.kind ?? '일본 무역구제', id: e.id, date: e.date || e.detectedAt,
+      company: e.company || (e.korea ? '한국산' : '일본'), fact: e.text, url: e.url,
+      check: (e.companies ?? []).length ? hint(e.companies[0], ['일본', word], [], words, [], words)
+        : words.length ? hint(String(e.product ?? ''), ['일본', word], [], e.korea ? ['한국'] : [], [], []) : undefined });
   }
   // EU 관보 무역구제(11-19): 등급은 수집기(출입처 이름 + 확정·잠정·개시·종료, 한국산 출입 업종 품목의 확정·잠정·개시 A). 회사 이름이 없으면 품목으로 대조
   for (const e of docs['eu-trade-defence']?.events ?? []) {
