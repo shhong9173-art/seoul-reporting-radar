@@ -4840,7 +4840,10 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.doesNotMatch(r.text, /첫 조회 번지의 옛 허가|공장 목록에서 빠진 공장/);
   assert.match(r.text, /부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 동별 기타공장 1동 · 연면적 1,950㎡/);
   const t = await call('kr_official', { section: 'building' }, opts);
-  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 4건 · 참고\(C: 소규모·가설·이웃 건물\) 2건/);
+  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 4건\(이번에 새로 잡힘 3\) · 참고\(C: 소규모·가설·이웃 건물\) 2건/);
+  // 같은 등급 안에서 새로 잡힌 것부터(지난주 기준선 bld:0은 A 맨 뒤)
+  const order = [...t.text.matchAll(/^- (\[신규\] )?\S+ · KG스틸/gm)].map((m) => !!m[1]);
+  assert.deepEqual(order, [true, true, false, true]);
   assert.doesNotMatch(t.text, /공장 목록에서 빠진 공장/);
   const named = await call('kr_official', { section: 'building', company: '이웃화학' }, opts);  // C는 낱말로 좁힐 때만
   assert.match(named.text, /검증 상태: 건물명에 다른 회사 이름\('이웃화학'\) — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임\(C\)/);
