@@ -18,6 +18,8 @@ export const FEEDS = {
   'th-trade-remedy': { blob: 'th_trade_remedy', schema: 'th_trade_remedy/v1', list: 'cases' },
   // 일본 무역구제 공고(jp_trade_remedy_watch.py, 11-21): 재무성 반덤핑·상계관세·긴급관세 결정 목록의 한국산 공고
   'jp-trade-remedy': { blob: 'jp_trade_remedy', schema: 'jp_trade_remedy/v1', list: 'entries' },
+  // 통합환경허가 정보공개(ieps_permit_watch.py, 11-21): 국립환경과학원 게시판의 출입처 사업장 통합허가·변경허가 공개
+  'ieps-permits': { blob: 'ieps_permits', schema: 'ieps_permits/v1', list: 'items' },
   // EU 관보 무역구제(eu_trade_defence_watch.py, 11-19): 한국산 규정·공고와 출입처 해외 법인이 수출자로 나온 확정·잠정 관세 규정
   'eu-trade-defence': { blob: 'eu_trade_defence', schema: 'eu_trade_defence/v1', list: 'records' },
   'page-watch': { blob: 'page_watch', schema: 'page_watch/v1', list: 'pages' },

@@ -67,6 +67,8 @@ export const WATCHES = [
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
   { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
   { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:50', staleHours: 192 },
+  // 통합환경허가 정보공개(ieps_permit_watch.py, 11-21): 출입처 사업장의 변경허가(설비·공정 변경 공식 기록) B, 통합허가 C — 게시는 허가 뒤 늦을 수 있음
+  { feed: 'ieps-permits', label: '통합환경허가 공개', tool: 'kr_official', schedule: '평일 13:40', staleHours: 80 },
   { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
@@ -1114,6 +1116,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
       check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)]) });
+  }
+
+  // 통합환경허가 정보공개(11-21): 등급은 수집기(변경허가 B, 통합허가·관련 기업 C). 보도 대조는 회사 + 환경 허가 낱말(사업장 지명이 있으면 함께)
+  for (const e of docs['ieps-permits']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const place = (/([가-힣]{2,4})(?=\s*(?:\d*공장|제철소|사업장|제련소|공단|산단|CNT공장))/.exec(String(e.site ?? '').replace(/^.*?\)\s*/, '')) ?? [])[1];
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['ieps-permits'], { kind: e.kind ?? '통합환경허가', id: e.id, date: e.date || e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: e.tier === 'C' ? undefined : hint(e.company, [place, '환경', '허가'].filter(Boolean), place ? [place] : []) });
   }
 
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
