@@ -263,6 +263,12 @@ class Capture(unittest.TestCase):
         # 국내 공장 기사·미국 소송 판결 기사는 그대로 잇는다
         self.assertEqual(v("[단독] 효성중공업, 창원 변압기 공장 증설", "효성중공업", "2026-11-19T16:30:00+09:00"), "먼저 잡은 후보")
         self.assertEqual(v("[단독] 포스코, 美 국제무역법원 상계관세 소송서 패소", "포스코", "2026-11-14T10:01:00+09:00"), "먼저 잡은 후보")
+        # 계열사 이름 낱말('포스코퓨처엠')은 사건 낱말이 아니다(11-21 실제 제목·항목)
+        fut = [r.mem("kr-official", "fac:174611000194701", ["포스코"], "공장 새 등록 (주)포스코퓨처엠 청림공장 정형 내화물 , 부정형 내화물", "2026-10-26T22:18:00+09:00")]
+        self.assertEqual(r.match({"title": "[단독]포스코퓨처엠, 광양 양극재 신공장 내년까지 가동 연기…LFP 더 키운다", "companies": ["포스코"],
+                                  "published": "2026-11-02T17:00:00+09:00"}, fut)[0], "같은 회사 항목만")
+        self.assertEqual(r.match({"title": "[단독]포스코퓨처엠, 청림공장 내화물 증설", "companies": ["포스코"],
+                                  "published": "2026-11-02T17:00:00+09:00"}, fut)[0], "먼저 잡은 후보")   # 사건 낱말(청림공장·내화물)이 겹치면 그대로
         self.assertTrue(r.FOREIGN_SITE.search("현대차 인도 공장 증설"))
         self.assertFalse(r.FOREIGN_SITE.search("인도네시아"))
         self.assertFalse(r.FOREIGN_SITE.search("美 관세에 울산 공장 증설"))

@@ -499,7 +499,10 @@ def match(article, items):
     bare = title
     for c in sorted({*(article.get("companies") or []), *comps}, key=len, reverse=True):
         bare = bare.replace(c, " ")
-    words = nouns(title) - comps
+    # 11-21: 계열사 이름 낱말('포스코퓨처엠' ⊃ '포스코')이 사건 낱말로 세져 「포스코퓨처엠, 광양 양극재 신공장 가동 연기」 ↔ 공장등록 '포스코퓨처엠
+    # 청림공장 내화물'이 '먼저 잡은 후보'가 됐다 — 회사 이름을 품은 낱말은 사건 낱말이 아니다
+    names = {c for c in comps | set(article.get("companies") or []) if len(c) >= 2}
+    words = {w for w in nouns(title) - comps if not any(n in w for n in names)}
     same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
     tplaces = places_in(title)
     best, best_score = None, 0
