@@ -8,6 +8,7 @@ import { clampInt, textResult, uniqueList } from './common.mjs';
 import { lastBrowserSlot } from './local_browser.mjs';
 import { AHEAD_NOTE, aheadLine, euProceedingLines, foreignAhead } from './ahead.mjs';
 import { foreignGloss } from './gloss.mjs';
+import { alertBeforeArticle, loadLedger } from './handled.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -1129,6 +1130,8 @@ export async function scoopReverse(ctx, args) {
   const from = Date.parse(doc.generatedAt) - days * 86400000;
   const rows = (doc.articles ?? []).filter((x) => Date.parse(x.published) >= from && matches(q, x.title, (x.companies ?? []).join(' ')));
   const n = (v) => rows.filter((x) => x.verdict === v).length;
+  // 즉시 알림 기록(11-21): 알림을 보낸 항목을 경쟁지가 그 뒤 단독으로 쓴 것 — 장부를 못 읽으면 표시만 빠진다
+  const alerted = (await loadLedger(ctx).catch(() => null))?.alerted;
   const numTally = (rs) => {
     const w = rs.filter((x) => x.verdict === '먼저 잡은 후보' && x.best?.numbers?.article?.length);
     const same = w.filter((x) => x.best.numbers.found?.length).length;
@@ -1150,7 +1153,7 @@ export async function scoopReverse(ctx, args) {
     out.push(`\n[${v}] ${g.length}건`);
     for (const x of g.slice(0, v === '없음' && !want ? Math.min(limit, 8) : limit)) {
       out.push(`- ${kmd(x.published)} · ${x.source ?? ''} 「${x.title}」(${(x.companies ?? []).join('·')})`);
-      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${reverseClip(x.best.text, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''})${reverseNumbersNote(x.best)} · id ${x.best.id}`);
+      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${reverseClip(x.best.text, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''})${reverseNumbersNote(x.best)} · id ${x.best.id}${alertBeforeArticle(alerted, x.best.id, x.published)}`);
     }
     if (g.length > limit) out.push(`… 남은 ${g.length - limit}건`);
   }
