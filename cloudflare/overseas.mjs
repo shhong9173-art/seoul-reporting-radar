@@ -1963,7 +1963,7 @@ export async function krOfficial(ctx, args) {
     }
     if (args.show_all === true || args.show_all === 'true') {
       out.push('\n[출입처 공장 목록]');
-      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${f.missingSince ? ` · ⚠ ${String(f.missingSince).slice(5, 10)} 조회 목록에 없음(다음 실행 확인)` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
+      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres || `주소 미기재${f.cvplChrgOrgnztNm ? `(담당 기관 ${f.cvplChrgOrgnztNm})` : ''}`} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${f.missingSince ? ` · ⚠ ${String(f.missingSince).slice(5, 10)} 조회 목록에 없음(다음 실행 확인)` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
     }
     out.push('   검증 상태: 지자체 공장등록 신고값(자동). 가동·투자 규모는 회사·지자체 확인 필요');
   }
