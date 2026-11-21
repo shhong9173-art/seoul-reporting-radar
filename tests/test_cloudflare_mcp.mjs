@@ -4427,6 +4427,17 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   const { alertBeforeArticle } = await import('../cloudflare/handled.mjs');
   assert.equal(alertBeforeArticle(new Map([['x', '12-30']]), 'x', '2027-01-02T09:00:00+09:00'), ' 〔즉시 알림 보냄 12-30 — 그 뒤 경쟁지 단독〕');  // 해 넘김
   assert.equal(alertBeforeArticle(new Map(), 'x', '2027-01-02T09:00:00+09:00'), '');
+  // 알림 시각(묶음 머리 '[단독 후보 알림 HH:MM]')이 있으면 시각으로 앞뒤·간격 — 11-20 실제 기록: 23:43 알림 → 11-21 07:35 토요경제
+  const body = '[단독 후보 알림 12:43] 1건\n- 페이지 · id genesis-us-home:2026-11-20T03:30:48+09:00\n[단독 후보 알림 23:43] 1건\n*[단독 후보] 냉연 …\n'
+    + '(확인) … · https://www.federalregister.gov/x · id fr:2026-23802\n보낸 id: genesis-us-home:2026-11-20T03:30:48+09:00, fr:2026-23802';
+  const { packageLinks: pl } = await import('../cloudflare/store.mjs');
+  assert.deepEqual(pl('alert-20261120', body).sentAt, { 'genesis-us-home:2026-11-20T03:30:48+09:00': '12:43', 'fr:2026-23802': '23:43' });
+  const { ledgerEntries } = await import('../cloudflare/handled.mjs');
+  const L = ledgerEntries([{ name: 'alert-20261120', title: 't', state: '미발제·확인 필요', body }]);
+  assert.equal(L.alerted.get('fr:2026-23802'), '11-20 23:43');
+  assert.equal(alertBeforeArticle(L.alerted, 'fr:2026-23802', '2026-11-21T07:35:00+09:00'), ' 〔즉시 알림 보냄 11-20 23:43 — 7.9시간 뒤 경쟁지 단독〕');
+  assert.equal(alertBeforeArticle(L.alerted, 'fr:2026-23802', '2026-11-20T23:00:00+09:00'), '');            // 기사가 알림보다 먼저
+  assert.equal(alertBeforeArticle(new Map([['x', '11-20 23:43']]), 'x', '2026-11-21T00:13:00+09:00'), ' 〔즉시 알림 보냄 11-20 23:43 — 30분 뒤 경쟁지 단독〕');
 });
 
 test('us_epa: a new model is A, an EV range change B, carryover C; tool shows EPA facts', async () => {
@@ -5485,7 +5496,7 @@ test('처리 장부 CPU(11-13 운영 오류 1102): 회사 찾기는 정규식 �
   // ② 저장소가 본문에서 연결만 뽑는다 — Worker는 패키지 본문을 받지 않는다
   assert.deepEqual(packageLinks('kia-georgia-osha', `문의 중\nid osha:insp:349146811 확인\n원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811.\n${LINK_LINE} sales:hmgma:202609, https://example.com/a/b/c/d/e/f`),
     { ids: ['sales:hmgma:202609', 'https://example.com/a/b/c/d/e/f', 'osha:insp:349146811'], urls: ['https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811', 'https://example.com/a/b/c/d/e/f'], sent: [] });
-  assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'], excluded: [] });
+  assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'], excluded: [], sentAt: {} });
   assert.deepEqual(packageLinks('alert-20261115', '[단독 후보 알림 15:45] 0건\n제외 id: fr:2026-23258').excluded, ['fr:2026-23258']);
   const opts = PRIVATE();
   await call('package_save', { name: 'kia-georgia-osha', title: '[답변 대기] 기아 조지아 OSHA 점검', state: '보류', body: '본문 '.repeat(500), item_ids: ['osha:insp:349146811'] }, opts);
