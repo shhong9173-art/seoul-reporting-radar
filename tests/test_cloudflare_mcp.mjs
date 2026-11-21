@@ -3426,9 +3426,12 @@ test('통합환경허가 정보공개(ieps-permits, 11-21): 변경허가 B·통�
       url: 'https://ieps.nier.go.kr/web/board/7/3700/?pMENUMST_ID=176', tier: 'B', firstSeen: now, baseline: false,
       history: [['2021-12-28', '통합허가'], ['2023-12', '변경신고']], changes: ['배출시설 및 방지시설 추가', '폐수처리공정 변경'], files: ['400-02 검토결과서.pdf'] },
     { id: 'ieps:3640', company: '금호석유화학', related: false, kind: '통합허가', industry: '무기화학', site: '금호석유화학(주) 율촌CNT공장', no: '제0733-01호', date: '2026-10-24',
-      url: 'https://ieps.nier.go.kr/web/board/7/3640/?pMENUMST_ID=176', tier: 'C', firstSeen: '2026-10-25T17:20:00+09:00', baseline: true }];
+      url: 'https://ieps.nier.go.kr/web/board/7/3640/?pMENUMST_ID=176', tier: 'C', firstSeen: '2026-10-25T17:20:00+09:00', baseline: true },
+    { id: 'ieps:3301', company: '현대제철', related: false, kind: '변경허가', industry: '철강', site: '현대제철(주)당진제철소', no: '제0520-03호', date: '2025-12-02',
+      url: 'https://ieps.nier.go.kr/web/board/7/3301/?pMENUMST_ID=176', tier: 'B', firstSeen: now, baseline: true, backfill: true }];
   const doc = { schema: 'ieps_permits/v1', generatedAt: now, status: 'ok', baselineAt: '2026-10-25T17:20:00+09:00',
     checks: [{ source: '통합환경허가 정보공개(게시판)', status: 'ok', returned: 30, pages: 3 }], counts: {}, seen: [], items,
+    backfill: { doneNames: ['한국타이어앤테크놀로지', '포스코', '현대제철'], total: 51, filled: 1, done: false },
     events: [{ id: 'ieps:3700', tier: 'B', kind: '통합환경허가 변경허가', company: 'S-OIL', site: '에쓰-오일(주) 온산공장', industry: '석유정제', no: '제0400-02호',
       date: '2026-10-25', url: items[0].url, text, detectedAt: now }],
     rules: ['변경허가 = B(설비·공정 변경의 공식 기록), 통합허가(첫 허가·전환) = C, 연간보고서는 저장하지 않는다.'] };
@@ -3441,6 +3444,10 @@ test('통합환경허가 정보공개(ieps-permits, 11-21): 변경허가 B·통�
   assert.match(k, /\[통합환경허가 정보공개 · 국립환경과학원 게시판\(통합허가\) · 확인 [^\]]+\] 게시 최근 180일 출입처 글 2건\(변경허가 1 · 통합허가 1\)/);
   assert.match(k, /- B · 게시 2026-10-25 · 변경허가\(석유정제\) · S-OIL · 에쓰-오일\(주\) 온산공장 · 허가번호 제0400-02호 \[신규\]\n   허가 이력\(검토 결과서\): 2021-12-28 통합허가, 2023-12 변경신고\n   변경 항목\(검토 결과서 앞쪽, 자동 추출\): 배출시설 및 방지시설 추가 \/ 폐수처리공정 변경/);
   assert.match(k, /- C · 게시 2026-10-24 · 통합허가\(무기화학\) · 금호석유화학 · 금호석유화학\(주\) 율촌CNT공장 · 허가번호 제0733-01호 \[기준선\]/);
+  // 지난 글 채우기 진행과 180일보다 옛 글(검색 채움)
+  assert.match(k, /지난 글 채우기\(회사 이름 검색 첫 쪽, 기준선·알림 없음\): 51곳 중 3곳 검색 · 채운 글 1건 · 평일 실행마다 10곳/);
+  assert.match(k, /\(게시 180일보다 옛 출입처 글 1건 더 — days=400으로 보기\)/);
+  assert.match((await call('kr_official', { section: 'ieps', days: 400 }, opts)).text, /- B · 게시 2025-12-02 · 변경허가\(철강\) · 현대제철 · 현대제철\(주\)당진제철소 · 허가번호 제0520-03호 \[기준선·검색 채움\]/);
   assert.match((await call('kr_official', {}, opts)).text, /\[통합환경허가 정보공개 · /);     // section 없이도 붙는다
   assert.doesNotMatch((await call('kr_official', { section: 'ieps', company: '금호' }, opts)).text, /에쓰-오일/);
 });

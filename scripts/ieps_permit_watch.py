@@ -73,8 +73,8 @@ def load_rules(path=ROOT / "data" / "factory_watch.json"):
 RULES = load_rules()
 
 
-def backfill_names(path=ROOT / "data" / "factory_watch.json"):
-    """지난 글 채우기 검색어: 공장등록 감시 회사의 검색어(관련 기업 제외)."""
+def raw_names(path=ROOT / "data" / "factory_watch.json"):
+    """공장등록 감시 회사의 검색어(관련 기업 제외), 파일 순서."""
     out = []
     for c in json.loads(Path(path).read_text(encoding="utf-8")).get("companies", []):
         if "관련" in str(c.get("company") or ""):
@@ -83,6 +83,17 @@ def backfill_names(path=ROOT / "data" / "factory_watch.json"):
             if q and q not in out:
                 out.append(q)
     return out
+
+
+# 통합환경허가 대상 업종(발전·소각·철강·비철·화학·정유 등)에 사업장이 많은 출입처부터 채운다. 11-21 첫 채우기 실행은 공장등록 목록 순서대로
+# 완성차·부품 10곳(현대자동차·기아·현대모비스…)만 검색해 0건이었다(검색 꼴은 탐침으로 확인 — '현대제철' 검색 10줄 중 9줄 이름 일치)
+LATER = re.compile(r"현대자동차|기아|현대모비스|현대위아|만도|한국지엠|모빌리티|르노|일렉트릭|ELECTRIC|전선|에너빌리티", re.I)
+
+
+def backfill_names(path=ROOT / "data" / "factory_watch.json"):
+    """지난 글 채우기 검색어: 철강·비철·화학·정유·타이어 먼저, 완성차·부품·전력기기는 뒤."""
+    names = raw_names(path)
+    return [q for q in names if not LATER.search(q)] + [q for q in names if LATER.search(q)]
 
 
 def norm(site):
@@ -208,7 +219,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
     # 저장된 글도 이름 규칙을 다시 적용한다(규칙을 고치면 잘못 잡힌 글이 1년 동안 남지 않게)
     items = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id") and beat_of(x.get("site"), rules)[0]}
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
-    rows, err, pages = [], None, 0
+    rows, err, pages, page1 = [], None, 0, []
     for n in range(1, (FIRST_PAGES if first else PAGES) + 1):
         if n > 1:
             sleep(PAUSE)
@@ -221,6 +232,8 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
             err = f"{n}쪽 {type(e).__name__}: {str(e)[:60]}"
             break
         pages += 1
+        if n == 1:
+            page1 = [x["seq"] for x in got]
         if not got:
             if n == 1:
                 err = "목록 0줄(형식 변경 의심)"
@@ -229,7 +242,7 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
         if not first and all(x["seq"] in seen_set for x in got):
             break
     budget = PDF_BUDGET
-    counts = {"rows": len(rows), "new": 0, "beat": 0, "events": 0, "pdf": 0}
+    counts = {"rows": len(rows), "new": 0, "beat": 0, "events": 0, "pdf": 0, "backfill": 0}
     for row in rows:
         if row["seq"] in seen_set:
             continue
@@ -276,18 +289,29 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
                            "detectedAt": stamp})
             counts["events"] += 1
     # 지난 글 채우기(11-21): 게시판 앞 쪽은 최근 글뿐이다 — 회사 이름 검색 첫 쪽으로 출입처 사업장 허가 이력을 기준선으로 채운다(알림 없음)
-    bf = dict(prev.get("backfill") or {"next": 0})
-    if not first and not err and not bf.get("done"):
+    old_bf = prev.get("backfill") or {}
+    names = backfill_names()
+    done = [q for q in old_bf.get("doneNames") or [] if q in names]
+    if not done and old_bf.get("next"):
+        done = raw_names()[:int(old_bf["next"])]          # #954 첫 판(파일 순서 색인) 상태를 이름으로 옮긴다
+    todo = [q for q in names if q not in done]
+    bf_err = old_bf.get("error")
+    if not first and not err and todo:
         from urllib.parse import quote
-        names = backfill_names()
-        start = int(bf.get("next") or 0)
-        for q in names[start:start + BACKFILL_PER_RUN]:
+        bf_err = None
+        for q in todo[:BACKFILL_PER_RUN]:
             sleep(PAUSE)
             try:
                 r = get(SEARCH.format(quote(q)), timeout=30)
-                got = list_rows(r.text) if r.status_code == 200 else []
-            except Exception:  # noqa: BLE001 — 채우기는 덤: 실패하면 다음 실행에 같은 자리부터
-                bf["error"] = q
+                if r.status_code != 200:
+                    raise RuntimeError(f"HTTP {r.status_code}")
+                got = list_rows(r.text)
+            except Exception as e:  # noqa: BLE001 — 채우기는 덤: 실패하면 다음 실행에 같은 자리부터
+                bf_err = f"{q}: {type(e).__name__}"[:80]
+                break
+            # 검색어가 무시되면 목록 1쪽이 그대로 온다 — 그때는 멈추고 표시한다(실행마다 헛검색 10번을 보내지 않게)
+            if got and [x["seq"] for x in got] == page1 and not any(q in x["title"] for x in got):
+                bf_err = f"검색어가 반영되지 않음({q} — 목록 1쪽과 같음, 검색 형식 확인 필요)"
                 break
             for row in got:
                 if row["seq"] in seen_set:
@@ -300,12 +324,10 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
                     items[f"ieps:{row['seq']}"] = {"id": f"ieps:{row['seq']}", "company": comp, "related": related, **t, "date": row["date"],
                                                    "title": row["title"][:200], "url": VIEW.format(row["seq"]), "tier": tier_of(t["kind"], related),
                                                    "firstSeen": stamp, "baseline": True, "backfill": True}
-                    counts["backfill"] = counts.get("backfill", 0) + 1
-            start += 1
-        else:
-            bf.pop("error", None)
-        bf["next"] = start
-        bf["done"] = start >= len(names)
+                    counts["backfill"] += 1
+            done.append(q)
+    bf = {"doneNames": done, "total": len(names), "filled": int(old_bf.get("filled") or 0) + counts["backfill"], "done": not [q for q in names if q not in done],
+          **({"error": bf_err} if bf_err else {})}
     keep = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     status = "failed" if err and not rows else "partial" if err else "ok"
     checks = [{"source": "통합환경허가 정보공개(게시판)", "status": status, "returned": len(rows), "pages": pages,
@@ -335,7 +357,9 @@ def main():
     doc = run(now, previous)
     c = doc["counts"]
     print(f"::notice title=ieps-permits::상태 {doc['status']} · 목록 {c['rows']}줄 · 새 글 {c['new']} · 출입처 {c['beat']} · 이벤트 {c['events']}"
-          f" · 결과서 읽음 {c['pdf']} · 저장 {len(doc['items'])}{' · 첫 실행 기준선' if not previous else ''}")
+          f" · 결과서 읽음 {c['pdf']} · 저장 {len(doc['items'])} · 지난 글 채우기 {c.get('backfill', 0)}건"
+          f"({len(doc['backfill']['doneNames'])}/{doc['backfill']['total']}곳{' · 멈춤: ' + doc['backfill']['error'] if doc['backfill'].get('error') else ''})"
+          f"{' · 첫 실행 기준선' if not previous else ''}")
     if not token:
         print("::warning title=ieps-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return

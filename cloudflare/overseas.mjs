@@ -1709,8 +1709,14 @@ export async function iepsSection(ctx, q, days, limit) {
   const out = [`\n[통합환경허가 정보공개 · 국립환경과학원 게시판(통합허가) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}] 게시 최근 ${days}일 출입처 글 ${rows.length}건(변경허가 ${n('변경')} · 통합허가 ${n('통합')})`,
     `원천: ${c.source ?? '통합환경허가 정보공개(게시판)'} ${c.status ?? '?'}(목록 ${c.returned ?? 0}줄·${c.pages ?? 0}쪽${c.error ? `, ${c.error}` : ''})`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  // 지난 글 채우기(11-21): 회사 이름 검색 첫 쪽으로 출입처 사업장의 옛 허가 글을 기준선으로 넣는다 — 진행·멈춤을 보여 준다
+  const bf = doc.backfill;
+  if (bf && Number.isFinite(bf.total)) out.push(`지난 글 채우기(회사 이름 검색 첫 쪽, 기준선·알림 없음): ${bf.total}곳 중 ${(bf.doneNames ?? []).length}곳 검색 · 채운 글 ${bf.filled ?? 0}건`
+    + `${bf.error ? ` · 멈춤: ${bf.error}` : ''}${bf.done ? ' · 다 채움' : ' · 평일 실행마다 10곳'}`);
+  const older = (doc.items ?? []).filter((x) => String(x.date ?? '') < from && matches(q, x.company, x.site, x.industry, x.kind)).length;
+  if (older) out.push(`(게시 ${days}일보다 옛 출입처 글 ${older}건 더 — days=400으로 보기)`);
   for (const x of rows.slice(0, limit)) {
-    out.push(`- ${x.tier} · 게시 ${x.date} · ${x.kind}${x.industry ? `(${x.industry})` : ''} · ${x.company}${x.related ? '(관련 기업)' : ''} · ${x.site}${x.no ? ` · 허가번호 ${x.no}` : ''}${x.baseline ? ' [기준선]' : String(x.firstSeen ?? '') === String(doc.generatedAt) ? ' [신규]' : ''}`);
+    out.push(`- ${x.tier} · 게시 ${x.date} · ${x.kind}${x.industry ? `(${x.industry})` : ''} · ${x.company}${x.related ? '(관련 기업)' : ''} · ${x.site}${x.no ? ` · 허가번호 ${x.no}` : ''}${x.backfill ? ' [기준선·검색 채움]' : x.baseline ? ' [기준선]' : String(x.firstSeen ?? '') === String(doc.generatedAt) ? ' [신규]' : ''}`);
     if ((x.history ?? []).length) out.push(`   허가 이력(검토 결과서): ${x.history.slice(0, 6).map(([d, k]) => `${d} ${k}`).join(', ')}`);
     if ((x.changes ?? []).length) out.push(`   변경 항목(검토 결과서 앞쪽, 자동 추출): ${x.changes.slice(0, 5).join(' / ')}`);
     if (x.pdfError) out.push(`   검토 결과서 못 읽음(${x.pdfError}) — 원문에서 확인`);
