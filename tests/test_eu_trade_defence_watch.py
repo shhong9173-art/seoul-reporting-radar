@@ -288,6 +288,15 @@ class Proceedings(unittest.TestCase):
         self.assertTrue(f["transaction"].endswith("The concentration is accomplished by way of purchase of shares."))
         self.assertTrue(f["activities"].startswith("— Certares Management is an investment firm"))
         self.assertIn("본문에 한국(Korea) 없음", w.merger_fact_text(f))
+        # 11-21 운영 M.12449 꼴: 마지막 당사자 줄이 대문자 이름으로 끝난다('controlled by POSCO.') — 거래 문장은 그 뒤부터
+        g = w.merger_facts("This notification concerns the following undertakings: — POSCO Holdings, Inc. (‘POSCO’, Republic of Korea), "
+                           "— POSCO Maharashtra Steel Private Limited (‘PMH’, India), controlled by POSCO. POSCO and JSW will acquire within the meaning "
+                           "of Article 3(1)(b) and 3(4) of the Merger Regulation joint control of Saffron, including PMH (to be acquired by Saffron). "
+                           "The concentration is accomplished by way of purchase of shares. 2. The business activities of the undertakings concerned are the following: — x", "2026-10-30")
+        self.assertTrue(g["transaction"].startswith("POSCO and JSW will acquire within the meaning of Article 3(1)(b)"))
+        self.assertTrue(g["transaction"].endswith("The concentration is accomplished by way of purchase of shares."))
+        self.assertTrue(w.merger_facts("— Foo S.p.A. (‘Foo’, Italy), owned by Bar Holding. Baz S.p.A. will acquire sole control of Foo. 2. The business activities", "")["transaction"]
+                        .startswith("Baz S.p.A. will acquire"))                              # 약칭 점(S.p.A.)은 문장 끝이 아니다
 
     def test_merger_same_name_without_korea_is_c_and_body_failure_retries(self):
         get, _ = fake(BASE)
@@ -306,6 +315,12 @@ class Proceedings(unittest.TestCase):
         posco = next(m for m in doc3["mergers"] if m["case"] == "M.12449")
         self.assertEqual((posco["facts"]["notifiedOn"], "factsError" in posco), ("2026-10-19", False))
         self.assertEqual(sum(1 for u in calls3 if u.endswith("52026M12701")), 0)              # 읽은 본문은 다시 안 받는다
+        # 예전 판 규칙으로 읽은 본문(v 없음)은 한 번 다시 읽는다
+        old = dict(doc3, mergers=[{**m, "facts": {k: v for k, v in m["facts"].items() if k != "v"}} if m.get("facts") else m for m in doc3["mergers"]])
+        get4, calls4 = fake(BASE, mergers=[kia, notify], bodies={"52026M12449": BODY12449, "52026M12701": BODY12609})
+        doc4 = w.run(NOW + dt.timedelta(hours=9), old, get=get4, sleep=lambda s: None)
+        self.assertEqual(sum(1 for u in calls4 if "52026M" in u), 2)
+        self.assertTrue(all(m["facts"]["v"] == w.FACTS_VERSION for m in doc4["mergers"]))
 
     def test_merger_list_failure_is_partial(self):
         get, _ = fake(BASE)

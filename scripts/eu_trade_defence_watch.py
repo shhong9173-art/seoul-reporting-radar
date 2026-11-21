@@ -409,8 +409,12 @@ def merger_names(parties):
 # 포스코 건(M.12449)은 10-19 접수 → 10-30 관보 → 11-12 승인 → 11-14 경쟁지 단독. 제목만으로는 거래가 무엇인지 몰라 기사 판단을 못 한다.
 # 'TMUS / KIA …'처럼 이름만 같은 회사를 거르려고 본문에 Korea가 있는지도 본다(탐침: 기아로 잡힌 M.12477 본문에 Korea 없음).
 MERGER_BODY_BUDGET = 3
+FACTS_VERSION = 2        # 본문 읽는 규칙을 바꾸면 올린다 — 예전 판으로 읽은 사전 신고는 남은 예산으로 다시 읽는다(v2 11-21: 거래 문장 시작)
 MONTHS_EN = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
                                          "November", "December"], 1)}
+
+
+ABBREV = re.compile(r"^(?:\(?(?:[A-Za-z]\.)+[A-Za-z]?|Inc|Co|Ltd|Corp|Ltda|Pte|Pty|Plc|Bhd|Tbk|No|Art|St|Mr|Dr|Jr|Sr|vs|cf|e\.g|i\.e)$")
 
 
 def merger_facts(text, published=""):
@@ -430,8 +434,9 @@ def merger_facts(text, published=""):
         tail = head[parties[-1].end():].lstrip(" ,.;")
         key = re.search(r"within the meaning of Article 3|\bwill (?:acquire|merge)|\bacquires?\b", tail)
         if key:
-            # 문장 처음: 소문자·닫는 괄호 뒤 '. 대문자'(S.p.A.·N.V. 같은 약칭 점은 문장 끝으로 보지 않는다)
-            starts = [m.end() for m in re.finditer(r"(?<=[a-z)])\.\s+(?=[A-Z])", tail[:key.start()])]
+            # 문장 처음: '. 대문자' 앞 낱말이 약칭(S.p.A.·N.V.·Inc.·Ltd.)이 아니면 문장 끝. 11-21 운영: M.12449는 '… (‘PMH’, India), controlled by
+            # POSCO. POSCO and JSW will acquire …'라 대문자 낱말(POSCO) 뒤 점을 문장 끝으로 못 봐 'controlled by POSCO.'부터 잘렸다
+            starts = [m.end() for m in re.finditer(r"(\S+)\.\s+(?=[A-Z])", tail[:key.start()]) if not ABBREV.match(m.group(1))]
             end = re.search(r"(?<=[a-z)\d])\.(?=\s+[A-Z]|\s*$)", tail[key.end():])
             sent = tail[starts[-1] if starts else 0: key.end() + (end.end() if end else 300)].strip()
             more = re.match(r"\s*(The concentration is accomplished[^.]*\.)", tail[key.end() + (end.end() if end else 300):])
@@ -481,13 +486,14 @@ def mergers_run(get, now, prev, stamp, sleep):
 
     def read_facts(rec):
         st = rec["stages"]["notified"]
-        if budget[0] <= 0 or rec.get("facts") or rec["case"] in tried or rec.get("factsError", {}).get("tries", 0) >= 3:
+        fresh = rec.get("facts") and rec["facts"].get("v") == FACTS_VERSION
+        if budget[0] <= 0 or fresh or rec["case"] in tried or rec.get("factsError", {}).get("tries", 0) >= 3:
             return
         budget[0] -= 1
         tried.add(rec["case"])
         sleep(PAUSE)
         try:
-            rec["facts"] = merger_facts(read_body(get, st["celex"]), st["date"])
+            rec["facts"] = {**merger_facts(read_body(get, st["celex"]), st["date"]), "v": FACTS_VERSION}
             rec.pop("factsError", None)
         except Exception as e:  # noqa: BLE001 — 본문 실패는 제목 줄만 남기고 다음 실행에 다시(3번까지)
             rec["factsError"] = {"error": str(e)[:40] or type(e).__name__, "tries": rec.get("factsError", {}).get("tries", 0) + 1}
@@ -525,7 +531,7 @@ def mergers_run(get, now, prev, stamp, sleep):
                        "product": "", "number": case, "date": date, "korea": False, "merger": True, "url": url, "text": text, "detectedAt": stamp})
     # 예전에 잡힌(본문 읽기 전) 사전 신고도 남은 예산으로 채운다
     for rec in sorted(cases.values(), key=lambda m: m["stages"].get("notified", {}).get("date", ""), reverse=True):
-        if rec["stages"].get("notified") and not rec.get("facts"):
+        if rec["stages"].get("notified") and (rec.get("facts") or {}).get("v") != FACTS_VERSION:
             read_facts(rec)
     keep_from = (now.date() - dt.timedelta(days=KEEP_DAYS)).isoformat()
     kept = [m for m in cases.values() if max((s["date"] for s in m["stages"].values()), default="") >= keep_from]
