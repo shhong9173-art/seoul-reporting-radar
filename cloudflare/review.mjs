@@ -194,8 +194,15 @@ export function watchFromPackage(row, index = new Map()) {
     const label = hit && WATCHES.find((w) => w.feed === hit[1])?.label;
     if (label) return label;
   }
-  return undefined;
+  // 본문에 id·주소가 없으면 패키지 이름·제목 낱말로(11-21: 'uk-tra-pvc-korea-pms-1113' 본문은 TRA 문서 번호 CD-01887 등만 있었다)
+  const head = `${row.name ?? ''} ${row.title ?? ''}`;
+  const hit = TITLE_WATCH.find(([rx]) => rx.test(head));
+  return hit ? WATCHES.find((w) => w.feed === hit[1])?.label : undefined;
 }
+const TITLE_WATCH = [[/\buk-tra\b|\bAD\d{4}\b|반덤핑|상계관세|무역구제|세이프가드|\bTRA\b|\bITC\b|\bitc-|\b337\b|EDIS|\bcvd\b|무역위/i, 'trade-remedy'],
+  [/osha/i, 'us-osha'], [/louisiana|루이지애나|georgia-epd|ldeq|quality-jobs|ITEP/i, 'us-state-env'], [/factory-|공장등록|공장 목록/i, 'kr-official'],
+  [/굴뚝|stack/i, 'kr-stacks'], [/nlrc|노동위/i, 'kr-labor'], [/리콜|recall|nhtsa|무상수리|서비스 캠페인/i, 'us-recalls'], [/건축허가/i, 'kr-building'],
+  [/회생|파산/i, 'kr-insolvency'], [/통합환경허가|ieps/i, 'ieps-permits']];
 
 export async function weeklyReview(ctx, args) {
   const days = clampInt(args.days, 1, 60, 7);
