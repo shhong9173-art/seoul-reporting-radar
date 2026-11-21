@@ -354,9 +354,37 @@ def dong_label(dongs):
     return "·".join(f"{k} {n}동" for k, n in sorted(count.items(), key=lambda kv: -kv[1]))
 
 
+# 건물명에 다른 회사 법인 이름이 적힌 허가 — 출입처 공장 번지(본번)에 붙은 이웃·계열사 건물이다(11-22 운영: LG화학 청주공장 본번의
+# 다른 필지 '(주)LG생활건강 청주공장' 증축 사용승인이 B로 떴다). 회사 이름 낱말은 공장등록 감시 설정(data/factory_watch.json)의 검색어.
+ENTITY = re.compile(r"(?:\(주\)|㈜|주식회사)\s*([^\s()㈜]{2,})|([^\s()㈜]{2,}?)\s*(?:\(주\)|㈜|주식회사)")
+
+
+def company_names(path=ROOT / "data" / "factory_watch.json"):
+    try:
+        cfg = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {c["company"]: [c["company"]] + list(c.get("queries") or []) for c in cfg.get("companies") or [] if c.get("company")}
+
+
+NAMES = company_names()
+
+
+def other_company(bld, company, names=None):
+    """건물명의 법인 이름이 그 출입처 이름 낱말로 시작하지 않으면 그 이름(아니면 None — 법인 표기가 없거나 모르면 판단 안 함)."""
+    names = (names if names is not None else NAMES).get(company)
+    m = ENTITY.search(bld or "")
+    if not names or not m:
+        return None
+    ent = (m.group(1) or m.group(2) or "").upper()
+    if any(ent.startswith(n.upper()) or n.upper().startswith(ent) for n in names):
+        return None
+    return m.group(1) or m.group(2)
+
+
 def tier_of(p):
     a = p.get("totArea") or 0
-    if a < SMALL_AREA:
+    if a < SMALL_AREA or p.get("otherName"):
         return "C"
     dongs = p.get("dongs") or []
     if dongs and all(TEMPORARY.search(d.get("purpose") or "") for d in dongs):
@@ -532,6 +560,9 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                    "started": ymd(r.get("realStcnsDay")), "useApproved": ymd(r.get("useAprDay"))}
             lot = lot_of(r)
             rec["sameLot"] = None if lot is None else lot in own_lots
+            other = other_company(rec["bldNm"], rec["company"])
+            if other:
+                rec["otherName"] = other
             if (rec["permitted"] or "0000") < show_cut and pid not in old:
                 continue  # old permits are not kept
             if pid not in old and trim_floor and (rec["permitted"] or "0000") < trim_floor:
@@ -545,7 +576,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             rec["isNew"] = not prev and not first_look
             rec["tier"] = tier_of(rec)
             if prev and rec["useApproved"] and not prev.get("useApproved"):
-                rec["kind"], rec["isNew"], rec["tier"], rec["changedAt"] = "사용승인(준공)", True, "B", stamp
+                # 준공은 B — 다만 허가 자체가 C(작은 면적·가설·이웃 필지 증축·다른 회사 건물명)면 C
+                rec["kind"], rec["isNew"], rec["tier"], rec["changedAt"] = "사용승인(준공)", True, "B" if rec["tier"] in ("A", "B") else "C", stamp
             elif prev:
                 rec["changedAt"] = prev.get("changedAt")
             out[pid] = rec
