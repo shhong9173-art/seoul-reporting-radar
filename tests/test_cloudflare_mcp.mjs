@@ -4930,6 +4930,13 @@ test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급�
   assert.deepEqual(JSON.parse(stored2)._returnedWatch, lastReturnedWatch(stored2));
   await post(14, '2026-11-09T06:30:00+09:00');
   assert.doesNotMatch((await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-08T22:00:00Z') })).text, /형식 변경 의심/);
+  // 11-21: 목록 전체(total)가 응답하는 원천의 0줄은 ⚠ 대신 '새 글 없음 연속'(한산·위치 변경 가능)
+  const postT = async (n, at) => worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: `{"schema": "kr_local/v1", "generatedAt": "${at}", "status": "ok", "checks": [{"source": "울주군", "status": "ok", "returned": ${n}, "total": 812}], "items": []}` }), opts.env, {});
+  for (const [i, n] of [7, 6, 5, 5, 0, 0].entries()) await postT(n, `2026-11-${10 + i}T06:30:00+09:00`);
+  const hq = (await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-15T22:00:00Z') })).text;
+  assert.match(hq, /^- 지자체 고시·공고: 새 글 없음 연속 1곳\(울주군: 이전 5·5·6·7줄 → 0, 목록 전체 812건은 응답\) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음 — 해당 부분 0건은 미확인$/m);
+  assert.doesNotMatch(hq, /형식 변경 의심/);
 });
 
 test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
@@ -6281,11 +6288,14 @@ test('조용한 0건(11-21): 기간 안 줄 수만 0이고 원천 목록 total�
   let w = null;
   for (let i = 0; i < 5; i += 1) w = returnedWatch(w, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 5, total: 3120 }, { source: '깨진 목록', status: 'ok', returned: 5 }] }, at);
   for (let i = 0; i < 2; i += 1) w = returnedWatch(w, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 0, total: 3121 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
-  assert.deepEqual((w.silent ?? []).map((x) => x.source), ['깨진 목록']);
-  // 이미 의심으로 적힌 원천도 total이 있으면 풀린다
-  const w2 = returnedWatch({ ...w, silent: [...w.silent, { source: '인천지방법원 법인파산', kind: 'zero', now: 0, before: [5, 5, 5, 5], limit: 0, since: at }] },
+  assert.deepEqual((w.silent ?? []).map((x) => [x.source, x.kind]), [['인천지방법원 법인파산', 'quiet'], ['깨진 목록', 'zero']]);
+  assert.equal(w.silent[0].total, 3121);
+  // 이미 '형식 변경 의심'으로 적힌 원천도 total이 있으면 quiet로 낮춘다. 새 글이 다시 잡히면 풀린다
+  const w2 = returnedWatch({ ...w, silent: [{ source: '인천지방법원 법인파산', kind: 'zero', now: 0, before: [5, 5, 5, 5], limit: 0, since: at }, w.silent[1]] },
     { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 0, total: 3121 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
-  assert.deepEqual(w2.silent.map((x) => x.source), ['깨진 목록']);
+  assert.deepEqual(w2.silent.map((x) => [x.source, x.kind]), [['인천지방법원 법인파산', 'quiet'], ['깨진 목록', 'zero']]);
+  const w3 = returnedWatch(w2, { checks: [{ source: '인천지방법원 법인파산', status: 'ok', returned: 2, total: 3123 }, { source: '깨진 목록', status: 'ok', returned: 0 }] }, at);
+  assert.deepEqual(w3.silent.map((x) => x.source), ['깨진 목록']);
 });
 
 test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {
