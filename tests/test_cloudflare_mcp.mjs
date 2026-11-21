@@ -16,6 +16,7 @@ import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl, dartViewerDocs, relayKey } from '../cloudflare/live_tools.mjs';
+import { foreignGloss } from '../cloudflare/gloss.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
@@ -6223,6 +6224,25 @@ test('태국 무역구제 공고(11-19): 출입처 이름이 든 담보 요구 �
   assert.doesNotMatch(dk, /8\.1\.2/);
   const a = (await call('trade_remedies', { section: 'ahead', days: 400 }, opts)).text;
   assert.match(a, /- 2027-11-12 · 태국 반덤핑위 · 재심 중 담보 기간 끝\(최종 결정이 먼저 나오면 앞당겨짐\) · AD1044 크롬도금강판 · 한국 세율 0-17\.06%\(CIF\)\n   근거: 태국 무역구제과 사건 쪽 징수 끝 날짜 · 원문: https:\/\/thaitr\.dft\.go\.th\/th\/search\/AD1044/);
+});
+
+test('베트남·인도네시아 무역구제 소식 줄 낱말 풀이(11-21): 아는 낱말만, 번역 아님 표시, radar_today·notices 구역에', async () => {
+  const VN = 'Cục Phòng vệ thương mại thông báo về việc tiếp nhận đầy đủ, hợp lệ hồ sơ yêu cầu rà soát phạm vi sản phẩm việc áp dụng biện pháp chống bán phá giá đối với sản phẩm thép mạ có xuất xứ từ Trung Quốc và Hàn Quốc';
+  assert.equal(foreignGloss('vn-trav', VN), '베트남어 낱말 풀이: 범위 재심(대상 품목 범위) · 신청서 접수 · 반덤핑 · 도금강판 · 한국 · 중국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
+  assert.equal(foreignGloss('vn-trav', 'Hàn Quốc khởi xướng điều tra rà soát cuối kỳ thép'), '베트남어 낱말 풀이: 일몰(종료) 재심 · 조사 개시 · 철강 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
+  assert.equal(foreignGloss('id-kadi', 'Laporan Akhir Penyelidikan Anti Dumping atas Impor Baja Canai Dingin dari Korea'),
+    '인도네시아어 낱말 풀이: 최종 보고서 · 반덤핑 · 냉연 · 한국 (번역 아님 — 누가 거는 조치인지·문장 뜻은 원문)');
+  assert.equal(foreignGloss('in-dgtr', 'Anti-dumping investigation concerning imports of Korea'), '');
+  const at = new Date('2026-11-21T03:00:00Z');
+  const opts = { ...PRIVATE(), now: at };
+  const recent = new Date(at.getTime() - 3600000).toISOString();
+  const res = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], checks: [{ source: '베트남 무역구제청(TRAV) 소식', status: 'ok', returned: 3 }],
+      pages: [{ id: 'vn-trav', label: '베트남 무역구제청(TRAV) 소식', status: 'ok' }],
+      events: [{ id: 'vn-trav:x', pageId: 'vn-trav', country: '베트남', label: '베트남 무역구제청(TRAV) 소식', text: VN, url: 'https://www.trav.gov.vn/x', detectedAt: recent }] }) }), opts.env, {});
+  assert.equal(res.status, 200);
+  assert.match((await call('radar_today', {}, opts)).text, /베트남 무역구제청\(TRAV\) 소식: Cục Phòng vệ[^\n]* · 베트남어 낱말 풀이: 범위 재심\(대상 품목 범위\) · 신청서 접수 · 반덤핑 · 도금강판 · 한국 · 중국/);
+  assert.match((await call('trade_remedies', { section: 'notices' }, opts)).text, /   잡힌 사실: Cục Phòng vệ[^\n]*\n   베트남어 낱말 풀이: 범위 재심/);
 });
 
 test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A, section=jp 사건 줄, 잠정 관세 끝·조사 끝은 해외 판정 일정에', async () => {
