@@ -22,6 +22,8 @@ const addMonths = (iso, n) => {
 };
 // 인도 반덤핑 규칙(Customs Tariff Anti-Dumping Rules 1995): 조사는 개시 1년 안 최종 판정(Rule 17(1), 중앙정부가 6개월 연장 가능),
 // 재심은 개시 12개월 안 종결(Rule 23(2)). 우회 조사는 계산하지 않는다(11-21 — 규정 확인 전)
+// 출입 업종 품목 낱말(eu_trade_defence_watch.BEAT_PRODUCT와 같은 결 + 운영 11-21: 인도 TDI 재심이 '업종 밖'으로 붙음 — 한화솔루션 TDI)
+const BEAT_PRODUCT = /steel|iron|stainless|plate|coil|tube|pipe|wire rod|rebar|tinplate|ferro|electrical steel|zinc|lead\b|copper|alumin|cable|wire|transformer|tyre|tire|vehicle|battery|lithium|polyvinyl|\bPVC\b|polyethylene|polypropylene|\bPET\b|acryl|epoxy|styrene|\bABS\b|rubber|glycol|ethylene|propylene|butadiene|phenol|acetone|caprolactam|polycarbonate|polyamide|methyl|alcohol|isocyanate|\bTDI\b|\bMDI\b|naphtha|solar|silicon/i;
 const DGTR_RULE = { original: 'Rule 17(1) — 개시 1년 안 최종 판정, 중앙정부가 6개월 연장 가능', review: 'Rule 23(2) — 재심은 개시 12개월 안 종결' };
 // 호주 사건 페이지 날짜('31 March 2027', '5 March 2027') → ISO. 못 읽으면 ''
 export function dmyIso(s) {
@@ -126,7 +128,7 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
     if (!inWin(date)) continue;
     const beatNames = c.parties?.beat ?? [];
     const prod = (String(e.text ?? '').match(/imports? of\s+[“"]?(.+?)[”"]?\s+(?:from|originating)/i) ?? [])[1];
-    out.push({ date, country: '인도', agency: 'DGTR', src: 'in', beat: beatNames.length > 0,
+    out.push({ date, country: '인도', agency: 'DGTR', src: 'in', beat: beatNames.length > 0 || BEAT_PRODUCT.test(prod ?? e.text ?? ''),
       what: late ? `최종 판정 시한 지남 → 연장 시 최대(개시 18개월) — 최종 판정문 아직 안 보임` : `${kind === 'review' ? '재심 종결 시한(개시 12개월)' : '최종 판정 시한(개시 1년, 연장 최대 18개월 ' + addMonths(c.initiated, 18) + ')'}`,
       title: `${prod ? prod.slice(0, 70) : String(e.url).split('/').pop().slice(0, 70)} (개시 ${c.initiated})`, who: beatNames,
       whoNote: beatNames.length ? '이해관계자 명단 속 출입처 영문 이름' : '', basis: `인도 반덤핑 규칙 ${DGTR_RULE[kind]} · 개시일은 DGTR 사건 페이지 표기`, url: e.url });
