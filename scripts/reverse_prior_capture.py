@@ -137,6 +137,17 @@ US_PLACES = [("조지아", r"Georgia|조지아"), ("앨라배마", r"Alabama|앨
              ("펜실베이니아", r"Pennsylvania|펜실베이니아"), ("미시시피", r"Mississippi|미시시피"), ("버지니아", r"(?<!West )Virginia|(?<!웨스트)버지니아")]
 US_PLACE_RX = [(name, re.compile(rx, re.I)) for name, rx in US_PLACES]
 PLACE_WORDS = set(KR_PLACES) | {name for name, _ in US_PLACES}   # 지명만 겹친 것은 같은 사건 낱말로 치지 않는다(11-08)
+# 11-21 역추적 '먼저 잡은 후보' 4건 중 2건이 엉뚱한 연결:
+#  ① 「[단독] AI發 변압기 수요 급증…효성중공업, 中 공장 연산 250대로」 ↔ 10-26 공장등록 '효성중공업(주) 팔용공장 변압기'(창원) — 해외 공장 기사 ↔ 국내 공장 항목
+#  ② 「[단독] 포스코, 카자흐서 2500만달러 중재판정 집행 항소 기각」 ↔ 'POSCO v. United States opinion'(미국 국제무역법원) — 다른 나라·중재 사건 ↔ 미국 관세 소송 판결
+# 제목이 해외 공장·법인 기사면 국내 장소 원천(공장등록·건축허가·굴뚝·지자체·국민연금·지방의회)과 잇지 않는다.
+# 판결끼리 연결은 제목이 중재 사건이면 항목에도 중재가, 제목에 미국 밖 나라가 있으면(미국 없이) 미국 법원 항목이 아니어야 센다.
+DOMESTIC_SOURCES = {"kr-building", "kr-stacks", "kr-local", "kr-workforce", "kr-official", "council-minutes"}
+FOREIGN = r"(?:中|중국|美|미국|日|일본|印|인도(?!네)|베트남|인니|인도네시아|카자흐\w*|러시아|브라질|멕시코|캐나다|호주|유럽|EU|英|영국|독일|폴란드|헝가리|체코|슬로바키아|튀르키예|터키|사우디|UAE|태국|말레이시아|필리핀|인도|북미|남미|중남미)"
+FOREIGN_SITE = re.compile(FOREIGN + r"\s*(?:현지\s*)?(?:공장|법인|사업장|생산\s*기지|라인)|(?:현지|해외)\s*(?:공장|법인|생산)")
+NON_US_COUNTRY = re.compile(r"中|중국|日|일본|印|인도(?!네)|베트남|인니|인도네시아|카자흐|러시아|브라질|멕시코|캐나다|호주|유럽|EU|英|영국|독일|폴란드|튀르키예|터키|사우디|UAE|태국|말레이시아")
+US_WORD = re.compile(r"美|미국|연방|국제무역법원|CIT|ITC|상무부")
+US_COURT_ITEM = re.compile(r"v\.\s*United States|United States v\.|Court of International Trade|국제무역법원|연방(?:순회)?항소법원|Federal Circuit", re.I)
 
 
 # 기사 종류(제목 낱말, 첫 일치) — 레이더가 놓친 기사를 어떤 원천으로 메울지 보려고 묶는다. 순서가 판정 순서다
@@ -499,7 +510,10 @@ def match(article, items):
     for m in items:
         if m.get("url"):
             pool.setdefault(doc_key(m["url"]), []).append(m["text"])
+    foreign_site = bool(FOREIGN_SITE.search(title)) and not places_in(title) & set(KR_PLACES)
     for m in same:
+        if foreign_site and m["source"] in DOMESTIC_SOURCES:
+            continue   # 해외 공장·법인 기사 ↔ 국내 장소 항목(11-21 ①) — 같은 회사 항목으로만 센다
         if m["source"] in PLACE_SOURCES:
             mp = places_in(m["text"])
             if mp and not (mp & tplaces):
@@ -514,6 +528,11 @@ def match(article, items):
         art_nums, same_nums, comparable = same_numbers(title, " ".join(pool.get(doc_key(m.get("url")), []) + [m["text"]]) if m.get("url") else m["text"])
         # 판결 기사 ↔ 먼저 본 판결 항목은 같은 사건 근거로 센다(위에서 판결 아닌 소송 접수는 이미 뺐다)
         ruling = "소송·판결" in hit_c and bool(RULING_TITLE.search(title))
+        # 11-21 ②: 중재 사건 기사는 중재 항목만, 미국 밖 나라 사건 기사(미국 낱말 없이)는 미국 법원 항목과 판결끼리 잇지 않는다
+        if ruling and (("중재" in title and not re.search(r"arbitra|중재", m["text"], re.I))
+                       or (NON_US_COUNTRY.search(title) and not US_WORD.search(title) and US_COURT_ITEM.search(m["text"]))):
+            ruling = False
+            hit_c = [c for c in hit_c if c != "소송·판결"]
         # 한국어 항목 본문에 기사 제목의 세 글자 넘는 낱말이 그대로 있으면(사건 낱말이라도: '임직원') 같은 사건 근거 — 두 글자 개념 낱말
         # ('법원'·'소송'·'관세')은 너무 흔해 뺀다
         literal = [w for w in words - GENERIC_WORDS - PLACE_WORDS if len(w) >= 3 and w in m["text"]]

@@ -253,6 +253,20 @@ class Capture(unittest.TestCase):
         self.assertEqual(v("[단독] 포스코, 미국 상계관세 소송서 패소…탄소배출권 무상할당 보조금 인정", "포스코", "2026-10-28T10:50:00+09:00"), "먼저 잡은 후보")
 
 
+    def test_foreign_plant_and_other_country_rulings_are_not_captures_11_21(self):
+        # 11-21 역추적 '먼저 잡은 후보' 4건 중 2건이 엉뚱한 연결이었다(실제 제목·항목 글)
+        items = [r.mem("kr-official", "fac:481212025226282", ["효성중공업"], "공장 새 등록 효성중공업(주) 팔용공장 변압기", "2026-10-26T22:18:00+09:00"),
+                 r.mem("us-litigation", "cit:26-131", ["포스코"], "POSCO v. United States opinion", "2026-10-29T01:21:00+09:00")]
+        v = lambda title, comp, when: r.match({"title": title, "companies": [comp], "published": when}, items)[0]  # noqa: E731
+        self.assertEqual(v("[단독] AI發 변압기 수요 급증…효성중공업, 中 공장 연산 250대로", "효성중공업", "2026-11-19T16:30:00+09:00"), "같은 회사 항목만")
+        self.assertEqual(v("[단독] 포스코, 카자흐서 2500만달러 중재판정 집행 항소 기각", "포스코", "2026-11-14T10:01:00+09:00"), "같은 회사 항목만")
+        # 국내 공장 기사·미국 소송 판결 기사는 그대로 잇는다
+        self.assertEqual(v("[단독] 효성중공업, 창원 변압기 공장 증설", "효성중공업", "2026-11-19T16:30:00+09:00"), "먼저 잡은 후보")
+        self.assertEqual(v("[단독] 포스코, 美 국제무역법원 상계관세 소송서 패소", "포스코", "2026-11-14T10:01:00+09:00"), "먼저 잡은 후보")
+        self.assertTrue(r.FOREIGN_SITE.search("현대차 인도 공장 증설"))
+        self.assertFalse(r.FOREIGN_SITE.search("인도네시아"))
+        self.assertFalse(r.FOREIGN_SITE.search("美 관세에 울산 공장 증설"))
+
     def test_product_words_inside_company_names_are_not_event_words(self):
         # 11-09: 'LS전선'의 전선 ↔ 'LS Cable & System Ltd.'의 cable, 자회사 설립 ↔ Ltd.로 노동위 재심 사건이 '먼저'가 됐다
         items = [r.mem("kr-labor", "labor:00:2026부노46", ["LS전선"], "노동위 심판 회의 중앙노동위원회 사건 2026부노46 「엘에스전선 주식회사(LS Cable & System Ltd.) 부당노동행위 구제 재심신청」",
