@@ -205,7 +205,12 @@ const MULTI_TOPIC_ID = /^(?:rptnote|exec):/;
 const MULTI_TOPIC_BLOCK = /(?:^|\s)id (?:rptnote|exec):/;
 const HINT_TAIL = / · 품목 (?:이름|낱말)이 나온 출입처 [\s\S]*$/;
 const HINT_LINE = /^\s+(?:〔출입처 단서〕|출입처 단서:)/;
-const ownFact = (x) => String(x.fact ?? '').replace(HINT_TAIL, '');
+// 공고 원문 인용 줄(EU 기업결합 사전 신고의 당사자·거래·사업 내용 — 영어 원문)과 검증 상태 안내 줄은 낱말 맞춤에서 뺀다.
+// 11-21 운영(#958 뒤): M.12449 포스코·JSW 인도 합작 줄이 원문 인용의 'steel'·안내 줄의 '지분' 때문에 '포스코홀딩스→포스코 中 합작사(BX STEEL
+// POSCO 냉연 등) 지분 이관' 접음 패키지의 〔이미 처리〕로 찍혔다(다른 건). 주소·id 맞춤은 그대로 덩어리 전체로 한다.
+const QUOTE_LINE = /^\s+(?:당사자\(공고 원문\)|거래\(원문\)|사업 내용\(원문\)|검증 상태):/;
+const QUOTE_TAIL = / · (?:당사자: [^·]*|거래\(원문\): 「[^」]*」|사업 내용\(원문\): 「[^」]*」)/g;
+const ownFact = (x) => String(x.fact ?? '').replace(HINT_TAIL, '').replace(QUOTE_TAIL, '');
 const itemText = (x) => `${x.watch ?? ''} ${x.kind ?? ''} ${ownFact(x)} ${x.id ?? ''} ${x.url ?? ''}`;
 
 // 항목 하나 → { entry, how } (다시 내지 않을 것) · { similar } (비슷한 건 처리 이력, 숨기지 않음) · null
@@ -266,7 +271,7 @@ export function annotateHandled(text, ledger) {
     let hit = null;
     let linked = false;   // 패키지에 적힌 원문 주소·레이더 id로 맞음 = 같은 문서
     // 낱말 맞춤에는 사업보고서 단서 줄(따로 적힌 줄·줄 끝에 붙은 것)을 빼고 본다 — 주소·id 맞춤은 덩어리 전체로 한다
-    const own = lines.slice(from, to).filter((l) => !HINT_LINE.test(l)).map((l) => l.replace(HINT_TAIL, '')).join('\n');
+    const own = lines.slice(from, to).filter((l) => !HINT_LINE.test(l) && !QUOTE_LINE.test(l)).map((l) => l.replace(HINT_TAIL, '').replace(QUOTE_TAIL, '')).join('\n');
     const prep = prepare(own, own, anyCodeRe);
     const multi = MULTI_TOPIC_BLOCK.test(block);   // 정기보고서에서 읽은 항목 — 보고서 주소만으로는 같은 건이 아니다
     const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
