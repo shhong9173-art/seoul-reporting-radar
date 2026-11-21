@@ -54,12 +54,7 @@ async function alertLines(ctx, days, judgedById, index) {
     for (const id of line ? line[1].split(/,\s+/).map((x) => x.trim()).filter(Boolean) : []) if (!sent.some((x) => x.id === id)) sent.push({ id, day: name.slice(6) });
   }
   const real = (w) => (w && !String(w).startsWith('감시 미상') ? w : null);
-  // 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다)
-  const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', nam: 'assembly-minutes', fac: 'kr-official',
-    wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', gl: 'global-beat',
-    gov: 'governance', cp: 'dart-counterparty', exec: 'kr-exec', rptnote: 'kr-report-notes', ustr: 'ustr-comments', execm: 'kr-exec-market', execc: 'kr-exec-check', epo: 'epo-patents', ukn: 'uk-trade-notices', euoj: 'eu-trade-defence', thtr: 'th-trade-remedy', jptr: 'jp-trade-remedy', ieps: 'ieps-permits' };
-  const byPrefix = (id) => WATCHES.find((w) => w.feed === PREFIX[String(id).split(':')[0]])?.label;
-  const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch) || byPrefix(id) || '감시 미상';
+  const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch) || watchByPrefix(id) || '감시 미상';
   const rowsOut = sent.map((x) => ({ ...x, watch: watchOf(x.id), verdict: judgedById.get(x.id)?.verdict ?? '판정 없음', r: judgedById.get(x.id) }));
   const count = (rs) => ['씀', '킬', '보류', '봤음', '판정 없음'].map((v) => [v, rs.filter((x) => x.verdict === v).length]).filter(([, n]) => n).map(([v, n]) => `${v} ${n}`).join(' · ');
   const out = [`\n[즉시 알림 성적 · 최근 ${days}일] 알림 ${names.length}일치 · 보낸 항목 ${rowsOut.length}건 — ${count(rowsOut)}`];
@@ -159,6 +154,29 @@ export async function myArticlesLines(ctx, days) {
   return out;
 }
 
+// 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다).
+// 11-21: 30일 판정 87건 중 11건이 '감시 미상(지금 목록에 없음)'이었다(기자가 쓴 단독 1건 포함) — 보관 기간이 지나 목록에서 빠진 항목은
+// 판정 기록에 감시 이름이 없으면 묶이지 않는다. 수집기들이 쓰는 id 앞말을 모두 적는다(수집기 파일에서 확인).
+const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', nam: 'assembly-minutes', napdoc: 'assembly-minutes',
+  nardoc: 'assembly-minutes', fac: 'kr-official', wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', asx: 'partner-filings',
+  hkex: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', stat: 'scoop-screen', gl: 'global-beat', gov: 'governance', 'insider-group': 'governance',
+  cp: 'dart-counterparty', exec: 'kr-exec', rptnote: 'kr-report-notes', rptword: 'kr-report-notes', ustr: 'ustr-comments', execm: 'kr-exec-market', execc: 'kr-exec-check',
+  epo: 'epo-patents', ukn: 'uk-trade-notices', euoj: 'eu-trade-defence', eumerger: 'eu-trade-defence', euproc: 'eu-trade-defence', thtr: 'th-trade-remedy',
+  jptr: 'jp-trade-remedy', jpcouncil: 'jp-trade-remedy', ieps: 'ieps-permits',
+  fr: 'trade-remedy', taric: 'trade-remedy', ktc: 'trade-remedy', trafile: 'trade-remedy', kita: 'trade-remedy', edis: 'trade-remedy', 'uk-tra': 'trade-remedy',
+  cl: 'us-litigation', op: 'us-litigation', cit: 'us-litigation', nhtsa: 'us-recalls', tsb: 'us-recalls', cmpl: 'us-recalls', epa: 'us-epa', osha: 'us-osha',
+  ga: 'us-state-env', gap: 'us-state-env', adem: 'us-state-env', ldeq: 'us-state-env', laci: 'us-state-env', lasbc: 'us-state-env', kf: 'kr-fuel',
+  ted: 'overseas-awards', fts: 'overseas-awards', wb: 'overseas-awards', bh: 'overseas-awards', bhopen: 'overseas-awards', pcc: 'overseas-awards', tm: 'trademarks',
+  bill: 'assembly-bills', korec: 'kr-energy', ledger: 'kr-energy', nssc: 'kr-energy', briefing: 'kr-signals', ftcpress: 'kr-signals', ftc: 'kr-signals',
+  motir: 'kr-signals', province: 'kr-signals', px: 'kr-signals', kepco: 'kr-signals', g2baward: 'kr-signals', sales: 'kr-stats', site: 'page-watch' };
+export function watchByPrefix(id) {
+  const s = String(id ?? '');
+  const head = s.split(/[:|]/)[0];
+  // 해외 페이지 id는 '페이지 이름:감지 시각'(genesis-us-home:2026-11-20T…·kia-us-ev9:…)
+  const feed = PREFIX[head] ?? (/^[a-z]+-us-[a-z0-9-]+$/.test(head) ? 'page-watch' : undefined);
+  return WATCHES.find((w) => w.feed === feed)?.label;
+}
+
 export async function weeklyReview(ctx, args) {
   const days = clampInt(args.days, 1, 60, 7);
   const since = new Date(ctx.now.getTime() - days * 86400000).toISOString();
@@ -172,7 +190,9 @@ export async function weeklyReview(ctx, args) {
     if (r.watch) return r;
     const m = index.get(r.item_id);
     if (m) return { ...r, ...m, labelled: 'now' };
-    return { ...r, watch: String(r.item_id).startsWith('#') ? '제출 후보' : '감시 미상(지금 목록에 없음)', kind: '', tier: '', flag: '', title: '' };
+    const guess = watchByPrefix(r.item_id);
+    return { ...r, watch: String(r.item_id).startsWith('#') ? '제출 후보' : guess ?? '감시 미상(지금 목록에 없음)', kind: '', tier: '', flag: '', title: '',
+      ...(guess ? { guessed: true } : {}) };
   });
 
   const out = [`최근 ${days}일 판정 · ${kstStamp(ctx.now)}`,
