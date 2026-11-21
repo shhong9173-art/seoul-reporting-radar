@@ -1751,7 +1751,9 @@ export function splitByPlant(g) {
     clusters.push(merged);
   }
   if (clusters.length < 2) return [g];
-  const plain = g.items.filter((x) => !tok.get(x.id).length);
+  // 공장별로 나뉘면 자유 글(의회·노조 발언)은 어느 공장 묶음에도 붙이지 않는다 — 공장 이름이 아니라 시군 언급이라 묶음마다 같은 줄이 되풀이되고
+  // 감시 수만 부풀린다(11-22 운영: 포항시의회 행정사무감사 대목 4줄이 '포항제철소'·'후판제품공장' 두 묶음에 똑같이 붙어 각각 감시 4곳·3곳)
+  const plain = g.items.filter((x) => !tok.get(x.id).length && !FREE_TEXT_WATCHES.has(x.watch));
   const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
   return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
 }
