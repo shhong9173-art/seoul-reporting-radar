@@ -1723,8 +1723,11 @@ export function plantTokens(text) {
 export const samePlant = (a, b) => a.endsWith(b) || b.endsWith(a);
 // 같은 출입처·같은 시군 묶음을 공장 이름으로 나눈다(11-04): 공장 이름이 적힌 항목끼리 겹치지 않으면 다른 공장 묶음.
 // 공장 이름이 없는 항목(국민연금 주소·공장등록 주소)은 어느 공장인지 몰라 나뉜 묶음 모두에 붙는다.
+// 의원·노조 발언 같은 자유 글에 나온 공장 이름은 그 출입처 공장이 아닐 때가 많다(11-22: 포항시의회 행감 '협화라고하는 비료공장' 발언으로
+// '포스코 · 포항 · 비료공장' 묶음이 따로 생겨 같은 의회 대목 4줄이 묶음 셋에 되풀이됐다) — 공장 이름으로 나누지 않고 모든 묶음에 붙인다.
+const FREE_TEXT_WATCHES = new Set(WATCHES.filter((w) => ['council-minutes', 'assembly-minutes', 'union-notices'].includes(w.feed)).map((w) => w.label));
 export function splitByPlant(g) {
-  const tok = new Map(g.items.map((x) => [x.id, plantTokens(`${x.fact ?? ''} ${x.site ?? ''}`)]));
+  const tok = new Map(g.items.map((x) => [x.id, FREE_TEXT_WATCHES.has(x.watch) ? [] : plantTokens(`${x.fact ?? ''} ${x.site ?? ''}`)]));
   const clusters = [];
   for (const x of g.items.filter((y) => tok.get(y.id).length)) {
     const mine = tok.get(x.id);

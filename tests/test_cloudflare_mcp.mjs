@@ -1478,6 +1478,13 @@ test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 �
   assert.equal(splitByPlant({ company: '금호타이어', place: '함평', items: ham }).length, 1);
   // 공장 이름이 한쪽에만 있으면 나누지 않는다
   assert.equal(splitByPlant({ company: '롯데케미칼', place: '울산', items: [items[0], items[2]] }).length, 1);
+  // 11-22: 의회 발언 속 다른 회사 공장 이름('협화라고하는 비료공장')으로 묶음을 나누지 않는다 — 모든 묶음에 붙는다
+  const po = (id, watch, fact) => it(id, watch, fact, { company: '포스코' });
+  const posco = [po('k1', '굴뚝 측정(공장 가동 신호)', '㈜포스코 포항제철소 배출구 멈춤'),
+    po('c1', '지방의회 회의록', '경상북도 포항시의회 회의록 · 포스코 대목 「포스코에서도 수소환원제철소를 … 협화라고하는 비료공장이 있어요」'),
+    po('w1', '사업장 인력(국민연금)', '포스코(경상북도 포항시) 국민연금 가입자')];
+  const pparts = splitByPlant({ company: '포스코', place: '포항', items: posco });
+  assert.deepEqual(pparts.map((g) => g.items.map((x) => x.id)), [['k1', 'c1', 'w1']]);
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {
