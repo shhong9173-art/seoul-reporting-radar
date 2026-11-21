@@ -1317,7 +1317,9 @@ export function usLinkLine(us) {
   if (us.status === 'no-years') return '미국 리콜 대조: 생산기간이 없어 연식을 못 정함 — 조회 안 함';
   if (us.status === 'failed') return `미국 리콜 대조 실패(${us.error ?? '조회 오류'}) — 미확인, 다음 실행에서 다시`;
   const head = `미국 리콜 대조(자동 · NHTSA ${span} · 국내 부품 낱말 ${(us.parts ?? []).join('·') || '없음'})`;
-  const part = us.status === 'partial' ? ` · 일부 조회 실패(${us.error ?? '?'})` : '';
+  // NHTSA에 없는 차명·연식(HTTP 400 — 아직 등록 전 연식, 11-22 첫 운영)은 실패가 아니다
+  const part = (us.status === 'partial' ? ` · 일부 조회 실패(${us.error ?? '?'})` : '')
+    + ((us.unknown ?? []).length ? ` · NHTSA에 없는 차명·연식 ${us.unknown.join(', ')}(아직 등록 전 연식일 수 있음)` : '');
   if (!(us.parts ?? []).length) return `${head}: 공지에서 부품 낱말을 못 찾아 맞춰 보지 않음(리콜 ${us.campaigns ?? 0}건 조회)${part}`;
   if (!(us.matches ?? []).length) return `${head}: 같은 부품 낱말 리콜 없음(조회한 리콜 ${us.campaigns ?? 0}건 · 서비스 캠페인·보증 연장은 us_recalls 제조사 통신)${part}`;
   const rows = us.matches.map((m) => `${m.campaign} 접수 ${m.received ?? '?'}${Number.isFinite(m.leadDays) ? (m.leadDays > 0 ? `(국내 공지보다 ${m.leadDays}일 앞)` : m.leadDays < 0 ? `(국내 공지보다 ${-m.leadDays}일 뒤)` : '(같은 날)') : ''}`

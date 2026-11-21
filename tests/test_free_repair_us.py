@@ -38,8 +38,8 @@ OTHER = {"NHTSACampaignNumber": "24V100000", "ReportReceivedDate": "10/02/2024",
 
 
 class Api:
-    def __init__(self, by=None, fail=()):
-        self.by, self.fail, self.calls = by or {}, set(fail), []
+    def __init__(self, by=None, fail=(), unknown=()):
+        self.by, self.fail, self.unknown, self.calls = by or {}, set(fail), set(unknown), []
 
     def __call__(self, url, headers=None, timeout=None):
         self.calls.append(url)
@@ -47,6 +47,8 @@ class Api:
         key = next((k for k in self.by if k in url), None)
         if any(k in url for k in self.fail):
             return Resp({}, 503)
+        if any(k in url for k in self.unknown):
+            return Resp({"Message": "Invalid"}, 400)
         return Resp({"Count": 1, "results": self.by.get(key, [])})
 
 
@@ -118,6 +120,25 @@ class Link(unittest.TestCase):
             self.assertEqual((y["us"]["status"], y["us"]["tries"]), ("failed", n))
         self.assertEqual(u.link([y], Api(fail=["SONATA"]), NOW, sleep=lambda s: None)["calls"], 0)
         self.assertEqual(f.classify({**y, "company": "현대차"})[0], "B")   # 실패는 등급에 안 씀
+
+
+class UnknownYear(unittest.TestCase):
+    def test_http_400_is_an_unknown_model_year_not_a_failure(self):
+        # 11-22 첫 운영: SANTA FE·SANTA FE HYBRID·SONATA 2027년형이 HTTP 400 — 아직 NHTSA에 없는 연식
+        x = item("4886", "[현대] 싼타페 등 2차종 - 도어 사이드 웨더 스트립 관련 무상수리", "싼타페 (MX5), 싼타페 하이브리드 (MX5 HEV)",
+                 "2026-01-21 ~ 2026-09-04", "도어 웨더스트립과 차체간 점착 소음 발생 가능성")
+        check = u.link([x], Api(unknown=["modelYear=2027"]), NOW, sleep=lambda s: None)
+        self.assertEqual((check["calls"], check["failed"]), (4, 0))
+        self.assertEqual((x["us"]["status"], x["us"]["unknown"], "error" in x["us"]), ("ok", ["SANTA FE 2027", "SANTA FE HYBRID 2027"], False))
+        # 첫 운영 저장분(400을 실패로 적은 것)은 한 번 고쳐 두고 다시 조회하지 않는다
+        old = {**x, "us": {"status": "partial", "error": "SANTA FE 2027 HTTP 400; SANTA FE HYBRID 2027 HTTP 400", "tries": 1, "matches": []}}
+        api = Api()
+        u.link([old], api, NOW, sleep=lambda s: None)
+        self.assertEqual((old["us"]["status"], old["us"]["unknown"], "tries" in old["us"], api.calls), ("ok", ["SANTA FE 2027", "SANTA FE HYBRID 2027"], False, []))
+        # 다른 오류가 섞이면 그대로 둔다
+        mixed = {**x, "us": {"status": "partial", "error": "SANTA FE 2026 HTTP 503; SANTA FE 2027 HTTP 400", "tries": 1}}
+        u.link([mixed], Api(), NOW, sleep=lambda s: None)
+        self.assertEqual(mixed["us"]["status"], "partial")
 
 
 if __name__ == "__main__":
