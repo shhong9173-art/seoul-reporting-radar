@@ -210,6 +210,9 @@ class Partners(unittest.TestCase):
                           "beat": ["포스코"], "snippet": "This builds on our partnership with POSCO Future M, a leading cathode and anode materials provider in Korea."},
                          {"id": "edgar:z-2:g.htm", "source": "EDGAR", "date": "2026-11-10", "firstSeen": "2026-11-10T07:00:00+09:00", "phrases": ["POSCO"],
                           "beat": ["포스코"], "snippet": "Hanwha Solutions Corporation 735 POSCO INTERNATIONAL Corporation 733 Samsung SDI"},
+                         {"id": "edgar:z-4:i.htm", "source": "EDGAR", "date": "2026-11-05", "firstSeen": "2026-11-05T07:00:00+09:00", "phrases": ["POSCO"],
+                          "beat": ["포스코"], "snippet": "the Company entered into an agreement to divest its entire non-operated interest in the Marcellus Shale to a "
+                                                         "subsidiary of POSCO International Corporation (“POSCO”). The transaction is expected to close"},
                          {"id": "edgar:z-3:h.htm", "source": "EDGAR", "date": "2026-11-10", "firstSeen": "2026-11-10T07:00:00+09:00", "phrases": ["POSCO"],
                           "beat": ["포스코"], "snippet": "a supply agreement with POSCO Holdings Inc. and POSCO Future M"}]}
         doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=aff, get=lambda *a, **k: R(404), sleep=lambda s: None)

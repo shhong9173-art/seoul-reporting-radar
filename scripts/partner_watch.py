@@ -33,11 +33,19 @@ FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
 # Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
 # 11-21 partner_filings 실제 화면: Factorial 8-K 'our partnership with POSCO Future M'이 포스코로 떴다 — 포스코퓨처엠·포스코인터내셔널 등
 # 계열사는 출입처가 아니다(AGENTS.md). 그 이름으로만 나오면 무관한 뜻으로 센다(POSCO Holdings는 출입처라 뺀다)
-UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower|Future\s*M\b|FUTURE\s*M\b|International|INTERNATIONAL|E&C|DX|Flow|FLOW|"
-                                 r"M-?Tech|A&C|Wide|Chemtech|ICT|Mobility\s+Solution|Steeleon|Energy|ENERGY)", re.I),
+# 계열사 이름 뒤 약칭 정의('a subsidiary of POSCO International Corporation (“POSCO”)' — 11-21 Chord Energy 10-Q)도 그 계열사다
+UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower|(?:Future\s*M\b|International|E&C|DX|Flow|M-?Tech|A&C|Wide|Chemtech|ICT|"
+                                 r"Mobility\s+Solution|Steeleon|Energy)(?:\s+(?:Corporation|Corp\.?|Co\.,?\s*Ltd\.?|Inc\.?|America|USA))?"
+                                 r"(?:\s*\(\s*(?:the\s+)?[“\"']POSCO[”\"']\s*\))?)", re.I),
              # EDGAR 전문 검색은 대소문자를 가리지 않아 말레이시아·싱가포르 성씨 'Seah'도 걸린다(10-29 Global Engine Group 20-F → '세아' A).
              # 세아는 'SeAH'로만 쓴다 — 다른 대소문자 'Seah·SEAH'는 무관한 뜻으로 센다.
              "SeAH": re.compile(r"\b(?!SeAH\b)[Ss][Ee][Aa][Hh]\b")}
+def unrelated_count(ph, text):
+    """무관한 뜻으로 쓰인 출입처 낱말 수 — 한 대목 안의 낱말을 모두 센다('POSCO International Corporation (“POSCO”)'는 2)."""
+    rx = UNRELATED.get(ph)
+    return sum(len(re.findall(re.escape(ph), m.group(0), re.I)) for m in rx.finditer(text or "")) if rx else 0
+
+
 # EDGAR hits that name a beat company without any dealing with it (첫 실운영 10/27: 미국 보험사 투자 보유 표의
 # 'Top Ten Exposures by Issuer … Hyundai Motor Company', KT 분기 재무제표 주석의 기존 지분 약정 문구).
 HOLDINGS = re.compile(r"top\s+(?:ten|10)\s+(?:exposures|holdings|issuers)|exposures?\s+by\s+issuer|fixed\s+maturit|schedule\s+of\s+investments|"
@@ -391,7 +399,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
         related = []
         for ph in it.get("phrases", []):
             total = len(re.findall(re.escape(ph), text, re.I))
-            unrelated = len(UNRELATED[ph].findall(text)) if ph in UNRELATED else 0
+            unrelated = unrelated_count(ph, text)
             if total and total > unrelated:
                 related.append(ph)
         if it.get("phrases") and not related:
@@ -406,7 +414,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
     for it in items.values():
         sn = it.get("snippet") or ""
         if it.get("source") == "EDGAR" and sn and not it.get("noise"):
-            unrelated = sum(len(UNRELATED[ph].findall(sn)) for ph in it.get("phrases", []) if ph in UNRELATED)
+            unrelated = sum(unrelated_count(ph, sn) for ph in it.get("phrases", []))
             total = sum(len(re.findall(re.escape(ph), sn, re.I)) for ph in it.get("phrases", []))
             if unrelated and total == unrelated:  # only when the unrelated sense is actually visible
                 it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
