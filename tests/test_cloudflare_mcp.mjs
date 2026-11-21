@@ -4873,9 +4873,13 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
       p('bld:4', { bldNm: '첫 조회 번지의 옛 허가', permitted: '2026-06-01', baseline: true, isNew: false }),  // 이 번지는 이번에 처음 봄
       p('bld:5', { bldNm: '공장 목록에서 빠진 공장', orphan: true }),
       // 기본개요에 주용도가 없어 수집기가 동별개요로 채운 허가(11-02 탐침 110)
-      p('bld:6', { bldNm: null, mainPurpsCdNm: null, totArea: 1950, dongs: [{ purpose: '기타공장', structure: '경량철골구조', area: 1950 }], purposeFrom: '동별개요' })] };
+      p('bld:6', { bldNm: null, mainPurpsCdNm: null, totArea: 1950, dongs: [{ purpose: '기타공장', structure: '경량철골구조', area: 1950 }], purposeFrom: '동별개요' }),
+      // 11-22 운영 꼴: 허가 석 달 뒤 월간 갱신에 처음 잡힌 허가
+      p('bld:8', { plot: '충청남도 당진시 송악읍 고대리 1-1번지', bldNm: '늦게 올라온 허가', archGbCdNm: '증축', permitted: '2026-07-20', tier: 'B' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text, /허가 2026-07-20[^\n]* · 레이더가 처음 본 날 10-26\(허가 98일 뒤 — 건축 인허가 자료에 늦게 올라옴\) — 건축주 미표기/);
+  assert.doesNotMatch(r.text, /허가 2026-10-20[^\n]*늦게 올라옴/);    // 엿새 뒤에 잡힌 허가는 그대로
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /건축허가: 케이지스틸 주식회사 부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 공장 · 연면적 12,501㎡ · 허가 2026-10-20 · 착공예정 2026-12-01 — 건축주 미표기\(공장과 같은 번지\)/);
   assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\) · 증축 공장 · 연면적 12,501㎡\(건물 전체일 수 있음, 증축분 아님\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
   assert.doesNotMatch(r.text, /첫 조회 번지의 옛 허가|공장 목록에서 빠진 공장/);
