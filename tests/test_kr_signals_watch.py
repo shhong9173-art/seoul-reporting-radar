@@ -543,6 +543,14 @@ MOLIT_PAGE = brief_page([
     brief_row("156787100", "기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치(리콜)", "2026.10.29", "국토교통부", "A00006")])
 CUSTOMS_PAGE = brief_page([brief_row("156787106", "관세청, 특송물품 악용한 마약밀수 차단을 위한 검사 강화 현장점검 실시", "2026-10-29", "관세청", "B00003")])
 PPS_PAGE = brief_page([brief_row("156786754", "조달청, 한국수출입은행과 함께 공공비축 확대 나선다", "2026-10-28", "조달청", "B00013")])
+# 11-21 탐침: 정책브리핑 고용노동부(A00001) 실제 제목
+MOEL_PAGE = brief_page([
+    brief_row("156790101", "(참고) 고용노동부 서산지청, 부당노동행위 혐의 압수·수색 실시", "2026-11-09", "고용노동부", "A00001"),
+    brief_row("156790102", "고용노동부, 포항·서산 고용위기 선제대응지역 지정 연장", "2026-11-11", "고용노동부", "A00001"),
+    brief_row("156790103", "「2026 울산 공공기관 합동 혁신 경진대회」 개최", "2026-11-10", "고용노동부", "A00001"),
+    brief_row("156790104", "건설근로자공제회, SK 용인 반도체 클러스터 건설현장 방문", "2026-11-18", "고용노동부", "A00001"),
+    brief_row("156790105", "㈜아워홈 산업안전·근로기준 합동 감독·점검 결과 발표", "2026-11-09", "고용노동부", "A00001"),
+    brief_row("156790106", "(참고) 노동부 장관-전국 지방노동관서장, 중대재해 취약현장 일제 불시점검", "2026-11-12", "고용노동부", "A00001")])
 MIXED_PAGE = brief_page([brief_row("156787418", "[연구행정 혁신+-⑨] 협력의 문은 넓게", "2026.11.01", "과학기술정보통신부")])
 
 
@@ -555,7 +563,7 @@ def briefing_routes(fail=None, mixed=None):
             return Resp(brief_page([]))
         if p.get("repCode") == mixed:
             return Resp(MIXED_PAGE)
-        return Resp({"A00019": ME_PAGE, "A00006": MOLIT_PAGE, "B00003": CUSTOMS_PAGE, "B00013": PPS_PAGE}[p.get("repCode")])
+        return Resp({"A00019": ME_PAGE, "A00006": MOLIT_PAGE, "B00003": CUSTOMS_PAGE, "B00013": PPS_PAGE, "A00001": MOEL_PAGE}[p.get("repCode")])
     return {w.BRIEFING_LIST: lst}
 
 
@@ -576,7 +584,7 @@ class BriefingWatch(unittest.TestCase):
             self.assertNotIn(dropped, by)
         self.assertIn("briefing:156786754", by)  # 조달청 공공비축
         self.assertNotIn("briefing:156787106", by)  # 관세청 마약 단속
-        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 10, 6))
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 16, 8))
         self.assertFalse(any(x["isNew"] for x in items))
 
     def test_unfiltered_page_and_failure_are_unconfirmed(self):
@@ -590,6 +598,29 @@ class BriefingWatch(unittest.TestCase):
         self.assertEqual(check["status"], "partial")
         self.assertEqual([x["id"] for x in items if x["isNew"]], ["briefing:156787100"])
         self.assertIn("briefing:156787389", {x["id"] for x in items})  # 실패한 부처의 이전 줄 유지
+
+
+class BriefingLabor(unittest.TestCase):
+    """11-21: 노사·안전 갈래 경쟁지 단독 20건 중 레이더가 먼저 잡은 것 0 — 고용노동부 보도자료(정책브리핑 A00001)를 더한다.
+    출입처 공장 지역 지청의 감독·압수수색·부당노동행위, 고용·산업위기 지역(포항·서산), 출입 업종 낱말만(일반 고용정책은 뺀다)."""
+
+    def test_labor_topics_and_names(self):
+        items, check = w.briefing(CFG, NOW, None, http(briefing_routes()))
+        labor = {x["id"]: x for x in items if x["ministry"] == "고용노동부"}
+        self.assertEqual(set(labor), {"briefing:156790101", "briefing:156790102"})       # 서산지청 압수수색 · 포항·서산 고용위기
+        self.assertIn("고용노동부", check["read"])
+        topic = re.compile(next(m["topic"] for m in CFG["briefing"]["ministries"] if m["name"] == "고용노동부"))
+        for title in ("고용노동부, 현대제철 당진제철소 특별감독 결과 발표", "(참고) 여수지청, 석유화학단지 사망사고 사업장 작업중지 명령", "울산지청, 완성차 협력사 불법파견 감독"):
+            self.assertIsNotNone(topic.search(title), title)
+        for title in ("「2026 울산 공공기관 합동 혁신 경진대회」 개최", "(참고) '26.10월 취업자수는 13.9만명 증가하여 4개월 연속 두 자릿수 증가"):
+            self.assertIsNone(topic.search(title), title)
+        # 출입처 이름이 제목에 있으면 업종 낱말이 없어도 둔다
+        named = brief_page([brief_row("156790200", "포스코 광양제철소 산업안전 감독 결과 발표", "2026-11-20", "고용노동부", "A00001")])
+        routes = briefing_routes()
+        base = routes[w.BRIEFING_LIST]
+        routes[w.BRIEFING_LIST] = lambda m, u, kw: Resp(named) if (kw.get("params") or {}).get("repCode") == "A00001" and int((kw.get("params") or {}).get("pageIndex", 1)) == 1 else base(m, u, kw)
+        items, _ = w.briefing(CFG, NOW, None, http(routes))
+        self.assertEqual(next(x for x in items if x["id"] == "briefing:156790200")["companies"], ["포스코"])
 
 
 class BriefingTopicNarrowing(unittest.TestCase):
@@ -632,8 +663,9 @@ class BriefingNewMinistryBaseline(unittest.TestCase):
         items, check = w.briefing(CFG, NOW, old_doc, http(briefing_routes()))
         new = {x["id"]: x["ministry"] for x in items if x["isNew"]}
         self.assertNotIn("조달청", new.values())  # 처음 읽은 청은 기준선
+        self.assertNotIn("고용노동부", new.values())  # 11-21 더한 고용노동부도 첫 읽기는 기준선
         self.assertIn("briefing:156787100", new)  # 이미 읽던 국토부의 새 줄은 신규
-        self.assertEqual(check["read"], ["관세청", "국토교통부", "기후에너지환경부", "조달청"])
+        self.assertEqual(check["read"], ["고용노동부", "관세청", "국토교통부", "기후에너지환경부", "조달청"])
         sale = brief_page([brief_row("156786670", "자동차·가전부터 한우·수산물까지...최대 50% 할인 정부, 「제2회 코리아 그랜드 페스티벌」 시작(10.29~11.15)",
                                      "2026-10-27", "관세청", "B00003")])
         routes = briefing_routes()

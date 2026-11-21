@@ -2376,9 +2376,9 @@ export async function krSignals(ctx, args) {
   if (!section || section === 'briefing') {
     const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
     const rows = (doc.briefing ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.ministry, ...(x.companies ?? [])));
-    if (!Array.isArray(doc.briefing)) out.push('\n[부처 보도자료(기후부·국토부·관세청·조달청)] 아직 수집 전 — 미확인(0건 아님)');
+    if (!Array.isArray(doc.briefing)) out.push('\n[부처 보도자료(기후부·국토부·관세청·조달청·노동부)] 아직 수집 전 — 미확인(0건 아님)');
     else {
-      out.push(`\n[부처 보도자료(정책브리핑 목록: 기후부·국토부·관세청·조달청) · 제목에 출입처 이름·업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건`);
+      out.push(`\n[부처 보도자료(정책브리핑 목록: 기후부·국토부·관세청·조달청·노동부) · 제목에 출입처 이름·업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건`);
       for (const x of rows.slice(0, limit)) {
         out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.ministry}`);
         out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}`);

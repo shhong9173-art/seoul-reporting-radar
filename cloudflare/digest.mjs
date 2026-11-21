@@ -609,12 +609,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       company: [...(x.companies ?? []), ...(x.related ?? [])].join('·') || x.dept,
       fact: `공정위 ${x.kind}${x.dept ? `(${x.dept})` : ''}: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], ['공정위']) : undefined });
   }
-  // 정책브리핑 부처 보도자료(기후에너지환경부·국토교통부): 제목에 출입처 이름이면 B, 부처별 업종 낱말만이면 C
+  // 정책브리핑 부처 보도자료(기후에너지환경부·국토교통부·관세청·조달청·고용노동부): 제목에 출입처 이름이면 B, 부처별 업종 낱말만이면 C
+  // 보도 대조 낱말: 고용노동부는 기사 제목이 '노동부'(11-21 추가) — 나머지는 지금처럼 부처 이름에서 '부'를 뗀 말
   for (const x of ks?.briefing ?? []) {
     if (!(all || String(x.date ?? '') >= cutDay)) continue;
     const named = (x.companies ?? []).length;
+    const word = x.ministry === '고용노동부' ? '노동부' : String(x.ministry ?? '').replace(/부$/, '');
     push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.ministry} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.ministry,
-      fact: `${x.ministry} 보도자료: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.ministry.replace(/부$/, '')]) : undefined });
+      fact: `${x.ministry} 보도자료: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [word]) : undefined });
   }
   // 나라장터 낙찰: 출입처가 낙찰자이고 10억원 이상이면 B(낙찰 ≠ 계약), 그 밖(관용차 등 소액·관련 기업)은 C
   for (const x of ks?.g2bAwards ?? []) {
