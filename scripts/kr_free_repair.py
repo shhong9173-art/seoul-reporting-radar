@@ -87,6 +87,9 @@ def parse_list(page):
     return out, int(total.group(1).replace(",", "")) if total else None
 
 
+CAUSE = re.compile(r"확인됨에\s*따른|가능성이\s*(?:있|확인)|가능성\s*확인|발생\s*가능성")
+
+
 def parse_detail(page):
     """상세 페이지 표 → {maker, model, produced, period, units, reason, action, contact, attach}."""
     got = {}
@@ -96,10 +99,16 @@ def parse_detail(page):
             got[k.replace(" ", "")] = v
     units = re.search(r"[\d,]+", got.get("대수", ""))
     attach = [plain(x) for x in re.findall(r"fileDownload\([^)]*\)[^>]*>([\s\S]*?)</a>", page or "")]
+    reason, action = got.get("무상점검내용", ""), got.get("조치사항", "")
+    # 게시판 글이 두 칸을 바꿔 적은 일(11-22: 4884 쏠라티 — 내용 칸 'ECU 데이터 리프로그래밍 및 DPF 수동 재생', 조치 칸 '… 가능성이
+    # 확인됨에 따른 무상수리') — 조치 칸에만 원인 문장 꼴이 있으면 바꿔 읽는다
+    swapped = bool(CAUSE.search(action) and not CAUSE.search(reason))
+    if swapped:
+        reason, action = action, reason
     return {"maker": got.get("제작(수입)사", "")[:80], "model": got.get("차명", "")[:160], "produced": got.get("생산기간", "")[:60],
             "period": got.get("무상수리기간", got.get("무상점검기간", ""))[:60], "units": int(units.group(0).replace(",", "")) if units else None,
-            "reason": got.get("무상점검내용", "")[:600], "action": got.get("조치사항", "")[:300], "contact": got.get("기타문의", "")[:80],
-            "attach": [a[:120] for a in attach if a][:4]}
+            "reason": reason[:600], "action": action[:300], "contact": got.get("기타문의", "")[:80],
+            "attach": [a[:120] for a in attach if a][:4], **({"swapped": True} if swapped else {})}
 
 
 def classify(item):
@@ -191,6 +200,9 @@ def collect(prev, now, session, *, sleep=time.sleep):
         return (dict(prev, stale=True) if prev else None), check
     budget = DETAIL_BUDGET
     fresh = [r for r in listed if r["id"] not in seen]
+    for x in items.values():   # 저장된 글도 두 칸을 바꿔 적은 꼴이면 바꿔 둔다(한 번)
+        if not x.get("swapped") and CAUSE.search(str(x.get("action") or "")) and not CAUSE.search(str(x.get("reason") or "")):
+            x["reason"], x["action"], x["swapped"] = x.get("action"), x.get("reason"), True
     # 상세를 못 읽고 넘겼거나 열리지 않은 출입처 글은 다음 실행이 이어 읽는다
     for x in items.values():
         if x.get("detail") == "failed" and x.get("detailError") in THROTTLED:   # 첫 운영(11-14) 때 429·403을 실패로 적은 글

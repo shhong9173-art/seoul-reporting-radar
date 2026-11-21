@@ -1328,8 +1328,9 @@ export function freeRepairSection(doc, q, limit, showAll, ctx) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.date || '?'} · ${x.company ? `${x.tier} · ${x.company}` : '다른 브랜드'} · ${x.title} · 글 번호 ${x.no}`);
     if (x.detail === 'ok') {
       out.push(`   잡힌 사실: ${x.maker || '제작사 ?'} · ${x.model || '차명 ?'} · 대상 ${Number.isFinite(x.units) ? `${x.units.toLocaleString('en-US')}대` : '대수 미기재'}${x.produced ? ` · 생산기간 ${x.produced}` : ''}${x.period ? ` · 무상수리 기간 ${x.period}` : ''}`);
-      if (x.reason) out.push(`   내용(공지 원문): 「${clipText(x.reason, 320)}」`);
-      if (x.action) out.push(`   조치: 「${clipText(x.action, 160)}」${(x.attach ?? []).length ? ` · 첨부 ${x.attach.join(', ')}` : ''}`);
+      // swapped: 공지가 '무상점검내용'에 조치를, '조치사항'에 원인 문장을 적었다(11-22 4884) — 수집기가 바꿔 읽었으니 칸 이름을 밝힌다
+      if (x.reason) out.push(`   ${x.swapped ? '원인(공지의 조치 칸 원문 — 공지가 두 칸을 바꿔 적어 바꿔 읽음)' : '내용(공지 원문)'}: 「${clipText(x.reason, 320)}」`);
+      if (x.action) out.push(`   ${x.swapped ? '조치(공지의 내용 칸)' : '조치'}: 「${clipText(x.action, 160)}」${(x.attach ?? []).length ? ` · 첨부 ${x.attach.join(', ')}` : ''}`);
       if (x.company) out.push(`   등급 이유: ${x.why}`);
     } else if (x.company) out.push(`   상세 ${x.detail === 'failed' ? `못 읽음(${x.detailError ?? '실패'}) — 대수·내용 미확인` : x.detail === 'pending' ? '읽기 대기(다음 실행)' : '안 읽음'}`);
     out.push(`   원문: ${x.url} (상세 주소가 따로 없다 — 게시판에서 글 번호·제목으로 찾는다)`);
