@@ -451,7 +451,15 @@ function opinionHint(x) {
   return hint((x.beat ?? [])[0], [x.courtId === 'cit' ? '국제무역법원' : '항소', '판결', duty]);
 }
 function pageHint(e, added) {
-  if (!/\$\s?\d/.test(added)) return undefined;  // price lines only; other wording changes have no reliable search words
+  // 연식·차명 줄(11-21): 제네시스 미국 홈 '+ 2028 G80 / 2028 GV80'이 즉시 알림(A)으로 나갔는데 보도 대조가 없어 신차 공개 뒤 바뀐 문구인지
+  // 레이더가 말해 주지 못했다. 차명으로 찾는다(연식은 국내 기사 제목에 잘 안 쓴다). 제네시스 페이지는 '제네시스'로(제목에 현대차가 없다)
+  const models = e.added?.models ?? [];
+  if (!/\$\s?\d/.test(added) && models.length) {
+    const names = [...new Set(models.flatMap((m) => usRecallModels(String(m).replace(/\b20[2-3]\d\b/g, ' '))))].slice(0, 3);
+    const who = /제네시스|genesis/i.test(`${e.company ?? ''} ${e.label ?? ''} ${e.pageId ?? ''}`) ? '제네시스' : e.company;
+    return names.length ? hint(who, names) : undefined;
+  }
+  if (!/\$\s?\d/.test(added)) return undefined;  // price lines; other wording changes (출시 시점·판매 상태) have no reliable search words
   // 차종 목록 페이지는 가격 줄 근처 차명(국문으로)으로 찾는다 — 없으면 페이지 이름의 차명(아이오닉6 N 등)
   const near = Object.values(e.priceModels ?? {})[0];
   const model = (near ? usRecallModels(near)[0] : undefined) ?? (/\b([A-Z]{1,4}\d{1,2}[A-Za-z]?)\b/.exec(String(e.label ?? '')) ?? [])[1];
