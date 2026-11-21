@@ -241,6 +241,16 @@ class Run(unittest.TestCase):
         self.assertIs(w.in_region(reg2, "현대제철", "전남광주통합특별시 순천시의회"), True)
         self.assertIs(w.in_region(reg, "현대제철", "전남광주통합특별시 순천시의회"), False)
         self.assertNotIn(("c", "광양만권경제자유구역청"), reg2["현대제철"])
+        self.assertIn(("c", "광양"), reg2["현대제철"])                          # 광양만권 경제자유구역청 → 광양
+        # 경제자유구역청·산단관리공단(운영 show_all 이름 그대로) — 기관 이름 속 광역시
+        metro = [{"company": "현대모비스", "rnAdres": "", "cvplChrgOrgnztNm": "울산경제자유구역청"},
+                 {"company": "현대모비스", "rnAdres": "", "cvplChrgOrgnztNm": "인천광역시 경제자유구역청"},
+                 {"company": "현대차", "rnAdres": "", "cvplChrgOrgnztNm": "서대구산업단지관리공단"}]
+        reg3 = w.regions_from_factories(metro)
+        self.assertIs(w.in_region(reg3, "현대모비스", "울산광역시 북구의회"), True)
+        self.assertIs(w.in_region(reg3, "현대모비스", "인천광역시의회"), True)
+        self.assertIs(w.in_region(reg3, "현대차", "대구광역시 서구의회"), True)
+        self.assertTrue(all(w.agency_region(f) for f in metro))
         # 실제 대목(밀양시의회 총무위원회 2026-09-14) — 사건 낱말('사고')이 있어도 공장 없는 지역이라 C, 앞서 낸 A 이벤트도 C로
         get, _ = fake({})
         doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)

@@ -80,6 +80,15 @@ def _stem(tok):
 # 도로명 주소가 빈 공장 등록(11-22: 포스코 '주식회사 포스코' 고용 6,222명 등 3곳)은 민원 담당 기관('경상북도 포항시' 꼴)으로 지역을 잡는다 —
 # 그 꼴이 아니면 쓰지 않는다.
 AGENCY = re.compile(r"^\S+(?:도|광역시|특별시|특별자치시|통합특별시)\s+\S+(?:시|군|구)$")
+# 경제자유구역청·산단관리공단이 담당 기관인 공장(11-22 show_all: '울산경제자유구역청'·'인천광역시 경제자유구역청'·'서대구산업단지관리공단')은
+# 기관 이름 속 광역시 이름으로 잡는다(광주는 전남광주통합특별시로 바뀌어 뺀다). 광양만권 경제자유구역청은 광양.
+METRO = re.compile(r"(서울|부산|대구|인천|대전|울산|세종)")
+
+
+def agency_region(f):
+    """도로명 주소가 빈 공장의 담당 기관 이름으로 지역을 잡을 수 있나(건수 세기용)."""
+    a = str(f.get("cvplChrgOrgnztNm") or "").strip()
+    return bool(AGENCY.match(a) or METRO.search(a) or a.startswith("광양만권"))
 
 
 def regions_from_factories(factories):
@@ -89,6 +98,13 @@ def regions_from_factories(factories):
         road = str(f.get("rnAdres") or "").strip()
         agency = str(f.get("cvplChrgOrgnztNm") or "").strip()
         parts = (road or (agency if AGENCY.match(agency) else "")).split()
+        if not parts and agency and f.get("company"):
+            m = METRO.search(agency)
+            if m:
+                out.setdefault(f["company"], set()).update({("p", m.group(1)), ("c", m.group(1))})
+            elif agency.startswith("광양만권"):
+                out.setdefault(f["company"], set()).add(("c", "광양"))
+            continue
         if not parts or not f.get("company"):
             continue
         r = out.setdefault(f["company"], set())
@@ -335,7 +351,7 @@ def main():
             regions = regions_from_factories(facs)
             blank = [f for f in facs if not str(f.get("rnAdres") or "").strip()]
             print(f"::notice title=council-minutes-regions::공장 {len(facs)}곳 · 도로명 주소 빈 공장 {len(blank)}곳 중 담당 기관으로 지역 잡음 "
-                  f"{sum(1 for f in blank if AGENCY.match(str(f.get('cvplChrgOrgnztNm') or '').strip()))}곳")   # 건수만
+                  f"{sum(1 for f in blank if agency_region(f))}곳")   # 건수만
         except Exception as e:  # noqa: BLE001
             print(f"::warning title=council-minutes-regions::공장 주소 조회 실패({type(e).__name__}) — 지역 규칙 없이")
     doc = run(now, previous, regions=regions)
