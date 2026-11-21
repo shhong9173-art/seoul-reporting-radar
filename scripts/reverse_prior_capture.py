@@ -147,6 +147,13 @@ FOREIGN = r"(?:中|중국|美|미국|日|일본|印|인도(?!네)|베트남|인�
 FOREIGN_SITE = re.compile(FOREIGN + r"\s*(?:현지\s*)?(?:공장|법인|사업장|생산\s*기지|라인)|(?:현지|해외)\s*(?:공장|법인|생산)")
 NON_US_COUNTRY = re.compile(r"中|중국|日|일본|印|인도(?!네)|베트남|인니|인도네시아|카자흐|러시아|브라질|멕시코|캐나다|호주|유럽|EU|英|영국|독일|폴란드|튀르키예|터키|사우디|UAE|태국|말레이시아")
 US_WORD = re.compile(r"美|미국|연방|국제무역법원|CIT|ITC|상무부")
+# 해외 발주처 낙찰(TED·영국·세계은행·바레인·대만) 항목은 기사 제목이 해외 사업일 때만 잇는다(11-21 기자 기사 대조: 「LS전선, 한전 '화원-안좌'
+# 해저케이블 2차 증설 수주」가 10-29 EU TED 'Energinet(덴마크) 220 kV Submarine cable' 낙찰과 수주·입찰·전선 낱말로 '먼저 잡은 후보'가 됐다 — 국내 한전 사업)
+AWARD_SOURCES = {"overseas-awards"}
+ABROAD = re.compile(FOREIGN + r"|덴마크|네덜란드|스웨덴|노르웨이|핀란드|벨기에|프랑스|이탈리아|스페인|포르투갈|아일랜드|그리스|루마니아|불가리아|"
+                    r"크로아티아|에스토니아|라트비아|리투아니아|대만|바레인|쿠웨이트|카타르|오만|이집트|모로코|남아공|칠레|페루|콜롬비아|아르헨티나|"
+                    r"뉴질랜드|싱가포르|방글라데시|파키스탄|해외|유럽|중동|북해|발트해|세계은행")
+DOMESTIC_BUYER = re.compile(r"한전|한국전력|국내|발전사|한수원|LH|국가철도|조달청")
 US_COURT_ITEM = re.compile(r"v\.\s*United States|United States v\.|Court of International Trade|국제무역법원|연방(?:순회)?항소법원|Federal Circuit", re.I)
 
 
@@ -517,6 +524,8 @@ def match(article, items):
     for m in same:
         if foreign_site and m["source"] in DOMESTIC_SOURCES:
             continue   # 해외 공장·법인 기사 ↔ 국내 장소 항목(11-21 ①) — 같은 회사 항목으로만 센다
+        if m["source"] in AWARD_SOURCES and (not ABROAD.search(title) or DOMESTIC_BUYER.search(title)):
+            continue   # 국내 발주 기사 ↔ 해외 발주처 낙찰 항목 — 같은 회사 항목으로만 센다
         if m["source"] in PLACE_SOURCES:
             mp = places_in(m["text"])
             if mp and not (mp & tplaces):
