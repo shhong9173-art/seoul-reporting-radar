@@ -1061,6 +1061,7 @@ export async function usRecalls(ctx, args) {
     out.push(`${x.isNew ? '[신규] ' : ''}${x.closed ?? x.opened} · ${x.action} ${x.type} ${x.kind} · ${(x.why ?? []).map((w) => `${w.name}(${w.role})`).join(' · ')}`);
     out.push(`   잡힌 사실: ${x.models} · ${x.component} · 「${x.subject}」 · 개시 ${x.opened}${x.closed ? ` · 종결 ${x.closed}` : ''}${(x.recallCampaigns ?? []).length ? ` · 연결 리콜 ${x.recallCampaigns.join(',')}` : ''}`);
     if (x.summary) out.push(`   요약(원문): ${String(x.summary).slice(0, 300)}`);
+    if (x.minorShare) out.push(`   현대·기아·한국GM 차종은 조사 대상 ${x.minorShare.split('/')[1]}줄 중 ${x.minorShare.split('/')[0]}줄 — 다른 제조사 조사에 함께 적힌 것이라 직접 조사로 보지 않음(B)`);
     out.push(`   원문: ${x.url}`);
     out.push('   검증 상태: NHTSA 공개 자료(자동). 조사 개시는 결함 확정이 아니고 종결은 결함 없음 판정이 아님. 국내 판매 차량 해당 여부는 회사·국토부 확인');
   }

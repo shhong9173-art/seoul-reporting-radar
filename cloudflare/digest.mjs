@@ -889,7 +889,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!fresh(x, invBase, x.closed ? 'closed' : 'opened') && !(x.changedAt && recent(x.changedAt))) continue;
     const who = [...new Set((x.why ?? []).map((w) => w.name))].join('·');
     push(x.tier ?? 'B', W['us-recalls'], { kind: `NHTSA 결함조사 ${x.kind}`, id: x.id, date: x.closed ?? x.opened, company: who,
-      fact: `미국 NHTSA ${x.type} ${x.action} ${x.kind} · ${x.models} · ${x.component} · 「${x.subject}」 · 개시 ${x.opened}${x.closed ? ` · 종결 ${x.closed}` : ''}${(x.recallCampaigns ?? []).length ? ` · 연결 리콜 ${x.recallCampaigns.join(',')}` : ''} — 조사 개시는 결함 확정 아님`,
+      fact: `미국 NHTSA ${x.type} ${x.action} ${x.kind} · ${x.models} · ${x.component} · 「${x.subject}」 · 개시 ${x.opened}${x.closed ? ` · 종결 ${x.closed}` : ''}${(x.recallCampaigns ?? []).length ? ` · 연결 리콜 ${x.recallCampaigns.join(',')}` : ''}`
+        + `${x.minorShare ? ` · 현대·기아·한국GM 차종은 조사 대상 ${x.minorShare.split('/')[1]}줄 중 ${x.minorShare.split('/')[0]}줄(다른 제조사 조사에 함께 적힘)` : ''} — 조사 개시는 결함 확정 아님`,
       url: x.url, check: x.tier === 'C' ? undefined : hint((x.why ?? [])[0]?.name, ['미국', '조사']) });
   }
 

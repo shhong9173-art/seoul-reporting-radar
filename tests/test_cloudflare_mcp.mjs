@@ -3062,7 +3062,12 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
       { id: 'odi:EA25001', action: 'EA25001', type: '공학분석(EA, 격상 단계)', kind: '조사 개시', opened: '2026-07-01', closed: null, models: 'KIA EV6 2023',
         component: 'SEATS', subject: 'Old probe', summary: '', recallCampaigns: [], tier: 'A', why: [{ role: '제조사(출입처 브랜드)', beat: '기아', name: '기아' }],
-        url: 'https://www.nhtsa.gov/recalls?nhtsaId=EA25001', firstSeen: '2026-10-20T17:10:00+09:00', isNew: false }] };
+        url: 'https://www.nhtsa.gov/recalls?nhtsaId=EA25001', firstSeen: '2026-10-20T17:10:00+09:00', isNew: false },
+      // 11-22: 다른 제조사 조사에 현대차 차종 한 줄 — 수집기가 B로 내리고 몫(minorShare)을 적는다
+      { id: 'odi:EA26097', action: 'EA26097', type: '공학분석(EA, 격상 단계)', kind: '조사 개시', opened: '2026-10-24', closed: null, models: 'HONDA ACCORD 2025, HYUNDAI ELANTRA 2016',
+        component: 'ELECTRICAL SYSTEM:STARTER ASSEMBLY', subject: 'No Restart After Auto Start/Stop Engages', summary: '', recallCampaigns: [], tier: 'B', minorShare: '1/6',
+        why: [{ role: '제조사(출입처 브랜드)', beat: '혼다코리아', name: '혼다' }, { role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }],
+        url: 'https://www.nhtsa.gov/recalls?nhtsaId=EA26097', firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_recalls', {}, opts);
   assert.match(t.text, /\[신규\] 2026-10-24 · 26V698000 · 아우디\(제조사\(출입처 브랜드\)\) · SK온\(부품 공급사\(원보고서, 출입처 아님\)\)/);
@@ -3081,7 +3086,9 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.match(r.text, /\[C · 참고\(접힘\)\] \d+건/);
   assert.match(a, /미국 NHTSA 예비조사\(PE\) PE26010 조사 개시 · HYUNDAI TUCSON 2025 · ELECTRICAL · 「ICCU failure」 · 개시 2026-10-24 — 조사 개시는 결함 확정 아님/);
   assert.doesNotMatch(r.text, /Old probe/);  // first-read baseline with an old date
-  assert.match(t.text, /\[결함조사\(ODI\) · 최근 120일 개시·종결\] 출입처 관련 2건/);
+  assert.match(b, /EA26097 조사 개시[^\n]* · 현대·기아·한국GM 차종은 조사 대상 6줄 중 1줄\(다른 제조사 조사에 함께 적힘\) — 조사 개시는 결함 확정 아님/);
+  assert.match(t.text, /\[결함조사\(ODI\) · 최근 120일 개시·종결\] 출입처 관련 3건/);
+  assert.match(t.text, /EA26097[\s\S]*?   현대·기아·한국GM 차종은 조사 대상 6줄 중 1줄 — 다른 제조사 조사에 함께 적힌 것이라 직접 조사로 보지 않음\(B\)/);
   assert.match(t.text, /\[신규\] 2026-10-24 · PE26010 예비조사\(PE\) 조사 개시 · 현대차\(제조사\(출입처 브랜드\)\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
