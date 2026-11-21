@@ -256,6 +256,44 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
     return {"calls": calls, "checked": checked, "linked": linked, "failed": failed, "waiting": waiting}
 
 
+def link_tsbs(items, tsbs):
+    """미국 제조사 통신(us-recalls 저장소의 tsbs.items — 서비스 캠페인·보증 연장·서비스 공지, 최근 120일)과 같은 차종·연식·부품 낱말.
+    조회 없이 저장소끼리 맞춘다. 실행마다 다시 보고, 한 번 맞은 통신은 보관 기간이 지나도 남긴다. 돌려줌: 맞은 공지 수."""
+    hit = 0
+    for x in items:
+        if not (x.get("company") and x.get("detail") == "ok"):
+            continue
+        found = us_models(x)
+        parts = domestic_parts(x) if found else []
+        if not found or not parts:
+            continue
+        names = set(found[1])
+        years = {str(y) for y in model_years(x.get("produced"))}
+        keep = {m["key"]: m for m in x.get("usTsb") or [] if isinstance(m, dict) and m.get("key")}
+        for t in tsbs or []:
+            rows = [m for m in t.get("models") or [] if str(m.get("model") or "").upper() in names and (not years or years & {str(y) for y in m.get("years") or []})]
+            if not rows:
+                continue
+            hay = f"{' '.join(t.get('components') or [])} {t.get('summary') or ''}"
+            got = [label for label, en, strong in parts if en.search(hay)]
+            if not any(strong for label, en, strong in parts if label in got):
+                continue
+            key = t.get("campaign") or t.get("doc") or t.get("id")
+            when = t.get("mfrDate") or t.get("added") or ""
+            lead = None
+            try:
+                lead = (dt.date.fromisoformat(str(x.get("date"))[:10]) - dt.date.fromisoformat(str(when)[:10])).days
+            except ValueError:
+                pass
+            keep[key] = {"key": key, "campaign": t.get("campaign") or "", "doc": t.get("doc") or "", "kind": t.get("kindName") or t.get("type") or "",
+                         "date": str(when)[:10], "models": [m["model"] for m in rows], "years": sorted({y for m in rows for y in (m.get("years") or [])})[-4:],
+                         "parts": got, "summary": str(t.get("summary") or "")[:240], "url": t.get("url") or "", "leadDays": lead}
+        if keep:
+            x["usTsb"] = sorted(keep.values(), key=lambda m: (m.get("date") or "9999", m["key"]))[:MAX_MATCHES]
+            hit += 1
+    return hit
+
+
 # 넓은 부품 낱말: 같은 차종의 다른 결함 리콜에도 흔히 나온다(제동 계통·배선·변속기·조향) — 화면엔 보이되 이 낱말만 맞은 대조로는 A로 올리지 않는다
 BROAD = {"브레이크", "와이어링", "변속기", "조향"}
 

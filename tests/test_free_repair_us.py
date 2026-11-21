@@ -141,5 +141,27 @@ class UnknownYear(unittest.TestCase):
         self.assertEqual(mixed["us"]["status"], "partial")
 
 
+class Tsbs(unittest.TestCase):
+    def test_service_campaigns_with_same_model_year_and_part_are_kept(self):
+        # us-recalls 저장소의 제조사 통신 꼴(nhtsa_tsbs.py): models [{model, years}], components, summary, mfrDate
+        x = item("4885", "[현대] 쏘나타 - 후측방 레이더 관련 무상수리", "쏘나타 (DT23)", "2026-05-22 ~ 2026-07-29", "후측방레이더 내부 수분유입 가능성")
+        camp = {"id": "LB01", "campaign": "LB01", "doc": "26-01-070H TSB", "kindName": "보증 프로그램·캠페인", "mfrDate": "2026-08-10", "added": "2026-08-20",
+                "models": [{"model": "SONATA", "years": ["2026"]}, {"model": "ELANTRA", "years": ["2026"]}], "components": ["BACK OVER PREVENTION"],
+                "summary": "Certain 2026MY Sonata vehicles may exhibit a blind spot radar warning due to water intrusion into the rear corner radar.", "url": "https://static.nhtsa.gov/odi/tsbs/2026/MC-1.pdf"}
+        other_year = {**camp, "campaign": "LB02", "models": [{"model": "SONATA", "years": ["2020"]}]}
+        other_part = {**camp, "campaign": "LB03", "summary": "Fuel filler door may be difficult to open."}
+        other_model = {**camp, "campaign": "LB04", "models": [{"model": "TUCSON", "years": ["2026"]}]}
+        self.assertEqual(u.link_tsbs([x], [camp, other_year, other_part, other_model]), 1)
+        self.assertEqual([(m["key"], m["models"], m["years"], m["parts"], m["leadDays"], m["date"]) for m in x["usTsb"]], [("LB01", ["SONATA"], ["2026"], ["레이더"], 102, "2026-08-10")])
+        # 통신이 보관 기간(120일)을 넘겨 저장소에서 빠져도 맞은 기록은 남는다
+        self.assertEqual(u.link_tsbs([x], []), 1)
+        self.assertEqual(x["usTsb"][0]["key"], "LB01")
+        # 미국 판매 이름 없는 차종·다른 브랜드는 안 본다
+        k8 = item("4874", "[기아] K8 HEV - HPCU 관련 무상수리", "K8(GL3) HEV", "2021-04-23 ~ 2024-08-12", "HPCU 소프트웨어 설계 오류", company="기아")
+        self.assertEqual(u.link_tsbs([k8, {**x, "company": None, "usTsb": None}], [camp]), 0)
+        self.assertNotIn("usTsb", k8)
+        self.assertEqual(f.classify({**x, "units": 886})[0], "B")     # 제조사 통신은 등급을 올리지 않는다(11-09 기자: 美 캠페인 유형 약함)
+
+
 if __name__ == "__main__":
     unittest.main()
