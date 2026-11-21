@@ -126,8 +126,13 @@ export function foreignAhead(docs, nowMs, { days = 45, past = 60 } = {}) {
   }
   // 미국 ITC — EDIS 결정 문서 본문 속 기한(11-21, edis_watch.schedule_from): 지켜보는 337 조사(출입처 당사자)·한국 조사 위원회 판정 문서가
   // 적은 서면 제출 기한·연장 날짜(예: 337-1494 재검토 결정의 서면 마감). 문서에 적힌 날짜 그대로
+  // '재검토 여부 결정 기한 연장' 공고의 날짜는 같은 조사에서 그 뒤 재검토 결정(Decision to Review·Not to Review)이 나오면 지난 일이다
+  // (11-21 운영: 337-1494 899140 '11-23까지 연장' — 11-20 901438 재검토 결정이 이미 나옴)
+  const decidedLater = (x) => /Extend the Due Date for Determining Whether to Review/i.test(x.documentTitle ?? '') && (tr.edis?.docs ?? []).some((y) => y
+    && y.investigationNumber === x.investigationNumber && String(y.officialReceivedDate ?? '') > String(x.officialReceivedDate ?? '')
+    && /(?:Decision|Determination|Determined)\s+(?:Not\s+)?to\s+Review/i.test(y.documentTitle ?? '') && !/Extend/i.test(y.documentTitle ?? ''));
   for (const x of tr.edis?.docs ?? []) {
-    if (!x || !['A', 'B'].includes(x.tier) || !(x.schedule ?? []).length) continue;
+    if (!x || !['A', 'B'].includes(x.tier) || !(x.schedule ?? []).length || decidedLater(x)) continue;
     const watched = x.why === '지켜보는 조사의 위원회·판사 결정·공고';
     for (const s of x.schedule) {
       if (!inWin(s.date)) continue;

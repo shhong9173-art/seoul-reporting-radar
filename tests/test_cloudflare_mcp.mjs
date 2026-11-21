@@ -6096,7 +6096,11 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
       { id: '901438', why: '지켜보는 조사의 위원회·판사 결정·공고', tier: 'B', investigationNumber: '337-1494', documentType: 'Notice',
         documentTitle: 'Commission Decision to Review an Initial Determination Terminating the Investigation in its Entirety', investigationTitle: 'Certain TOPCon Solar Cells, Modules',
         officialReceivedDate: '2026/11/20 14:05:00', companies: [], url: 'https://edis.usitc.gov/data/document/901438',
-        schedule: [{ date: '2026-12-04', quote: 'The parties are requested to file written submissions on the issues under review no later than close of business on December 4, 2026.' }] }] },
+        schedule: [{ date: '2026-12-04', quote: 'The parties are requested to file written submissions on the issues under review no later than close of business on December 4, 2026.' }] },
+      { id: '899140', why: '지켜보는 조사의 위원회·판사 결정·공고', tier: 'B', investigationNumber: '337-1494', documentType: 'Notice',
+        documentTitle: 'Commission Determination to Extend the Due Date for Determining Whether to Review an Initial Determination Terminating the Investigation in its Entirety',
+        investigationTitle: 'Certain TOPCon Solar Cells, Modules', officialReceivedDate: '2026/10/29 16:14:00', companies: [], url: 'https://edis.usitc.gov/data/document/899140',
+        schedule: [{ date: '2026-11-23', quote: 'has determined to extend until November 23, 2026, the due date for determining whether to review' }] }] },
     usAhead: [
       { case: 'A-580-867:2024-2025', kind: 'final', date: '2027-03-02', how: '법정 시한(게재일+120일, 연장 최대 180일)', statutory: true, pub: '2026-11-02',
         quote: '19 U.S.C. 1675(a)(3)(A) — 최종 결과는 예비 결과 게재일부터 120일 안(연장하면 180일까지). 이 고시 본문에는 최종 시한 문장 없음',
@@ -6188,6 +6192,7 @@ test('다가오는 해외 판정(11-19): 캐나다 결론 예정일·호주 기�
   assert.match(t, /- 2027-09-30 · 인도 DGTR · 재심 종결 시한\(개시 12개월\) · Toluene DiIsocyanate-\(TDI\) \(개시 2026-09-30\)\n/);   // 명단에 이름이 없어도 품목이 출입 업종이면 업종 밖 표시 없음
   assert.doesNotMatch(t, /chisel|Nitrile Rubber/);
   assert.match(t, /- ~2027-06-01 · 영국 TRA · 최종 권고\(국무장관에게\) — 예정표 'June 2027'\(달 단위\) · AD0092/);
+  assert.doesNotMatch(t, /2026-11-23 · 미국 ITC · 337-1494/);   // 재검토 결정(11-20)이 나온 뒤의 '결정 기한 연장' 날짜는 뺀다
   // 11-21: EDIS 결정 문서 본문 속 기한(지켜보는 337) — 출입처 당사자 조사라 단독 데스크 2-2구역에도
   assert.match(t, /- 2026-12-04 · 미국 ITC · 337-1494 Notice 본문 속 기한 · Certain TOPCon Solar Cells, Modules — 「Commission Decision to Review an Initial Determination[^」]*」\(접수 2026\/11\/20\) · 지켜보는 337 조사\(출입처가 당사자\)\n   근거: EDIS 문서 901438 본문 — "The parties are requested to file written submissions/);
   // 11-21: EDIS 한국산 반덤핑 청원(731) 접수일 → 상무부 개시 결정 20일·ITC 예비 판정 45일·상무부 예비 판정(개시+140일 어림). 337 제소장은 계산 안 함
