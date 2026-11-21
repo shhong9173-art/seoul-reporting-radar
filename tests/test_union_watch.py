@@ -141,3 +141,31 @@ class Run(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FollowUps(unittest.TestCase):
+    def test_press_release_after_a_press_call_for_the_same_event_is_c(self):
+        # 11-15~11-19 운영(금속노조 보도자료/성명, 제목 그대로): 같은 기자회견이 [취재요청]·[보도자료] 두 줄씩 B
+        board = "금속노조 보도자료/성명"
+        rows = [("un:ce_B12:220908", "2026-11-15T19:31:00+09:00", "[취재요청] 동희오토 민주노조 인정! 노동조건 향상! 기아차 원청 결단 촉구 기자회견", "B"),
+                ("un:ce_B12:220909", "2026-11-16T09:36:00+09:00", "[취재요청] 현대차그룹사 그룹사 3대 핵심 요구안 공표 및 65세 정년연장 입법 촉구 기자회견", "B"),
+                ("un:ce_B12:220912", "2026-11-16T14:33:00+09:00", "[보도자료] 동희오토 민주노조 인정! 노동조건 향상! 기아차 원청 결단 촉구 기자회견", "B"),
+                ("un:ce_B12:220918", "2026-11-17T15:51:00+09:00", "[보도자료] 현대차그룹사 그룹사 3대 핵심 요구안 공표 및 65세 정년연장 입법 촉구 기자회견 발언문", "B"),
+                ("un:ce_B12:220919", "2026-11-17T16:28:00+09:00", "[성명]원청교섭 거부 현대차, 정부는 언제까지 방치할 건가", "A"),
+                ("un:ce_B12:220930", "2026-11-25T10:00:00+09:00", "[보도자료] 동희오토 민주노조 인정! 노동조건 향상! 기아차 원청 결단 촉구 기자회견", "B")]  # 열흘 뒤 — 다른 행사로 본다
+        events = [{"id": i, "detectedAt": at, "title": t, "tier": tier, "board": board, "text": t} for i, at, t, tier in rows]
+        posts = {i: {"id": i, "tier": tier} for i, _, _, tier in rows}
+        w.fold_followups(events, posts)
+        w.fold_followups(events, posts)
+        by = {e["id"]: e for e in events}
+        self.assertEqual([by[i]["tier"] for i, *_ in rows], ["B", "B", "C", "C", "A", "B"])
+        self.assertEqual(by["un:ce_B12:220912"]["followOf"], "un:ce_B12:220908")
+        self.assertEqual(by["un:ce_B12:220918"]["text"].count("같은 행사 글을 먼저 알림"), 1)
+        self.assertIn("— 11-16 같은 행사 글을 먼저 알림(C)", by["un:ce_B12:220918"]["text"])
+        self.assertEqual(posts["un:ce_B12:220912"]["tier"], "C")
+        # 다른 게시판의 같은 제목은 따로 본다
+        other = [{"id": "x1", "detectedAt": "2026-11-15T10:00:00+09:00", "title": rows[0][2], "tier": "B", "board": board, "text": ""},
+                 {"id": "x2", "detectedAt": "2026-11-15T11:00:00+09:00", "title": rows[0][2], "tier": "B", "board": "금속노조 지역소식(지부·지회)", "text": ""}]
+        w.fold_followups(other, {})
+        self.assertEqual([e["tier"] for e in other], ["B", "B"])
+

@@ -1685,7 +1685,8 @@ export async function unionSection(ctx, q, days, limit, includeMinor = false) {
     if (x.excerpt) out.push(`   앞부분: 「${String(x.excerpt).slice(0, 220)}」`);
     out.push(`   원문: ${x.url}`);
   }
-  if (base.length > rows.length) out.push(`(이름이 본문에만 있고 사건 낱말 없는 글 ${base.length - rows.length}건 접음)`);
+  const follow = base.filter((x) => x.tier === 'C' && x.followOf).length;
+  if (base.length > rows.length) out.push(`(${follow ? `같은 행사 뒤 글(취재요청 → 보도자료) ${follow}건 · ` : ''}이름이 본문에만 있고 사건 낱말 없는 글 ${base.length - rows.length - follow}건 접음)`);
   if (!rows.length) out.push('조건에 맞는 글 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   out.push('   검증 상태: 노조 공개 발표(자동). 한쪽 주장 — 회사 입장·사실관계(사고 경위·교섭 일정·매각 조건) 확인');
   return out;

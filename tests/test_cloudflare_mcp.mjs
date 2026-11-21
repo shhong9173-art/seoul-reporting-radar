@@ -4191,7 +4191,8 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
   const post = (id, title, company, tier, extra = {}) => ({ id, board: '금속노조 보도자료/성명', title, date: now, companies: [company], company, tier, inTitle: true,
     excerpt: `${company} 관련 본문 앞부분`, url: `https://www.kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=${id.split(':')[2]}`, firstSeen: now, ...extra });
   const posts = [post('un:ce_B12:220887', '[보도자료] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견', '금호타이어', 'A'),
-    post('un:ce_B12:220880', '[성명] 노동절 집회 안내', '현대제철', 'C', { inTitle: false })];
+    post('un:ce_B12:220880', '[성명] 노동절 집회 안내', '현대제철', 'C', { inTitle: false }),
+    post('un:ce_B12:220889', '[취재요청] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견', '금호타이어', 'C', { followOf: 'un:ce_B12:220887' })];
   const doc = { schema: 'union_notices/v1', generatedAt: now, status: 'complete', seen: {},
     checks: [{ source: '금속노조 보도자료/성명', status: 'ok', returned: 15 }, { source: '화섬식품노조 보도자료/성명', status: 'ok', returned: 15 }], posts,
     events: [{ id: posts[0].id, tier: 'A', kind: '노조 성명·보도자료', company: '금호타이어', board: posts[0].board, title: posts[0].title, detectedAt: now, url: posts[0].url,
@@ -4206,7 +4207,7 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
   assert.match(k.text, /\[노동위 회의\(조정·심판\)\] 결과 없음 — 미확인/);
   assert.match(k.text, /\[노조 성명·보도자료 · 금속노조·화섬식품노조 공개 게시판 · 확인 [^\]]+ · 최근 14일\] 1건\n원천: 금속노조 보도자료\/성명 ok · 화섬식품노조 보도자료\/성명 ok/);
   assert.match(k.text, /- A · [^\n]+ · 금속노조 보도자료\/성명 · 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 출입처 금호타이어\n   앞부분: 「금호타이어 관련 본문 앞부분」\n   원문: https:\/\/www\.kmwu\.kr\/bbs\/board\.php\?bo_table=ce_B12&wr_id=220887/);
-  assert.match(k.text, /이름이 본문에만 있고 사건 낱말 없는 글 1건 접음/);
+  assert.match(k.text, /\(같은 행사 뒤 글\(취재요청 → 보도자료\) 1건 · 이름이 본문에만 있고 사건 낱말 없는 글 1건 접음\)/);
   assert.match((await call('kr_official', { section: 'labor', show_all: true }, opts)).text, /노동절 집회 안내」 · 출입처 현대제철\(본문에만\)/);
 });
 
