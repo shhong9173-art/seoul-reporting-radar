@@ -113,6 +113,22 @@ class Building(unittest.TestCase):
         fixed = go([("K", "good")], FACS, now=NOW + dt.timedelta(days=8), previous=broken, get=get2, sleep=lambda s: None)
         self.assertEqual(next(x for x in fixed["permits"] if x["id"] == "bld:P1")["kind"], "사용승인(준공)")
 
+    def test_old_permit_first_seen_months_later_is_c(self):
+        # 11-22 운영: 월간 갱신으로 처음 잡힌 옛 허가(허가 2025-12-01·준공 2026-03-31)가 B — 처음 본 날 이미 석 달 넘게 지난 일은 C
+        self.assertTrue(b.stale_at_first_seen({"permitted": "2025-12-01", "started": "2025-12-08", "useApproved": "2026-03-31", "firstSeen": "2026-11-22T02:27:00+09:00"}))
+        self.assertFalse(b.stale_at_first_seen({"permitted": "2026-10-14", "firstSeen": "2026-11-22T02:27:00+09:00"}))      # 39일 — 그대로
+        self.assertFalse(b.stale_at_first_seen({"permitted": "2026-04-01", "startPlanned": "2026-12-01", "firstSeen": "2026-11-22T02:27:00+09:00"}))  # 착공 예정이 앞
+        self.assertFalse(b.stale_at_first_seen({"firstSeen": "2026-11-22"}))
+        old = dict(permit("P7"), archPmsDay="20260720", stcnsSchedDay="20260722", realStcnsDay="20260725", useAprDay="20260801")
+        first = go([("K", "good")], FACS[:1], now=NOW, previous=None, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None)
+        second = go([("K", "good")], FACS[:1], now=NOW + dt.timedelta(days=7), previous=first, get=fake({"0001": [permit("P1"), old]}), sleep=lambda s: None)
+        p7 = next(x for x in second["permits"] if x["id"] == "bld:P7")
+        self.assertEqual((p7["tier"], p7.get("staleAtFirstSeen"), p7["isNew"]), ("C", True, True))
+        recent = dict(permit("P8"), archPmsDay="20260801", useAprDay="20260815")
+        third = go([("K", "good")], FACS[:1], now=NOW + dt.timedelta(days=7), previous=first, get=fake({"0001": [permit("P1"), recent]}), sleep=lambda s: None)
+        p8 = next(x for x in third["permits"] if x["id"] == "bld:P8")
+        self.assertEqual((p8["tier"], p8.get("staleAtFirstSeen")), ("B", None))   # 처음 본 날(NOW+7일) 기준 준공 08-15는 석 달 안
+
     def test_building_named_for_another_company_is_c_and_so_is_its_use_approval(self):
         # 11-22 운영: LG화학 청주공장 본번의 다른 필지 '(주)LG생활건강 청주공장' 증축(연면적 154,848㎡) 사용승인이 B로 떴다
         other = dict(permit("P5"), bldNm="(주)이웃화학 청주공장")

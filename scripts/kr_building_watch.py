@@ -44,6 +44,7 @@ ADDR_BUDGET_S = 13 * 60
 TOTAL_BUDGET_S = 25 * 60
 BIG_AREA = 1000.0
 SMALL_AREA = 300.0
+STALE_DAYS = 90   # 처음 본 날 기준 허가·착공·준공이 모두 이보다 오래면 C(자료에 늦게 올라온 옛 허가)
 RULES = [
     "건축인허가에는 건축주 이름이 없다. '출입처 공장과 같은 번지'일 뿐 — 건축주·용도·투자 규모는 회사·지자체 확인.",
     "허가는 착공·준공이 아니다(착공예정일·실제착공일·사용승인일 칸 확인). 첫 실행에 있던 허가는 기준선.",
@@ -399,6 +400,19 @@ def tier_of(p):
     return t
 
 
+def stale_at_first_seen(p):
+    """처음 본 날에 이미 허가·착공예정·착공·준공이 모두 STALE_DAYS일 넘게 지난 허가 — 자료(건축HUB)에 늦게 올라온 옛 일.
+    11-22 운영: 월간 갱신으로 처음 잡힌 롯데케미칼 대산 증축(허가 2025-12-01·준공 2026-03-31)·첨단소재 여수(준공 05-18)가 B로 떴다."""
+    days = [d for d in (p.get("permitted"), p.get("startPlanned"), p.get("started"), p.get("useApproved")) if d]
+    seen = str(p.get("firstSeen") or "")[:10]
+    if not days or not seen:
+        return False
+    try:
+        return (dt.date.fromisoformat(seen) - dt.date.fromisoformat(max(days))).days > STALE_DAYS
+    except ValueError:
+        return False
+
+
 def retry_lots(previous, now, *, env=None):
     """평일(화~금) 재시도: 월요일 실행에서 조회 실패한 번지 이름 집합. None이면 전체 실행(월요일·강제·직전 결과 없음),
     빈 집합이면 건너뜀. 11-03: 월요일 실행에서 4개 번지(빈 응답 3·HTTP 503 1)가 실패한 채 다음 월요일까지 미확인으로 남았다."""
@@ -579,6 +593,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             rec["baseline"] = bool(prev.get("baseline")) if prev else first_look
             rec["isNew"] = not prev and not first_look
             rec["tier"] = tier_of(rec)
+            if rec["tier"] in ("A", "B") and stale_at_first_seen(rec):
+                rec["tier"], rec["staleAtFirstSeen"] = "C", True
             if prev and rec["useApproved"] and not prev.get("useApproved"):
                 # 준공은 B — 다만 허가 자체가 C(작은 면적·가설·이웃 필지 증축·다른 회사 건물명)면 C
                 rec["kind"], rec["isNew"], rec["tier"], rec["changedAt"] = "사용승인(준공)", True, "B" if rec["tier"] in ("A", "B") else "C", stamp
@@ -602,6 +618,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                     if x["dongs"]:
                         x["purposeFrom"] = "동별개요"
                     x["tier"] = tier_of(x) if x.get("kind") == "새 허가" else x["tier"]
+                    if x["tier"] in ("A", "B") and x.get("kind") == "새 허가" and stale_at_first_seen(x):
+                        x["tier"], x["staleAtFirstSeen"] = "C", True
             except Refused:
                 pass
             except Exception:  # noqa: BLE001
