@@ -69,6 +69,13 @@ class Parse(unittest.TestCase):
         self.assertEqual(w.beat_of("현대스틸파이프(주)"), (None, False))          # 계열사는 출입처 아님
         self.assertEqual(w.beat_of("포스코퓨처엠(주) 광양공장"), (None, False))
         self.assertEqual(w.beat_of("(주)포스코 광양제철소"), ("포스코", False))
+        # 11-21 첫 운영 실행: '포스코강판(주) 도금공장'(별도 상장사)이 포스코로 잡혔다 — 회사 부분만 규칙에 맞춘다
+        self.assertEqual(w.beat_of("포스코강판(주) 도금공장"), (None, False))
+        self.assertEqual(w.company_token("OCI(주)군산공장"), "OCI")
+        self.assertEqual(w.beat_of("OCI(주)군산공장"), ("OCI", False))
+        self.assertEqual(w.beat_of("에쓰-오일(주) 온산공장"), ("S-OIL", False))
+        self.assertEqual(w.beat_of("현대제철포항공장"), ("현대제철", False))
+        self.assertEqual(w.beat_of("한국타이어앤테크놀로지(주) 대전공장"), ("한국타이어", False))
         self.assertEqual(w.beat_of("OCI(주) 군산공장")[0], "OCI")
         self.assertEqual(w.beat_of("효성중공업(주) 창원공장"), ("효성중공업", True))
         self.assertEqual(w.tier_of("변경허가", False), "B")
@@ -105,6 +112,14 @@ class Run(unittest.TestCase):
         self.assertIn("허가 이력(검토 결과서)", ev["ieps:3699"]["text"])
         doc3 = w.run(NOW + dt.timedelta(days=1), doc2, get=get2, sleep=lambda s: None)
         self.assertEqual(len(doc3["events"]), 2)                                                 # 본 글은 다시 안 올린다
+
+    def test_stored_items_are_rechecked_against_name_rules(self):
+        prev = {"schema": w.SCHEMA, "baselineAt": "2026-11-21T22:56:00+09:00", "seen": ["3601"], "events": [],
+                "items": [{"id": "ieps:3601", "company": "포스코", "site": "포스코강판(주) 도금공장", "kind": "통합허가", "date": "2026-08-31", "tier": "C"},
+                          {"id": "ieps:3640", "company": "금호석유화학", "site": "금호석유화학(주) 율촌CNT공장", "kind": "통합허가", "date": "2026-10-26", "tier": "C"}]}
+        get, _ = site({1: PAGE1})
+        doc = w.run(NOW, prev, get=get, sleep=lambda s: None, read_pdf=lambda raw: (PDF, 3))
+        self.assertEqual({x["id"] for x in doc["items"]} - {"ieps:3640"}, set())
 
     def test_failures_are_unconfirmed(self):
         get, _ = site({1: PAGE1}, fail=("page=1",))

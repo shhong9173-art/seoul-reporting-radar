@@ -81,14 +81,21 @@ def norm(site):
 
 
 # 공장등록 규칙은 '포스코 + 사업장(8자 안) + 공장'을 받는다 — 이 게시판 사업장 이름은 '포스코퓨처엠(주) 광양공장'처럼 계열사 이름이 앞에 온다
-AFFILIATE = re.compile(r"^포스코(?:퓨처엠|인터내셔널|이앤씨|엠텍|스틸리온|플로우|FLOW|DX|디엑스|씨앤씨|와이드|휴먼스|모빌리티솔루션|에이앤씨|건설|기술투자|그린|실리콘|케미칼|켐텍|아이씨티)"
+AFFILIATE = re.compile(r"^포스코(?:강판|퓨처엠|인터내셔널|이앤씨|엠텍|스틸리온|플로우|FLOW|DX|디엑스|씨앤씨|와이드|휴먼스|모빌리티솔루션|에이앤씨|건설|기술투자|그린|실리콘|케미칼|켐텍|아이씨티)"
                        r"|^현대(?:스틸파이프|비앤지스틸|IFC|아이에프씨|케미칼|오일터미널)|^(?:엘지|LG)(?:에너지솔루션|디스플레이|이노텍|전자)|^(?:에스케이|SK)(?:에너지|지오센트릭|온|인천석유화학|피유코어)"
                        r"|^롯데(?:정밀화학|엠시씨|이네오스)|^한화(?:토탈|임팩트|첨단소재)|^금호(?:피앤비|미쓰이)|^세아(?:베스틸|창원특수강|씨엠)|^고려아연(?:\S*자회사)|^영풍(?:정밀|전자)", re.I)
 
 
+def company_token(site):
+    """사업장 이름의 회사 부분 — '(주)포스코 광양제철소' → '포스코', '포스코강판(주) 도금공장' → '포스코강판', 'OCI(주)군산공장' → 'OCI'.
+    11-21 첫 운영 실행: 공장등록 규칙('포스코 + 8자 안 + 공장')이 '포스코강판(주) 도금공장'을 포스코로 받았다."""
+    s = re.sub(r"^\s*(?:\(주\)|㈜|주식회사|\(유\)|유한회사)\s*", "", site or "")
+    return re.split(r"\s*(?:\(주\)|㈜|주식회사|\(유\)|유한회사)\s*|\s+", s, maxsplit=1)[0]
+
+
 def beat_of(site, rules=None):
-    """사업장 이름 → (회사, 관련 여부) 또는 (None, False)."""
-    name = norm(site)
+    """사업장 이름 → (회사, 관련 여부) 또는 (None, False). 회사 부분(괄호 (주)·띄어쓰기 앞)만 규칙에 맞춘다."""
+    name = norm(company_token(site))
     if AFFILIATE.search(name):
         return None, False
     for comp, related, rx in rules or RULES:
@@ -184,7 +191,8 @@ def run(now, previous=None, *, get=None, sleep=time.sleep, rules=None, read_pdf=
     first = not prev.get("baselineAt")
     seen = list(prev.get("seen") or [])
     seen_set = set(seen)
-    items = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id")}
+    # 저장된 글도 이름 규칙을 다시 적용한다(규칙을 고치면 잘못 잡힌 글이 1년 동안 남지 않게)
+    items = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id") and beat_of(x.get("site"), rules)[0]}
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
     rows, err, pages = [], None, 0
     for n in range(1, (FIRST_PAGES if first else PAGES) + 1):
