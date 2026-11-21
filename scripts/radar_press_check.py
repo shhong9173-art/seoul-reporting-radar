@@ -96,7 +96,11 @@ def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
 
 
 def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
-    cands = candidates(items, now=now)
+    # 11-22: 상한(40건)을 넘는 날엔 같은 등급 안에서 한 번도 대조하지 않은 항목을 먼저 — 날짜 순으로만 자르면 늦게 잡힌 옛 날짜 항목
+    # (허가 한 달 뒤 자료에 올라온 건축허가 10건·게재 닷새 뒤 잡힌 외신)이 실행마다 뒤로 밀려 '대조 안 함'으로 남았다(11-22 08:15 항목 53·대조 40)
+    seen = {str(r.get("id")) for r in (previous or {}).get("items", []) if isinstance(r, dict)}
+    allc = candidates(items, now=now, limit=len(items or []))
+    cands = sorted(allc, key=lambda r: (r["tier"] != "A", r["id"] in seen))[:MAX_ITEMS]   # 안정 정렬 — 같은 칸 안은 기존 순서(최근 먼저)
     cands += rechecks(older, {str(x.get("id")) for x in items}, previous, now=now)
     rows = ss.screen(cands, now=now, get=get, sleep=sleep)
     stamp = now.isoformat(timespec="seconds")
