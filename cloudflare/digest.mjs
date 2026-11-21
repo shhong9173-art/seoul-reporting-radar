@@ -1827,7 +1827,10 @@ export function convergence(items, { cut } = {}) {
     }
   }
   const out = [];
-  for (const g of [...groups.values()].flatMap(splitByPlant)) {
+  for (const g0 of [...groups.values()].flatMap(splitByPlant)) {
+    // 같은 허가가 새 항목(bld:…)과 배경(bg:bd:bld:…)으로 두 번 붙지 않게 — 11-22 운영: 포스코 포항 동촌동 증축 허가가 묶음마다 B 줄과 (배경) 줄로 두 번
+    const ids = new Set(g0.items.map((x) => String(x.id)));
+    const g = { ...g0, items: g0.items.filter((x) => !(x.background && ids.has(String(x.id).replace(/^bg:bd:/, '')) && String(x.id).startsWith('bg:bd:'))) };
     const watches = [...new Set(g.items.map((x) => x.watch))];
     // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다
     if (watches.length < 2 || !g.items.some((x) => !x.background)) continue;

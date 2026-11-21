@@ -1347,6 +1347,11 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.equal(convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T15:00:00Z') })[0].fresh, false);  // 10-30 00:00 KST부터면 10-29 공고는 새 항목 아님
   // 당진: 공사 현장 + 멈춘 굴뚝은 둘 다 배경이라 묶지 않는다
   assert.ok(!g.some((x) => x.place === '당진'));
+  // 같은 허가가 새 항목과 배경으로 함께 오면 배경 줄은 뺀다(11-22 운영: 포스코 포항 동촌동 허가가 B 줄·(배경) 줄로 두 번)
+  const permit = { id: 'bd1', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '현대제철', date: '2026-10-29', fact: '건축허가: 현대제철(주) 부지(전남광주통합특별시 순천시 해룡면 신성리 897번지) · 신축' };
+  const notice = { id: 'l9', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-29', fact: '순천시 공고 「현대제철 순천공장 부지 도시계획」' };
+  const both = convergence([permit, notice, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).find((x) => x.place === '순천');
+  assert.deepEqual(both?.items.filter((x) => x.watch === '공장 부지 건축허가').map((x) => x.id), ['bd1']);
 });
 
 test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
