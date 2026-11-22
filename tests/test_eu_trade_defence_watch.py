@@ -1,5 +1,6 @@
 """EU 관보 무역구제 감시 — 탐침 19·20(11-19)의 실제 제목·CELEX·본문 모양으로."""
 import datetime as dt
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -363,6 +364,42 @@ class Proceedings(unittest.TestCase):
         get3, calls3 = fake(BASE + [("52026XC09999", "2026-11-18", "Notice of initiation of a safeguard investigation concerning imports of certain frozen fish fillets")])
         w.run(NOW + dt.timedelta(hours=3), doc, get=get3, sleep=lambda s: None)
         self.assertNotIn(w.CELLAR + "52026XC09999", calls3)
+
+    def test_expiry_notice_names_korea_row(self):
+        # 11-22 운영: 52026XC06045 만료 예정 공고가 '본문에 출입처 이름 없음(한국산 품목)'으로만 떠 품목을 원문에서 찾아야 했다
+        body = ("<p>Notice of the impending expiry</p><table><tr><td><p>Product</p></td><td><p>Country(ies) of origin or exportation</p></td>"
+                "<td><p>Measures</p></td><td><p>Reference</p></td><td><p>Date of expiry</p></td></tr>"
+                "<tr><td><p>Biodiesel</p></td><td><p>United States of America</p></td><td><p>Anti-dumping duty</p></td><td><p>Regulation (EU) 2021/1</p></td><td><p>1.2.2027</p></td></tr>"
+                "<tr><td><p>Silicon</p></td><td><p>The People&#39;s Republic of China</p><p>Republic of Korea</p><p>Taiwan</p></td><td><p>Anti-dumping duty</p></td>"
+                "<td><p>Commission Implementing Regulation (EU) 2022/1394 of 11 August 2022 imposing a definitive anti-dumping duty on imports of silicon originating in the "
+                "People&#39;s Republic of China, as extended to imports of silicon consigned from the Republic of Korea and Taiwan (OJ L 211, 12.8.2022, p. 86)</p></td>"
+                "<td><p>13.8.2027 <span>(4)</span></p></td></tr></table>")
+        rows = w.expiry_rows(body)
+        self.assertEqual(rows, [{"product": "Silicon", "countries": "The People's Republic of China; Republic of Korea; Taiwan", "measure": "Anti-dumping duty",
+                                 "expiry": "2027-08-13", "consigned": True}])
+        T = "Notice of the impending expiry of certain anti-dumping measures"
+        get, _ = fake(BASE)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        get2, calls2 = fake(BASE + [("52026XC06045", "2026-11-19", T)], bodies={"52026XC06045": body})
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
+        e = doc2["events"][0]
+        self.assertEqual((e["id"], e["tier"]), ("euoj:52026XC06045", "B"))
+        self.assertIn("표에서 한국이 든 줄: Silicon(원산지 The People's Republic of China; Republic of Korea; Taiwan · Anti-dumping duty) 만료 2027-08-13", e["text"])
+        self.assertIn("'consigned from … Korea'(다른 나라산 조치를 한국 경유 수출에 확대 적용)", e["text"])
+        self.assertNotIn("본문에 출입처 이름 없음", e["text"])
+        # 표를 읽기 전에 저장된 공고(운영 11-19 저장분)는 한 번 다시 읽어 줄을 채운다 — 이벤트 글도 고침(탐지 시각은 그대로)
+        old = json.loads(json.dumps(doc2))
+        for r in old["records"]:
+            r.pop("expiryRows", None)
+        old["events"][0]["text"] = old["events"][0]["text"].split(" · 표에서")[0] + " · 본문에 출입처 이름 없음(한국산 품목)"
+        get3, calls3 = fake(BASE + [("52026XC06045", "2026-11-19", T)], bodies={"52026XC06045": body})
+        doc3 = w.run(NOW + dt.timedelta(hours=6), old, get=get3, sleep=lambda s: None)
+        self.assertEqual(calls3.count(w.CELLAR + "52026XC06045"), 1)
+        self.assertIn("표에서 한국이 든 줄: Silicon", doc3["events"][0]["text"])
+        self.assertEqual(doc3["events"][0]["detectedAt"], doc2["events"][0]["detectedAt"])
+        doc4 = w.run(NOW + dt.timedelta(hours=9), doc3, get=get3, sleep=lambda s: None)
+        self.assertEqual(calls3.count(w.CELLAR + "52026XC06045"), 1)            # 채운 뒤엔 다시 안 받는다
+        self.assertEqual(doc4["events"][0]["text"], doc3["events"][0]["text"])
 
     def test_add_months_clamps_month_end(self):
         self.assertEqual(w.add_months(dt.date(2026, 8, 31), 6), dt.date(2027, 2, 28))
