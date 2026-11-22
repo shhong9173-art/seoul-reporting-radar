@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import html
 import io
+import json
 import os
 import re
 import sys
@@ -169,6 +170,23 @@ def eok(n):
     return f"약 {jo}조{rest}억원" if jo else f"약 {rest:,}억원"
 
 
+HOLIDAYS_FILE = Path(__file__).resolve().parent.parent / "data" / "kr_holidays.json"
+
+
+def rest_window(now, holidays=None):
+    """공시검색 창(어제·오늘, KST)에 평일 업무 시간이 없는 실행: 토·일·공휴일, 또는 쉬는 날 다음 날 08시 전.
+    이런 실행의 목록·원문 줄 수는 조용한 0 감시(screen.mjs returnedWatch)에 세지 않는다(restDay). 11-23 radar_today '형식 변경 의심 2곳' —
+    토요일 03:52 늦은 예약 실행(목록 190·새 후보 0)과 월요일 02:54·03:34 push 실행(목록 1)이 평일 줄 수와 견줘졌다."""
+    if holidays is None:
+        try:
+            holidays = frozenset(json.loads(HOLIDAYS_FILE.read_text(encoding="utf-8")).get("dates") or [])
+        except (OSError, ValueError):
+            holidays = frozenset()
+    k = now.astimezone(KST) if now.tzinfo else now
+    off = lambda d: d.weekday() >= 5 or d.strftime("%Y-%m-%d") in holidays  # noqa: E731
+    return off(k) or (k.hour < 8 and off(k - dt.timedelta(days=1)))
+
+
 def list_filings(get, sleep, key, now):
     bgn = (now.date() - dt.timedelta(days=DAYS - 1)).strftime("%Y%m%d")
     end = now.date().strftime("%Y%m%d")
@@ -198,7 +216,7 @@ def list_filings(get, sleep, key, now):
     return rows, errors
 
 
-def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
+def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=None):
     if get is None:
         import requests
         get = requests.get
@@ -248,13 +266,14 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
                                     + " · 상대 회사 공시(출입처 공시 아님) — 거래 조건·시점은 원문과 출입처 확인")})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     failed_list = bool(errors) and not rows
+    rest = {"restDay": True} if rest_window(now, holidays) else {}
     status = "failed" if failed_list else "partial" if (errors or doc_errors or pending) else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp,
             "checks": [{"source": "OpenDART 공시검색(시장 전체 B·I)", "status": "failed" if failed_list else "partial" if errors else "ok",
-                        "returned": len(rows), **({"error": "; ".join(errors[:4])} if errors else {})},
+                        "returned": len(rows), **rest, **({"error": "; ".join(errors[:4])} if errors else {})},
                        # 열어 볼 새 후보 공시(종류가 맞고 아직 안 본 것)가 없으면 0줄이 정상이다 — 사유를 적어 '형식 변경 의심'(조용한 0건 감시)에서 빼게 한다
                        # (11-23 radar_today: '공시 원문: 정상 응답인데 0줄, 이전 19·9·20·3줄' — 공시검색 목록은 정상이고 새 후보만 없던 실행)
-                       {"source": "공시 원문", "status": "partial" if (doc_errors or pending) else "ok", "returned": opened,
+                       {"source": "공시 원문", "status": "partial" if (doc_errors or pending) else "ok", "returned": opened, **rest,
                         **({"note": f"새로 열어 볼 후보 공시 없음(공시검색 {len(rows)}건 중 거래·계약 종류의 새 공시 0건)"} if not cand and not errors else {}),
                         **({"error": f"원문 읽기 실패 {doc_errors}건"} if doc_errors else {}),
                         **({"pending": pending} if pending else {})}],
