@@ -558,6 +558,8 @@ class StackTest(unittest.TestCase):
         gone = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
         self.assertEqual([e["tier"] for e in gone], ["C"])
         self.assertIn("주말·공휴일·밤(0~7시)에 빠진 것이라", gone[0]["text"])
+        self.assertIn("그 시간 측정 값이 안 들어와(쉬는 공장이거나 자료 전송이 늦음)", gone[0]["text"])   # 11-23: 연속 가동 사업장에도 맞는 문구
+        self.assertNotIn("쉬는 동안", gone[0]["text"])
         for h in (8, 11):   # 월 08:00·11:00 — 평일 일하는 시간에도 빠짐
             t = dt.datetime(2026, 11, 2, h, 0, tzinfo=KST)
             doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
