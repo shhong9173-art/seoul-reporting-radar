@@ -272,6 +272,10 @@ class Run(unittest.TestCase):
         self.assertEqual(rows[bld["id"]]["must"], ["청주"])                              # 다음 실행이 견줄 수 있게 적어 둔다
         with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
             self.assertEqual(rpc.rechecks([bld], set(), doc, now=NOW), [])             # 한 번 본 뒤에는 같은 규칙
+        # 대조 시작일이 바뀌어도 규칙이 바뀐 것(늦게 본 사용승인은 사용승인일부터)
+        moved = dict(bld, check={**bld["check"], "since": "2026-10-06"})
+        self.assertFalse(rpc.same_rule(rows[bld["id"]], rpc.candidates([moved], now=NOW)[0]))
+        self.assertTrue(rpc.same_rule({**rows[bld["id"]], "since": None}, rpc.candidates([moved], now=NOW)[0]))   # 예전 기록에 since가 없으면 견주지 않음
 
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
