@@ -334,6 +334,10 @@ const SITE_CITIES = ['울산', '온산', '울주', '여수', '광양', '포항',
   '화성', '광주', '금산', '대전', '평택', '구미', '청주', '오창', '천안', '익산', '전주', '완주', '김천', '경주', '삼척', '동해', '보령', '태안', '나주',
   '목포', '영암', '안산', '시흥', '김해', '양산', '함안', '거제', '사천', '진주', '칠곡', '영천', '봉화', '석포', '달성', '대구', '세종', '충주', '음성',
   '파주', '이천', '안성', '오산', '용인', '수원', '함평', '장성', '영광', '고흥', '해남', '하동', '포천', '김포', '고양', '의왕', '광명', '부천', '서천', '논산', '공주', '홍성', '예산'];
+// 외신 한국어 제목의 국내 공장 지명(11-23): Tyrepress 「금호타이어, 함평공장 100억원 보조금 신청」이 "금호타이어 공장" 한 질의로만 대조됐다.
+// 지명이 공장·제철소 등 바로 앞에 붙은 것만 쓴다(제목 속 다른 지명은 공장 위치가 아닐 수 있다 — '기아, 광주에 새 전기차 공장'은 그대로)
+const GB_KR_PLANT = new RegExp(`(${SITE_CITIES.join('|')})\\s*\\d*\\s*(?:공장|제철소|제련소|사업장|산단|산업단지|생산기지)`);
+export const gbDomesticPlace = (koTitle) => (GB_KR_PLANT.exec(String(koTitle ?? '')) ?? [])[1];
 export function siteCity(site) {
   const s = String(site ?? '').replace(/㈜|\(주\)|주식회사/g, ' ');
   const hits = SITE_CITIES.map((c) => [s.indexOf(c), c]).filter(([i]) => i >= 0).sort((a, b) => a[0] - b[0] || b[1].length - a[1].length);
@@ -1023,7 +1027,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         // 게재 사흘 넘게 뒤에 처음 잡힌 기사(출입처 이름 검색은 7일 전 기사까지 읽는다) — 11-22 운영: upi 11-17 고려아연 기사가 11-21 이후 '새 항목' B
         + (Date.parse(x.firstSeen) - Date.parse(x.published) > 3 * 86400000
           ? ` · 레이더가 처음 본 날 ${kstDate(Date.parse(x.firstSeen)).slice(5)}(게재 ${Math.floor((Date.parse(x.firstSeen) - Date.parse(x.published)) / 86400000)}일 뒤 — 외신 검색에 늦게 잡힘)` : ''),
-      url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published, x.koTitle) : undefined });
+      url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0] ?? gbDomesticPlace(x.koTitle), x.published, x.koTitle) : undefined });
   }
 
   // 같은 내용 외신 접기(11-22): 같은 출입처·같은 대조 낱말·같은 필수어(상대 회사 영문 이름·나라)로 사흘 안에 난 B 외신은 같은 기사일 가능성이 높다 —
