@@ -112,7 +112,10 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
     before = {str(r.get("id")): r for r in (previous or {}).get("items", []) if isinstance(r, dict)}
     allc = candidates(items, now=now, limit=len(items or []))
     done = lambda r: r["id"] in before and same_rule(before[r["id"]], r)
-    cands = sorted(allc, key=lambda r: (r["tier"] != "A", done(r)))[:MAX_ITEMS]   # 안정 정렬 — 같은 칸 안은 기존 순서(최근 먼저)
+    # 이미 본 항목끼리는 가장 오래전에 본 것부터(11-22: 항목 44·상한 40 — 날짜 순으로만 두면 늦게 잡힌 옛 날짜 항목(허가 10-13 LG화학 익산)이
+    # 09:55 대조 뒤 15:33·16:12 실행에서 계속 끝에 밀려 다시 안 봤다). 처음 보는 항목은 그대로 먼저, 그 안은 기존 순서
+    seen_at = lambda r: str(before[r["id"]].get("checkedAt") or "") if done(r) else ""
+    cands = sorted(allc, key=lambda r: (r["tier"] != "A", done(r), seen_at(r)))[:MAX_ITEMS]   # 안정 정렬 — 같은 칸 안은 기존 순서(최근 먼저)
     cands += rechecks(older, {str(x.get("id")) for x in items}, previous, now=now)
     rows = ss.screen(cands, now=now, get=get, sleep=sleep)
     stamp = now.isoformat(timespec="seconds")

@@ -247,6 +247,24 @@ class Run(unittest.TestCase):
         self.assertTrue({"bld:100", "bld:101", "bld:102"} <= checked)
         self.assertEqual(doc["screened"], rpc.MAX_ITEMS)
 
+    def test_already_checked_items_rotate_oldest_check_first_over_the_cap(self):
+        # 11-22: 항목 44·상한 40 — 이미 본 항목끼리 날짜 순으로만 두면 옛 날짜 항목(허가 10-13 LG화학 익산)이 09:55 대조 뒤 계속 밀렸다
+        def item(i, date):
+            return {"tier": "B", "watch": "공장 부지 건축허가", "id": f"bld:{i}", "date": date, "company": "현대차", "fact": "x",
+                    "check": {"who": "현대차", "terms": ["공장", "증설"]}}
+        q = ["현대차 공장", "현대차 공장 증설"]
+        fresh = [item(i, "2026-11-21") for i in range(rpc.MAX_ITEMS)]
+        old = [item(100, "2026-10-13")]
+        prev = {"items": [{"id": f"bld:{i}", "queries": q, "checkedAt": "2026-11-22T15:33:00+09:00"} for i in range(rpc.MAX_ITEMS)]
+                + [{"id": "bld:100", "queries": q, "checkedAt": "2026-11-22T09:55:00+09:00"}]}
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run(fresh + old, now=NOW, previous=prev, get=channels({}), sleep=lambda s: None)
+        stamp = NOW.isoformat(timespec="seconds")
+        rows = {r["id"]: r for r in doc["items"]}
+        self.assertEqual(rows["bld:100"]["checkedAt"], stamp)                          # 가장 오래전에 본 것이 먼저
+        self.assertEqual(doc["screened"], rpc.MAX_ITEMS)
+        self.assertEqual(sum(1 for r in doc["items"] if r.get("checkedAt") != stamp), 1)   # 대신 방금(15:33) 본 하나가 이번에 빠진다
+
     def test_a_new_must_word_is_a_rule_change(self):
         # 11-22: #1048이 건축허가 판정에 시 이름을 필수로 넣었다 — 질의('LS일렉트릭 청주')는 그대로라 옛 판정(베트남 박닌 공장 기사로
         # '관련 보도 있음')이 다시 대조되지 않았다. 필수 낱말이 바뀌어도 규칙이 바뀐 것이다.
