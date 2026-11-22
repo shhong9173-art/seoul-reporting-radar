@@ -118,6 +118,10 @@ CONTRACT_FORM = re.compile(r"단일판매\s*[ㆍ·]?\s*공급계약")
 PATENT_SOURCES = re.compile(r"KIPRIS|특허", re.I)
 PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
 ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
+# 대문자 영어 계약명의 보통 낱말은 약어가 아니다(11-22 운영: 대한전선 'SUPPLY AND INSTALLATION OF 400kV POWER CABLES …(NDC460)'을
+# '대한전선 SUPPLY', '대한전선 SUPPLY AND'로 찾았다 — 근거 낱말도 'SUPPLY, AND, OF'). ACRONYM(2~6자 대문자)에 걸리는 보통 낱말만 적는다.
+EN_CAPS_STOP = {"AND", "OF", "THE", "FOR", "TO", "IN", "ON", "AT", "BY", "OR", "AN", "WITH", "FROM", "SUPPLY", "POWER", "CABLE", "CABLES",
+                "WORK", "WORKS", "PHASE", "PLANT", "LINE", "LINES", "NEW", "TERM", "PARTS", "DESIGN", "SITE", "UNIT", "UNITS"}
 
 
 def now_kst():
@@ -198,7 +202,7 @@ def terms_from(text, company):
     words = []
     for w in t.split():
         w = w.strip(".")
-        if re.fullmatch(r"[A-Za-z][A-Za-z0-9&.]*", w) and not ACRONYM.fullmatch(w):
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9&.]*", w) and (not ACRONYM.fullmatch(w) or w in EN_CAPS_STOP):
             continue  # English prose words never match Korean headlines; acronyms (HMTR, HVDC, ESS) do
         if re.search(r"[가-힣]", w) and len(w) >= 3:
             w = PARTICLE.sub("", w)
@@ -428,6 +432,22 @@ def body_subject(c):
     return next((got[k] for k in BODY_TITLE_KEYS if str(got.get(k) or "").strip() not in ("", "-")), None)
 
 
+CONTRACT_PLACE_SKIP = {"대한민국", "한국", "국내", "해외", "기타", "미정", "전세계", "세계", "글로벌", "국내외"}
+
+
+def contract_place(c):
+    """공급계약 원문 '판매ㆍ공급지역'의 첫 한글 지명(싱가포르·카자흐스탄 등). 국내·대한민국처럼 넓은 말이면 None."""
+    f = c.get("filing") or {}
+    if f.get("type") != "공급계약" or f.get("error"):
+        return None
+    got = {k: str(v or "") for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    for w in re.findall(r"[가-힣]{2,}", got.get("판매ㆍ공급지역", "")):
+        w = re.sub(r"(?:등|외)$", "", w)
+        if len(w) >= 2 and w not in CONTRACT_PLACE_SKIP:
+            return w
+    return None
+
+
 def apply_body_titles(cands):
     """형식 공시명만 있는 후보에 원문 제목 낱말을 넣는다. 원문을 못 읽었거나 낱말이 없으면 심사에서 뺀다(형식명 질의의 0건은
     미보도 증거가 아니다). 원문 제목이 형식 공시(자기주식·배당 등)면 다른 형식 공시처럼 뺀다. (남길 후보, 집계)"""
@@ -444,6 +464,11 @@ def apply_body_titles(cands):
             count["procedural"] += 1
             continue
         terms, alts = news_terms(terms_from(subject, c["company"]))
+        # 영어 계약명이라 한글 낱말이 없으면 원문 판매ㆍ공급지역(나라·도시)과 '수주'로 — 기사 제목은 「대한전선, 싱가포르 2717억 수주」
+        place = contract_place(c) if not any(re.search(r"[가-힣]", t) for t in terms) else None
+        if place:
+            terms = [place, "수주"] + [t for t in terms if t not in (place, "수주")][:2]
+            alts = {**alts, "수주": ["수주", "공급계약", "공급 계약", "계약"]}
         if not terms:
             count["unread"] += 1
             continue

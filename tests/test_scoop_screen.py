@@ -195,6 +195,27 @@ class Selection(unittest.TestCase):
         # 긴 회사 이름부터 지운다(한국타이어앤테크놀로지 → '앤테크놀로지'가 낱말로 남던 것)
         self.assertEqual(s.terms_from("한국타이어앤테크놀로지 · 생산설비", "한국타이어"), ["생산설비"])
 
+    def test_english_contract_names_search_by_supply_region(self):
+        # 11-22 운영: 대한전선 20261116800835 'SUPPLY AND INSTALLATION OF 400kV POWER CABLES …(NDC460)'을 '대한전선 SUPPLY',
+        # '대한전선 SUPPLY AND'로 찾았다 — 기사는 「대한전선, 2,717억원 규모 싱가포르 400kV 초고압 케이블 수주」
+        name = "SUPPLY AND INSTALLATION OF 400kV POWER CABLES, AUXILIARY CABLES AND ACCESSORIES (NDC460)"
+        self.assertEqual(s.terms_from(name, "대한전선"), ["NDC460"])   # 대문자 보통 낱말은 약어가 아니다
+        self.assertEqual(s.terms_from("HVDC 변환설비 ESS", "LS일렉트릭"), ["변환설비", "HVDC", "ESS"])   # 진짜 약어는 그대로
+        row = {"id": "clue:x", "company": "대한전선", "bodyTitle": True, "terms": [], "alts": {}, "title": "대한전선 단일판매ㆍ공급계약체결",
+               "filing": {"type": "공급계약", "facts": [["체결계약명", name], ["계약상대", "싱가포르 전력청 (SP POWERASSETS LIMITED)"],
+                                                         ["판매ㆍ공급지역", "싱가포르"]]}}
+        kept, count = s.apply_body_titles([row])
+        self.assertEqual(count["read"], 1)
+        self.assertEqual(kept[0]["terms"], ["싱가포르", "수주", "NDC460"])
+        self.assertEqual(s.queries(kept[0]), ["대한전선 싱가포르", "대한전선 싱가포르 수주"])
+        art = {"title": "대한전선, 2,717억원 규모 싱가포르 400kV 초고압 케이블 수주", "text": "", "url": "k", "date": "2026-11-16"}
+        self.assertEqual(s.judge(kept[0], channels([art]), now=dt.datetime(2026, 11, 16, 15, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 한글 계약명은 그대로(지역을 덧붙이지 않는다) · 국내·대한민국은 지역으로 안 쓴다
+        ko = {**row, "filing": {"type": "공급계약", "facts": [["체결계약명", "카자흐스탄 Shymkent CCPP(복합화력)"], ["판매ㆍ공급지역", "카자흐스탄 Shymkent(카자흐스탄 남부)"]]}}
+        self.assertEqual(s.apply_body_titles([ko])[0][0]["terms"][:2], ["카자흐스탄", "복합화력"])
+        self.assertIsNone(s.contract_place({"filing": {"type": "공급계약", "facts": [["판매ㆍ공급지역", "대한민국"]]}}))
+        self.assertEqual(s.contract_place({"filing": {"type": "공급계약", "facts": [["판매ㆍ공급지역", "미국 등"]]}}), "미국")
+
     def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
         rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
         prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
