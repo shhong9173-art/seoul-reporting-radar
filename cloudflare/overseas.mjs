@@ -248,6 +248,18 @@ export async function partnerFilings(ctx, args) {
 }
 
 // 인도 상장 법인 공시(india-filings feed): NSE 공시 RSS의 현대차 인도법인 공시. partner_filings 아래(source 비우거나 NSE).
+
+// 원 → '약 654억원'·'약 1조2,345억원' — 수집기(dart_counterparty_watch.eok)와 같이 억 아래는 버린다(1억원 미만은 '약 0.4억원')
+export function wonEok(won) {
+  const e = Number(won) / 1e8;
+  if (!Number.isFinite(e) || e <= 0) return '금액 미상';
+  if (e < 1) return `약 ${e.toFixed(1)}억원`;
+  const n = Math.floor(e);
+  if (n < 10000) return `약 ${n.toLocaleString('en-US')}억원`;
+  const jo = Math.floor(n / 10000), rest = n % 10000;
+  return `약 ${jo}조${rest ? `${rest.toLocaleString('en-US')}억` : ''}원`;
+}
+
 export function indiaSection(doc, q = '', onlyNew = false, limit = 20, routine = false, ctx = null) {
   if (!doc) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 아직 수집 전 — 미확인(평일 13:10·16:10·19:10·22:10)'];
   if (doc.broken) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 저장 결과 형식 오류 — 미확인'];
@@ -2150,7 +2162,8 @@ async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
   for (const x of rows.slice(0, limit)) {
     const d = String(x.date ?? '');
     out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.filer} 「${x.report}」 → ${x.company}${(x.others ?? []).length ? `(외 ${x.others.join('·')})` : ''} · ${x.role}${x.sameGroup ? ' · 같은 그룹 계열사 공시' : ''}`);
-    out.push(`   원문 발췌: 「${x.context}」${x.amount ? ` · 금액 ${Number(x.amount).toLocaleString('en-US')}원` : ''}`);
+    // 11-22: radar_today 줄(수집기 글)엔 '(약 654억원)'이 붙는데 이 구역엔 원 단위 숫자만 떴다 — 같은 환산을 붙인다
+    out.push(`   원문 발췌: 「${x.context}」${x.amount ? ` · 금액 ${Number(x.amount).toLocaleString('en-US')}원(${wonEok(Number(x.amount))})` : ''}`);
     out.push(`   원문: ${x.url}`);
   }
   if (base.length > rows.length) out.push(`(같은 그룹 계열사 공시 ${base.length - rows.length}건 접음 — include_mentions=true)`);
