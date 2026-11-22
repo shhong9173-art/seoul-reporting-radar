@@ -467,6 +467,9 @@ export function ktcSection(k, q = '', limit = 15) {
 
 // 무역협회 대한 수입규제DB(kita_watch.py): 세계 각국의 한국산 조치를 한 곳에 — 새 사건·진행 단계(업체 마진)를 감지 이벤트로, 최근 갱신 사건을 목록으로.
 const KITA_BEAT_CATS = new Set(['철강/금속', '화학', '플라스틱/고무', '전기전자', '기계']);   // kita_watch.py BEAT_CATS와 같게
+// 분류 칸은 상세를 읽은 사건에만 있다(#1052 운영: 50건 모두 분류 없음 → 0/0) — 분류가 없으면 품목 이름 낱말로 가른다
+const KITA_BEAT_ITEM = /강판|강관|강재|철강|철근|선재|형강|스테인|알루미늄|아연|구리|동선|니켈|합금|금속|화학|수지|폴리|PVC|PET|아크릴|에틸렌|프로필렌|스티렌|페놀|고무|타이어|플라스틱|변압기|전선|케이블|전기|배터리|축전지|모터|베어링|파이프|자동차|steel|alumin|polymer|resin|rubber|tyre|tire|cable|transformer|chemical/i;
+const kitaBeatCase = (c) => KITA_BEAT_CATS.has(c.category) || (!c.category && KITA_BEAT_ITEM.test(String(c.item ?? '')));
 export function kitaSection(ki, events, q = '', limit = 15, fromIso = '') {
   if (!ki) return ['\n[대한 수입규제 · 무역협회 수입규제DB] 아직 수집 전 — 미확인'];
   const out = [];
@@ -479,7 +482,7 @@ export function kitaSection(ki, events, q = '', limit = 15, fromIso = '') {
   }
   const found = (ki.recent ?? []).map((id) => ({ id, ...(ki.cases ?? {})[id] })).filter((c) => matches(q, c.country, c.item, c.type, c.category));
   // 11-22: 갱신순 목록 맨 위가 짐바브웨 섬유판·문, 마다가스카르 쌀, 미국 양고기였다 — 낱말로 좁히지 않으면 출입 업종 분류(kita_watch.BEAT_CATS)만 보이고 나머지는 수만 적는다
-  const recent = q ? found : found.filter((c) => KITA_BEAT_CATS.has(c.category));
+  const recent = q ? found : found.filter(kitaBeatCase);
   const rest = found.length - recent.length;
   out.push(`- 최근 갱신 사건(갱신순${q ? '' : ' · 출입 업종 분류 철강/금속·화학·플라스틱/고무·전기전자·기계'}) ${Math.min(recent.length, limit)}/${recent.length}${rest ? ` · 그 밖 업종 ${rest}건(company 낱말로 보기)` : ''}:`);
   for (const c of recent.slice(0, limit)) {

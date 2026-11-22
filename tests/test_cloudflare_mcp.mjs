@@ -2262,9 +2262,12 @@ test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, r
     url: 'https://docs.wto.org/dol2fe/Pages/SS/directdoc2.aspx?filename=Q%3a%2fG%2fSG%2fN6RUS10.pdf&Open=True', kitaId: id.split(':')[1], detectedAt: recent });
   const doc = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'complete', checks: [{ source: '무역협회 수입규제DB', status: 'ok', returned: 50, detailsRead: 3 }],
     quotas: [], federalRegister: [], pages: [], rules: [],
-    kita: { checkedAt: recent, baselineSince: '2026-10-30T07:40:00+09:00', recent: ['ROIL2026100002', 'ROIL2026100006'],
+    kita: { checkedAt: recent, baselineSince: '2026-10-30T07:40:00+09:00', recent: ['ROIL2026100002', 'ROIL2026100006', 'ROIL2026100007', 'ROIL2026100008'],
       cases: { ROIL2026100002: { country: 'EAEU', item: '폴리머코팅 평판압연(Flat Steel Products with Polymer Coating)', type: '세이프가드', status: '조사중', updated: '2026-10-27', category: '철강/금속', latestStage: '조사개시|2026-09-07' },
-        ROIL2026100006: { country: '마다가스카르', item: '현미(Husked Rice)', type: '세이프가드', status: '조사중', updated: '2026-10-29' } } },
+        ROIL2026100006: { country: '마다가스카르', item: '현미(Husked Rice)', type: '세이프가드', status: '조사중', updated: '2026-10-29' },
+        // 분류 칸 없는 사건(상세 안 읽음)은 품목 이름으로 — 냉연강판은 보이고 섬유판은 수만
+        ROIL2026100007: { country: '인도', item: '냉연강판(Cold Rolled Steel)', type: '반덤핑', status: '조사중', updated: '2026-10-28' },
+        ROIL2026100008: { country: '짐바브웨', item: '섬유판(Fibreboards)', type: '세이프가드', status: '조사중', updated: '2026-10-29' } } },
     events: [ev('kita:ROIL2026100010:조사개시|2026-10-20', 'A', '새 대한 수입규제', '튀르키예 반덤핑 · 열연강판(Hot-rolled) — 조사개시 2026-10-20 · 출입처: 포스코·현대제철', ['포스코', '현대제철'], '튀르키예'),
       ev('kita:ROIL2026100002:new', 'B', '새 대한 수입규제', 'EAEU 세이프가드 · 폴리머코팅 평판압연 — 조사개시 2026-09-07 · 품목 분류 철강/금속'),
       ev('kita:ROIL2026100006:new', 'C', '새 대한 수입규제', '마다가스카르 세이프가드 · 현미 — 조사개시 2026-08-31', [], '마다가스카르')] };
@@ -2275,8 +2278,9 @@ test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, r
   assert.match(sec('B'), /EAEU 세이프가드 · 폴리머코팅 평판압연/);
   assert.match(sec('C'), /마다가스카르 세이프가드 · 현미/);
   const t = await call('trade_remedies', { section: 'kita' }, opts);
-  assert.match(t.text, /\[대한 수입규제 · 무역협회 수입규제DB · 확인 [^\]]*\] 아는 사건 2건 · 감지 3건\(기준선 2026-10-30 이후\)\n- A · /);
-  assert.match(t.text, /최근 갱신 사건\(갱신순 · 출입 업종 분류 철강\/금속·화학·플라스틱\/고무·전기전자·기계\) 1\/1 · 그 밖 업종 1건\(company 낱말로 보기\):\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07/);
+  assert.match(t.text, /\[대한 수입규제 · 무역협회 수입규제DB · 확인 [^\]]*\] 아는 사건 4건 · 감지 3건\(기준선 2026-10-30 이후\)\n- A · /);
+  assert.match(t.text, /최근 갱신 사건\(갱신순 · 출입 업종 분류 철강\/금속·화학·플라스틱\/고무·전기전자·기계\) 2\/2 · 그 밖 업종 2건\(company 낱말로 보기\):\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07\n  2026-10-28 · 인도 반덤핑 · 냉연강판/);
+  assert.doesNotMatch(t.text, /짐바브웨 세이프가드 · 섬유판/);
   assert.doesNotMatch(t.text, /  2026-10-29 · 마다가스카르 세이프가드 · 현미/);   // 11-22: 출입 업종 밖 사건은 수만
   assert.match((await call('trade_remedies', { section: 'kita', company: '마다가스카르' }, opts)).text, /  2026-10-29 · 마다가스카르 세이프가드 · 현미/);
   assert.doesNotMatch(t.text, /EU 철강 쿼터|미국 상무부/);
