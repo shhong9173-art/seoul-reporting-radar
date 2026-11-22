@@ -273,8 +273,19 @@ export async function scoopDesk(ctx, args) {
 
   // 장부 전체(최근 30일): 레이더 항목과 안 이어진 건도 다시 내지 않게 — 구역 도구·웹에서 찾은 후보를 낼 때 이 목록과 먼저 맞춰 본다
   const recent = (d.ledger?.entries ?? []).filter((e) => EXCLUDING.has(e.state) && e.at >= nowMs - 30 * 86400000).sort((a, b) => b.at - a.at);
-  out.push(`\n[5. 기자가 이미 처리한 건 — 최근 30일 ${recent.length}건] 여기 있는 건과 같은 사건은 어디서 찾았든 다시 내지 않는다(새 사실이 붙었을 때만, 무엇이 새로운지 밝히고)`);
-  for (const e of recent.slice(0, 40)) out.push(`- ${entryLabel(e)} · ${new Date(e.at + 9 * 3600000).toISOString().slice(5, 10)}${e.reason ? ` — ${clipAt(e.reason, 70)}` : ''}`);
+  // 11-22: company로 좁힌 화면에도 41건을 다 적어 응답이 길었다(기아로 좁혀 후보 1건에 처리 목록 41줄). 좁힌 회사(별칭 포함)나 낱말이 적힌 건만 —
+  // 후보도 그 회사 것만 나오므로 같은 사건 처리 기록은 그 이름을 담고 있다. 나머지는 건수만.
+  const q = String(args.company ?? '').trim();
+  const want = q ? companiesIn(q) : new Set();
+  const related = (e) => {
+    const text = `${entryLabel(e)} ${e.reason ?? ''}`;
+    if (text.includes(q)) return true;
+    const got = companiesIn(text);
+    return [...want].some((b) => got.has(b));
+  };
+  const listed = q ? recent.filter(related) : recent;
+  out.push(`\n[5. 기자가 이미 처리한 건 — 최근 30일 ${recent.length}건${q ? ` 중 '${q}' 관련 ${listed.length}건(나머지 ${recent.length - listed.length}건은 company 없이 보기)` : ''}] 여기 있는 건과 같은 사건은 어디서 찾았든 다시 내지 않는다(새 사실이 붙었을 때만, 무엇이 새로운지 밝히고)`);
+  for (const e of listed.slice(0, 40)) out.push(`- ${entryLabel(e)} · ${new Date(e.at + 9 * 3600000).toISOString().slice(5, 10)}${e.reason ? ` — ${clipAt(e.reason, 70)}` : ''}`);
   if (!d.ledger) out.push('⚠ 처리 장부를 읽지 못했다 — 이미 처리한 건이 섞였을 수 있다(scoop_packages로 직접 확인).');
 
   out.push('\n처리 기록 남기는 법: 레이더 항목은 candidate_feedback(item_ids=[id…], verdict=킬/보류/씀, reason). 레이더 밖에서 찾은 건·답변 대기·후배 토스·예약은 package_save(state=보류/접음/발제함, item_ids=[관련 레이더 id나 원문 주소…]) — 다음부터 이 화면과 구역 도구에서 빠지거나 표시가 붙는다.');
