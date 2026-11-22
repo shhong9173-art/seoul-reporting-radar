@@ -3644,6 +3644,20 @@ test('us_recalls: NHTSA manufacturer communications by campaign — powertrain w
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const tl = items.items.find((x) => x.id === 'tsb:KIA:WTY052').check;
   assert.deepEqual([tl.who, tl.terms, tl.places, tl.alts['무상수리'].includes('보증 연장')], ['기아', ['텔루라이드', '무상수리'], ['텔루라이드'], true]);
+  // 11-23: 같은 주제(엔진오일 소모) 통신이 브랜드·문서를 바꿔 이어 나오면 앞선 통신을 붙이고, 보도 대조 낱말도 주제로
+  const oil = (id, brand, docNo, added, extra) => item(id, { added, lastAdded: added, firstSeen: added === today ? now : base, isNew: added === today, type: 'SERVICE BULLETIN/REPAIR INSTRUCTIONS',
+    kindName: '서비스 공지(수리 지침)', tier: 'B', doc: docNo, campaign: undefined, companies: [brand === '제네시스' ? '현대차' : brand], brands: [brand],
+    summary: 'Certain vehicles equipped with internal combustion engines may exhibit higher-than-expected engine oil consumption.', components: ['ENGINE'], ...extra });
+  doc.tsbs.items.push(oil('HMA:doc:26-EM-015H', '현대차', '26-EM-015H', '2026-10-13', { models: [{ model: 'ELANTRA', years: ['2024'] }], modelCount: 1 }),
+    oil('KIA:doc:TSB_ENG270_R1', '기아', 'TSB_ENG270_R1', '2026-10-13', { models: [{ model: 'TELLURIDE', years: ['2025'] }], modelCount: 1 }),
+    oil('HMA:doc:26-EM-019G', '제네시스', '26-EM-019G', today, { models: [{ model: 'G80', years: ['2026'] }], modelCount: 1 }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r2 = await call('radar_today', { include_minor: true }, opts);
+  assert.match(r2.text, /제네시스 G80\(2026년형\)[^\n]* · 같은 주제\(엔진오일 소모\) 앞선 통신 2건: 현대차 26-EM-015H\(10-13\)·기아 TSB_ENG270_R1\(10-13\)\(최근 120일, 다른 브랜드 포함\) — 딜러용 통신/);
+  const items2 = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const gn = items2.items.find((x) => x.id === 'tsb:HMA:doc:26-EM-019G').check;
+  assert.deepEqual([gn.terms, gn.alts['엔진오일'].includes('오일 소모')], [['G80', '엔진오일'], true]);
+  assert.deepEqual(items2.items.find((x) => x.id === 'tsb:KIA:WTY052').check.terms, ['텔루라이드', '무상수리']);   // 주제 없는 통신은 그대로
 });
 
 test('reporter board /r/<token> and homepage fragment /b/open: no scripts, no referrer, cards from radar_today data with unreported marked', async () => {
