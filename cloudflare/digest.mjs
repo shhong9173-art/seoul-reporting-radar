@@ -478,6 +478,14 @@ function opinionHint(x) {
   const duty = /countervailing/i.test(x.holding ?? '') ? '상계관세' : /anti-?dumping/i.test(x.holding ?? '') ? '반덤핑' : null;
   return hint((x.beat ?? [])[0], [x.courtId === 'cit' ? '국제무역법원' : '항소', '판결', duty]);
 }
+// 건물명이 번지뿐인가: '상개동 427-3'·'옥산면 남촌리 1114-1'·'용제동 601'(대지위치 끝과 같음) — 동 번호('48번동')·회사·시설 이름은 아님
+export function lotOnlyName(bldNm, plot) {
+  const n = String(bldNm ?? '').replace(/\s+/g, ' ').trim();
+  if (!/^(?:[가-힣0-9]+(?:읍|면|동|리|가|로|길) )*[가-힣0-9]+(?:읍|면|동|리|가) ?\d+(?:-\d+)?(?:번지)?$/.test(n)) return false;
+  const tail = n.replace(/번지$/, '').replace(/\s+/g, '');
+  return String(plot ?? '').replace(/번지/g, '').replace(/\s+/g, '').endsWith(tail);
+}
+
 function pageHint(e, added) {
   // 연식·차명 줄(11-21): 제네시스 미국 홈 '+ 2028 G80 / 2028 GV80'이 즉시 알림(A)으로 나갔는데 보도 대조가 없어 신차 공개 뒤 바뀐 문구인지
   // 레이더가 말해 주지 못했다. 차명으로 찾는다(연식은 국내 기사 제목에 잘 안 쓴다). 제네시스 페이지는 '제네시스'로(제목에 현대차가 없다)
@@ -1260,8 +1268,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const entry = { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       // 같은 번지 허가의 건물명(허가서의 공사·건물 이름)도 싣는다 — 11-23 LS일렉트릭 청주1공장 '사용승인(준공) 증축 연면적 66,680㎡(건물 전체)'의 건물명은
       // '청주1사업장 본관동 장비출입구', 10-22 증축 허가는 '가공동 드라이어 보관룸'이었다(kr_official 화면에만 있고 radar_today 줄엔 없었다) — 규모·용도의 첫 단서
-      fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`
-        + `${x.sameLot !== false && x.bldNm ? ` · 건물명 '${String(x.bldNm).slice(0, 60)}'` : ''}`
+      fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm && !lotOnlyName(x.bldNm, x.plot) ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`
+        + `${x.sameLot !== false && x.bldNm && !lotOnlyName(x.bldNm, x.plot) ? ` · 건물명 '${String(x.bldNm).slice(0, 60)}'` : ''}`
         + `${x.bareOther ? ` — 건물명이 출입처가 아닌 회사 이름(${x.otherName})이라 같은 번지의 다른 회사 건물일 수 있어 참고(C)` : ''}`,
       // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
       // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
@@ -1282,8 +1290,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 같은 번지의 A·B 인허가가 창 안에 둘 이상이면 줄마다 서로 가리킨다(11-23 72시간 화면: LS일렉트릭 청주1공장 송정동 1번지 사용승인(준공,
   // 허가 08-26)과 증축 건축허가(10-22)가 B 두 줄로 따로 — 같은 공장의 잇단 공사인지 한눈에). 묶지는 않는다(허가마다 기사 각도가 다를 수 있다).
   // 다른 줄 id는 'id ' 없이 적는다(처리 장부가 줄 속 'id …'로 잇는다 — 남의 id로 이 줄을 처리한 것으로 보지 않게)
+  // 건물명 칸에 번지만 적힌 허가('상개동 427-3'·'옥산면 남촌리 1114-1') — 대지위치와 같은 말이라 싣지 않는다
+  const bdName = (o) => (o.bldNm && !lotOnlyName(o.bldNm, o.plot) ? ` '${String(o.bldNm).slice(0, 40)}'` : '');
   const bdTag = (o) => `${o.kind === '사용승인(준공)' || o.changedAt ? `사용승인(준공) ${o.useApproved ?? '?'}` : `허가 ${o.permitted ?? '?'}`}`
-    + ` ${o.archGbCdNm ?? ''}${Number(o.totArea) ? ` ${Math.round(Number(o.totArea)).toLocaleString('en-US')}㎡` : ''}${o.bldNm ? ` '${String(o.bldNm).slice(0, 40)}'` : ''}(${o.id})`;
+    + ` ${o.archGbCdNm ?? ''}${Number(o.totArea) ? ` ${Math.round(Number(o.totArea)).toLocaleString('en-US')}㎡` : ''}${bdName(o)}(${o.id})`;
   for (const list of bdBig.values()) {
     for (const { x, entry } of list) {
       const others = list.filter((o) => o.x.id !== x.id).map((o) => o.x);
