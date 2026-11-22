@@ -8,7 +8,7 @@ import { clampInt, textResult, uniqueList } from './common.mjs';
 import { lastBrowserSlot } from './local_browser.mjs';
 import { AHEAD_NOTE, aheadLine, euProceedingLines, foreignAhead } from './ahead.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { alertBeforeArticle, loadLedger } from './handled.mjs';
+import { alertBeforeArticle, companiesIn, loadLedger } from './handled.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -1551,6 +1551,17 @@ export function plantGone(docs) {
   return (x) => ids.size > 0 && Boolean(x.factoryId) && !ids.has(x.factoryId);
 }
 
+// 법인 표기 없는 회사 이름(업종 꼬리말로 끝나는 첫 낱말) — 출입처 이름(별칭 포함)이 들어 있으면 그 출입처 건물로 본다
+const BARE_FIRM = /^([가-힣A-Za-z0-9&]{2,}?(?:제약|파이프|스틸|산업|화학|전자|정밀|테크|물산|건설|중공업|금속|철강|상사|물류|공업|기계|에너지|케미칼|소재|바이오|식품|제지|섬유|유리|시멘트|엔지니어링|하이텍|이엔지|오토텍|모터스))(?=\s|\(|$)/;
+export function bareFirmName(bldNm, company) {
+  const t = String(bldNm ?? '').trim();
+  const m = BARE_FIRM.exec(t);
+  if (!m) return null;
+  const cos = companiesIn(t);
+  if (cos.size && (!company || cos.has(company) || [...cos].some((c) => String(company).startsWith(c) || c.startsWith(String(company))))) return null;
+  return m[1];
+}
+
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   // 기본개요에 주용도가 없으면 동별개요(수집기가 채움)로: '가설건축물 2동' 등
@@ -1570,7 +1581,11 @@ async function buildingSection(ctx, q, days, limit) {
   const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
   const plants = await readFeed(ctx, 'kr-official');
   const gone = plantGone({ 'kr-official': plants && !plants.broken ? plants : null });
-  const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+  // 법인 표기 없는 다른 회사 건물명(대효제약 등)은 radar_today와 같이 참고(C) — 검증 상태 줄은 다른 회사 이름 줄로
+  const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).map((x) => {
+    const bare = !x.otherName && x.sameLot !== false && (x.tier === 'A' || x.tier === 'B') ? bareFirmName(x.bldNm, x.company) : null;
+    return bare ? { ...x, otherName: bare, tier: 'C' } : x;
+  }).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
   // 같은 등급 안에서는 이번에 새로 잡힌 것([신규])부터 — 월간 갱신으로 새 허가가 한꺼번에 들어오면(11-22: 317건) 지난주 본 것과 섞였다
