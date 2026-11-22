@@ -15,7 +15,7 @@ import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { dgtrCaseNote, dgtrDocNote, attachmentOutline, bareFirmName, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { dgtrCaseNote, dgtrDocNote, attachmentOutline, bareFirmName, buildingLine, minorFacility, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1252,7 +1252,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // 이름만 다른 회사로 본다(other_company). 11-23 화면: 두산에너빌리티 화성 석우동 2-3번지 사용승인(준공) 건물명 '대효제약', 현대모비스 울산 염포동
     // 265번지 사용승인(준공) 건물명 '현대스틸파이프'가 B '미보도 후보'로 떴다(같은 번지에 든 다른 회사 건물일 수 있음)
     const bare = !x0.otherName && x0.sameLot !== false && (x0.tier === 'A' || x0.tier === 'B') ? bareFirmName(x0.bldNm, x0.company) : null;
-    const x = bare ? { ...x0, otherName: bare, tier: 'C', bareOther: true } : x0;
+    const minor = !bare && (x0.tier === 'A' || x0.tier === 'B') ? minorFacility(x0) : null;
+    const x = bare ? { ...x0, otherName: bare, tier: 'C', bareOther: true } : minor ? { ...x0, tier: 'C', minorFacility: minor } : x0;
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
@@ -1270,7 +1271,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       // '청주1사업장 본관동 장비출입구', 10-22 증축 허가는 '가공동 드라이어 보관룸'이었다(kr_official 화면에만 있고 radar_today 줄엔 없었다) — 규모·용도의 첫 단서
       fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm && !lotOnlyName(x.bldNm, x.plot) ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`
         + `${x.sameLot !== false && x.bldNm && !lotOnlyName(x.bldNm, x.plot) ? ` · 건물명 '${String(x.bldNm).slice(0, 60)}'` : ''}`
-        + `${x.bareOther ? ` — 건물명이 출입처가 아닌 회사 이름(${x.otherName})이라 같은 번지의 다른 회사 건물일 수 있어 참고(C)` : ''}`,
+        + `${x.bareOther ? ` — 건물명이 출입처가 아닌 회사 이름(${x.otherName})이라 같은 번지의 다른 회사 건물일 수 있어 참고(C)` : ''}`
+        + `${x.minorFacility ? ` — 건물명이 부속 시설('${x.minorFacility}')이라 공사가 작을 수 있어 참고(C)(연면적은 건물 전체)` : ''}`,
       // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
       // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
       // 사용승인(준공)을 늦게 본 항목은 항목 날짜가 '처음 본 날'이라 대조가 그 사흘 전부터였다 — 준공 기사는 사용승인 무렵에 난다(11-22: 10-06 사용승인을

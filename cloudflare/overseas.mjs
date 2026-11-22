@@ -1562,6 +1562,14 @@ export function bareFirmName(bldNm, company) {
   return m[1];
 }
 
+// 증축·대수선 허가의 건물명이 부속 시설이면(공사 이름) — 연면적은 건물 전체라 큰 증설처럼 보이지만 작은 공사다. 11-23: LS일렉트릭 청주1공장
+// 사용승인(준공) '본관동 장비출입구', 증축 허가 '가공동 드라이어 보관룸'이 B '미보도 후보'로 떴다. 창고·동 이름은 크기를 모르니 넣지 않는다. 신축은 보지 않는다
+const MINOR_FACILITY = /(?:장비)?출입구|출입문|보관룸|보관실|경비실|화장실|휴게실|흡연실|캐노피|차양|계단실|승강기|엘리베이터|자전거|쉼터|탈의실|샤워실|방풍실|연결통로|데크|가림막|방음벽|담장|울타리/;
+export function minorFacility(x) {
+  if (!x?.bldNm || x.archGbCdNm === '신축') return null;
+  const m = MINOR_FACILITY.exec(String(x.bldNm));
+  return m ? m[0] : null;
+}
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   // 기본개요에 주용도가 없으면 동별개요(수집기가 채움)로: '가설건축물 2동' 등
@@ -1584,7 +1592,9 @@ async function buildingSection(ctx, q, days, limit) {
   // 법인 표기 없는 다른 회사 건물명(대효제약 등)은 radar_today와 같이 참고(C) — 검증 상태 줄은 다른 회사 이름 줄로
   const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).map((x) => {
     const bare = !x.otherName && x.sameLot !== false && (x.tier === 'A' || x.tier === 'B') ? bareFirmName(x.bldNm, x.company) : null;
-    return bare ? { ...x, otherName: bare, tier: 'C' } : x;
+    if (bare) return { ...x, otherName: bare, tier: 'C' };
+    const minor = (x.tier === 'A' || x.tier === 'B') ? minorFacility(x) : null;
+    return minor ? { ...x, minorFacility: minor, tier: 'C' } : x;
   }).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
@@ -1607,6 +1617,8 @@ async function buildingSection(ctx, q, days, limit) {
     out.push(`   잡힌 사실: ${buildingLine(x)}`);
     out.push(x.otherName
       ? `   검증 상태: 건물명에 다른 회사 이름('${x.otherName}') — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임(C). 건축주는 지자체(건축과) 확인`
+      : x.minorFacility
+      ? `   검증 상태: 건물명이 부속 시설('${x.minorFacility}') — 연면적은 건물 전체이고 공사는 작을 수 있어 참고(C). 규모·용도는 허가서·회사 확인`
       : x.sameLot === false
       ? `   검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음${x.bldNm ? `(건물명 '${x.bldNm}')` : ''}. 건축주는 지자체(건축과) 확인`
       : '   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
