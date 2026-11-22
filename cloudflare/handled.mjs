@@ -268,7 +268,7 @@ export function matchHandled(item, ledger) {
       if (f) {
         const t = itemTime(item);
         if (!t || t <= e.at + DAY) { out = { entry: e, how: `수치(${f})` }; break; }
-        similar ??= e;
+        if (!similar || (!EXCLUDING.has(similar.state) && EXCLUDING.has(e.state))) similar = e;
         continue;
       }
     }
@@ -277,7 +277,8 @@ export function matchHandled(item, ledger) {
     if (!w) continue;
     const t = itemTime(item);
     if (!t || t <= e.at + DAY) { out = { entry: e, how: `낱말(${[...w.codes, ...w.words].slice(0, 4).join('·')})` }; break; }
-    similar ??= e;
+    // 비슷한 건이 여럿이면 기자가 처리(접음·보류·발제함)한 쪽을 앞서 추천(판정 없음)보다 먼저 알린다
+    if (!similar || (!EXCLUDING.has(similar.state) && EXCLUDING.has(e.state))) similar = e;
   }
   out ??= similar ? { similar } : null;
   memo.set(key, out);
