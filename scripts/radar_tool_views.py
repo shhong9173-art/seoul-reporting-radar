@@ -438,7 +438,8 @@ def from_governance(data):
             continue
         companies = beats_in("", x.get("company"))
         change = x.get("ratioChange")
-        delta = f" {change:+.2f}%p" if isinstance(change, (int, float)) else ""
+        # 첫 보고(10% 선을 넘어 처음 낸 임원·주요주주 보고)는 증감이 보유 전체라 '+10.00%p'가 아니다(governance_watch.insider_item firstReport)
+        delta = f" {change:+.2f}%p" if isinstance(change, (int, float)) and not x.get("firstReport") else ""
         who = x.get("reporter") or ""
         role = f"({x['role']})" if x.get("role") else ""
         row = clue(kind=None, source="DART 지분공시", title=f"{x.get('company')} · {x.get('kind')} · {who}{role}{delta}",
@@ -508,6 +509,12 @@ def merge_clues(rows):
         for name in row["companies"]:
             if name not in old["companies"]:
                 old["companies"].append(name)
+        # 지분공시 줄이 같은 접수번호의 DART 공시 줄에 합쳐지면 제목(보고서 이름)만 남아 보고자가 사라졌다
+        # (11-22 radar_clues: '현대제철 · 임원ㆍ주요주주특정증권등소유상황보고서 — [10% 이상 주주로 첫 보고 · 보유 10.00%]', 누가 냈는지 없음)
+        if row.get("signal") == "governance" and old.get("signal") != "governance":
+            who = row["title"].split(" · ", 2)[-1].strip() if row["title"].count(" · ") >= 2 else ""
+            if who and f"보고자 {who}" not in old["note"]:
+                old["note"] = (f"보고자 {who} · " + old["note"]).strip(" ·")[:300]
         if row["note"] and row["note"] not in old["note"]:
             old["note"] = (old["note"] + " · " + row["note"]).strip(" ·")[:300]
         if old["team"] == "그 외" and row["team"] != "그 외":
