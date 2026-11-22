@@ -249,29 +249,38 @@ class Council(unittest.TestCase):
         doc, get = run(page(L_PROV), {"ka20260804": D_PROV}, extra=extra)
         self.assertNotIn(C + "kanb20260730.html", get.calls)      # 오래된 회의는 기준선 — 열지 않는다
         ev = [e for e in doc["events"] if e["id"].startswith("jpcouncil:")]
-        self.assertEqual(len(ev), 1)
-        self.assertEqual((ev[0]["id"], ev[0]["tier"], ev[0]["product"]), ("jpcouncil:20261120", "A", "용융아연도금강판"))
-        self.assertIn("① 용융아연도금강판 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 본문 출입처 포스코·KG스틸", ev[0]["text"])
-        self.assertIn("② 비스페놀A 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 부과 대상에서 제외 LG화학(자료 '…を除く') / ③", ev[0]["text"])
-        self.assertIn("③ 수산화칼륨 과세 기간 연장(일몰)", ev[0]["text"])
+        # 11-23: 새로 보는 회의는 안건마다 이벤트 — 11-20 묶음 이벤트는 포스코로만 대조돼 비스페놀A(LG화학 제외) 각도가 빠졌다
+        self.assertEqual([(e["id"], e["tier"], e["product"], e["companies"]) for e in ev],
+                         [("jpcouncil:20261120:1", "A", "용융아연도금강판", ["포스코", "KG스틸"]),
+                          ("jpcouncil:20261120:2", "A", "비스페놀A", ["LG화학"]),
+                          ("jpcouncil:20261120:3", ev[2]["tier"], ev[2]["product"], [])])
+        self.assertIn("한국산 안건 3건 중 ① 용융아연도금강판 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 본문 출입처 포스코·KG스틸", ev[0]["text"])
+        self.assertIn("한국산 안건 3건 중 ② 비스페놀A 관세 부과(확정) · 자료에 '適当'(부과가 적당) · 기간 5년 · 부과 대상에서 제외 LG화학(자료 '…を除く')", ev[1]["text"])
+        self.assertIn("③ 수산화칼륨 과세 기간 연장(일몰)", ev[2]["text"])
+        self.assertEqual(ev[1]["productWords"], ["비스페놀", "BPA"])
         self.assertEqual(doc["status"], "ok")
         self.assertEqual(doc["checks"][-1]["source"], "일본 재무성 특수관세부회 배포자료")
         doc2, _ = run(page(L_PROV), extra=extra, prev=doc)
         self.assertEqual(doc2["fresh"], 0)
-        self.assertEqual(len([e for e in doc2["events"] if e["id"].startswith("jpcouncil:")]), 1)
+        self.assertEqual(len([e for e in doc2["events"] if e["id"].startswith("jpcouncil:")]), 3)
         self.assertNotIn("updatedAt", doc2["events"][-1])
+        # 이 규칙 전에 저장된 회의(perItem 없음)는 예전처럼 한 이벤트 — id·알림 기록이 그대로 이어진다
+        old = {**doc, "council": {**doc["council"], "meetings": [{k: v for k, v in m.items() if k != "perItem"} for m in doc["council"]["meetings"]]},
+               "events": [e for e in doc["events"] if not e["id"].startswith("jpcouncil:")]}
+        doc3, _ = run(page(L_PROV), extra=extra, prev=old)
+        self.assertEqual([e["id"] for e in doc3["events"] if e["id"].startswith("jpcouncil:")], ["jpcouncil:20261120"])
 
     def test_pdf_failure_then_filled(self):
         extra = {w.COUNCIL_INDEX: council_index("2026-11-20"), C + "kanb20261120.html": MEETING}
         doc, _ = run(page(L_PROV), {"ka20260804": D_PROV}, extra=extra)
-        ev = next(e for e in doc["events"] if e["id"] == "jpcouncil:20261120")
+        ev = next(e for e in doc["events"] if e["id"] == "jpcouncil:20261120:1")
         self.assertIn("PDF 못 읽음(HTTP 404)", ev["text"])
         self.assertEqual(doc["status"], "partial")
         extra.update({C + "20261120/kanb20261120siryo2-2.pdf": PDF_GALV, C + "20261120/kanb20261120siryo3-2.pdf": PDF_BPA,
                       C + "20261120/kanb20261120siryo4-2.pdf": PDF_KOH})
         # 읽기 실패한 PDF는 read=False로 남아 다음 실행에 다시 읽는다
         doc2, _ = run(page(L_PROV), extra=extra, prev=doc)
-        ev2 = next(e for e in doc2["events"] if e["id"] == "jpcouncil:20261120")
+        ev2 = next(e for e in doc2["events"] if e["id"] == "jpcouncil:20261120:1")
         self.assertNotIn("PDF 못 읽음", ev2["text"])
         self.assertIn("updatedAt", ev2)
         self.assertEqual(ev2["detectedAt"], ev["detectedAt"])

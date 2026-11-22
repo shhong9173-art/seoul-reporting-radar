@@ -372,6 +372,28 @@ def council_event(m, stamp):
             "company": "·".join(names), "companies": names, "case": "", "date": m["date"], "url": m["url"], "text": text, "detectedAt": stamp}
 
 
+def council_events(m, stamp):
+    """회의 하나 → 이벤트들. perItem 회의는 안건마다 하나 — 11-20 회의 묶음 이벤트(도금강판·비스페놀A·수산화칼륨)의 보도 대조가 첫 안건 회사
+    (포스코)로만 찾아 '관련 보도 있음'이 됐고, 비스페놀A(LG화학 제외) 각도는 대조도 단독 데스크도 못 거쳤다 — 11-21 22:12 sateconomy
+    「[단독] LG화학, 日 BPA 반덤핑관세 대상 제외…」(알림 3.5시간 뒤). 안건 이벤트의 주체는 본문 출입처, 없으면 제외 업체."""
+    items = m.get("items") or []
+    if not m.get("perItem") or len(items) < 2:
+        return [council_event(m, stamp)]
+    marks = "①②③④⑤⑥⑦⑧"
+    out = []
+    for k, it in enumerate(items):
+        p = it.get("pdf") or {}
+        excluded = p.get("excluded") or []
+        named = [n for n in p.get("companies") or [] if n not in excluded]
+        who = named or excluded
+        text = (f"일본 재무성 특수관세부회 회의 자료({m['date']} 개최) — 한국산 안건 {len(items)}건 중 {marks[k] if k < len(marks) else k + 1} "
+                f"{council_item_text(it)} · 자료 목록 {m['url']} (부회가 부과를 '적당'이라 답하면 각의 결정·정령 공포로 이어진다 — 세율·대상 업체는 자료 PDF 원문 표)")
+        out.append({"id": f"jpcouncil:{m['date'].replace('-', '')}:{k + 1}", "kind": "일본 무역구제(특수관세부회 자료)", "tier": "A" if it.get("beat") else "B",
+                    "index": "AD", "product": it.get("productKo") or "", "productWords": list(it.get("productWords") or []), "korea": bool(it.get("korea")),
+                    "company": "·".join(who), "companies": who, "case": "", "date": m["date"], "url": it.get("url") or m["url"], "text": text, "detectedAt": stamp})
+    return out
+
+
 def council_run(prev_council, now, get, sleep, stamp):
     """부회 배포자료: 새 회의 쪽 → 한국산 안건 → 그 자료 PDF('適当'·기간·출입처·제외). → (council, check, errors)."""
     council = dict(prev_council or {})
@@ -394,7 +416,8 @@ def council_run(prev_council, now, get, sleep, stamp):
     recent = (now.date() - dt.timedelta(days=COUNCIL_RECENT_DAYS)).isoformat()
     for x in listed:
         if x["url"] not in meetings:
-            meetings[x["url"]] = {**x, "read": False, "baseline": first and x["date"] < recent}
+            # perItem(11-23): 이 뒤로 처음 보는 회의는 안건마다 이벤트를 낸다(council_events) — 저장된 회의는 예전처럼 한 이벤트(id·알림 기록 유지)
+            meetings[x["url"]] = {**x, "read": False, "baseline": first and x["date"] < recent, "perItem": True}
     budget, pdfs = MEETING_BUDGET, PDF_BUDGET
     for m in sorted(meetings.values(), key=lambda m: m["date"], reverse=True):
         if m.get("read") or m.get("baseline"):
@@ -543,15 +566,15 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     for m in council.get("meetings") or []:
         if m.get("baseline") or not m.get("items"):
             continue
-        ev = council_event(m, stamp)
-        if ev["id"] in by_id:
-            old_ev = events[by_id[ev["id"]]]
-            if old_ev.get("text") != ev["text"]:
-                events[by_id[ev["id"]]] = {**ev, "detectedAt": old_ev.get("detectedAt", stamp), "updatedAt": stamp}
-        else:
-            events.append(ev)
-            by_id[ev["id"]] = len(events) - 1
-            fresh += 1
+        for ev in council_events(m, stamp):
+            if ev["id"] in by_id:
+                old_ev = events[by_id[ev["id"]]]
+                if old_ev.get("text") != ev["text"]:
+                    events[by_id[ev["id"]]] = {**ev, "detectedAt": old_ev.get("detectedAt", stamp), "updatedAt": stamp}
+            else:
+                events.append(ev)
+                by_id[ev["id"]] = len(events) - 1
+                fresh += 1
     for e in entries.values():
         if e.pop("eventPending", None) or (not e.get("baseline") and event_id(e) in by_id):
             ev = event_of(e, stamp)
