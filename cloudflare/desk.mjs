@@ -96,6 +96,18 @@ const RANK = { strong: 0, normal: 1, weak: 2 };
 const dayOf = (x) => String(x.date ?? '').slice(0, 10);
 
 // 출입처가 신청인인 무역위 사건 가운데 진행일정에 앞으로 21일 안 날짜가 적힌 것(예고 — 회의 안건이 올라오기 전에도 준비할 수 있게)
+// 즉시 알림을 보낸 시각(처리 장부 값 'MM-DD' 또는 'MM-DD HH:MM', KST) → 지난 시간(ms). 시각이 없으면 그날 끝(덜 지난 쪽)으로 본다
+export function alertAge(val, nowMs) {
+  const [day, hm] = String(val ?? '').split(' ');
+  if (!/^\d{2}-\d{2}$/.test(day ?? '')) return null;
+  const y = new Date(nowMs + 9 * 3600000).getUTCFullYear();
+  const at = (yy) => Date.parse(`${yy}-${day}T${/^\d{2}:\d{2}$/.test(hm ?? '') ? hm : '23:59'}:00+09:00`);
+  let t = at(y);
+  if (t > nowMs + 86400000) t = at(y - 1);   // 1월에 본 12월 알림
+  return Number.isFinite(t) ? nowMs - t : null;
+}
+const SENT_STALE_MS = 24 * 3600000;
+
 export function ktcAhead(docs, nowMs) {
   const today = new Date(nowMs + 9 * 3600000).toISOString().slice(0, 10);
   const until = new Date(nowMs + 9 * 3600000 + 21 * 86400000).toISOString().slice(0, 10);
@@ -130,10 +142,14 @@ export async function scoopDesk(ctx, args) {
   const open = rows.filter((r) => !isCovered(r) && !wroteOf(r.x));
   const weak = open.filter((r) => r.type.strength === 'weak');
   const prior = open.filter((r) => r.type.strength !== 'weak' && r.x.prior);
+  // 즉시 알림으로 보낸 지 하루가 지났고 판정이 없는 것은 3구역에 한 줄씩 — 11-23 운영: 7일 화면 '그 밖' 맨 위 석 줄이 11-18·11-19에 이미 알림으로 보낸 A
+  // (태동테크 회생 개시·비에이치아이 공급계약 상대 두산에너빌리티·기아 텔루라이드 'Coming Soon')라 새 후보가 아래로 밀렸다. 보낸 지 하루 안이면 그대로 둔다
+  const sentOld = (r) => Boolean(r.x.alerted) && (alertAge(r.x.alerted, nowMs) ?? 0) > SENT_STALE_MS;
+  const sent = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && sentOld(r));
   // 참고 등급(C)은 강한 유형이 아니면 후보로 올리지 않는다(등급은 그대로 — 여기서만 접는다)
-  const isMinor = (r) => r.type.strength === 'normal' && r.x.tier === 'C' && !r.x.prior;
+  const isMinor = (r) => r.type.strength === 'normal' && r.x.tier === 'C' && !r.x.prior && !sentOld(r);
   const minor = open.filter(isMinor);
-  const main = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && !isMinor(r))
+  const main = open.filter((r) => r.type.strength !== 'weak' && !r.x.prior && !isMinor(r) && !sentOld(r))
     .sort((a, b) => RANK[a.type.strength] - RANK[b.type.strength] || Number(oldCase(a)) - Number(oldCase(b))
       || (a.x.tier < b.x.tier ? -1 : a.x.tier > b.x.tier ? 1 : 0) || String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
   // 같은 날 같은 감시·회사·종류는 두 줄까지만(같은 회의록·같은 사업장 반복)
@@ -245,9 +261,13 @@ export async function scoopDesk(ctx, args) {
     out.push(AHEAD_NOTE);
   }
 
-  if (prior.length) {
-    out.push(`\n[3. 앞서 추천했고 판정이 없는 것] ${prior.length}건 — 새 사실이 붙었을 때만 다시 낸다`);
+  if (prior.length || sent.length) {
+    out.push(`\n[3. 앞서 추천했고 판정이 없는 것] ${prior.length + sent.length}건 — 새 사실이 붙었을 때만 다시 낸다`
+      + (sent.length ? ` (즉시 알림으로 보낸 지 하루 지난 ${sent.length}건 포함 — 정리는 candidate_feedback)` : ''));
     for (const r of prior.slice(0, 8)) out.push(`- ${r.x.prior.subject || r.x.prior.key}(패키지 ${r.x.prior.key}) ← ${r.x.watch} · id ${r.x.id}`);
+    const bySent = [...sent].sort((a, b) => String(b.x.date ?? '').localeCompare(String(a.x.date ?? '')));
+    for (const r of bySent.slice(0, 8)) out.push(`- 즉시 알림 보냄 ${r.x.alerted} · ${r.x.tier} · ${r.x.watch}${r.x.company ? ` · ${r.x.company}` : ''} · ${clipAt(r.x.fact, 110)} · id ${r.x.id}`);
+    if (sent.length > 8) out.push(`… 알림 보낸 것 ${sent.length - 8}건 더`);
   }
 
   out.push('\n[4. 걷어낸 것]');
