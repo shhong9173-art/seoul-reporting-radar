@@ -6606,6 +6606,10 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   await post('trade-remedy', TRADE_DOC);
   // 유형 가르기: 입법예고·법제처 확정 발령은 공개 공고라 약한 유형, 새 공장 등록·환경영향평가는 그대로 보통
   assert.equal(deskType({ watch: '공장등록·관보', kind: '관보 입법예고', tier: 'B' }).key, 'gazette');
+  // 11-23: 단독 후보 심사가 넘긴 국내 공개특허(B)도 참고 자료 — 해외 특허 공개와 같은 유형. 다른 단독 후보 심사 줄은 그대로
+  assert.equal(deskType({ watch: '단독 후보 심사', kind: '특허', tier: 'B', fact: '고압수소가스 … (현대제철) (특허) — 보도 대조 \'미보도 후보\'' }).key, 'reference');
+  assert.equal(deskType({ watch: '단독 후보 심사', kind: '리콜', tier: 'B' }).strength, 'normal');
+  assert.notEqual(deskType({ watch: '단독 후보 심사', kind: 'DART 공급계약', tier: 'B' }).key, 'reference');
   assert.equal(deskType({ watch: '공장등록·관보', kind: '법제처 행정규칙', tier: 'B' }).strength, 'weak');
   assert.equal(deskType({ watch: '공장등록·관보', kind: '공장 새 등록', tier: 'A' }).strength, 'normal');
   assert.equal(deskType({ watch: '공장등록·관보', kind: '환경영향평가 초안', tier: 'A' }).strength, 'normal');
