@@ -5240,7 +5240,10 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
       p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00',
         bldNm: '엘에스일렉트릭 청주1사업장 본관동 장비출입구' }),
       p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
-      p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 })] };   // 다른 번지 — 안 붙인다
+      p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 }),   // 다른 번지 — 안 붙인다
+      // 11-23: 같은 번지 준공인데 건물명이 법인 표기 없는 다른 회사 이름('대효제약') — 참고(C)로
+      p('bld:L5', { plot: '충청북도 청주시 흥덕구 송정동 50번지', bldNm: '대효제약', archGbCdNm: '대수선', totArea: 15812, permitted: '2026-04-03', useApproved: '2026-10-19',
+        kind: '사용승인(준공)', firstSeen: '2026-05-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
   const r = (await call('radar_today', { hours: 72, include_minor: true }, opts)).text;
   const line = (id) => r.split('\n').findIndex((l) => l.includes(`id ${id}`));
@@ -5253,6 +5256,17 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   assert.doesNotMatch(block('bld:L4'), /같은 번지 다른 인허가/);
   assert.doesNotMatch(r, /bld:L3\)/);   // 참고 허가는 남의 줄에 안 적는다
   assert.doesNotMatch(block('bld:L1'), /id bld:L2/);   // 남의 id는 'id ' 없이(처리 장부 연결 오인 방지)
+  const b = r.split('[B · ')[1].split('[C · ')[0];
+  assert.doesNotMatch(b, /bld:L5/);
+  assert.match(r.split('[C · ')[1], /건물명 '대효제약' — 건물명이 출입처가 아닌 회사 이름\(대효제약\)이라 같은 번지의 다른 회사 건물일 수 있어 참고\(C\)/);
+  // kr_official(section=building)도 같은 판단 — 기본 화면에선 참고(C)로 접고, company로 보면 다른 회사 이름 검증 줄
+  const ko = (await call('kr_official', { section: 'building', company: '대효제약' }, opts)).text;
+  assert.match(ko, /검증 상태: 건물명에 다른 회사 이름\('대효제약'\)/);
+  assert.doesNotMatch((await call('kr_official', { section: 'building' }, opts)).text, /대효제약/);
+  const { bareFirmName } = await import('../cloudflare/overseas.mjs');
+  assert.deepEqual([['대효제약', '두산에너빌리티'], ['현대스틸파이프', '현대모비스'], ['넥센타이어 창녕공장', '넥센타이어'], ['롯데케미칼 대산공장', '롯데케미칼'],
+    ['엘에스일렉트릭 청주1사업장 본관동 장비출입구', 'LS일렉트릭'], ['48번동', '롯데케미칼'], ['함안출고센터', '현대차'], ['AutoLand화성', '기아']].map(([t, c]) => bareFirmName(t, c)),
+    ['대효제약', '현대스틸파이프', null, null, null, null, null, null]);
 });
 
 test('kr building: a permit on a beat factory parcel is A; unset datasets show as 미설정', async () => {
