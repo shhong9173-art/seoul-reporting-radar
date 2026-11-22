@@ -2560,13 +2560,19 @@ export async function krStats(ctx, args) {
     if (sig.length) out.push(`   출입처 신호: ${sig.map((s) => s.text).join(' / ')}`);
     out.push('   검증 상태: KAIDA 회원사 신규등록(월 1회 공개). 같은 날 협회 보도자료가 나온다 — 순위·기록은 보도 대조 필수');
   }
+  // 11-22: 미국 수입액(백만달러)에 원화를 붙인다 — 기사는 원화를 같이 쓴다(출입처 외신 줄과 같은 한국은행 매매기준율, global-beat 저장분).
+  // 환율을 못 읽으면 달러만 둔다(추정 환율을 쓰지 않는다).
+  const usd = (!section || section === 'us_imports') ? (await readFeed(ctx, 'global-beat').catch(() => null))?.fx?.rates?.['달러'] : null;
+  const eok = (v) => { const n = Math.round(v); if (n < 10000) return `약 ${n.toLocaleString('en-US')}억원`; const jo = Math.floor(n / 10000), rest = n % 10000; return `약 ${jo}조${rest ? `${rest}억` : ''}원`; };
+  const won = (s, m) => (s.unit === '백만달러' && usd?.rate && Number.isFinite(Number(m.value))
+    ? ` (${eok(Number(m.value) * Number(usd.rate) / 100)} · 원/달러 ${Number(usd.rate).toLocaleString('en-US')}(${usd.date ?? '?'}) 한국은행 매매기준율)` : '');
   const showSeries = (kind, title) => {
     const rows = (doc.series ?? []).filter((s) => s.kind === kind && matches(q, s.label, ...(s.beats ?? [])))
       .filter((s) => !onlySignals || (s.signals ?? []).length);
     out.push(`\n[${title}] ${rows.length}개 계열${onlySignals ? '(신호 있는 것만, show_all=true로 전부)' : ''}`);
     for (const s of rows.slice(0, limit)) {
       const m = s.summary ?? {};
-      out.push(`- ${s.label} · ${m.period ?? '?'} ${fmtN(m.value)}(${s.unit}) · 전월 ${pct2(m.mom)} · 전년 같은 달 ${pct2(m.yoy)}${s.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
+      out.push(`- ${s.label} · ${m.period ?? '?'} ${fmtN(m.value)}(${s.unit})${won(s, m)} · 전월 ${pct2(m.mom)} · 전년 같은 달 ${pct2(m.yoy)}${s.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
       if (m.high && m.low) out.push(`   조회 범위(${(m.span ?? []).join('~')}) 최고 ${m.high.p} ${fmtN(m.high.v)} · 최저 ${m.low.p} ${fmtN(m.low.v)}`);
       if ((s.signals ?? []).length) out.push(`   신호: ${s.signals.map((x) => x.text).join(' / ')}`);
       out.push(`   관련 출입처: ${(s.beats ?? []).join('·')} · 원표: ${s.source}${s.officialName ? ` 「${s.officialName}」` : ''}`);
