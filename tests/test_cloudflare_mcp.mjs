@@ -6121,6 +6121,25 @@ test('처리 장부(11-23): 패키지 본문에 근거로 적은 값·N일 만 �
   assert.match(r.text, /〔이미 처리: .*금속값/);
 });
 
+test('처리 장부(11-23): 앞서 추천(판정 없음) 패키지 뒤 새로 잡힌 비슷한 항목은 후보에 두고 이어지는 건이라고 표시, 처리한 쪽 이력이 먼저', async () => {
+  // 11-23 scoop_desk: 금호석유화학 여수고무제2공장 사용승인(준공)이 11-09 앞서 추천 '여수고무 2공장 증축(9월 착공) — 용도 미상, 약한 단서'와 같은 부지인데 표시 없음
+  const opts = PRIVATE();
+  await call('package_save', { name: 'lgchem-daesan-road', state: '미발제·확인 필요', title: 'LG화학 대산공장 도로점용 허가 — 용도 미상, 약한 단서', body: '근거: 서산시 고시' },
+    { ...opts, now: new Date('2026-10-20T00:00:00Z') });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'kr_local/v1',
+    generatedAt: '2026-10-25T20:00:00+09:00', checks: [], items: [{ id: 'local:서산시:19', city: '서산시', company: 'LG화학', tier: 'B', title: '(주)엘지화학 대산공장 도로점용 허가(변경)',
+      date: '2026-10-25', firstSeen: '2026-10-25T20:00:00+09:00', url: 'https://e/19' }] }) }), opts.env, {});
+  const r = (await call('radar_today', {}, opts)).text;
+  assert.match(r, /id local:서산시:19 〔앞서 추천한 비슷한 건: LG화학 대산공장 도로점용 허가\(패키지 lgchem-daesan-road, 10-20\) — 그 뒤 새로 잡힘, 이어지는 새 사실인지 확인〕/);
+  assert.doesNotMatch(r, /처리 장부로 숨김/);   // 숨기지 않는다
+  // 비슷한 건이 둘이면 기자가 처리한 쪽(접음)을 알린다
+  const L = ledgerEntries([
+    { name: 'a-prior', title: 'LG화학 대산공장 도로점용 허가 — 용도 미상', state: '미발제·확인 필요', updated_at: '2026-10-21T00:00:00Z', created_at: '2026-10-21T00:00:00Z', body: '' },
+    { name: 'b-killed', title: '[접음] LG화학 대산공장 도로점용 허가', state: '접음', updated_at: '2026-10-20T00:00:00Z', created_at: '2026-10-20T00:00:00Z', body: '' }], []);
+  const item = { id: 'local:서산시:19', watch: '지자체 고시·공고', company: 'LG화학', date: '2026-10-25', fact: '(주)엘지화학 대산공장 도로점용 허가(변경)' };
+  assert.equal(matchHandled(item, L).similar?.key, 'b-killed');
+});
+
 test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {
   // 11-21 운영(#958 뒤): EU 기업결합 M.12449(포스코·JSW 인도 합작) 줄이 'steel'·'지분'으로 中 합작사 지분 이관 접음 패키지에 붙었다
   const L = ledgerEntries([{ name: 'posco-cn-jv-transfer', title: '[접음] 포스코홀딩스→포스코 中 합작사(BX STEEL POSCO 냉연 등 2곳) 지분 이관', state: '접음',

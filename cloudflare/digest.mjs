@@ -2200,6 +2200,9 @@ export async function radarTodayData(ctx, args) {
     if (h?.entry && EXCLUDING.has(h.entry.state)) return h;
     if (h?.entry) x.prior = h.entry;            // 앞서 추천했고 판정이 없는 패키지(숨기지 않고 표시만)
     else if (h?.similar && EXCLUDING.has(h.similar.state)) x.similar = h.similar;   // 처리한 뒤 새로 잡힌 비슷한 항목(숨기지 않고 표시만)
+    // 앞서 추천(판정 없음)한 패키지 뒤에 새로 잡힌 비슷한 항목 — 새 사실일 수 있어 후보에 그대로 두고 이어지는 건이라는 표시만(11-23 scoop_desk:
+    // 금호석유화학 여수고무제2공장 '사용승인(준공)'이 11-09 앞서 추천 '여수고무 2공장 증축(9월 착공) — 용도 미상, 약한 단서'와 같은 부지인데 표시가 없었다)
+    else if (h?.similar) x.priorSimilar = h.similar;
     return null;
   };
   const ledgerHidden = [];
@@ -2306,7 +2309,8 @@ export function rivalPaceLine(rev, nowMs = Date.now()) {
 
 export const ledgerMark = (x) => `${x.handled ? ` 〔이미 처리: ${entryLabel(x.handled.entry)} — 단독 추천에서 뺀다〕` : ''}`
   + `${x.similar ? ` 〔비슷한 건 처리 이력: ${entryLabel(x.similar)} — 새 사실인지 확인〕` : ''}`
-  + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}${x.alertSkip ? ` 〔알림 검토 ${x.alertSkip}: 이미 기사 있어 안 보냄〕` : ''}`;
+  + `${x.prior ? ` 〔앞서 추천: ${x.prior.subject || x.prior.key}(패키지 ${x.prior.key})〕` : ''}`
+  + `${x.priorSimilar ? ` 〔앞서 추천한 비슷한 건: ${x.priorSimilar.subject || x.priorSimilar.key}(패키지 ${x.priorSimilar.key}${x.priorSimilar.at ? `, ${kstMD(x.priorSimilar.at)}` : ''}) — 그 뒤 새로 잡힘, 이어지는 새 사실인지 확인〕` : ''}${x.alerted ? ` 〔즉시 알림 보냄 ${x.alerted}〕` : ''}${x.alertSkip ? ` 〔알림 검토 ${x.alertSkip}: 이미 기사 있어 안 보냄〕` : ''}`;
 
 export async function radarTodayText(ctx, args) {
   const d = await radarTodayData(ctx, args);
