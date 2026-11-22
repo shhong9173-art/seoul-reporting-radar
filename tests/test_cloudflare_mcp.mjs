@@ -5236,7 +5236,7 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
     archGbCdNm: '증축', mainPurpsCdNm: '공장', totArea: 5200, permitted: '2026-10-22', startPlanned: null, started: null, useApproved: null,
     kind: '새 허가', tier: 'B', firstSeen: '2026-10-25T07:45:00+09:00', baseline: false, isNew: true, ...extra });
   const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: [], checks: [],
-    permits: [p('bld:L1'),
+    permits: [p('bld:L1', { bldNm: '송정동 1' }),   // 건물명 칸에 번지만 — 싣지 않는다
       p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00',
         bldNm: '엘에스일렉트릭 청주1사업장 본관동 장비출입구' }),
       p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
@@ -5251,7 +5251,8 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡ '엘에스일렉트릭 청주1사업장 본관동 장비출입구'\(bld:L2\)〕/);
   // 같은 번지 허가의 건물명(공사 이름)도 줄에 — 규모·용도의 첫 단서(건물 전체 연면적만으로는 큰 증설처럼 보인다)
   assert.match(block('bld:L2'), /건축주 미표기\(공장과 같은 번지\) · 건물명 '엘에스일렉트릭 청주1사업장 본관동 장비출입구'/);
-  assert.doesNotMatch(block('bld:L1'), /· 건물명/);   // 건물명 없는 허가는 그대로
+  assert.doesNotMatch(block('bld:L1'), /· 건물명/);   // 건물명이 번지뿐인 허가는 건물명을 안 싣는다(대지위치와 같은 말)
+  assert.match(block('bld:L2'), /증축 5,200㎡\(bld:L1\)〕/);   // 서로 가리키기 표시에도 번지뿐인 건물명은 빼고
   assert.match(block('bld:L2'), /〔같은 번지 다른 인허가 1건: 허가 2026-10-22 증축 5,200㎡\(bld:L1\)〕/);
   assert.doesNotMatch(block('bld:L4'), /같은 번지 다른 인허가/);
   assert.doesNotMatch(r, /bld:L3\)/);   // 참고 허가는 남의 줄에 안 적는다
@@ -5264,6 +5265,9 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   assert.match(ko, /검증 상태: 건물명에 다른 회사 이름\('대효제약'\)/);
   assert.doesNotMatch((await call('kr_official', { section: 'building' }, opts)).text, /대효제약/);
   const { bareFirmName } = await import('../cloudflare/overseas.mjs');
+  const { lotOnlyName } = await import('../cloudflare/digest.mjs');
+  assert.deepEqual([['상개동 427-3', '울산광역시 남구 상개동 427-3번지'], ['옥산면 남촌리 1114-1', '충청북도 청주시 흥덕구 옥산면 남촌리 1114-1번지'],
+    ['48번동', '전남광주통합특별시 여수시 평여동 1006번지'], ['송정동 2', '충청북도 청주시 흥덕구 송정동 1번지']].map(([n, p2]) => lotOnlyName(n, p2)), [true, true, false, false]);
   assert.deepEqual([['대효제약', '두산에너빌리티'], ['현대스틸파이프', '현대모비스'], ['넥센타이어 창녕공장', '넥센타이어'], ['롯데케미칼 대산공장', '롯데케미칼'],
     ['엘에스일렉트릭 청주1사업장 본관동 장비출입구', 'LS일렉트릭'], ['48번동', '롯데케미칼'], ['함안출고센터', '현대차'], ['AutoLand화성', '기아']].map(([t, c]) => bareFirmName(t, c)),
     ['대효제약', '현대스틸파이프', null, null, null, null, null, null]);
