@@ -1253,7 +1253,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const late = lateDays ? ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)`
       : useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
     const entry = { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
-      fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
+      // 같은 번지 허가의 건물명(허가서의 공사·건물 이름)도 싣는다 — 11-23 LS일렉트릭 청주1공장 '사용승인(준공) 증축 연면적 66,680㎡(건물 전체)'의 건물명은
+      // '청주1사업장 본관동 장비출입구', 10-22 증축 허가는 '가공동 드라이어 보관룸'이었다(kr_official 화면에만 있고 radar_today 줄엔 없었다) — 규모·용도의 첫 단서
+      fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`
+        + `${x.sameLot !== false && x.bldNm ? ` · 건물명 '${String(x.bldNm).slice(0, 60)}'` : ''}`,
       // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
       // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
       // 사용승인(준공)을 늦게 본 항목은 항목 날짜가 '처음 본 날'이라 대조가 그 사흘 전부터였다 — 준공 기사는 사용승인 무렵에 난다(11-22: 10-06 사용승인을
@@ -1274,7 +1277,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 허가 08-26)과 증축 건축허가(10-22)가 B 두 줄로 따로 — 같은 공장의 잇단 공사인지 한눈에). 묶지는 않는다(허가마다 기사 각도가 다를 수 있다).
   // 다른 줄 id는 'id ' 없이 적는다(처리 장부가 줄 속 'id …'로 잇는다 — 남의 id로 이 줄을 처리한 것으로 보지 않게)
   const bdTag = (o) => `${o.kind === '사용승인(준공)' || o.changedAt ? `사용승인(준공) ${o.useApproved ?? '?'}` : `허가 ${o.permitted ?? '?'}`}`
-    + ` ${o.archGbCdNm ?? ''}${Number(o.totArea) ? ` ${Math.round(Number(o.totArea)).toLocaleString('en-US')}㎡` : ''}(${o.id})`;
+    + ` ${o.archGbCdNm ?? ''}${Number(o.totArea) ? ` ${Math.round(Number(o.totArea)).toLocaleString('en-US')}㎡` : ''}${o.bldNm ? ` '${String(o.bldNm).slice(0, 40)}'` : ''}(${o.id})`;
   for (const list of bdBig.values()) {
     for (const { x, entry } of list) {
       const others = list.filter((o) => o.x.id !== x.id).map((o) => o.x);
