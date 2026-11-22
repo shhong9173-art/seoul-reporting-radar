@@ -160,7 +160,7 @@ export async function myArticlesLines(ctx, days) {
 // 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다).
 // 11-21: 30일 판정 87건 중 11건이 '감시 미상(지금 목록에 없음)'이었다(기자가 쓴 단독 1건 포함) — 보관 기간이 지나 목록에서 빠진 항목은
 // 판정 기록에 감시 이름이 없으면 묶이지 않는다. 수집기들이 쓰는 id 앞말을 모두 적는다(수집기 파일에서 확인).
-const PREFIX = { stk: 'kr-stacks', stkmaint: 'kr-stacks', stkgone: 'kr-stacks', stlot: 'kr-stats', bdlot: 'kr-building', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', nam: 'assembly-minutes', napdoc: 'assembly-minutes',
+const PREFIX = { stk: 'kr-stacks', stkmaint: 'kr-stacks', stkgone: 'kr-stacks', stkclot: 'kr-stacks', stlot: 'kr-stats', bdlot: 'kr-building', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', nam: 'assembly-minutes', napdoc: 'assembly-minutes',
   nardoc: 'assembly-minutes', fac: 'kr-official', wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', asx: 'partner-filings',
   hkex: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', stat: 'scoop-screen', gl: 'global-beat', gov: 'governance', 'insider-group': 'governance',
   cp: 'dart-counterparty', exec: 'kr-exec', rptnote: 'kr-report-notes', rptword: 'kr-report-notes', ustr: 'ustr-comments', execm: 'kr-exec-market', execc: 'kr-exec-check',

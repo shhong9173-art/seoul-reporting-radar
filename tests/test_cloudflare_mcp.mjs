@@ -1576,6 +1576,36 @@ test('같은 사업장 배출구 목록 빠짐(C)은 한 줄로 묶는다(11-23 
   assert.match(c, /배출구 7번이 굴뚝 자동측정 목록에서 2번 연속 빠짐[^\n]*\n   자세히: kr_official · id stk:gone:GS칼텍스:/);   // 한 줄뿐인 사업장은 그대로
 });
 
+test('같은 사업장 참고(C) 굴뚝 멈춤·가동중지 전환·해제 줄이 셋 이상이면 한 줄로 묶는다(11-23 동국씨엠 부산 59번 C 다섯 줄)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  const site = '동국씨엠(주)부산공장';
+  const ev = (type, h, kind, text, extra = {}) => ({ id: `stk:${type}:동국씨엠:${site}:2026-10-2${5 - Math.floor(h / 24)}${type === 'halt' || type === 'resume' ? ':59' : ''}`, kind, tier: 'C',
+    company: '동국씨엠', site, text: `${site}: ${text}`, detectedAt: at(h), ...extra });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.5), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events: [
+      ev('stop', 1, '배출구 멈춤 신호', '배출구 1개가 3번 연속 평소의 10% 아래 — 59번(평소 34.8→최근 0.0, 멈춤 11-22 17:00부터) · 정비·점검일 수 있음(회사 확인)'),
+      ev('halt', 7, '배출구 가동중지 전환', "배출구 1개가 이번 측정에서 상태 글자 '가동중지'로 바뀜 — 59번(직전 값 36.72→'가동중지')"),
+      ev('resume', 10, '배출구 가동중지 해제', "'가동중지'였던 배출구 1개가 다시 측정값을 보냄 — 59번('가동중지', 처음 본 측정 11-21 19:00 → 지금 36.72)"),
+      ev('stop', 28, '배출구 멈춤 신호', '배출구 1개가 3번 연속 평소의 10% 아래 — 59번(평소 42.7→최근 0.0)'),
+      ev('stop', 55, '배출구 멈춤 신호', '배출구 1개가 3번 연속 평소의 10% 아래 — 4번(평소 45.8→최근 0.09)'),
+      // 같은 사업장 초과(C)는 묶지 않는다 / 두 줄뿐인 사업장은 그대로
+      { id: `stk:exceed:동국씨엠:${site}:12:nox:2026-10-25 08:00`, kind: '배출허용기준 초과', tier: 'C', company: '동국씨엠', site, detectedAt: at(2),
+        text: `${site} 배출구 12번 질소산화물 측정값 120이 배출허용기준 100을 넘음` },
+      { id: 'stk:stop:OCI:오씨아이주식회사군산공장:2026-10-25', kind: '배출구 멈춤 신호', tier: 'C', company: 'OCI', site: '오씨아이 주식회사 군산공장', detectedAt: at(3),
+        text: '오씨아이 주식회사 군산공장: 배출구 1개가 3번 연속 평소의 10% 아래 — 3번(평소 34.4→최근 0.0)' },
+      { id: 'stk:up:OCI:오씨아이주식회사군산공장:2026-10-25', kind: '사업장 재가동 신호', tier: 'C', company: 'OCI', site: '오씨아이 주식회사 군산공장', detectedAt: at(6),
+        text: '오씨아이 주식회사 군산공장: 멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴' }] }) }), opts.env, {});
+  const c = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text.split('[C · ')[1] ?? '';
+  assert.match(c, /같은 사업장 굴뚝 참고\(C\) 5줄 묶음: 동국씨엠\(주\)부산공장 — 배출구 59·4번 · 배출구 멈춤 신호 3 · 배출구 가동중지 전환 1 · 배출구 가동중지 해제 1\(\d\d-\d\d~\d\d-\d\d\) — 가장 최근 줄: 동국씨엠\(주\)부산공장: 배출구 1개가 3번 연속[^\n]* — 하나씩은 kr_official\(section=stacks, company=동국씨엠\)/);
+  assert.match(c, /id stkclot:stk:stop:동국씨엠:/);
+  assert.equal((c.match(/직전 값 36\.72/g) ?? []).length, 0);   // 묶은 줄은 따로 안 나온다
+  assert.match(c, /배출구 12번 질소산화물/);   // 초과는 묶지 않는다
+  assert.match(c, /오씨아이 주식회사 군산공장: 배출구 1개가/);   // 두 줄뿐인 사업장은 그대로
+  assert.match(c, /오씨아이 주식회사 군산공장: 멈췄던 배출구/);
+});
+
 test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 먼저 적고 후보는 남은 자리에(11-23)', async () => {
   const opts = PRIVATE();
   const iso = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
