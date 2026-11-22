@@ -137,6 +137,16 @@ class RoutineNotices(unittest.TestCase):
         self.assertEqual(t("Statement of Investor Complaints for the quarter"), "C")
         self.assertEqual(t("Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant."), "A")
         self.assertEqual(t("Outcome of Board Meeting held on November 04, 2026", "Outcome of Board Meeting"), "B")
+        # 규칙 전에 B로 저장된 공시(11-20)는 다음 실행에서 C로 다시 매긴다(이벤트 등급도)
+        fid = "nse:HMILNSE_20112026100624_ChangeRTAOFFICE.pdf"
+        desc = "Hyundai Motor India Limited has informed the Exchange regarding 'Intimation Regarding The Change In the address of the Corporate Office of the RTA"
+        prev = {"schema": w.SCHEMA, "baselineAt": "2026-11-01T00:00:00+09:00", "generatedAt": "2026-11-20T22:10:00+09:00",
+                "filings": [{"id": fid, "company": "현대차(인도 법인)", "subject": "Updates", "desc": desc, "tier": "B", "firstSeen": "2026-11-20T16:10:00+09:00"}],
+                "events": [{"id": fid, "tier": "B", "kind": "인도 법인 공시", "company": "현대차(인도 법인)", "detectedAt": "2026-11-20T16:10:00+09:00", "text": "x"}]}
+        get, _ = fake(rss(AMANTA))
+        doc = w.run(NOW + dt.timedelta(days=18), prev, get=get, sleep=lambda s: None)
+        self.assertEqual([(f["id"], f["tier"]) for f in doc["filings"] if f["id"] == fid], [(fid, "C")])
+        self.assertEqual([e["tier"] for e in doc["events"] if e["id"] == fid], ["C"])
 
 
 if __name__ == "__main__":
