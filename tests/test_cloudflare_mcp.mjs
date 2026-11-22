@@ -1577,6 +1577,16 @@ test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지
   assert.match(r, /\n   ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 \d+번이 생김/);          // 앞쪽은 온전한 꼴
   assert.match(r, /- [^\n]* · 굴뚝 측정\(공장 가동 신호\) · 포스코 · ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 \d+번이 생김[^\n]*… · id stk:newstack:/);   // 한 줄 꼴
   assert.match(r, /\n규칙: 모두 자동 수집 단계다/);                                        // 뒤 구역도 남는다
+  // 11-23 02:07: include_minor·limit 60이면 C까지 자리를 남기느라 A·B도 모두 한 줄이 됐다 — 자리 몫은 A·B끼리만, C는 남은 자리에
+  const cev = Array.from({ length: 60 }, (_, i) => ({ ...events[i], id: `stk:exceed:포스코:(주)포스코포항제철소:${i}:nox:x`, kind: '배출허용기준 초과(측정값)', tier: 'C' }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.4), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events: [...events.slice(0, 30), ...cev] }) }), opts.env, {});
+  const r2 = (await call('radar_today', { limit: 60, include_minor: true }, opts)).text;
+  assert.ok(r2.length <= 20000, String(r2.length));
+  const b2 = r2.split('[B · ')[1].split('[C · ')[0];
+  assert.ok((b2.match(/\n   ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구/g) ?? []).length >= 5);   // B 앞쪽은 온전한 꼴
+  assert.match(r2.split('[C · ')[1], /\n- [^\n]* · id stk:exceed:포스코:/);                                  // C는 남은 자리에 한 줄로
 });
 
 test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {

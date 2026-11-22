@@ -2291,7 +2291,9 @@ export async function radarTodayText(ctx, args) {
   // 상한에서 뒤 구역(역추적·숨김·규칙) 몫을 남기고, 넘치는 항목부터는 한 줄(날짜·감시·회사·글 앞부분·id)로 줄여 모두 보이게 한다
   const ITEM_BUDGET = MAX_TEXT - 3500;
   const COMPACT = 170;   // 한 줄 꼴의 대략 길이 — 남은 항목이 모두 한 줄로라도 들어갈 자리를 남기며 온전한 꼴을 싣는다
-  let left = tiers.reduce((a, [t]) => a + (t === 'C' && !showC ? 0 : Math.min(d.tiers[t].length, limit)), 0);
+  // 자리를 남기는 몫은 A·B끼리만 센다 — C를 함께 세면(include_minor, limit 60) A·B까지 모두 한 줄이 됐다(11-23 02:07 화면). C는 남은 자리에 한 줄로, 넘치면 수만
+  const shown = (t) => Math.min(d.tiers[t].length, limit);
+  let left = shown('A') + shown('B');
   let used = out.reduce((a, l) => a + l.length + 1, 0);
   let squeezed = 0;
   let cut = 0;
@@ -2302,6 +2304,7 @@ export async function radarTodayText(ctx, args) {
       if (rows.length) out.push(`\n[C · ${title}] ${rows.length}건 — 소비자 소송·사이트 공통 문구·기보도 후보 등 (include_minor=true)`);
       continue;
     }
+    if (t === 'C') left = shown('C');
     add(`\n[${t} · ${title}] ${rows.length}건`);
     if (press && !press.broken && rows.length) {
       const n = (v) => rows.filter((x) => checked.get(String(x.id))?.verdict === v).length;
