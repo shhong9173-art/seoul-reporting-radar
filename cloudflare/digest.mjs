@@ -343,6 +343,25 @@ const SITE_CITIES = ['울산', '온산', '울주', '여수', '광양', '포항',
 // 지명이 공장·제철소 등 바로 앞에 붙은 것만 쓴다(제목 속 다른 지명은 공장 위치가 아닐 수 있다 — '기아, 광주에 새 전기차 공장'은 그대로)
 const GB_KR_PLANT = new RegExp(`(${SITE_CITIES.join('|')})\\s*\\d*\\s*(?:공장|제철소|제련소|사업장|산단|산업단지|생산기지)`);
 export const gbDomesticPlace = (koTitle) => (GB_KR_PLANT.exec(String(koTitle ?? '')) ?? [])[1];
+// 굴뚝 줄 ↔ 기자 기사(my-articles): 최근 21일 기자 기사 제목에 같은 출입처·같은 시·군과 설비 공사 낱말이 있으면 줄 끝에 적는다
+const OWN_WORK = /합리화|정비|보수|개보수|개수|준공|설비\s*(?:교체|개선|공사)|증설|교체|가동\s*중단|휴지/;
+export function stackOwnArticleNotes(tiers, mine, nowMs) {
+  const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
+  const arts = (mine && !mine.broken ? mine.articles ?? [] : [])
+    .filter((a) => Date.parse(a.published) >= nowMs - 21 * 86400000 && OWN_WORK.test(String(a.title ?? '')) && (a.companies ?? []).length);
+  if (!arts.length) return 0;
+  let n = 0;
+  for (const t of ['A', 'B', 'C']) for (const x of tiers[t] ?? []) {
+    if (x.watch !== label || !x.company || x.ownArticle) continue;
+    const city = siteCity(x.site ?? '') ?? siteCity(x.fact ?? '');
+    const a = city && arts.find((y) => (y.companies ?? []).some((c) => beatName(c) === beatName(x.company)) && String(y.title).includes(city));
+    if (!a) continue;
+    x.ownArticle = true;
+    x.fact = `${x.fact} · 기자 기사 ${String(a.published).slice(5, 10)} 「${String(a.title).slice(0, 60)}」 — 같은 공장 설비 공사 기사라 이 멈춤과 이어질 수 있음(회사 확인)`;
+    n += 1;
+  }
+  return n;
+}
 export function siteCity(site) {
   const s = String(site ?? '').replace(/㈜|\(주\)|주식회사/g, ' ');
   const hits = SITE_CITIES.map((c) => [s.indexOf(c), c]).filter(([i]) => i >= 0).sort((a, b) => a[0] - b[0] || b[1].length - a[1].length);
@@ -2479,6 +2498,9 @@ export async function radarTodayData(ctx, args) {
   // 기자 기사 자동 대조(my_articles_check.py): 레이더 항목 id → 그 뒤 기자가 쓴 아이뉴스24 기사(같은 회사·사건 낱말). 판정이 아니라 표시만.
   const mine = await readFeed(ctx, 'my-articles');
   const wrote = new Map(Object.entries(mine && !mine.broken ? mine.itemHits ?? {} : {}));
+  // 기자가 쓴 같은 공장 설비 공사 기사를 굴뚝 줄에 붙인다(11-23: 「KG스틸, 380억 들인 당진 PLTCM 합리화 준공」(11-20) 뒤에도 당진공장 굴뚝
+  // '가동중지' 줄이 B '미보도 후보'로 떴다 — 자동 대조는 사건 낱말이 안 겹쳐 '같은 회사 항목만'). 등급은 그대로, 판단은 기자
+  stackOwnArticleNotes(byTierRows, mine, nowMs);
   let firsts = [];
   if (rev && !rev.broken) {
     const from = Date.parse(rev.generatedAt) - 14 * 86400000;

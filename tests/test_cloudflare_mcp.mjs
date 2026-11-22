@@ -1657,6 +1657,25 @@ test('같은 사업장 참고(C) 배출허용기준 초과 줄이 셋 이상이�
   assert.match(c, /포항제철소 배출구 228번 질소산화물 측정값 154\.71/);   // 한 줄뿐인 사업장은 그대로
 });
 
+test('굴뚝 줄 ↔ 기자 기사(11-23): 같은 출입처·같은 시·군 설비 공사 기사를 줄 끝에 적는다 — KG스틸 당진 PLTCM 합리화 준공', async () => {
+  const { stackOwnArticleNotes } = await import('../cloudflare/digest.mjs');
+  const nowMs = Date.parse('2026-11-23T07:30:00+09:00');
+  const row = (company, site, extra) => ({ watch: '굴뚝 측정(공장 가동 신호)', company, site, fact: `${site}: 평소 움직이던 배출구 5개 중 3개가 3번 연속 평소의 10% 아래`, ...extra });
+  const tiers = { A: [], B: [row('KG스틸', '케이지스틸(주) 당진공장'), row('KG스틸', '케이지스틸㈜ 인천공장'), row('동국제강', '동국제강(주) 당진공장')],
+    C: [{ watch: '공장 부지 건축허가', company: 'KG스틸', site: '당진', fact: '당진 허가' }] };
+  const mine = { articles: [
+    { title: 'KG스틸, 380억 들인 당진 PLTCM 합리화 준공⋯연산 200만톤 이상 기반', published: '2026-11-20T09:12:00+09:00', companies: ['KG스틸'] },
+    { title: 'KG스틸, 3분기 영업익 248억원', published: '2026-11-14T09:00:00+09:00', companies: ['KG스틸'] },          // 설비 공사 낱말 없음
+    { title: '포스코, 포항 3고로 개수 앞당긴다', published: '2026-10-01T09:00:00+09:00', companies: ['포스코'] }] };   // 21일 밖
+  assert.equal(stackOwnArticleNotes(tiers, mine, nowMs), 1);
+  assert.match(tiers.B[0].fact, / · 기자 기사 11-20 「KG스틸, 380억 들인 당진 PLTCM 합리화 준공⋯연산 200만톤 이상 기반」 — 같은 공장 설비 공사 기사라 이 멈춤과 이어질 수 있음\(회사 확인\)$/);
+  assert.doesNotMatch(tiers.B[1].fact, /기자 기사/);   // 인천공장은 다른 시·군
+  assert.doesNotMatch(tiers.B[2].fact, /기자 기사/);   // 같은 당진이라도 다른 출입처
+  assert.doesNotMatch(tiers.C[0].fact, /기자 기사/);   // 굴뚝 줄만
+  assert.equal(stackOwnArticleNotes(tiers, mine, nowMs), 0);   // 두 번 붙이지 않는다
+  assert.equal(stackOwnArticleNotes(tiers, null, nowMs), 0);
+});
+
 test('되풀이 초과: 같은 배출구·같은 물질이 최근 7일 따로 시작한 초과 4번 이상이면 B 한 줄(11-23 두산에너빌리티 30번 NOx 5번)', async () => {
   const opts = PRIVATE();
   const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
