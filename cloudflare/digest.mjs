@@ -56,7 +56,7 @@ export const WATCHES = [
   // 의견서 첨부 본문에서 한국 + 자동차·철강·화학·전력기기 대목. 위 '미 연방 의견서'는 출입처가 직접 낸 것만 본다. 전부 B
   { feed: 'ustr-comments', label: 'USTR 의견서 속 한국', tool: 'us_comments', schedule: '평일 07:20·23:20, 토 09:20', staleHours: 80 },
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
-  { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
+  { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192, retry: '화~금 07:10 재시도에서 실패·대기한 회사만 다시 조회' },
   // 11-10: 출입처 유럽(EP)·국제(WO) 특허 공개(EPO OPS) — EP 수요일·WO 목요일 공개 뒤 토요일 아침 주 1회. 약관상 기자 전용 연결에서만.
   { feed: 'epo-patents', label: '해외 특허 공개(EP·WO)', tool: 'patents_abroad', schedule: '토 06:40', staleHours: 192 },
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
@@ -69,7 +69,7 @@ export const WATCHES = [
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
   { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
-  { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:50', staleHours: 192 },
+  { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:50', staleHours: 192, retry: '화~금 13:30 재시도에서 조회 실패 번지만 다시 조회' },
   // 통합환경허가 정보공개(ieps_permit_watch.py, 11-21): 출입처 사업장의 변경허가(설비·공정 변경 공식 기록) B, 통합허가 C — 게시는 허가 뒤 늦을 수 있음
   { feed: 'ieps-permits', label: '통합환경허가 공개', tool: 'kr_official', schedule: '평일 13:40', staleHours: 80 },
   { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
@@ -2023,7 +2023,8 @@ function health(ctx, docs) {
     const issues = [];
     if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(rawH)}시간 전 결과`);
     // 11-21: 노동위 첫 화면만 실패하고 달력(기자 컴퓨터 수집) 회의는 읽은 곳은 그렇게 적는다 — 빠진 건 달력 수집 뒤 새로 잡힌 회의뿐
-    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => `${c.source ?? c.company ?? c.target}${c.calendarOnly ? '(첫 화면만 실패 — 달력 회의는 읽음)' : ''}`).join(', ')})`);
+    // 11-23: 주 1회 감시 중 평일에 실패분만 다시 묻는 곳(상표·건축허가)은 그렇게 적는다 — '상표 포스코홀딩스 일부 실패'가 한 주 내내 미확인인지 안 보였다
+    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => `${c.source ?? c.company ?? c.target}${c.calendarOnly ? '(첫 화면만 실패 — 달력 회의는 읽음)' : ''}`).join(', ')})${w.retry ? ` — ${w.retry}` : ''}`);
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
