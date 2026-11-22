@@ -36,7 +36,19 @@ export function packageLinks(name, body) {
   // 본문에 옮겨 적힌 'id xxx' (radar_today·scoop_desk 줄 끝 표기)
   for (const m of text.matchAll(/(?:^|[\s·(])id[ :]+([A-Za-z][A-Za-z0-9_-]*:[^\s,)〕]+|[0-9a-f]{16})/g)) ids.add(m[1]);
   const urls = new Set([...text.matchAll(/https?:\/\/[^\s)\]〕"'<>]+/g)].map((m) => m[0].replace(/[.,;]+$/, '')).filter((u) => u.length >= 25));
-  return { ids: [...ids], urls: [...urls], sent: [] };
+  return { ids: [...ids], urls: [...urls], sent: [], figures: packageFigures(text) };
+}
+
+// 패키지 본문에 근거로 적은 '값 + N일(개월) 만' 짝(11-23: '금·은 약세·아연 강세 엇갈린 금속값' 발제함 패키지가 본문에
+// 'KOMIS 11/17(은 47.7, 377일 만 최저 / 금 3,858.1, 413일 만 …)'만 적고 레이더 id(px:gold·px:silver)를 잇지 않아, 같은 금·은 최저 줄이
+// scoop_desk 새 후보로 계속 떴다). 값은 소수점이나 천 단위 쉼표가 있는 것만(3자리 이상) — '값|기간 수|단위' 글자로 보낸다
+export function packageFigures(body) {
+  const out = new Set();
+  for (const m of String(body ?? '').matchAll(/(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+)(?![\d])[^0-9\n]{0,6}?(\d{1,4})(일|개월) 만/g)) {
+    const v = m[1].replace(/,/g, '');
+    if (v.replace('.', '').length >= 3) out.add(`${v}|${m[2]}|${m[3]}`);
+  }
+  return [...out].slice(0, 40);
 }
 
 const SCHEMA = [

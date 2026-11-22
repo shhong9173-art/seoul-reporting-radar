@@ -6097,6 +6097,30 @@ test('처리 장부(11-22): 차종·동력 이름 두 개만 맞은 다른 결�
   assert.equal(matchHandled(same, L).similar?.key, 'hyundai-tucson-santafe-egr-9c7');
 });
 
+test('처리 장부(11-23): 패키지 본문에 근거로 적은 값·N일 만 짝이 맞는 원자재 최저 줄은 id를 안 이어도 처리한 건으로 본다', async () => {
+  // 11-23 운영: '금·은 약세·아연 강세 엇갈린 금속값' 발제함 패키지가 본문에 KOMIS 수치만 적고 px:gold·px:silver id를 잇지 않아 scoop_desk 새 후보로 계속 떴다
+  const { packageLinks, packageFigures } = await import('../cloudflare/store.mjs');
+  const body = "기자 결정(11/18 16:41): 시황 기사로 감.\n근거: KOMIS 11/17(은 47.7, 377일 만 최저 / 금 3,858.1, 413일 만 / 구리 13,225.5, 132일 만, LME 재고 한 달 +41.1% / 아연 3,776, 한 달 0%·연초 +21.57%).\n연결한 레이더 항목: https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000994";
+  assert.deepEqual(packageFigures(body), ['47.7|377|일', '3858.1|413|일', '13225.5|132|일']);   // 아연 3,776은 기간이 없어 안 뽑는다
+  const pk = { name: 'nonferrous-metal-prices-diverge-1119', title: '[작성 예정] 금·은 약세·아연 강세 엇갈린 금속값 — 고려아연·전선 시황 기사(11/19)', state: '발제함',
+    updated_at: '2026-11-18T07:42:30Z', created_at: '2026-11-18T07:42:30Z', ...packageLinks('nonferrous-metal-prices-diverge-1119', body) };
+  const L = ledgerEntries([pk], []);
+  const px = (metal, id, date, fact) => ({ id: `px:${metal}:최저(기간):${id}`, watch: '공정위·한전·원자재', kind: '원자재 최저(기간)', company: '고려아연', date, fact });
+  const gold = px('gold', '2026-11-17', '2026-11-18T15:20:00+09:00', '원자재 가격: 금(London Gold Market Fixing Ltd- LBMA PM Fixing Price/USD, USD/troz) 3,858.10 · 2025-09-30(3,825.30) 이후 최저 — 413일 만');
+  const silver = px('silver', '2026-11-16', '2026-11-17T15:20:00+09:00', '원자재 가격: 은(London Silver Market Fixing Ltd- LBMA Fixing Price/USD, USD/troz) 47.73 · 2025-11-05(47.61) 이후 최저 — 376일 만');
+  assert.deepEqual([matchHandled(gold, L).entry?.key, matchHandled(gold, L).how], ['nonferrous-metal-prices-diverge-1119', '수치(3858.1·413일 만)']);
+  assert.equal(matchHandled(silver, L).how, '수치(47.7·377일 만)');   // 하루 뒤 다시 읽은 값(47.73→47.7, 376→377일)
+  // 값만 같고 기간이 다르거나, 기간만 같고 값이 다르면 잇지 않는다
+  assert.equal(matchHandled(px('copper', '2026-11-16', '2026-11-17T15:20:00+09:00', '원자재 가격: 동(LME Cash, USD/t) 13,500.0 · 2026-07-08 이후 최저 — 132일 만'), L), null);
+  assert.equal(matchHandled(px('nickel', '2026-11-16', '2026-11-17T15:20:00+09:00', '원자재 가격: 니켈(LME Cash, USD/t) 47.73 · 2025-01-02 이후 최저 — 320일 만'), L), null);
+  // 패키지를 남긴 뒤(하루 넘어) 새로 잡힌 같은 수치 줄은 숨기지 않고 비슷한 건 처리 이력으로만
+  assert.equal(matchHandled({ ...gold, id: 'px:gold:최저(기간):2026-11-24', date: '2026-11-25T15:20:00+09:00' }, L).similar?.key, 'nonferrous-metal-prices-diverge-1119');
+  // 구역 도구 글(kr_signals section=price)에도 〔이미 처리〕
+  const r = annotateHandled('- 2026-11-17 · 금(LBMA PM, USD/troz) 3,858.10 · 2025-09-30(3,825.30) 이후 최저 — 413일 만 · id px:gold:최저(기간):2026-11-17', L);
+  assert.equal(r.marked, 1);
+  assert.match(r.text, /〔이미 처리: .*금속값/);
+});
+
 test('처리 장부(11-21): 공고 원문 인용 줄(영어)·검증 상태 안내 줄의 낱말로 다른 건의 〔이미 처리〕를 붙이지 않는다', () => {
   // 11-21 운영(#958 뒤): EU 기업결합 M.12449(포스코·JSW 인도 합작) 줄이 'steel'·'지분'으로 中 합작사 지분 이관 접음 패키지에 붙었다
   const L = ledgerEntries([{ name: 'posco-cn-jv-transfer', title: '[접음] 포스코홀딩스→포스코 中 합작사(BX STEEL POSCO 냉연 등 2곳) 지분 이관', state: '접음',
@@ -6254,14 +6278,14 @@ test('처리 장부 CPU(11-13 운영 오류 1102): 회사 찾기는 정규식 �
   }
   // ② 저장소가 본문에서 연결만 뽑는다 — Worker는 패키지 본문을 받지 않는다
   assert.deepEqual(packageLinks('kia-georgia-osha', `문의 중\nid osha:insp:349146811 확인\n원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811.\n${LINK_LINE} sales:hmgma:202609, https://example.com/a/b/c/d/e/f`),
-    { ids: ['sales:hmgma:202609', 'https://example.com/a/b/c/d/e/f', 'osha:insp:349146811'], urls: ['https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811', 'https://example.com/a/b/c/d/e/f'], sent: [] });
+    { ids: ['sales:hmgma:202609', 'https://example.com/a/b/c/d/e/f', 'osha:insp:349146811'], urls: ['https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811', 'https://example.com/a/b/c/d/e/f'], sent: [], figures: [] });
   assert.deepEqual(packageLinks('alert-20261112', '알림 전문\n보낸 id: clik:AAA, execm:BBB'), { ids: [], urls: [], sent: ['clik:AAA', 'execm:BBB'], excluded: [], sentAt: {} });
   assert.deepEqual(packageLinks('alert-20261115', '[단독 후보 알림 15:45] 0건\n제외 id: fr:2026-23258').excluded, ['fr:2026-23258']);
   const opts = PRIVATE();
   await call('package_save', { name: 'kia-georgia-osha', title: '[답변 대기] 기아 조지아 OSHA 점검', state: '보류', body: '본문 '.repeat(500), item_ids: ['osha:insp:349146811'] }, opts);
   const stub = opts.env.STORE.get('reporter');
   const digest = await (await stub.fetch('https://store.internal/op', { method: 'POST', body: JSON.stringify({ action: 'packages.digest', args: {}, now: NOW.toISOString() }) })).json();
-  assert.deepEqual(Object.keys(digest.rows[0]).sort(), ['created_at', 'ids', 'name', 'sent', 'state', 'title', 'updated_at', 'urls']);   // body 없음
+  assert.deepEqual(Object.keys(digest.rows[0]).sort(), ['created_at', 'figures', 'ids', 'name', 'sent', 'state', 'title', 'updated_at', 'urls']);   // body 없음(근거 수치 짝만)
   assert.deepEqual(digest.rows[0].ids, ['osha:insp:349146811']);
   // ③ 항목 2,000개 × 장부 30줄: 예전 구현은 이 기계에서 1초를 넘겼다. 넉넉한 상한으로 되돌아가는 것만 막는다.
   const pk = (i) => ({ name: `pkg-${i}`, title: [`[킬] 영국 한국산 후판 반덤핑(AD00${70 + i})`, `[답변 대기] 기아 조지아 OSHA Fat/Cat 점검 ${i}차`, `포스코 수소환원제철 부지 한정어업 거절 ${i}`, `현대차 안성 공장등록 목록에서 빠짐 ${i}`,
