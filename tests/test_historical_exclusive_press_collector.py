@@ -210,6 +210,8 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
             # 11-22: 계열사 이름만 — 포스코(출입처)가 아니다
             "[단독] 포스코인터, 탄자니아 흑연광산 투자계약 개정…3단계 우선매수...",
             "[단독] 포스코퓨처엠, 양극재 공장 가동률 하향",
+            # 11-22: 프랑스 AI 로봇기업 '제네시스AI' — 현대차 제네시스가 아니다
+            "[단독]삼성전자·엔비디아, 프랑스 AI 로봇기업 '제네시스AI'에 투자 - 더트래커",
         ]
         for title in misleading:
             self.assertEqual(tracked_industry_companies(title),[],title)
@@ -218,6 +220,7 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
             "[단독] 포스코 미국 제철소 후판 신규 공장",
             "[단독] 포스코필바라리튬솔루션 생산 계획",
             "[단독] 포스코·포스코인터, 인니 제철소 공동 투자",
+            "[단독] 믿었던 제네시스가 '펑'··· 다이오드 문제 사고로 이어졌나",
         ]
         for title in valid:
             self.assertTrue(tracked_industry_companies(title),title)

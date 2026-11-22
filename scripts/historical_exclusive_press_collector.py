@@ -60,6 +60,8 @@ SPONSOR_OR_SCHOOL=re.compile(
 # AGENTS.md: 계열사는 출입처가 아니다. 계열사 이름을 지운 뒤에도 '포스코'가 남을 때만 포스코로 센다(포스코필바라리튬솔루션은 기존 판단대로 둠)
 POSCO_AFFILIATE=re.compile(
     r"포스코(?:인터내셔널|인터|퓨처엠|DX|스틸리온|엠텍|플로우|모빌리티솔루션|와이드|A&C)",re.I)
+# 11-22: 「[단독]삼성전자·엔비디아, 프랑스 AI 로봇기업 '제네시스AI'에 투자」가 '제네시스'(현대차 브랜드)로 잡혀 현대차 단독으로 셌다 — 같은 이름 다른 회사
+GENESIS_HOMONYM=re.compile(r"제네시스\s?(?:AI|에이아이)|Genesis\s?AI",re.I)
 HUNGER_KIA=re.compile(
     r"기아\s*(?:호적|아동|문제|상태|극복|퇴치|빈곤|지수|위기|사태)|"
     r"기아호적|기아퇴치",re.I)
@@ -88,6 +90,8 @@ def tracked_industry_companies(title):
         names=[x for x in names if x!="포스코"]
     if "포스코" in names and "포스코" not in POSCO_AFFILIATE.sub("",title):
         names=[x for x in names if x!="포스코"]
+    if "제네시스" in names and "제네시스" not in GENESIS_HOMONYM.sub("",title):
+        names=[x for x in names if x!="제네시스"]
     return names
 
 
