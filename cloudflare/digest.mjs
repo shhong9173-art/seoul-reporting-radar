@@ -1550,6 +1550,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // '가동 중단 신호'로 석 줄(모두 같은 메모 '정기보수(순천·당진 배출구 가동중지)', 12-07까지 접음). 가장 최근 줄 글을 싣고 나머지는 개수·종류만
   const maintLots = new Map();
   const goneLots = new Map();
+  const cycLots = new Map();
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
@@ -1565,13 +1566,33 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       check: later ? undefined : stackHint(e) };
     const lot = m && tier === 'C' ? stackSiteKey(e.id) : null;
     const gone = !lot && tier === 'C' && /^stk:gone:/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
+    // 같은 사업장의 참고(C) 배출구 단위 줄(멈춤 신호·가동중지 전환·해제·오래 멈춤). 사업장 단위 '가동 중단·재가동 신호'는 보도 대조가 붙을 수 있어 따로 둔다
+    const cyc = !lot && !gone && tier === 'C' && !later && /^stk:(?:stop|halt|resume|longstop):/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
     if (lot) {
       if (!maintLots.has(lot)) maintLots.set(lot, []);
       maintLots.get(lot).push({ e, row, m });
     } else if (gone) {
       if (!goneLots.has(gone)) goneLots.set(gone, []);
       goneLots.get(gone).push({ e, row });
+    } else if (cyc) {
+      if (!cycLots.has(cyc)) cycLots.set(cyc, []);
+      cycLots.get(cyc).push({ e, row });
     } else push(tier, W['kr-stacks'], row);
+  }
+  // 같은 사업장 참고(C) 굴뚝 줄이 셋 이상이면 한 줄로 — 11-23 72시간 화면: 동국씨엠 부산공장 59번이 '멈춤 신호'(11-21)→'가동중지 해제'(11-22 15:20)→
+  // '가동중지 전환'(18:20)→'멈춤 신호'(11-23), 4번 '멈춤 신호'(11-20)로 C 다섯 줄. 배출구 번호·종류별 수·기간과 가장 최근 줄 글(id는 stkclot:<가장 최근 줄 id>)
+  for (const list of cycLots.values()) {
+    if (list.length < 3) { for (const { row } of list) push('C', W['kr-stacks'], row); continue; }
+    list.sort((a, b) => String(b.e.detectedAt).localeCompare(String(a.e.detectedAt)));
+    const head = list[0].e;
+    const kinds = {};
+    for (const { e } of list) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+    const codes = [...new Set(list.flatMap(({ e }) => [...String(e.text ?? '').matchAll(/(?:^|[\s,(—-])([0-9A-Za-z-]{1,8})번\(/g)].map((mm) => mm[1])))];
+    const md = (v) => kstMD(Date.parse(v));
+    push('C', W['kr-stacks'], { kind: '굴뚝 참고 줄 묶음', id: `stkclot:${head.id}`, date: head.detectedAt, company: head.company, site: head.site,
+      fact: `같은 사업장 굴뚝 참고(C) ${list.length}줄 묶음: ${head.site}${codes.length ? ` — 배출구 ${codes.slice(0, 8).join('·')}번${codes.length > 8 ? ' 외' : ''}` : ''}`
+        + ` · ${Object.entries(kinds).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')}(${md(list[list.length - 1].e.detectedAt)}~${md(head.detectedAt)})`
+        + ` — 가장 최근 줄: ${clipAt(String(head.text ?? ''), 160)} — 하나씩은 kr_official(section=stacks, company=${head.company})` });
   }
   // 같은 사업장 '배출구 목록에서 빠짐'(참고 C)은 한 줄로 — 11-23 72시간 화면: S-OIL 온산공장 4·51·6·69번이 실행마다 따로 C 넉 줄.
   // 배출구 번호·기간·다시 나타난 수를 적고 가장 최근 줄 글을 싣는다(id는 stkgone:<가장 최근 줄 id> — 새 줄이 붙으면 다시 뜬다)
