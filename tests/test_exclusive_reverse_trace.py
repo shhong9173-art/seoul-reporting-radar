@@ -404,5 +404,16 @@ class SameStory(unittest.TestCase):
         b=self.row("b","[단독] 포스코 감산 확대","2026-11-02T06:00:00+09:00")
         self.assertEqual(fold_same_story([a,b]),{})
 
+    def test_press_index_names_dropped_by_exclusive_index_rules_are_not_candidates(self):
+        # 11-22: 기보도 색인이 붙인 '포스코'(계열사 포스코인터)·'제네시스'(프랑스 제네시스AI)·'기아'(디플러스 기아)가 역추적 후보로 남았다
+        from scripts.exclusive_reverse_trace import candidate
+        def row(t,c):
+            return {"id":"a"*24,"title":t,"published":"2026-11-21T09:00:00+09:00","companies":c,"global":False}
+        self.assertFalse(candidate(row("[단독] 포스코인터, 탄자니아 흑연광산 투자계약 개정…3단계 우선매수",["포스코"])))
+        self.assertFalse(candidate(row("[단독]삼성전자·엔비디아, 프랑스 AI 로봇기업 '제네시스AI'에 투자",["제네시스"])))
+        self.assertFalse(candidate(row("[단독] T1 떠난 '도란' 최현준, 차기 행선지는 디플러스 기아 유력",["기아"])))
+        self.assertTrue(candidate(row("[단독] 포스코·현대제철, 美 냉연강판 상계관세 예비 하향",["포스코","현대제철"])))
+        self.assertTrue(candidate(row("[단독] 현대자동차, 울산공장 라인 재편",["현대차"])))     # 별칭(제목에 '현대차' 글자 없음)은 그대로
+
 if __name__=="__main__":
     unittest.main()
