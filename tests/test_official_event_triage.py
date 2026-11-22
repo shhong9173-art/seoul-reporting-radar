@@ -143,6 +143,17 @@ class OfficialEventTriage(unittest.TestCase):
         metric=next(x for x in t.build(a,now=NOW)["backgroundReference"] if x["source"]=="DART_METRIC")
         self.assertTrue(metric["headline"].endswith(" (SK온)"),metric["headline"])
         self.assertNotIn("SK온",metric["id"])                        # 사건 열쇠는 그대로
+    def test_metric_headline_joins_spaced_table_cells(self):
+        # 11-22: '하 역/서비스'가 단독 후보 심사에서 '서비스'로만 찾혔다 — 정렬용으로 띄운 칸은 붙인다, 사건 열쇠는 그대로
+        self.assertEqual(t.unspace_cell("하 역"),"하역")
+        self.assertEqual(t.unspace_cell("제 품"),"제품")
+        self.assertEqual(t.unspace_cell("배전반, 초고압GIS"),"배전반, 초고압GIS")
+        self.assertEqual(t.unspace_cell("전기전자 부문"),"전기전자 부문")
+        a=samples()
+        a["recent_metric_changes"]["items"][0]["rowIdentity"]=["하 역","서비스"]
+        metric=next(x for x in t.build(a,now=NOW)["backgroundReference"] if x["source"]=="DART_METRIC")
+        self.assertIn(" · 하역/서비스",metric["headline"])
+        self.assertIn(":하 역/서비스",metric["id"])
     def test_verification_questions_only_request_public_facts(self):
         result=t.build(samples(),now=NOW)
         delta=next(x for x in result["backgroundReference"] if x["source"]=="DART_DELTA")

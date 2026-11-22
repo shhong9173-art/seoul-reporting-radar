@@ -92,6 +92,13 @@ def entity_note(value):
     return " ("+v[:40]+")"
 
 
+# 표 칸 정렬용으로 글자 사이를 띄운 칸('하 역'·'운 송'·'제 품')은 붙여 쓴다 — 단독 후보 심사가 한 글자 낱말을 버려 '하 역/서비스'를
+# '금호석유화학 서비스'로만 찾았다(11-22). 사건 열쇠(id)는 원래 칸 그대로.
+def unspace_cell(value):
+    v=str(value or "").strip()
+    return v.replace(" ","") if re.fullmatch(r"(?:[가-힣] )+[가-힣]",v) else v
+
+
 def event(kind,identifier,when,headline,company,fact,url,verification):
     if not isinstance(headline,str) or not headline.strip():
         return None
@@ -234,7 +241,7 @@ def build(sources,*,now=None,previous=None):
             continue
         topic="/".join(str(x) for x in (row.get("rowIdentity") or [])[:2])
         lead=event("DART_METRIC",receipt+":"+topic[:90],dt,
-                   str(row.get("company") or "")+" · "+topic+entity_note(row.get("reportingEntity")),
+                   str(row.get("company") or "")+" · "+"/".join(unspace_cell(x) for x in (row.get("rowIdentity") or [])[:2])+entity_note(row.get("reportingEntity")),
                    str(row.get("company") or ""),
                    "동일 회계기간·단위 DART 기재 수치 "+
                    str(row.get("priorValue"))+" → "+str(row.get("currentValue"))+
