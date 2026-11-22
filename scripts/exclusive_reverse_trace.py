@@ -136,6 +136,10 @@ STORY_SUFFIX=re.compile(r"\s+-\s+[^-]{1,40}$")
 STORY_TAIL=re.compile(r"(?:\s*\[(?!\s*단독)[^\]]{1,20}\]|\s*(?:\.{2,}|…))+\s*$")
 STORY_MIN=16
 STORY_DAYS=3
+# 구글 뉴스 RSS는 옛 기사에 새 날짜를 달아 다시 내기도 한다(11-21 쿠키뉴스: 10-30 'E-pit 상표권'·10-09 '새만금 9조 투자 첫삽'이 11-21로 다시 떠
+# 큰 그림 '최근 7일 [단독] 흐름' 맨 위 다섯 줄 중 두 줄이 옛 기사였다). 뒤에 나온 쪽이 구글 뉴스 줄이고 제목이 충분히 길게 같으면 이만큼 떨어져도 같은 기사.
+REDATED_DAYS=60
+REDATED_MIN=24
 
 
 def story_key(title):
@@ -175,8 +179,19 @@ def _clipped(title):
     return bool(re.search(r"(?:\.{2,}|…)\s*$",STORY_SUFFIX.sub("",str(title or ""))))
 
 
+def close_or_redated(a,b):
+    """같은 기사로 볼 만큼 가까운 두 줄인가: 3일 안, 또는 뒤에 나온 줄이 구글 뉴스 RSS(날짜를 새로 달기도 함)이고 60일 안이며 짧은 쪽 제목 열쇠도 24자 이상."""
+    ta,tb=aware(a["published"]),aware(b["published"])
+    gap=abs((ta-tb).total_seconds())
+    if gap<=STORY_DAYS*86400:
+        return True
+    later=a if ta>tb else b
+    return (gap<=REDATED_DAYS*86400 and "news.google.com" in str(later.get("url") or "")
+            and min(len(story_key(a.get("title"))),len(story_key(b.get("title"))))>=REDATED_MIN)
+
+
 def fold_same_story(rows,keep=()):
-    """{접힌 id: 대표 id}. 같은 회사가 겹치고 3일 안에 나온 같은 기사 묶음에서 사람 검토·우선 id → 가장 이른 것 → 긴 제목을 대표로.
+    """{접힌 id: 대표 id}. 같은 회사가 겹치고 3일 안에(구글 뉴스가 날짜를 새로 단 줄은 60일 안) 나온 같은 기사 묶음에서 사람 검토·우선 id → 가장 이른 것 → 긴 제목을 대표로.
     잘린 제목(네이버 '...')이 서로 다른 두 온전한 제목을 잇지는 않는다 — 묶음 안 온전한 제목끼리도 같은 기사여야 합친다."""
     keep=set(keep)
     buckets={}
@@ -189,7 +204,7 @@ def fold_same_story(rows,keep=()):
             for b in bucket[i+1:]:
                 ga,gb=group_of[a["id"]],group_of[b["id"]]
                 if ga is gb or not (set(a.get("companies") or [])&set(b.get("companies") or [])
-                                    and abs((aware(a["published"])-aware(b["published"])).total_seconds())<=STORY_DAYS*86400
+                                    and close_or_redated(a,b)
                                     and same_story(a["title"],b["title"])):
                     continue
                 full_a=[x for x in ga if not _clipped(x["title"])]

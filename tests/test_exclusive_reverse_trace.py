@@ -418,6 +418,27 @@ class SameStory(unittest.TestCase):
         self.assertNotIn("a"*24,folded);self.assertNotIn("b"*24,folded)
         self.assertEqual(fold_same_story([a,a|{"id":"f"*24}],keep={"f"*24}),{"a"*24:"f"*24})   # 사람 검토 id가 대표(접히지 않음)
 
+    def test_google_redated_old_article_folds_into_the_original_11_23(self):
+        # 11-23 큰 그림 '최근 7일 [단독] 흐름': 구글 뉴스가 쿠키뉴스 옛 기사(10-30 E-pit 상표권·10-09 새만금)를 11-21 날짜로 다시 냈다
+        g="https://news.google.com/rss/articles/x"
+        n=self.row("a","[단독] 현대차·기아 ‘E-pit’ 상표권 현대엔지니어링에 넘긴다…12월1...","2026-10-30T17:24:00+09:00","kukinews.com","현대차")
+        n["url"]="https://www.kukinews.com/article/view/kuk202610300139"
+        late=self.row("b","[단독] 현대차·기아 ‘E-pit’ 상표권 현대엔지니어링에 넘긴다…12월1일 충전사업 운영 일원화 - 쿠키뉴스","2026-11-21T15:53:49+09:00","쿠키뉴스","현대차")
+        late["url"]=g
+        self.assertEqual(fold_same_story([late,n]),{"b"*24:"a"*24})
+        s1=self.row("c","[단독] 현대차 새만금 9조 투자 첫삽 코앞…정부 지원 51개 중 4개 완료 - 쿠키뉴스","2026-10-09T09:00:00+09:00","쿠키뉴스","현대차")
+        s2=dict(s1,id="d"*24,published="2026-10-12T09:00:00+09:00");s3=dict(s1,id="e"*24,published="2026-11-21T15:00:00+09:00")
+        for r in (s1,s2,s3):
+            r["url"]=g
+        self.assertEqual(fold_same_story([s3,s2,s1]),{"d"*24:"c"*24,"e"*24:"c"*24})
+        d=build(index(late,n),now=datetime(2026,11,22,10,0,tzinfo=KST))
+        self.assertEqual([x["articleId"] for x in d["items"]],["a"*24])   # 대표는 원래 날짜(10-30) 줄
+        # 뒤 줄이 구글 뉴스가 아니면(네이버 날짜는 믿음), 제목 열쇠가 짧으면, 60일 넘게 떨어지면 따로
+        self.assertEqual(fold_same_story([dict(late,url="https://www.kukinews.com/x"),n]),{})
+        short1=self.row("f","[단독] 포스코 광양 3고로 개수","2026-10-01T09:00:00+09:00");short2=dict(short1,id="g"*24,published="2026-10-20T09:00:00+09:00",url=g)
+        self.assertEqual(fold_same_story([short1,short2]),{})
+        self.assertEqual(fold_same_story([dict(s3,published="2026-12-20T09:00:00+09:00"),s1]),{})
+
     def test_short_titles_need_exact_match(self):
         a=self.row("a","[단독] 포스코 감산","2026-11-02T05:00:00+09:00")
         b=self.row("b","[단독] 포스코 감산 확대","2026-11-02T06:00:00+09:00")
