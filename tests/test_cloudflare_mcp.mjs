@@ -5244,6 +5244,9 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
         bldNm: '엘에스일렉트릭 청주1사업장 본관동 장비출입구' }),
       p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
       p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 }),   // 다른 번지 — 안 붙인다
+      // 11-23: 본번만 같은 다른 필지(수집기가 B→C로 내림)인데 건물명이 출입처 이름 — 되돌려 B / 300㎡ 미만이면 그대로 C
+      p('bld:L7', { plot: '부산광역시 강서구 화전동 552-3번지', sameLot: false, tier: 'C', archGbCdNm: '대수선', totArea: 44855, bldNm: '엘에스일렉트릭 부산공장' }),
+      p('bld:L8', { plot: '부산광역시 강서구 화전동 552-9번지', sameLot: false, tier: 'C', archGbCdNm: '증축', totArea: 120, bldNm: '엘에스일렉트릭 부산공장 경비동' }),
       // 11-23: 같은 번지 준공인데 건물명이 법인 표기 없는 다른 회사 이름('대효제약') — 참고(C)로
       p('bld:L5', { plot: '충청북도 청주시 흥덕구 송정동 50번지', bldNm: '대효제약', archGbCdNm: '대수선', totArea: 15812, permitted: '2026-04-03', useApproved: '2026-10-19',
         kind: '사용승인(준공)', firstSeen: '2026-05-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00' })] };
@@ -5265,6 +5268,9 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   assert.doesNotMatch(block('bld:L1'), /id bld:L2/);   // 남의 id는 'id ' 없이(처리 장부 연결 오인 방지)
   const b = r.split('[B · ')[1].split('[C · ')[0];
   assert.doesNotMatch(b, /bld:L5/);
+  assert.match(b, /공장과 본번만 같은 다른 필지, 건물명 '엘에스일렉트릭 부산공장' — 건물명에 출입처 이름이 있어 등급을 내리지 않음[\s\S]*id bld:L7/);
+  assert.doesNotMatch(b, /bld:L8/);
+  assert.match((await call('kr_official', { section: 'building', company: '부산공장' }, opts)).text, /검증 상태: 공장과 본번만 같은 다른 필지지만 건물명에 출입처 이름\('엘에스일렉트릭 부산공장'\)/);
   assert.match(r.split('[C · ')[1], /건물명 '대효제약' — 건물명이 출입처가 아닌 회사 이름\(대효제약\)이라 같은 번지의 다른 회사 건물일 수 있어 참고\(C\)/);
   // kr_official(section=building)도 같은 판단 — 기본 화면에선 참고(C)로 접고, company로 보면 다른 회사 이름 검증 줄
   const ko = (await call('kr_official', { section: 'building', company: '대효제약' }, opts)).text;

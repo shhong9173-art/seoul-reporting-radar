@@ -1570,6 +1570,18 @@ export function minorFacility(x) {
   const m = MINOR_FACILITY.exec(String(x.bldNm));
   return m ? m[0] : null;
 }
+// 본번만 같은 다른 필지(sameLot false)라 한 등급 내린 허가인데 건물명에 그 출입처 이름이 있으면 내린 것을 되돌린다 — 이웃 회사 건물이라는 의심이
+// 약해진다(11-23: LS일렉트릭 부산 화전동 552-3번지 대수선 44,855㎡ 건물명 '엘에스일렉트릭 부산공장'이 C로 접혀 있었다). 수집기 등급 규칙
+// (kr_building_watch.tier_of)의 다른 C 까닭(300㎡ 미만·다른 회사 이름·가설·용도 미기재 1,000㎡ 미만·처음 볼 때 이미 옛 허가)이 있으면 그대로
+export function ownNameNeighbor(x) {
+  if (x?.sameLot !== false || !x.bldNm || x.otherName || x.staleAtFirstSeen || x.orphan) return null;
+  if (!companiesIn(x.bldNm).has(x.company)) return null;
+  const a = Number(x.totArea) || 0;
+  const dongs = x.dongs ?? [];
+  if (a < 300 || (dongs.length && dongs.every((d) => /가설건축물|임시/.test(d.purpose ?? ''))) || (!x.mainPurpsCdNm && !dongs.some((d) => d.purpose) && a < 1000)) return null;
+  const base = x.archGbCdNm === '신축' && a >= 1000 ? 'A' : 'B';
+  return base === x.tier ? null : base;
+}
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   // 기본개요에 주용도가 없으면 동별개요(수집기가 채움)로: '가설건축물 2동' 등
@@ -1593,6 +1605,8 @@ async function buildingSection(ctx, q, days, limit) {
   const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).map((x) => {
     const bare = !x.otherName && x.sameLot !== false && (x.tier === 'A' || x.tier === 'B') ? bareFirmName(x.bldNm, x.company) : null;
     if (bare) return { ...x, otherName: bare, tier: 'C' };
+    const own = ownNameNeighbor(x);
+    if (own) return { ...x, tier: own, ownNameNeighbor: true };
     const minor = (x.tier === 'A' || x.tier === 'B') ? minorFacility(x) : null;
     return minor ? { ...x, minorFacility: minor, tier: 'C' } : x;
   }).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
@@ -1619,6 +1633,8 @@ async function buildingSection(ctx, q, days, limit) {
       ? `   검증 상태: 건물명에 다른 회사 이름('${x.otherName}') — 출입처 공장 번지에 붙은 이웃·계열사 건물로 보임(C). 건축주는 지자체(건축과) 확인`
       : x.minorFacility
       ? `   검증 상태: 건물명이 부속 시설('${x.minorFacility}') — 연면적은 건물 전체이고 공사는 작을 수 있어 참고(C). 규모·용도는 허가서·회사 확인`
+      : x.ownNameNeighbor
+      ? `   검증 상태: 공장과 본번만 같은 다른 필지지만 건물명에 출입처 이름('${x.bldNm}') — 출입처 건물로 보여 등급을 내리지 않음. 건축주는 지자체(건축과) 확인`
       : x.sameLot === false
       ? `   검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음${x.bldNm ? `(건물명 '${x.bldNm}')` : ''}. 건축주는 지자체(건축과) 확인`
       : '   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
