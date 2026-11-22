@@ -24,6 +24,9 @@ export const kstStamp = (v) => { const t = Date.parse(v); return Number.isFinite
 const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|memorandum|MOU|partnership|collaborat\w*|acquisition|acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b/i;
 const ymd8 = (v) => (/^\d{8}/.test(String(v ?? '')) ? `${String(v).slice(0, 4)}-${String(v).slice(4, 6)}-${String(v).slice(6, 8)}` : String(v ?? '').slice(0, 10));
 const has = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
+// company 낱말로 좁힐 때 항목 글에 붙인 레이더 주석(기자 판정 메모, 다른 줄을 가리키는 〔같은 사업장 …〕·〔같은 내용 외신 …〕)은 보지 않는다 —
+// 11-23 radar_today company=당진에 현대제철 순천공장 굴뚝 C 3줄이 떴다. 기자 판정 메모 '현대제철 확인 결과 정기보수(순천·당진 배출구 가동중지)'의 '당진' 때문
+export const queryFact = (fact) => String(fact ?? '').replace(/〔같은 (?:사업장|내용) [^〕]*〕\s*/g, '').replace(/ · ⓘ 기자 판정\([\s\S]*$/, '');
 
 const KTC_KIND = { case: '무역위 새 조사', step: '무역위 진행일정', left: '무역위 진행 목록에서 빠짐', meeting: '무역위 회의 안건', agenda: '무역위 회의 안건', preview: '무역위 회의 예고(출입처 신청 품목)',
   news: '무역위 보도자료' };
@@ -2120,7 +2123,7 @@ export async function radarTodayData(ctx, args) {
   const maint = maintenanceMemo(fb);
   const showJudged = args.include_judged === true || args.include_judged === 'true';
   // 이어 올린 항목(노동위 조정 결과 확인 등)은 원래 항목을 킬했으면 숨긴다
-  const found = collect(docs, cut, cutDay, { now: nowMs, maint }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
+  const found = collect(docs, cut, cutDay, { now: nowMs, maint }).filter((x) => has(q, x.company, queryFact(x.fact), x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
   const hiddenBy = {};
   // 처리 장부(11-13, handled.mjs): 기자가 접음·보류(답변 대기·예약·후배 토스)·발제함으로 남긴 취재 패키지와 이어지는 항목은 판정한 항목처럼 숨긴다.
   // 장부를 못 읽으면 숨기지 않는다(숨김은 덤이고, 못 읽었다고 항목이 사라지면 안 된다).
@@ -2186,7 +2189,7 @@ export async function radarTodayData(ctx, args) {
   // 장부의 시간 조건(패키지 뒤에 새로 생긴 배경은 '비슷한 건'일 뿐)이 그대로라 처리 뒤 새로 멈춘 굴뚝 같은 배경은 남는다.
   const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged) && !(!showJudged && handledOf(x))),
     ...background(docs, nowMs).filter((x) => showJudged || !handledOf(x))]
-    .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
+    .filter((x) => has(q, x.company, queryFact(x.fact), x.watch)), { cut });
   // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
   const coveredGroup = (g) => g.items.filter((x) => !x.background).every((x) => rank(x) === 2);
