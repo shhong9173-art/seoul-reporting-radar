@@ -87,6 +87,25 @@ class Notes(unittest.TestCase):
         return n.run("k", now=now, year=year, report=report, previous=previous, get=get, sleep=lambda s: None,
                      registry={"companies": {"두산에너빌리티": {"corp_code": "00159616"}}}, table={}, only=["두산에너빌리티"])
 
+    def test_stored_guarantee_events_lose_misread_sanction_rows(self):
+        # 11-22: 이미 저장된 'rptnote:…:guarantee'의 제재 표 줄은 보고서를 다시 받지 않고 뺀다 — 남는 줄이 없으면 사건째
+        row = "〔일자〕2025.12.24 | 〔제재기관〕대전지방법원서산지원 | 〔대상자〕前직원 | 〔처벌 또는 조치내용〕징역 5년 | 〔금전적 제재금액〕- | 〔횡령,배임 금액〕1,849 백만원"
+        keep = "〔회사명〕Hanwha Q CELLS America Inc./RWE Solar Development, LLC | 〔관 계〕종속기업 | 〔금액〕USD 157,200"
+        only = {"id": "rptnote:00115676:202611014:guarantee", "company": "KG스틸", "period": "2026년 3분기(9-30 기준)", "lines": [row], "text": "x"}
+        mixed = {**only, "id": "rptnote:00159616:202611014:guarantee", "company": "두산에너빌리티", "lines": [row, keep]}
+        sanction = {**only, "id": "rptnote:00115676:202611014:sanction"}
+        self.assertIsNone(n.drop_sanction_rows(only))
+        got = n.drop_sanction_rows(mixed)
+        self.assertEqual(got["lines"], [keep])
+        self.assertIn("이행보증·자금보충 1줄 — 〔회사명〕Hanwha", got["text"])
+        self.assertIs(n.drop_sanction_rows(sanction), sanction)            # 제재 대목은 그대로
+        clean = {**mixed, "lines": [keep]}
+        self.assertIs(n.drop_sanction_rows(clean), clean)                  # 제재 줄이 없으면 그대로
+        doc = self.run_once(previous={"companies": {"x": {}}, "events": [{**only, "detectedAt": NOW.isoformat()}, {**sanction, "detectedAt": NOW.isoformat()}]})
+        ids = {e["id"] for e in doc["events"]}
+        self.assertNotIn("rptnote:00115676:202611014:guarantee", ids)
+        self.assertIn("rptnote:00115676:202611014:sanction", ids)
+
     def test_new_lines_against_the_previous_report_and_no_second_download(self):
         calls = []
         doc = self.run_once(calls=calls)
@@ -295,6 +314,11 @@ class Notes(unittest.TestCase):
                  '<TR><TD>매매목적</TD><TD>Gold</TD><TD>1,608</TD><TD>Sell</TD><TD>하나증권</TD><TD>2026-08-31</TD><TD>388,336</TD></TR></TABLE>')
         self.assertNotIn("deal", n.sections(deriv))
         self.assertEqual(n.sections(wide)["guarantee"], [])
+        # 11-22 운영: 표 앞 글에 계약이행보증이 있고 머리에 '금전적 제재금액'(금액)이 있는 제재 표를 보증으로 받았다(KG스틸 3분기)
+        sanc = ('<P>당사는 계약이행보증을 제공하고 있습니다.</P><TABLE><TR><TH>일자</TH><TH>제재기관</TH><TH>대상자</TH><TH>처벌 또는 조치내용</TH>'
+                '<TH>금전적 제재금액</TH><TH>횡령,배임 금액</TH><TH>근거 법령</TH></TR><TR><TD>2025.12.24</TD><TD>대전지방법원서산지원</TD><TD>前직원</TD>'
+                '<TD>징역 5년</TD><TD>-</TD><TD>1,849 백만원</TD><TD>특정경제범죄가중처벌등에관한법률</TD></TR></TABLE>')
+        self.assertFalse(n.sections(sanc).get("guarantee"))
         doc = self.run_once(docs={"20261113000111": q3, "20260814000222": h1})
         new = doc["companies"]["두산에너빌리티"]["new"]
         self.assertEqual([len(new[k]) for k in ("dated", "guarantee", "deal", "order")], [1, 1, 1, 1])   # 앞 보고서에 있던 줄은 빠진다

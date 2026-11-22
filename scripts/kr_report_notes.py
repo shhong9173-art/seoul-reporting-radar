@@ -81,6 +81,10 @@ NOT_GUAR_HEAD = re.compile(r"거래|우발\s*부채|의무의\s*성격|추정\s*
 HEADING_CELL = re.compile(r"(?:공시의|에\s*대한)\s*(?:기술|공시|설명)\s*$")
 GUAR_ROW_SKIP = re.compile(r"의무의\s*성격|추정\s*재무\s*영향|지급\s*보증\s*기관|내역은\s*없습니다")
 GUAR_SKIP = re.compile(r"제공\s*받은|PF|신용\s*보강|보고\s*기간\s*(?:후|종료)|위험\s*관리|시장\s*위험")
+# 제재 표(일자·제재기관·대상자·처벌 또는 조치내용·금전적 제재금액·횡령,배임 금액)는 제재 대목이 따로 읽는다. 11-22 운영: KG스틸 3분기 제재 표
+# (전 직원 횡령·배임 징역 줄)가 '이행보증·자금보충'으로도 떴다 — 표 앞 글에 계약이행보증 낱말이 있고 머리의 '금전적 제재금액'이 '금액'에 걸렸다.
+SANCTION_HEAD = re.compile(r"제재\s*기관|처벌\s*또는\s*조치|횡령\s*,?\s*배임")
+SANCTION_LINE = re.compile(r"〔(?:제재\s*기관|처벌\s*또는\s*조치[^〔〕]{0,6}|횡령\s*,?\s*배임[^〔〕]{0,6})〕")
 TABLE_MAX = 200000   # 이보다 큰 표(상세표 통째)는 보지 않는다
 # 출입처가 아닌 계열사(AGENTS.md) — 지주사 보고서 수주 표에 이 회사 표가 섞이면 줄 앞에 표시하고 뒤로 보낸다
 # (11-17: 포스코홀딩스 수주 새 줄 50줄 대부분이 포스코이앤씨 건설 계약이었다)
@@ -434,6 +438,8 @@ def sections(text):
             sec = "order"
         elif DEAL_HEAD.search(head):
             sec = "deal"
+        elif SANCTION_HEAD.search(head):
+            continue
         elif (GUAR.search(head) or GUAR.search(near[-160:])) and not GUAR_SKIP.search(head + " " + near[-160:]):
             sec = "guarantee"
             # 표 머리에 이행보증·자금보충이 있으면 표 전체, 아니면 그 낱말이 든 줄만 — 표 앞 글로 표 전체를 받으면
@@ -501,6 +507,21 @@ def read_report(key, rcept, *, get, sleep, budget):
     return ("ok", best, None) if best else ("failed", None, "원문에서 제재·소송·연결 범위 대목을 못 찾음")
 
 
+def drop_sanction_rows(ev):
+    """저장해 둔 '이행보증·자금보충' 사건에서 제재 표 줄을 뺀다(11-22 KG스틸 — SANCTION_HEAD 앞에 읽은 것). 보고서를 다시 받지 않는다.
+    남는 줄이 없으면 사건을 없앤다(None). 다른 대목은 그대로."""
+    if not str(ev.get("id") or "").endswith(":guarantee"):
+        return ev
+    lines = [x for x in ev.get("lines") or [] if not SANCTION_LINE.search(str(x))]
+    real = [x for x in lines if not str(x).startswith("…")]
+    if len(real) == len([x for x in ev.get("lines") or [] if not str(x).startswith("…")]):
+        return ev
+    if not real:
+        return None
+    text = f"{ev.get('company')} {ev.get('period')} 보고서에 새로 적힌 {SECTIONS['guarantee']} {len(real)}줄 — {real[0][:220]}"
+    return {**ev, "lines": lines, "text": text}
+
+
 def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep=time.sleep, registry=None, table=None, only=None):
     if get is None:
         import requests
@@ -514,7 +535,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
     period = f"{year}{report}"
     prev = previous if isinstance(previous, dict) else {}
     notes = {k: v for k, v in (prev.get("companies") or {}).items() if isinstance(v, dict)}
-    old_events = [e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("id")]
+    old_events = [e for e in (drop_sanction_rows(e) for e in prev.get("events") or [] if isinstance(e, dict) and e.get("id")) if e]
     old_by_id = {e["id"]: e for e in old_events}
     first_run = not prev.get("companies")
     names = [n for n, _, _ in kx.BEATS if not only or n in only or kx.SHORT.get(n, n) in only]
