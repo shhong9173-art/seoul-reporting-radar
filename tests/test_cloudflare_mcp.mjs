@@ -5175,6 +5175,26 @@ test('kr building: permits of a plant no longer in the plant list are hidden bef
   assert.equal((r.text.match(/\(주\)포스코 부지/g) ?? []).length, 1);
 });
 
+test('kr stacks: earlier C stages of the same exceedance fold under the later stage', async () => {
+  // 11-22 화면: LG화학 여수 52번 일산화탄소가 B '장기 초과' 아래 C '초과'(626.38)·'초과 지속'(378.48)으로 두 번 더 깔렸다
+  const opts = PRIVATE();
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const chain = '(주)엘지화학여수공장(용성1단지):52:co:2026-11-21 17:00';
+  const ev = (id, kind, tier, text) => ({ id, kind, tier, company: 'LG화학', site: '㈜엘지화학 여수공장(용성1단지)', text, detectedAt: recent });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }], sites: [],
+    events: [ev(`stk:exceed:LG화학:${chain}`, '배출허용기준 초과', 'C', '52번 일산화탄소 626.38 처음 초과'),
+      ev(`stk:exceed2:LG화학:${chain}`, '배출허용기준 초과 지속', 'C', '52번 일산화탄소 378.48 2번 연속'),
+      ev(`stk:exceedlong:LG화학:${chain}`, '배출허용기준 장기 초과', 'B', '52번 일산화탄소 369.74 8번 연속(처음 626.38)'),
+      ev('stk:exceed:LG화학:(주)엘지화학여수공장(용성1단지):52:tsp:2026-11-21 19:00', '배출허용기준 초과', 'C', '52번 먼지 44.61 처음 초과'),
+      ev('stk:exceed2:LG화학:(주)엘지화학여수공장(용성1단지):52:nox:2026-11-21 17:00', '배출허용기준 초과 지속', 'B', '52번 질소산화물 2번 연속')] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text;
+  assert.match(r, /52번 일산화탄소 369\.74 8번 연속\(처음 626\.38\)/);
+  assert.doesNotMatch(r, /52번 일산화탄소 626\.38 처음 초과|52번 일산화탄소 378\.48 2번 연속/);
+  assert.match(r, /52번 먼지 44\.61 처음 초과/);                 // 다음 단계가 없는 초과는 그대로
+  assert.match(r, /52번 질소산화물 2번 연속/);
+});
+
 test('kr building: three or more small (C) permits on one parcel fold into one C line', async () => {
   // 11-22 운영: 월간 갱신에 포스코 포항 동촌동 5번지 18~342㎡ '용도 미기재' 허가가 수십 줄 C로 깔렸다
   const opts = PRIVATE();
