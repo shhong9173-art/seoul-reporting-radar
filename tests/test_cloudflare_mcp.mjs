@@ -2558,6 +2558,10 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(t.text, /- \[B · 처음 보는 이름\] 현대자동차 · 「AERO DRIVE」 · 출원 2026-10-20\n   상품류: 12류\(차량·부품\), 35류\(광고·사업관리\) · 업종 핵심 12류/);
   assert.match(t.text, /\[C · 상품류 추가\] 현대자동차 · 「NUTRIMACY」/);
   assert.match(t.text, /「OLDNEW」/);  // 14 days ago is inside the tool's 30-day default
+  // 11-22: 상표 대조 묶음에서 '브랜드'를 뺐다('최고의 전기차 브랜드' 기사가 상표 출원의 관련 보도가 됨)
+  const tmItems = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const aero = tmItems.items.find((x) => /AERO DRIVE/.test(x.fact ?? ''));
+  assert.deepEqual(aero?.check.alts?.['상표'], ['상표', '출원', '명칭']);
   assert.doesNotMatch(t.text, /PLEOS/);  // baseline filings only with show_all
   assert.match((await call('trademarks', { show_all: true, days: 120 }, opts)).text, /PLEOS/);
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
