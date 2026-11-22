@@ -1470,6 +1470,9 @@ test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유
     { item_id: 'stk:down:세아:(주)세아창원특수강:2026-11-04', verdict: '킬', reason: '회사 확인: 대정비 12월 5일까지', created_at: at },
     { item_id: 'stk:exceed:포스코:(주)포스코포항제철소:65:sox:x', verdict: '킬', reason: '기자 판단: 실시간 기준 초과 값만으로는 아직 애매', created_at: at }]);
   assert.deepEqual([...memo.keys()], ['현대제철:현대제철(주)순천공장', '세아:(주)세아창원특수강']);
+  // 11-23: 설비 공사 사유도 같은 뜻(KG스틸 당진 회사 답변 '설비 합리화 관련 투자 공사')
+  assert.deepEqual([...maintenanceMemo([{ item_id: 'stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-22', verdict: '보류', reason: '회사 답변: 설비 합리화 관련 투자 공사 진행 중 — 12월 31일까지', created_at: at },
+    { item_id: 'stk:down:KG스틸:케이지스틸(주)인천공장:2026-11-20', verdict: '보류', reason: '인천은 설명 없음 — 며칠 더 지켜봄', created_at: at }]).keys()], ['KG스틸:케이지스틸(주)당진공장']);
   assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').until).toISOString(), '2026-12-07T03:00:00.000Z');   // 30일
   assert.equal(new Date(memo.get('세아:(주)세아창원특수강').until).toISOString(), '2026-12-05T14:59:00.000Z');      // 12-05 23:59 KST
   assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').from).toISOString(), '2026-10-31T03:00:00.000Z');  // 7일 전부터
