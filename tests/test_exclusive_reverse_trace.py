@@ -387,8 +387,22 @@ class SameStory(unittest.TestCase):
         d=build(index(g,n),now=datetime(2026,11,3,10,0,tzinfo=KST))
         self.assertEqual(d["sameStoryRowsFolded"],1)
         self.assertEqual([x["articleId"] for x in d["items"]],["b"*24])
-        self.assertTrue(d["items"][0]["title"].endswith("다진다 - 철강금속신문"))
+        self.assertTrue(d["items"][0]["title"].endswith("생산체계 다진다"))     # 11-22: 화면 제목은 매체 꼬리(' - 철강금속신문')를 뗀다
         self.assertEqual(d["items"][0]["sameStoryElsewhere"][0]["sourceName"],"철강금속신문")
+
+    def test_retitled_repost_folds_and_publisher_tails_are_stripped_11_22(self):
+        # 11-22 scoop_reverse: 전기신문 SK온 기사가 '입찰 도전'·'입찰 참여'로 두 줄, 제목 끝 ' - 머니투데이'·' By EBN' 꼬리
+        a=self.row("a","[단독] SK온, LFP로 ‘제주 25년 장기계약’ 입찰 도전…초장기 수명 검증 시험대","2026-11-20T08:39:00+09:00","전기신문","SK온")
+        b=self.row("b","[단독] SK온, LFP로 ‘제주 25년 장기계약’ 입찰 참여…초장기 수명 검증 시험대","2026-11-20T08:36:00+09:00","전기신문","SK온")
+        self.assertEqual(fold_same_story([a,b]),{"a"*24:"b"*24})
+        from scripts.exclusive_reverse_trace import strip_publisher
+        self.assertEqual(strip_publisher("[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설 - 머니투데이 - 머니투데이"),"[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설")
+        self.assertEqual(strip_publisher("[단독] 현대차 퇴사 10일만에 BMW 옷 입었다 By The Guru"),"[단독] 현대차 퇴사 10일만에 BMW 옷 입었다")
+        self.assertEqual(strip_publisher("[단독] LS-니꼬동제련 지분 정리"),"[단독] LS-니꼬동제련 지분 정리")
+        # 서로 다른 기사(같은 회사·같은 날)는 그대로
+        c=self.row("c","[단독] 현대차 '집콕 근무' 사라진다","2026-11-19T17:47:00+09:00","mk.co.kr","현대차")
+        d=self.row("d","[단독] 현대차, 채용 웹사이트서 ‘재택근무’ 항목삭제…집콕 원천차단 속도","2026-11-19T14:38:00+09:00","매일경제","현대차")
+        self.assertEqual(fold_same_story([c,d]),{})
 
     def test_clipped_prefix_does_not_join_two_different_stories_and_reviewed_rows_stay(self):
         a=self.row("a","[단독] 현대차 울산공장 파업…G80 하이브리드 투입 마찰","2026-11-02T13:26:00+09:00",company="현대차")

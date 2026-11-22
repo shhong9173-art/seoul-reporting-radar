@@ -835,16 +835,9 @@ def build_stats(root: Path, now: datetime):
 
 
 def strip_publisher(title):
-    """구글 뉴스 제목 끝 매체 꼬리 — ' - 머니투데이'(11-22: ' - 머니투데이 - 머니투데이'처럼 두 번 붙은 것도), ' By EBN'·' By The Guru - …'."""
-    t = str(title or "").strip()
-    t = re.sub(r"\s+By\s+(?:The\s+)?[A-Z][\w.]*(?:\s+-\s+[^-]{1,40})?$", "", t)
-    m = re.search(r"\s+-\s+([^-]{1,40})$", t)
-    if m:
-        tail = m.group(1).strip()
-        t = t[:m.start()]
-        while t.endswith(f" - {tail}"):
-            t = t[: -len(f" - {tail}")]
-    return t.strip()
+    """구글 뉴스 제목 끝 매체 꼬리 떼기 — 역추적과 같은 규칙(exclusive_reverse_trace.strip_publisher)."""
+    from scripts.exclusive_reverse_trace import strip_publisher as strip
+    return strip(title)
 
 
 def fold_same_outlet(rows):
