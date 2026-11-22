@@ -2044,6 +2044,9 @@ export async function radarTodayData(ctx, args) {
   // Automatic press check (radar_press_check.py): unreported first, then unchecked/미확인, then already covered.
   const press = await readFeed(ctx, 'radar-check');
   const checked = new Map((press?.broken ? [] : press?.items ?? []).map((r) => [String(r.id), r]));
+  // 11-22: 지금 규칙으로 대조 낱말이 없는 항목(자동 대조 대상에서 빠짐)의 옛 대조 결과는 쓰지 않는다 — 규칙이 바뀐 뒤에도 옛 '관련 보도 있음'이
+  // 남아 단독 데스크에서 '이미 보도'로 걷혔다(Nikkei '현대차 투자', #1072). 단독 후보 심사 항목(x.verdict)은 자기 대조 결과를 쓴다.
+  for (const x of found) if (!x.check && !x.verdict) checked.delete(String(x.id));
   const pressOf = (x) => x.verdict ?? checked.get(String(x.id))?.verdict;
   const rank = (x) => PRESS_RANK[pressOf(x)] ?? 1;
   const byTier = (t) => all.filter((x) => x.tier === t)
