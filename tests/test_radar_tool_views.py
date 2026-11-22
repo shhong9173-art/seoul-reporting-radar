@@ -69,6 +69,11 @@ def fixture(root, with_index=True):
          "sourceUrls": ["https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"]},
         {"company": "현대제철", "topic": "segmentSales", "rowIdentity": ["봉형강"], "priorValue": "100", "currentValue": "104",
          "percentChange": 4.0, "unit": "백만원", "fromYear": 2025, "toYear": 2026, "sourceUrls": []},
+        # 11-23: 표 제목이 보고 주체로 읽힌 줄('자산항목:비품')과 정렬용 공백이 낀 낱말('운 송')
+        {"company": "HL만도", "topic": "segmentSales", "reportingEntity": "자산항목:비품", "rowIdentity": ["인도", "제품, 상품, 기타매출"],
+         "priorValue": "743047", "currentValue": "879225", "percentChange": 18.3, "unit": "백만원", "period": "09", "fromYear": 2025, "toYear": 2026, "sourceUrls": []},
+        {"company": "금호석유화학", "topic": "segmentSales", "reportingEntity": "주요종속회사:금호티앤엘(주)", "rowIdentity": ["운 송", "서비스"],
+         "priorValue": "6757", "currentValue": "8402", "percentChange": 24.4, "unit": "백만원", "period": "09", "fromYear": 2025, "toYear": 2026, "sourceUrls": []},
     ]})
     write(root, "digests/governance_latest.json", {"generatedAt": "2026-10-26T07:40:00+09:00", "status": "complete", "items": [
         {"company": "고려아연", "team": "철강·비철", "kind": "대량보유(5%)", "date": "2026-10-20", "receiptNo": "20261020000111",
@@ -240,6 +245,10 @@ class Views(unittest.TestCase):
         self.assertIn("기업 실적 아님", steel["caveat"])
         labels = [s["label"] for s in stats]
         self.assertTrue(any("LS일렉트릭 생산능력" in x for x in labels))
+        self.assertIn("HL만도 부문 매출 (인도 / 제품, 상품, 기타매출)", labels)
+        self.assertIn("금호석유화학 부문 매출 (주요종속회사:금호티앤엘(주) / 운송 / 서비스)", labels)
+        self.assertEqual(v.tidy_label("한국 공장"), "한국 공장")   # 두 글자 넘는 낱말 사이 공백은 그대로
+        self.assertEqual(v.tidy_label("하 역"), "하역")
         self.assertFalse(any("봉형강" in x for x in labels))  # 4% change is not a signal
 
     def test_dandok_strips_publisher_and_drops_old_rows(self):

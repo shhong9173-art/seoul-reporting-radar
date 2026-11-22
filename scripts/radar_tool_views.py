@@ -771,6 +771,17 @@ def from_hs_trends(data):
     return out
 
 
+# 공시 표 줄 이름 다듬기(화면만 — 비교 열쇠는 그대로). 11-23 radar_stats: 'HL만도 부문 매출 (자산항목:비품 / 인도 / …)' — 수집기가 표 앞
+# 대괄호 글을 회사(보고 주체)로 읽는데, 앞 구역 유형자산 표의 '[자산항목 : 비품]'·'[산출근거]'·'[주요시설현황]' 같은 표 제목이 매출 표까지 이어졌다.
+# '운 송'·'하 역'처럼 정렬용 공백이 낀 두 글자 낱말은 붙인다.
+CAPTION_ENTITY = re.compile(r"^(?:자산항목|\(참고\)|\d+\.)|산출근거|현황$|주요제품$")
+SPACED_WORD = re.compile(r"(?<![가-힣])([가-힣]) ([가-힣])(?![가-힣])")
+
+
+def tidy_label(text):
+    return SPACED_WORD.sub(r"\1\2", str(text or "")).strip()
+
+
 def from_metric_changes(data, kind, source, items_key):
     out = []
     for x in (data or {}).get(items_key, []) or []:
@@ -780,9 +791,13 @@ def from_metric_changes(data, kind, source, items_key):
         change = pct(x.get("percentChange") if "percentChange" in x else x.get("changePercent"))
         if change is None or abs(change) < 10:
             continue
-        row = " / ".join(str(v) for v in (x.get("rowIdentity") or []))
+        # 열쇠(항목 id·판정 기록이 붙는 곳)는 예전 그대로 원래 이름으로 — 화면 이름만 다듬는다
+        raw = " / ".join(str(v) for v in (x.get("rowIdentity") or []))
+        row = " / ".join(tidy_label(v) for v in (x.get("rowIdentity") or []))
         entity = str(x.get("reportingEntity") or "")
         if entity:
+            raw = entity + " / " + raw
+        if entity and not CAPTION_ENTITY.search(entity):
             row = entity + " / " + row
         topic = TOPIC_LABEL.get(x.get("topic"), x.get("topic"))
         period = (f"{x.get('fromYear')}→{x.get('toYear')}" + (f" {x.get('period')}월 누적" if x.get("period") else ""))
@@ -791,7 +806,7 @@ def from_metric_changes(data, kind, source, items_key):
                         unit=x.get("unit") or "", change=change, source=source, urls=x.get("sourceUrls") or [],
                         generated=stamp(data), company=company,
                         caveat="공시 원문 표 숫자 변동만 확인(물량·사업 영향·기보도 미확인)",
-                        key=f"{x.get('company')}|{x.get('topic')}|{row}"))
+                        key=f"{x.get('company')}|{x.get('topic')}|{raw}"))
     return out
 
 
