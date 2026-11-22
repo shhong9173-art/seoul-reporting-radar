@@ -11,7 +11,7 @@ import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
 import { watchByPrefix, watchFromPackage } from '../cloudflare/review.mjs';
-import { deskType } from '../cloudflare/desk.mjs';
+import { alertAge, deskType } from '../cloudflare/desk.mjs';
 import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
@@ -3155,6 +3155,14 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   assert.match((await call('radar_today', { hours: 72 }, opts)).text, /id fr:x 〔알림 검토 10-25: 이미 기사 있어 안 보냄〕(?:\n|$)/);   // '즉시 알림 대상' 표시는 뗀다
   // 보통 단독 데스크 화면에도 검토 흔적이 보인다
   assert.match((await call('scoop_desk', { days: 3 }, opts)).text, /id fr:x 〔알림 검토 10-25: 이미 기사 있어 안 보냄〕/);
+  // 11-23: 알림으로 보낸 지 하루가 지났고 판정이 없는 것은 1구역(새 후보)이 아니라 3구역에 한 줄씩
+  const dk = (await call('scoop_desk', {}, { ...opts, now: new Date(NOW.getTime() + 30 * 3600000) })).text;
+  assert.doesNotMatch(dk.split('[1. 새 후보')[1].split('\n[')[0], /id fr:2026-20698/);
+  assert.match(dk, /\[3\. 앞서 추천했고 판정이 없는 것\] \d+건 — 새 사실이 붙었을 때만 다시 낸다 \(즉시 알림으로 보낸 지 하루 지난 \d+건 포함 — 정리는 candidate_feedback\)\n(?:- [^\n]*\n)*?- 즉시 알림 보냄 10-25 · A · 무역구제 · KG스틸·동국씨엠·포스코 · 미국 관보 예비 판정: Certain Corrosion-Resistant[^\n]* · id fr:2026-20698/);
+  assert.equal(alertAge('10-25 08:43', Date.parse('2026-10-26T00:00:00Z')), (24 * 60 + 17) * 60000);
+  assert.equal(alertAge('10-25', Date.parse('2026-10-26T00:00:00Z')), (9 * 60 + 1) * 60000);         // 시각이 없으면 그날 23:59로
+  assert.equal(alertAge('12-30 10:00', Date.parse('2027-01-02T01:00:00Z')), 72 * 3600000);          // 해 넘김
+  assert.equal(alertAge('', NOW.getTime()), null);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'fr:2026-20698');
   assert.deepEqual([hit.tier, hit.check.who, hit.check.terms], ['A', 'KG스틸', ['관세', '반덤핑']]);
