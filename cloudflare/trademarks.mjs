@@ -121,6 +121,24 @@ export const goodsNote = (f) => {
   return ` · 지정상품(${String(g.class).padStart(2, '0')}류) ${text.length > 140 ? `${text.slice(0, 139)}…` : text}`;
 };
 const kstShort = (t) => (Number.isFinite(Date.parse(t)) ? `${new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} KST` : String(t));
+// 유럽·미국 줄도 같은 회사·같은 이름(대소문자 무시)·같은 출원일은 한 줄로(11-22 화면: 'GENESIS MAGMA' 상품류 9개가 9줄, 'Hyundai Essential Parts'가 4줄 —
+// 새로 본 유럽·미국 출원 각 18건 중 대부분). 등급은 가장 높은 줄, 상품류는 합치고 출원번호는 '외 N건'. 지정상품 발췌는 맨 앞 줄(가장 높은 등급) 것
+const TIER_RANK = { A: 0, B: 1, C: 2 };
+export function groupSameName(rows) {
+  const groups = new Map();
+  for (const f of rows) {
+    const k = `${f.company}|${String(f.title ?? '').trim().toLowerCase()}|${f.applicationDate ?? ''}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(f);
+  }
+  return [...groups.values()].map((fs) => {
+    if (fs.length === 1) return fs[0];
+    const best = [...fs].sort((a, b) => (TIER_RANK[a.tier] ?? 3) - (TIER_RANK[b.tier] ?? 3))[0];
+    return { ...best, classes: [...new Set(fs.flatMap((f) => f.classes ?? []))].sort(), titleNew: fs.some((f) => f.titleNew), isNew: fs.some((f) => f.isNew),
+      moreNumbers: fs.filter((f) => f !== best).map((f) => f.applicationNumber) };
+  });
+}
+
 function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = Date.now() }) {
   if (!eu) return [];
   const T = OFFICE_TEXT[office] ?? OFFICE_TEXT.EM;
@@ -149,14 +167,14 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = 
   if (zero.length) out.push(eu.provider === 'signa'
     ? `출원일 창 안 0건: ${zero.map((c) => c.company).join(', ')} — 이름은 11-09 탐침으로 확인(2년 안 출원이 있던 곳은 최근 출원이 없는 것, 0건 확정은 아님)`
     : `검색 0건(영문 출원인 이름 형식 확인): ${zero.map((c) => c.company).join(', ')}`);
-  const rows = (eu.filings ?? []).filter((f) => all || f.isNew)
+  const rows = groupSameName((eu.filings ?? []).filter((f) => all || f.isNew)
     .filter((f) => String(f.firstSeen ?? '').slice(0, 10) >= from || (all && String(f.applicationDate ?? '') >= from))
-    .filter((f) => matches(q, f.company) && matches(name, f.title) && (!cls || (f.classes ?? []).includes(cls)))
+    .filter((f) => matches(q, f.company) && matches(name, f.title) && (!cls || (f.classes ?? []).includes(cls))))
     .sort((a, b) => (a.tier ?? 'Z').localeCompare(b.tier ?? 'Z') || String(b.applicationDate).localeCompare(String(a.applicationDate)));
   out.push(`[${all ? `저장된 ${T.short} 출원` : `새로 본 ${T.short} 출원`}] ${rows.length}건`);
   for (const f of rows.slice(0, limit)) {
     out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
-      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${irNote(f)}${goodsNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
+      + ` · 출원번호 ${f.applicationNumber}${(f.moreNumbers ?? []).length ? ` 외 ${f.moreNumbers.length}건(상품류마다 출원)` : ''}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${irNote(f)}${goodsNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
   }
   if (!rows.length) out.push((eu.blocked && eu.provider !== 'signa') || bad.length || waitingEu.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
   out.push(`검증 상태: ${T.verify}(자동 수집${eu.provider === 'signa' ? ', Signa 2차 자료 — 불완전·부정확할 수 있음' : ''}). ${T.how}`);
