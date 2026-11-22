@@ -1560,6 +1560,22 @@ test('정기보수 메모로 접은 사업장의 멈춤·빠짐 줄은 한 줄�
   // 메모로 접힌 줄이 하나뿐이면 묶지 않는다(앞 테스트의 '사업장 가동 중단 신호 · ⓘ 기자 판정' 꼴 그대로)
 });
 
+test('같은 사업장 배출구 목록 빠짐(C)은 한 줄로 묶는다(11-23 S-OIL 온산 4·51·6·69번 넉 줄)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  const gone = (code, h, extra = '') => ({ id: `stk:gone:S-OIL:S-OIL(주)온산공장:${code}:2026-10-2${Math.floor(h / 24)}`, kind: '배출구 목록에서 빠짐', tier: 'C', company: 'S-OIL',
+    site: 'S-OIL㈜ 온산공장', text: `S-OIL㈜ 온산공장 배출구 ${code}번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)${extra}`, detectedAt: at(h) });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.5), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events: [gone('4', 48, ' — 이후 다시 나타남(측정 2026-10-24 09:00, 일시적 누락)'), gone('51', 27), gone('6', 2),
+      { ...gone('7', 5), id: 'stk:gone:GS칼텍스:지에스칼텍스(주):7:2026-10-25', company: 'GS칼텍스', site: '지에스칼텍스㈜' }] }) }), opts.env, {});
+  const c = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text.split('[C · ')[1] ?? '';
+  assert.match(c, /같은 사업장 배출구 목록 빠짐 3줄 묶음: S-OIL㈜ 온산공장 — 배출구 6·51·4번\(\d\d-\d\d~\d\d-\d\d\) · 그중 1줄은 이후 다시 나타남\(일시적 누락\) — 가장 최근 줄: S-OIL㈜ 온산공장 배출구 6번이[^\n]* — 하나씩은 kr_official\(section=stacks, company=S-OIL\)/);
+  assert.match(c, /id stkgone:stk:gone:S-OIL:S-OIL\(주\)온산공장:6:/);
+  assert.equal((c.match(/S-OIL㈜ 온산공장 배출구 51번이/g) ?? []).length, 0);   // 묶은 줄은 따로 안 나온다
+  assert.match(c, /배출구 7번이 굴뚝 자동측정 목록에서 2번 연속 빠짐[^\n]*\n   자세히: kr_official · id stk:gone:GS칼텍스:/);   // 한 줄뿐인 사업장은 그대로
+});
+
 test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지 보인다(11-23 월요일 72시간 화면이 B 중간에서 잘림)', async () => {
   const opts = PRIVATE();
   const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
