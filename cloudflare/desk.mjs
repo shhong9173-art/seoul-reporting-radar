@@ -50,7 +50,8 @@ export const DESK_TYPES = [
     test: (x) => foreignDoc(x) && ![W.uknotice, W.euoj, W.thtr, W.jptr].includes(x.watch) },   // 영국 정부 고시·EU 관보 규정은 목록 줄이 아니라 문서
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
     // 공시(DART)에서 나온 단서만 — 조달청 입찰공고 같은 다른 공개 단서는 '그 밖'(11-15 운영: LS일렉트릭 워크스테이션 구매 입찰공고가 이 유형 맨 위에 떴다)
-    test: (x) => x.watch === W.screen && x.tier === 'A' && /dart\.fss\.or\.kr/.test(x.url ?? '') },
+    // 사업보고서 수치 단서(x.metric — 정기보고서 표 숫자 비교)는 사건 공시가 아니다(11-22 SK이노 '해외판매'가 이 유형 맨 위에 6일)
+    test: (x) => x.watch === W.screen && x.tier === 'A' && !x.metric && /dart\.fss\.or\.kr/.test(x.url ?? '') },
   { key: 'building', strength: 'strong', label: '공장 부지 건축허가(신축 1,000㎡ 이상)', why: '10-30 기사(LS전선 구미 희토류 영구자석 공장) 18시간 앞 — 자동 대조',
     test: (x) => x.watch === W.building && x.tier === 'A' },
   // --- 약한 유형: 기자가 여러 번 킬·접음 ---
