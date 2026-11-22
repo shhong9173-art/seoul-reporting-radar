@@ -342,6 +342,12 @@ class Capture(unittest.TestCase):
         self.assertEqual(r.same_numbers("강관 4.2%", "duty 4.20%"), (["4.2%"], ["4.2%"], True))
         self.assertEqual(r.same_numbers("관세 70%대", "duty 80.10%"), (["70%대"], [], True))
         self.assertEqual(r.same_numbers("관세 70%대", "투자 3,450억원"), (["70%대"], [], False))
+        # 11-22: 둥근 제목 금액(10조원)은 5%까지 — 고려아연 '74억달러(약 9조8479억원)' ↔ '10조원 프로젝트'
+        item = "Korea Zinc secures U.S. power supply for $7.4 billion · 74억달러(약 9조8479억원)"
+        self.assertEqual(r.same_numbers("고려아연, 美 통합제련소 전력 사용 승인…10조원 프로젝트 순항", item), (["10조원"], ["10조원"], True))
+        self.assertEqual(r.same_numbers("1조원 투자", "투자 1조2000억원"), (["1조원"], [], True))          # 20% 차이는 다름
+        self.assertEqual(r.same_numbers("4882억 공급계약 해지", "계약 4,950억원"), (["4882억"], [], True))   # 둥글지 않은 숫자는 1%
+        self.assertEqual([x[2] for x in r.numbers_in("74억달러(약 9조8479억원) · 3억 유로")], ["9조8479억원"])  # 달러·유로 금액은 원화로 안 셈
         self.assertEqual(r.doc_key("https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular"), "fr:2026-22630")
         self.assertEqual(r.doc_key("https://www.federalregister.gov/d/2026-22630"), "fr:2026-22630")
 
