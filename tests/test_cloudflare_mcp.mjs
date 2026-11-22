@@ -1408,6 +1408,13 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.ok(!convergence([hearing, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '당진'));
   const mediation = { ...hearing, id: 'lb2', kind: '조정회의', fact: '충남지방노동위원회 조정회의 · 사건 「현대제철 당진 노동쟁의 조정신청」' };
   assert.ok(convergence([mediation, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '당진'));
+  // 11-22: 법원·지청 이름 속 지명은 공장 자리가 아니다(두산에너빌리티 소송 '창원지방법원', KG스틸 제재 '대전지방법원서산지원'·'천안지청')
+  const suit = { id: 'rn1', tier: 'B', tool: 'kr_signals', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: '현대제철', date: '2026-10-29',
+    fact: '현대제철 3분기 보고서 소송 1줄: 「입찰참가자격 제한처분 취소 소송(창원지방법원 2023구합14037) · 대전지방법원서산지원 · 고용노동청 천안지청」' };
+  const stackCw = { id: 'st9', tier: 'B', tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', date: '2026-10-29', fact: '현대제철 창원공장 배출구 멈춤' };
+  const g9 = convergence([suit, stackCw], { cut: Date.parse('2026-10-29T03:00:00Z') });
+  assert.ok(!g9.some((x) => ['창원', '서산', '천안'].includes(x.place)), JSON.stringify(g9.map((x) => x.place)));
+  assert.ok(convergence([{ ...suit, fact: `${suit.fact} · 현대제철 창원공장 과태료` }, stackCw], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '창원'));   // 공장 이름이 함께 있으면 묶는다
 });
 
 test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
