@@ -646,7 +646,10 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                                                "kind": (p.get("kind") or "")[:20], "job": (p.get("job") or "")[:80]},   # 문제 임원 점검이 후보 경력으로 다시 본다
                                   flags=flags, source="주총 소집공고", key=f"{rc}|{kx.name_key(p.get('name'))}",
                                   extra={"filed": filed, **({"baseline": True} if x.get("_backfill") else {})}))
+    # 열어 볼 새 임원 공시(안 본 독립이사 신고·대표이사 변경·출입처 소집공고)가 없으면 원문 0줄이 정상(주말 등) — 사유를 적어 조용한 0건
+    # '형식 변경 의심'에서 빼게 한다(11-23 타사 공시 속 출입처 '공시 원문 0줄' 경보와 같은 꼴)
     checks.append({"source": "수시 임원 공시 원문", "status": "ok" if not failed else "partial", "returned": opened,
+                   **({"note": f"새로 열어 볼 임원 공시 없음(공시 목록 {len(rows)}건 중 안 본 해당 공시 0건)"} if not picked else {}),
                    **({"error": f"원문 못 읽음 {failed}건"} if failed else {}), **({"pending": waiting} if waiting else {})})
     cut = (now - dt.timedelta(days=SEEN_DAYS)).date().isoformat()
     state["seen"] = {k: v for k, v in seen.items() if v >= cut}

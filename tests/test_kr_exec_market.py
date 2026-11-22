@@ -226,6 +226,12 @@ class Runs(unittest.TestCase):
         again = run(self.fake(), previous=doc, skip_roster=True)
         self.assertEqual(again["counts"]["newEvents"], 0)
         self.assertEqual(again["counts"]["opened"], 0)        # 본 접수번호는 다시 열지 않는다
+        # 11-23: 열어 볼 새 공시가 없으면 원문 0줄에 사유(조용한 0건 '형식 변경 의심'에서 빠지게)
+        orig = {c["source"]: c for c in doc["checks"]}["수시 임원 공시 원문"]
+        self.assertNotIn("note", orig)
+        chk = {c["source"]: c for c in again["checks"]}["수시 임원 공시 원문"]
+        self.assertEqual(chk["returned"], 0)
+        self.assertRegex(chk["note"], r"^새로 열어 볼 임원 공시 없음\(공시 목록 \d+건 중 안 본 해당 공시 0건\)$")
 
     def test_agm_backfill_reads_older_beat_notices_as_baseline(self):
         class Dated(Fake):   # 목록이 기간·회사로 거른다(실제 OpenDART처럼)

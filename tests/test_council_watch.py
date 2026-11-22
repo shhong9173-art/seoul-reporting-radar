@@ -84,6 +84,12 @@ class Run(unittest.TestCase):
         self.assertIn("신차 2000대가 공장 시설로 허가받은 땅에 야적", ev[0]["text"])
         self.assertIn("회의록 번호 CLIKC1(국회도서관 지방의정포털)", ev[0]["text"])
         self.assertEqual(ev[0]["url"], "https://clik.nanet.go.kr/potal/search/searchView.do?collection=minutes&DOCID=CLIKC1")   # 원본 파일 주소가 비면 포털 회의록 화면(탐침 154)
+        self.assertNotIn("note", doc2["checks"][0])
+        # 11-23: 목록은 왔는데 새 회의록이 없으면 0줄에 사유(조용한 0건 '형식 변경 의심'에서 빠지게), 목록 0줄이면 사유 없음
+        doc3 = w.run(NOW + dt.timedelta(days=2), doc2, key="k", get=fake(lists)[0], sleep=lambda s: None)
+        self.assertEqual((doc3["checks"][0]["returned"], doc3["checks"][0]["listed"], doc3["checks"][0]["note"]), (0, 4, "새 회의록 없음(목록 4줄 모두 앞서 본 번호)"))
+        doc4 = w.run(NOW + dt.timedelta(days=3), doc3, key="k", get=fake({})[0], sleep=lambda s: None)
+        self.assertEqual((doc4["checks"][0]["returned"], doc4["checks"][0].get("note")), (0, None))
 
     def test_failures(self):
         get, _ = fake({})

@@ -231,6 +231,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, regions=Non
     tries = {k: v for k, v in (prev.get("tries") or {}).items() if isinstance(v, int)}
     depth = int(prev.get("listCount") or 30) if not first else LIST_COUNT   # 이전 실행이 본 목록 길이(11-04 전은 30)
     errors, fresh, fatal = [], [], False
+    listed = 0   # 낱말마다 받은 목록 줄 수 합(이미 본 회의록 포함) — 새 회의록 0건이 '목록은 왔는데 새 것 없음'인지 가른다
     for i, (term, comp, pat) in enumerate(TERMS):
         if i:
             sleep(PAUSE)
@@ -248,7 +249,9 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, regions=Non
                 fatal = True
                 break
             continue
-        for k, row in enumerate(rows_of(body)):
+        got = rows_of(body)
+        listed += len(got)
+        for k, row in enumerate(got):
             did = str(row.get("DOCID") or "")
             if not did or did in seen or any(f[0] == did for f in fresh):
                 continue
@@ -319,7 +322,11 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, regions=Non
             "checks": [{"source": "국회도서관 지방의회 회의록(CLIK)", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "returned": len(fresh), "opened": opened, **({"pending": pending} if pending else {}),
                         **({"error": "; ".join(errors[:4])} if errors else {}),
-                        **({"note": "첫 실행 기준선(새 회의록 번호만 기억)"} if first else {})}],
+                        **({"note": "첫 실행 기준선(새 회의록 번호만 기억)"} if first else {}),
+                        # 목록은 왔는데 새 회의록 번호가 없으면 0이 정상(주말·회기 없는 주) — 사유를 적어 조용한 0건 '형식 변경 의심'에서 빼게 한다.
+                        # 목록 자체가 0줄이면 사유를 안 붙인다(형식 변경일 수 있음)
+                        **({"note": f"새 회의록 없음(목록 {listed}줄 모두 앞서 본 번호)"} if not first and not fresh and listed and not errors else {}),
+                        "listed": listed}],
             "seen": dict(sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:3000]),
             **({"tries": tries} if tries else {}),
             "items": sorted((x for x in known.values() if str(x.get("firstSeen")) >= keep), key=lambda x: str(x.get("date")), reverse=True)[:300],
