@@ -2729,6 +2729,26 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['earnings-compare.yml', 'assembly-bills.yml', 'dart-beat-monitor.yml']);  // Wed 17:40 KST(실적 업종 비교 11-04 추가)
 });
 
+test('상표(11-23): 같은 회사·같은 이름의 미국·유럽 출원은 등급 높은 줄 하나로 — 다른 나라 출원일·번호를 적는다', async () => {
+  const opts = PRIVATE();
+  const f = (office, num, title, date, tier, extra = {}) => ({ id: `${office === 'EU' ? 'euipo' : 'uspto'}:${num}`, company: '현대자동차', applicationNumber: num, title, applicationDate: date,
+    classes: ['12'], coreClasses: ['12'], status: 'NEW', applicants: ['HYUNDAI MOTOR COMPANY'], firstSeen: '2026-10-26T07:20:00+09:00', isNew: true, titleNew: tier === 'B', tier, via: 'signa', ...extra });
+  const doc = { schema: 'trademarks/v1', generatedAt: '2026-10-26T07:10:00+09:00', status: 'complete', window: { from: '2026-07-28', to: '2026-10-26' }, baselineSince: '2026-10-01T07:10:00+09:00',
+    checks: [{ source: '상표 현대자동차', status: 'ok', rawTotal: 0, kept: 0 }], filings: [], fresh: [], seen: {}, titles: {}, rules: [],
+    eu: { source: 'EUIPO', generatedAt: '2026-10-26T07:20:00+09:00', status: 'complete', checks: [{ company: '현대자동차', status: 'ok', rawTotal: 2, kept: 2 }],
+      filings: [f('EU', '019448658', 'Essential by Hyundai', '2026-10-20', 'C'), f('EU', '019448673', 'Genesis Magma', '2026-10-20', 'C')] },
+    us: { source: 'USPTO', generatedAt: '2026-10-26T07:30:00+09:00', status: 'complete', checks: [{ company: '현대자동차', status: 'ok', rawTotal: 2, kept: 2 }],
+      filings: [f('US', '50213518', 'ESSENTIAL BY HYUNDAI', '2026-10-20', 'B'), f('US', '50223374', 'GENESIS MAGMA', '2026-10-24', 'C'), f('US', '50300000', 'OTHER NAME', '2026-10-21', 'C')] } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+  const r = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text;
+  const b = r.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /미국\(USPTO\) 상표 출원 「ESSENTIAL BY HYUNDAI」[^\n]* · 같은 이름 다른 나라 출원: 유럽연합\(EUIPO\) 2026-10-20\(019448658\) — 여러 나라에 같은 이름/);
+  assert.doesNotMatch(r, /「Essential by Hyundai」/);   // 유럽 줄은 빠진다
+  assert.match(r, /상표 출원 「Genesis Magma」[^\n]* · 같은 이름 다른 나라 출원: 미국\(USPTO\) 2026-10-24\(50223374\)/);   // 둘 다 C면 먼저 낸 쪽에
+  assert.doesNotMatch(r, /「GENESIS MAGMA」/);
+  assert.match(r, /「OTHER NAME」/);   // 한 나라뿐이면 그대로
+});
+
 test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -2796,7 +2816,10 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /상표 출원 · 현대자동차\n   상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 [0-9]+ 외 1\)/);
   assert.doesNotMatch(r.text, /OLDNEW/);  // first seen two weeks ago: off the digest
-  assert.match(b, /유럽연합\(EUIPO\) 상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 019000002, 출원인 Hyundai Motor Company\)/);
+  // 11-23: 같은 이름 유럽 출원은 국내 줄에 묶는다(나라별 두 줄 → 한 줄, 다른 나라 출원일·번호)
+  assert.match(b, /상표 출원 「AERO DRIVE」[^\n]* · 같은 이름 다른 나라 출원: 유럽연합\(EUIPO\) 2026-10-20\(019000002\) — 여러 나라에 같은 이름/);
+  assert.doesNotMatch(r.text, /유럽연합\(EUIPO\) 상표 출원 「AERO DRIVE」/);
+  assert.match((await call('trademarks', {}, opts)).text, /AERO DRIVE/);   // 하나씩은 trademarks 도구에
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   // 11-09: EUIPO 운영 검색이 막힌 동안 Signa(2차 원천)로 대신 읽은 유럽 출원 — 원천·남은 크레딧·원문 확인·마드리드 지정 표시

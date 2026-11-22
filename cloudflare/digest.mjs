@@ -1791,6 +1791,33 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 
+  // 같은 회사·같은 이름의 나라별 상표 출원은 한 줄(11-23 72시간 화면: 현대차 'HYUNDAI ESSENTIAL PARTS'·'ESSENTIAL BY HYUNDAI'가 미국 B·유럽 C로, 'GENESIS MAGMA'가
+  // 미국 C·유럽 C로 두 줄씩 — 여러 나라에 같은 이름을 낸 것 자체가 한 사실). 등급 높은 줄(같으면 먼저 낸 것)에 다른 나라 출원일·번호를 적고 나머지 줄은 뺀다(trademarks 도구엔 그대로)
+  {
+    const tmNorm = (t) => String(t ?? '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+    const tmItems = items.filter((x) => x.watch === W.trademarks.label);
+    const jur = (x) => (/^유럽/.test(x.kind) ? '유럽연합(EUIPO)' : /^미국/.test(x.kind) ? '미국(USPTO)' : '국내(KIPRIS)');
+    const titleOf = (x) => (/상표 출원 「([^」]+)」/.exec(x.fact) ?? [])[1];
+    const numOf = (x) => (/(?:출원번호|일련번호) ([^\s,)]+)/.exec(x.fact) ?? [])[1];
+    const groups = new Map();
+    for (const x of tmItems) {
+      const t = titleOf(x);
+      if (!t) continue;
+      const k = `${x.company}|${tmNorm(t)}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(x);
+    }
+    const drop = new Set();
+    for (const g of groups.values()) {
+      if (new Set(g.map(jur)).size < 2) continue;
+      g.sort((a, b) => (a.tier === b.tier ? 0 : a.tier === 'B' ? -1 : 1) || String(a.date ?? '').localeCompare(String(b.date ?? '')));
+      const [lead, ...rest] = g;
+      lead.fact += ` · 같은 이름 다른 나라 출원: ${rest.map((x) => `${jur(x)} ${x.date ?? '?'}(${numOf(x) ?? '?'})`).join(' · ')} — 여러 나라에 같은 이름(한 줄로 묶음, 하나씩은 trademarks)`;
+      for (const x of rest) drop.add(x);
+    }
+    if (drop.size) for (let i = items.length - 1; i >= 0; i -= 1) if (drop.has(items[i])) items.splice(i, 1);
+  }
+
   // 해외 특허 공개(EPO OPS, 주 1회 토요일): 새로 본 EP·WO 공개는 참고(C) — 공개는 출원 약 18개월 뒤라 개발 완료·양산이 아니다.
   // 같은 패밀리(EP와 WO)는 한 줄. 보도 대조는 하지 않는다(기술 낱말이 영문 제목뿐이라 네이버 대조가 맞지 않음 — patents_abroad에서 직접).
   const epoFam = new Map();
