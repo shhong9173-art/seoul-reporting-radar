@@ -3517,6 +3517,11 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:htwo', { title: 'HTWO Guangzhou and Air Liquide China sign hydrogen mobility MoU', koTitle: '현대차 HTWO 광저우와 에어리퀴드 차이나, 수소 모빌리티 MOU 체결',
       beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['MOU'] }),
     it('gl:pv5', { title: 'Kia reveals UK prices for PV5 Chassis', koTitle: '기아, PV5 Chassis 및 고성능 EV 밴 가격 공개', beatCompanies: ['기아'], titleCompanies: ['기아'], checkTerms: ['투자'] }),
+    // 11-22 운영: 같은 계약 외신 여러 매체(포스코-CATL 리튬 3건) — 먼저 난 하나만 B, 나머지는 C로 접고 매체를 적는다
+    it('gl:catl1', { title: 'POSCO signs three-year lithium supply deal with CATL', koTitle: '포스코, CATL과 3년간 리튬 공급 계약 체결', source: 'upi', beatCompanies: ['포스코'], titleCompanies: ['포스코'], checkTerms: ['수주'],
+      published: new Date(Date.parse(now) - 10 * 3600000).toISOString() }),
+    it('gl:catl2', { title: 'POSCO Group signs lithium deal with CATL', koTitle: '포스코그룹, CATL과 리튬 공급 계약', source: 'digitimes', beatCompanies: ['포스코'], titleCompanies: ['포스코'], checkTerms: ['수주'],
+      published: new Date(Date.parse(now) - 5 * 3600000).toISOString() }),
     // 11-22 운영: 게재 나흘 뒤에 처음 잡힌 기사(출입처 이름 검색은 7일 전까지 읽음)
     it('gl:late', { title: 'Korea Zinc secures U.S. power supply for smelter', koTitle: '고려아연, 제련소 미국 전력 공급 확보', beatCompanies: ['고려아연'], titleCompanies: ['고려아연'],
       checkTerms: ['제련소'], published: new Date(Date.parse(now) - 4.5 * 86400000).toISOString() })] };
@@ -3570,6 +3575,11 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.deepEqual(items.items.find((x) => x.id === 'gl:htwo').check.must, ['HTWO']);
   assert.deepEqual(items.items.find((x) => x.id === 'gl:pv5').check.must, ['PV5', 'Chassis']);   // EV는 흔한 약어
   assert.deepEqual(us.check.must, ['앨라배마']);                                                // 나라·주 이름이 있으면 그것만(예전대로)
+  // 같은 내용 외신은 먼저 난 것 하나만 B·대조, 나머지는 C로 접는다
+  assert.match(b, /포스코, CATL과 3년간 리튬 공급 계약 체결[^\n]* · 같은 내용으로 보이는 외신 1건 더\(digitimes — 가장 먼저 난 기사 기준, 참고로 접음\)/);
+  assert.match(r.text.split('[C · ')[1], /〔같은 내용 외신 — 먼저 난 upi 줄\(id gl:catl1\)에 묶음〕 외신 digitimes 「포스코그룹, CATL과 리튬 공급 계약」/);
+  assert.ok(items.items.find((x) => x.id === 'gl:catl1')?.check);
+  assert.ok(!items.items.find((x) => x.id === 'gl:catl2'));
 });
 
 test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {
