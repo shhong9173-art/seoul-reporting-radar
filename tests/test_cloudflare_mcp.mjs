@@ -2270,8 +2270,11 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /월간 통계: 생산자물가 중후판 2026-09 150\.84\(2020=100\) · 2023-10\(153\.04\) 이후 최고/);
   assert.match(b, /수입차 등록: KAIDA 2026-09 · BMW 신규등록 6,066대 · 2025-01\(5,960\) 이후 최저/);
-  assert.doesNotMatch(b, /전년 같은 달 대비 \+12\.4%|Polestar/);  // routine moves and low-rank swaps → C
-  assert.match(r.text, /\[C · 참고\(접힘\)\] 2건/);
+  assert.doesNotMatch(b, /Polestar/);  // low-rank swaps → C
+  // 11-22: 같은 계열·같은 달 신호는 한 줄 — 전년 대비 변동(C)은 최고(B) 줄 끝에 붙고 따로 C 줄을 만들지 않는다
+  assert.match(b, /생산자물가 중후판 2026-09 150\.84\(2020=100\) · 2023-10\(153\.04\) 이후 최고 — 35개월 만 · 같은 달 다른 신호: 전년 같은 달 대비 \+12\.4%/);
+  assert.equal((r.text.match(/생산자물가 중후판 2026-09/g) ?? []).length, 1);
+  assert.match(r.text, /\[C · 참고\(접힘\)\] 1건/);
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
 });
 
