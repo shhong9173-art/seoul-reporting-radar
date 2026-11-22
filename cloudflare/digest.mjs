@@ -10,7 +10,7 @@ import { alertHealth, taskHealth } from './alert_health.mjs';
 import { runsHealth } from './gh_runs.mjs';
 import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
-import { MAX_TEXT, beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
+import { MAX_TEXT, beatName, clampInt, fetchJson, safeEqual, subjectJosa, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
@@ -1565,7 +1565,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const [co, siteId, code, gas] = key.split('|');
     const cross = eps[REPEAT_MIN - 1][0].slice(0, 10);
     push('B', W['kr-stacks'], { kind: '배출허용기준 되풀이 초과', id: `stkrep:${co}:${siteId}:${code}:${gas}:${cross}`, date: g.last.detectedAt, company: g.company, site: g.site,
-      fact: `${g.site ?? siteId} 배출구 ${top?.code ?? code}번 ${top?.gas ?? gas}이(가) 최근 7일 배출허용기준을 ${eps.length}번 따로 넘음(${kstMD(eps[0][1].t)}~${kstMD(eps[eps.length - 1][1].t)}`
+      fact: `${g.site ?? siteId} 배출구 ${top?.code ?? code}번 ${subjectJosa(top?.gas ?? gas)} 최근 7일 배출허용기준을 ${eps.length}번 따로 넘음(${kstMD(eps[0][1].t)}~${kstMD(eps[eps.length - 1][1].t)}`
         + `${top ? `, 최대 ${top.v} — 기준 ${top.lim}의 ${top.ratio}배` : ''}) — 한 번씩은 짧은 초과(참고)지만 되풀이돼 B · 실시간 자동측정 값(확정 전), 측정기 점검·교정 값일 수 있음`
         + ` — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인 — 하나씩은 kr_official(section=stacks, company=${g.company})`,
       check: stackHint({ kind: '배출허용기준 초과', company: g.company, site: g.site, text: g.last.text }) });

@@ -39,6 +39,14 @@ export const REGISTRY_NAMES = {
   'POSCO홀딩스': '포스코홀딩스',
 };
 
+// 주격 조사 이/가 — 마지막 글자가 한글이면 받침으로, 아니면 '이(가)'(dart_counterparty_watch.subject_josa와 같은 규칙)
+export function subjectJosa(word) {
+  const w = String(word ?? '');
+  const c = w.charCodeAt(w.length - 1);
+  if (!(c >= 0xac00 && c <= 0xd7a3)) return `${w}이(가)`;
+  return `${w}${(c - 0xac00) % 28 ? '이' : '가'}`;
+}
+
 export function beatName(raw) {
   const name = String(raw ?? '').trim();
   const mapped = REGISTRY_NAMES[name] ?? name;
