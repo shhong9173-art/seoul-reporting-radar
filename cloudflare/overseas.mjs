@@ -1966,7 +1966,9 @@ export async function stacksSection(ctx, q, days, limit) {
   const obsOf = (s) => Math.max(0, ...Object.values(s.stacks ?? {}).map((st) => (st.obs ?? []).length));
   const out = [`\n[굴뚝 측정(공장 가동 신호) · 출입처 사업장 ${sites.length}곳 · 배출구 ${stacks}개 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
     `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.terms ? `, 검색 ${c.terms}` : ''}${c.error ? `, ${c.error}` : ''})`).join(' · ')} · 기준선 ${String(doc.baselineSince ?? '').slice(0, 10)}`,
-    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`),
+    // 화면 쪽 규칙(수집기 규칙 글에는 없다 — 수집기를 바꾸면 push 실행이 굴뚝 조회를 한 번 더 하고 '연달아 N번' 셈이 당겨진다)
+    "규칙(레이더 화면, 11-23): 위 등급 상한에 더해, 같은 배출구·같은 물질이 최근 7일 따로 시작한 초과(시작 측정이 다른 것 — 처음·지속·장기 단계는 한 번으로) 4번 이상이면 radar_today에 B '배출허용기준 되풀이 초과' 한 줄로 올린다(한 번씩은 C 그대로). 같은 사업장 참고(C) 줄이 셋 이상이면 radar_today에서 사업장마다 한 줄로 묶는다(초과·멈춤 따로) — 하나씩은 이 화면."];
   // 정기보수 메모(기자 판정, 11-08): 이 기간 이 사업장의 멈춤·빠짐 신호는 radar_today에서 C로 접는다 — 여기에는 그대로 보인다
   const memo = await storeOp(ctx, 'feedback.latest', {}).then(({ rows }) => maintenanceMemo(rows)).catch(() => new Map());
   const nowMs = ctx.now.getTime();
