@@ -2629,6 +2629,14 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     assert.doesNotMatch(us.slice(us.indexOf('[미국 상표 출원')), /영문 출원인 이름 형식 확인/);
     const minorUs = (await call('radar_today', { include_minor: true }, opts)).text;
     assert.match(minorUs, /미국\(USPTO\) 상표 출원 「GENESIS BOX BUGGY」 28류[^\n]* — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-02, 일련번호 50141613, 출원인 HYUNDAI MOTOR COMPANY\) · Signa 2차 자료 — USPTO TSDR 원문 확인/);
+    // 11-22: 같은 회사·같은 이름·같은 출원일의 상품류별 출원은 radar_today에서도 한 줄(trademarks 도구와 같은 묶음) — 'Genesis Magma' 상품류마다 C 한 줄씩 깔렸다
+    s.us.filings.push({ ...s.us.filings[0], id: 'uspto:50141614', applicationNumber: '50141614', title: 'Genesis Box Buggy', classes: ['12'] });
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
+    const grouped = (await call('radar_today', { include_minor: true }, opts)).text;
+    assert.equal((grouped.match(/상표 출원 「GENESIS BOX BUGGY」|상표 출원 「Genesis Box Buggy」/gi) ?? []).length, 1);
+    assert.match(grouped, /미국\(USPTO\) 상표 출원 「GENESIS BOX BUGGY」 12류\(차량·부품\), 28류[^\n]*일련번호 50141613 외 1건\(50141614\), 출원인 HYUNDAI MOTOR COMPANY\)[^\n]*\n   [^\n]*id uspto:50141613/);
+    s.us.filings.pop();
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
     // 11-14(Signa 답장): 출원 근거(사용 의사 1B)·출원인 id 목록 조회·Signa가 관청 자료를 마지막으로 맞춘 때
     s.us.filings[0].basis = ['intent_to_use'];
     Object.assign(s.us, { ownerIds: { 현대자동차: { own_h1: 'HYUNDAI MOTOR COMPANY' }, 포스코: { own_p1: 'POSCO Co.' }, LG화학: {} }, providerSyncedAt: '2026-10-25T13:14:40.468Z',
