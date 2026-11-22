@@ -4402,6 +4402,14 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   }
 });
 
+test('wonEok: 원 금액을 억·조로(수집기 eok와 같이 억 아래는 버림)', async () => {
+  const { wonEok } = await import('../cloudflare/overseas.mjs');
+  assert.equal(wonEok(81581034600), '약 815억원');
+  assert.equal(wonEok(1234567000000), '약 1조2,345억원');
+  assert.equal(wonEok(40000000), '약 0.4억원');
+  assert.equal(wonEok(0), '금액 미상');
+});
+
 test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -4424,7 +4432,7 @@ test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱�
   const k = await call('kr_signals', { section: 'counterparty' }, opts);
   assert.match(k.text, /\[타사 공시 속 출입처\(거래상대\) · DART 시장 전체 · 확인 [^\]]+ · 접수 최근 30일\] 1건/);
   assert.match(k.text, /원천: OpenDART 공시검색\(시장 전체 B·I\) ok\(812\) · 공시 원문 ok\(41\) · 이번 실행 목록 812 · 종류로 거른 후보 41 · 원문 41/);
-  assert.match(k.text, /- \[신규\] A · 2026-10-26 · 국도화학 「영업양수결정\(종속회사의주요경영사항\)」 → LG화학 · 자산·영업·지분 거래 상대\n   원문 발췌: 「1\. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 금액 78,437,000,000원\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026800562/);
+  assert.match(k.text, /- \[신규\] A · 2026-10-26 · 국도화학 「영업양수결정\(종속회사의주요경영사항\)」 → LG화학 · 자산·영업·지분 거래 상대\n   원문 발췌: 「1\. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 금액 78,437,000,000원\(약 784억원\)\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026800562/);
   assert.match(k.text, /같은 그룹 계열사 공시 1건 접음 — include_mentions=true/);
   assert.match((await call('kr_signals', { section: 'counterparty', include_mentions: true }, opts)).text, /현대글로비스 「단일판매ㆍ공급계약체결」 → 현대차 · 공급계약 상대 · 같은 그룹 계열사 공시/);
 });
