@@ -130,6 +130,19 @@ class OfficialEventTriage(unittest.TestCase):
         metric=next(x for x in out["backgroundReference"] if x["source"]=="DART_METRIC")
         self.assertEqual(metric["officialDate"],"2026-08-11")
         self.assertFalse(metric["freshArticleConfirmed"])
+    def test_metric_headline_names_the_reporting_entity(self):
+        # 11-22: 'SK이노베이션 · 해외판매'는 SK온㈜ 표 숫자였다 — 자회사·부문·자산 항목은 제목에, 머리 칸 이름·회사 영문 이름은 빼고
+        self.assertEqual(t.entity_note("SK온㈜")," (SK온)")
+        self.assertEqual(t.entity_note("주요종속회사:금호티앤엘(주)")," (금호티앤엘)")
+        self.assertEqual(t.entity_note("자산항목:비품")," (자산 항목 비품)")
+        self.assertEqual(t.entity_note("타이어부문")," (타이어부문)")
+        for v in ("","주요종속회사의내용","LSELECTRIC",None):
+            self.assertEqual(t.entity_note(v),"")
+        a=samples()
+        a["recent_metric_changes"]["items"][0]["reportingEntity"]="SK온㈜"
+        metric=next(x for x in t.build(a,now=NOW)["backgroundReference"] if x["source"]=="DART_METRIC")
+        self.assertTrue(metric["headline"].endswith(" (SK온)"),metric["headline"])
+        self.assertNotIn("SK온",metric["id"])                        # 사건 열쇠는 그대로
     def test_verification_questions_only_request_public_facts(self):
         result=t.build(samples(),now=NOW)
         delta=next(x for x in result["backgroundReference"] if x["source"]=="DART_DELTA")
