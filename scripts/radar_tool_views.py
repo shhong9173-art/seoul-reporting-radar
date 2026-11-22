@@ -834,6 +834,30 @@ def build_stats(root: Path, now: datetime):
             "count": len(unique), "items": unique}
 
 
+def fold_same_outlet(rows):
+    """같은 날 같은 매체의 같은 기사 두 줄을 한 줄로(긴 제목을 남김). 11-22 dandok_monitor: 이투데이 '[단독] 법원, 현대모비스 램프사업'(잘린 제목,
+    '...' 표시 없음 — 역추적 묶음은 16자 미만 제목을 그대로 둔다)과 온전한 제목이 두 줄, 전기신문 SK온 기사가 '입찰 도전'·'입찰 참여'로 제목만 바꿔 두 줄."""
+    from difflib import SequenceMatcher
+    from scripts.exclusive_reverse_trace import story_key
+    out = []
+    for r in rows:
+        k = story_key(r.get("title"))
+        hit = None
+        for o in out:
+            if o["published"] != r["published"] or o.get("source") != r.get("source") or not o.get("source"):
+                continue
+            ko = story_key(o.get("title"))
+            short, long_ = sorted((k, ko), key=len)
+            if (len(short) >= 6 and long_.startswith(short)) or SequenceMatcher(None, k, ko).ratio() >= 0.9:
+                hit = o
+                break
+        if hit is None:
+            out.append(r)
+        elif len(k) > len(story_key(hit.get("title"))):
+            hit.update({"title": r["title"], "url": r.get("url") or hit.get("url")})
+    return out
+
+
 def build_dandok(root: Path, now: datetime, keep_days=120):
     from scripts.exclusive_reverse_trace import aware, best_title, fold_same_story
     rows, seen = [], set()
@@ -860,6 +884,7 @@ def build_dandok(root: Path, now: datetime, keep_days=120):
         rows.append({"published": published, "source": x.get("sourceName"), "title": title[:200],
                      "url": x.get("url"), "companies": companies, "team": team_for(companies)})
     rows.sort(key=lambda r: r["published"], reverse=True)
+    rows = fold_same_outlet(rows)
     return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"),
             "sourceGeneratedAt": stamp(data), "status": data.get("status"),
             "note": "구글 뉴스 RSS 제목 색인의 [단독] 기사. 전문·원 게시시각 미검증. 목록에 없다고 단독이 아닌 건 아니다.",
