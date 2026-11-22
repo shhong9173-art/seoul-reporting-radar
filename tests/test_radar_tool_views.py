@@ -52,6 +52,8 @@ def fixture(root, with_index=True):
                    "published": "2026-10-25T09:00:00+09:00", "companies": ["현대제철"], "url": "https://news.example/2"},
                   {"title": "[단독] 현대제철, 인천 전기로 신설…2028년...", "sourceName": "news.example",   # 네이버 잘린 제목 — 같은 기사
                    "published": "2026-10-25T10:00:00+09:00", "companies": ["현대제철"], "url": "https://news.example/2n"},
+                  {"title": "[단독] 믿었던 제네시스가 ‘펑’··· 현대차, 다이오드 문제 - 매체C", "sourceName": "매체C",   # 제네시스·현대차 → 현대차 한 번
+                   "published": "2026-10-24T09:00:00+09:00", "companies": ["제네시스", "현대차"], "url": "https://news.example/3"},
                   {"title": "[단독] 오래된 기사 - 매체B", "sourceName": "매체B",
                    "published": "2026-03-01T09:00:00+09:00", "companies": ["현대차"], "url": "https://news.example/3"},
               ]})
@@ -242,8 +244,9 @@ class Views(unittest.TestCase):
 
     def test_dandok_strips_publisher_and_drops_old_rows(self):
         dandok = self.build()["dandok"]
-        self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표"])
+        self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표", "[단독] 믿었던 제네시스가 ‘펑’··· 현대차, 다이오드 문제"])
         self.assertEqual(dandok["items"][0]["team"], "철강·비철")
+        self.assertEqual(dandok["items"][1]["companies"], ["현대차"])
 
     def test_dandok_folds_same_outlet_same_day_duplicates(self):
         # 11-22 dandok_monitor: 잘린 제목('...' 없음)과 온전한 제목, 제목 낱말 하나만 바꾼 재게시가 두 줄씩 떴다
@@ -259,6 +262,14 @@ class Views(unittest.TestCase):
                                                     "[단독] 현대차 '집콕 근무' 사라진다",
                                                     "[단독] 현대차, 채용 웹사이트서 ‘재택근무’ 항목삭제…집콕 원천차단 속도"])   # 다른 매체·다른 기사는 그대로
         self.assertEqual(out[0]["url"], "u2")
+
+    def test_dandok_publisher_tails_are_stripped(self):
+        # 11-22 dandok_monitor: ' - 머니투데이'가 두 번 붙은 제목, ' By EBN'·' By The Guru - In…' 꼬리
+        self.assertEqual(v.strip_publisher("[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설 - 머니투데이 - 머니투데이"), "[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설")
+        self.assertEqual(v.strip_publisher("[단독] 현대차, 하이브리드 승부수...열효율 45% ’린번 엔진’ 꺼냈다 By EBN"), "[단독] 현대차, 하이브리드 승부수...열효율 45% ’린번 엔진’ 꺼냈다")
+        self.assertEqual(v.strip_publisher("[단독] 포스코인터, 러시아서 ’떼인 돈’ 받는다 By The Guru - In"), "[단독] 포스코인터, 러시아서 ’떼인 돈’ 받는다")
+        self.assertEqual(v.strip_publisher("[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표 - 매일경제"), "[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표")
+        self.assertEqual(v.strip_publisher("[단독] LS-니꼬동제련 지분 정리"), "[단독] LS-니꼬동제련 지분 정리")     # 제목 속 하이픈은 그대로
 
     def test_health_marks_missing_and_not_connected_sources(self):
         health = self.build()["health"]
