@@ -1403,6 +1403,11 @@ test('converging signals: background (workforce project, recent permit, stopped 
   const site = { id: 'l8', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-29', fact: '당진시 공고 「현대제철㈜ 당진 전기로 공유수면 점용」' };
   assert.deepEqual(convergence([speech, site, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).find((x) => x.place === '당진')?.items.map((x) => x.id).sort(),
     ['bg:stk:s1', 'bg:wf:p2', 'c1', 'l8'].sort());
+  // 11-22: 노동위 개별 구제신청(심판)만으로는 배경과 묶지 않는다 — 조정(쟁의)은 공장 가동과 이어질 수 있어 묶는다
+  const hearing = { id: 'lb1', tier: 'B', tool: 'kr_official', watch: '노동위 회의(조정·심판)', kind: '심판회의', company: '현대제철', date: '2026-10-29', fact: '충남지방노동위원회 심판회의 · 사건 「현대제철 당진 부당전직 구제신청」' };
+  assert.ok(!convergence([hearing, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '당진'));
+  const mediation = { ...hearing, id: 'lb2', kind: '조정회의', fact: '충남지방노동위원회 조정회의 · 사건 「현대제철 당진 노동쟁의 조정신청」' };
+  assert.ok(convergence([mediation, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') }).some((x) => x.place === '당진'));
 });
 
 test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
