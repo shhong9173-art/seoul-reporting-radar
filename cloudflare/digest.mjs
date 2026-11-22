@@ -1226,15 +1226,28 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (list.length < 3) { for (const { entry } of list) push('C', W['kr-building'], entry); continue; }
     const xs = list.map((v) => v.x).sort((a, b) => String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
     const head = xs[0];
-    const areas = xs.map((v) => Number(v.totArea)).filter((v) => Number.isFinite(v) && v > 0);
-    const fmt = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const fmt = (v) => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
     const kinds = [...new Set(xs.map((v) => v.archGbCdNm).filter(Boolean))].join('·');
     const late = xs.filter((v) => { const pT = Date.parse(`${v.permitted ?? ''}T00:00:00+09:00`), fT = Date.parse(v.firstSeen ?? ''); return fT - pT > 30 * 86400000; }).length;
+    // C 까닭(수집기 kr_building_watch.tier_of와 같은 차례) — 11-22 운영: 71건 묶음에 '소규모'라고 적었는데 3,918,805㎡ 증축(처음 볼 때 이미 1년 지난 옛 허가)이 섞였다.
+    // 연면적 합은 뺀다(증축 연면적은 건물 전체라 더하면 뜻이 없다)
+    const why = (v) => { const a = Number(v.totArea) || 0;
+      if (a < 300 || v.otherName) return v.otherName ? '이웃' : '소규모';
+      if ((v.dongs ?? []).length && v.dongs.every((d) => /가설건축물|임시/.test(d.purpose ?? ''))) return '가설';
+      if (!v.mainPurpsCdNm && !(v.dongs ?? []).some((d) => d.purpose) && a < 1000) return '용도';
+      if (v.sameLot === false) return '이웃';
+      return v.staleAtFirstSeen ? '옛' : '기타'; };
+    const LABEL = { 소규모: '300㎡ 미만', 용도: '용도 미기재(1,000㎡ 미만)', 가설: '가설건축물', 이웃: '이웃 필지·다른 회사 건물명', 옛: '처음 볼 때 이미 90일 넘은 옛 허가', 기타: '그 밖' };
+    const cnt = {};
+    for (const v of xs) cnt[why(v)] = (cnt[why(v)] ?? 0) + 1;
+    const big = [...xs].sort((a, b) => (Number(b.totArea) || 0) - (Number(a.totArea) || 0))[0];
+    const bigNote = Number(big.totArea) >= 1000 ? ` · 가장 큰 줄 ${fmt(big.totArea)}㎡(${big.archGbCdNm ?? '구분 미기재'}${big.archGbCdNm === '증축' ? ' — 건물 전체일 수 있음' : ''}, 허가 ${big.permitted ?? '?'}, ${LABEL[why(big)]}, id ${big.id})` : '';
+    const lotQ = String(head.plot ?? '').split(/\s+/).slice(-2).join(' ');
     push('C', W['kr-building'], { kind: '건축 참고 허가 묶음', id: `bdlot:${head.id}`, date: head.permitted ?? head.firstSeen, company: head.company,
       fact: `같은 번지 참고(C) 건축허가 ${xs.length}건 묶음: ${head.factory ?? head.company} 부지(${head.plot})${kinds ? ` · ${kinds}` : ''}`
         + ` · 허가 ${xs[xs.length - 1].permitted ?? '?'}~${head.permitted ?? '?'}`
-        + `${areas.length ? ` · 연면적 각 ${fmt(Math.min(...areas))}~${fmt(Math.max(...areas))}㎡(합 ${fmt(areas.reduce((a, b) => a + b, 0))}㎡)` : ''}`
-        + `${late ? ` · 그중 ${late}건은 허가 30일 넘게 뒤에 자료에 올라옴` : ''} — 소규모·가설·용도 미기재 허가라 참고. 하나씩은 kr_official(section=building, company=${head.company})` });
+        + ` · C 까닭 ${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${LABEL[k]} ${n}`).join(' · ')}${bigNote}`
+        + `${late ? ` · 그중 ${late}건은 허가 30일 넘게 뒤에 자료에 올라옴` : ''} — 하나씩은 kr_official(section=building, company=${lotQ}, days 늘려서)` });
   }
 
   // 통합환경허가 정보공개(11-21): 등급은 수집기(변경허가 B, 통합허가·관련 기업 C). 보도 대조는 회사 + 환경 허가 낱말(사업장 지명이 있으면 함께)

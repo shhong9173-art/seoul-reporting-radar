@@ -5156,6 +5156,8 @@ test('kr building: three or more small (C) permits on one parcel fold into one C
     bldNm: null, archGbCdNm: '신축', mainPurpsCdNm: null, totArea: 54, permitted: '2026-10-13', kind: '새 허가', tier: 'C', firstSeen: now, baseline: false, isNew: true, ...extra });
   const bdoc = { schema: 'kr_building/v1', generatedAt: now, status: 'complete', plants: 2, parcelsResolved: 2, rules: [], checks: [{ source: '건축인허가', status: 'ok', returned: 6 }],
     permits: [p('bld:s1', { totArea: 18, permitted: '2026-09-01' }), p('bld:s2', { totArea: 342, permitted: '2026-10-20', archGbCdNm: '증축' }), p('bld:s3'), p('bld:s4', { totArea: 45, permitted: '2026-10-02' }),
+      // 11-22 운영: 같은 번지 C에 처음 볼 때 이미 1년 지난 3,918,805㎡ 증축(옛 허가)이 섞였다 — '소규모'가 아니다
+      p('bld:old', { totArea: 3918805, archGbCdNm: '증축', mainPurpsCdNm: '공장', permitted: '2025-10-24', staleAtFirstSeen: true }),
       p('bld:first', { plot: '경상북도 포항시 남구 괴동동 1번지', permitted: '2026-08-01', firstSeen: new Date(NOW.getTime() - 7 * 86400000).toISOString(), baseline: true }),  // 지난 실행(기준선)
       p('bld:big', { totArea: 49112, archGbCdNm: '증축', mainPurpsCdNm: '공장', tier: 'B' }),
       p('bld:o1', { plot: '경상북도 포항시 남구 장흥동 470번지', totArea: 30 }), p('bld:o2', { plot: '경상북도 포항시 남구 장흥동 470번지', totArea: 40 })] };
@@ -5166,7 +5168,8 @@ test('kr building: three or more small (C) permits on one parcel fold into one C
   }
   const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
   const c = r.text.split('[C · ')[1];
-  assert.match(c, /같은 번지 참고\(C\) 건축허가 4건 묶음: \(주\)포스코 부지\(경상북도 포항시 남구 동촌동 5번지\) · 증축·신축 · 허가 2026-09-01~2026-10-20 · 연면적 각 18~342㎡\(합 459㎡\) · 그중 1건은 허가 30일 넘게 뒤에 자료에 올라옴 — [^\n]*하나씩은 kr_official\(section=building, company=포스코\)/);
+  assert.match(c, /같은 번지 참고\(C\) 건축허가 5건 묶음: \(주\)포스코 부지\(경상북도 포항시 남구 동촌동 5번지\) · 증축·신축 · 허가 2025-10-24~2026-10-20 · C 까닭 300㎡ 미만 3 · 용도 미기재\(1,000㎡ 미만\) 1 · 처음 볼 때 이미 90일 넘은 옛 허가 1 · 가장 큰 줄 3,918,805㎡\(증축 — 건물 전체일 수 있음, 허가 2025-10-24, 처음 볼 때 이미 90일 넘은 옛 허가, id bld:old\) · 그중 2건은 허가 30일 넘게 뒤에 자료에 올라옴 — 하나씩은 kr_official\(section=building, company=동촌동 5번지, days 늘려서\)/);
+  assert.doesNotMatch(c, /연면적 각|합 \d/);      // 증축 연면적은 건물 전체 — 더하지 않는다
   assert.match(c, /id bdlot:bld:s2/);
   assert.doesNotMatch(c, /id bld:s[134]\b/);
   assert.equal((c.match(/장흥동 470번지/g) ?? []).length, 2);                 // 두 건뿐인 번지는 그대로 한 줄씩
