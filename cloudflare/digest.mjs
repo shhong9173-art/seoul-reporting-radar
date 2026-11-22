@@ -1006,6 +1006,26 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published, x.koTitle) : undefined });
   }
 
+  // 같은 내용 외신 접기(11-22): 같은 출입처·같은 대조 낱말·같은 필수어(상대 회사 영문 이름·나라)로 사흘 안에 난 B 외신은 같은 기사일 가능성이 높다 —
+  // 가장 먼저 난 것 하나만 B로 두고 나머지는 C(참고)로 내려 그 줄에 매체를 적는다. 11-22 운영: 포스코-CATL 리튬 공급 계약 외신 3건
+  // (Mining.com.au·digitimes·upi)이 B 세 줄로 떠 같은 '관련 보도 있음'을 세 번 대조했다. 필수어가 없는 외신('현대차 공장')은 다른 기사일 수 있어 안 접는다.
+  {
+    const gb = items.filter((x) => x.watch === W['global-beat'].label && x.tier === 'B' && x.check?.must?.length);
+    const sig = (x) => `${x.check.who}|${x.check.terms.join('·')}|${x.check.must.join('·')}`;
+    const groups = new Map();
+    for (const x of gb) groups.set(sig(x), [...(groups.get(sig(x)) ?? []), x]);
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      g.sort((a, b) => String(a.date ?? '').localeCompare(String(b.date ?? '')));
+      const lead = g[0];
+      const rest = g.slice(1).filter((x) => Date.parse(x.date) - Date.parse(lead.date) <= 3 * 86400000);
+      if (!rest.length) continue;
+      const src = (x) => (/^외신 (.+?) 「/.exec(x.fact) ?? [])[1] ?? '';
+      lead.fact += ` · 같은 내용으로 보이는 외신 ${rest.length}건 더(${rest.map(src).filter(Boolean).join('·')} — 가장 먼저 난 기사 기준, 참고로 접음)`;
+      for (const x of rest) Object.assign(x, { tier: 'C', check: undefined, fact: `〔같은 내용 외신 — 먼저 난 ${src(lead) || '기사'} 줄(id ${lead.id})에 묶음〕 ${x.fact}` });
+    }
+  }
+
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.
   for (const e of docs['us-osha']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
