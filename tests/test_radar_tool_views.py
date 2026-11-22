@@ -236,6 +236,27 @@ class Views(unittest.TestCase):
         self.assertTrue(by["자동차 뉴스 수집"]["problem"])  # file missing in fixture
         self.assertIn("0건이 아니다", health["rule"])
 
+    def test_weekday_only_contract_ledger_does_not_warn_on_sunday(self):
+        # 11-22(일) 09:36: 금요일 08:10 판이 49.3시간으로 '⚠ 계약 공시 원장'이 떴다 — 평일(월~금)만 도는 원천이다.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fixture(tmp.name, True)
+        sunday = datetime(2026, 11, 22, 9, 36, tzinfo=KST)
+        write(tmp.name, "digests/recent_contracts_latest.json", {"generatedAt": "2026-11-20T08:20:00+09:00", "status": "ok"})
+        row = {r["source"]: r for r in v.build_health(Path(tmp.name), sunday)["items"]}["계약 공시 원장"]
+        self.assertFalse(row["problem"])
+        self.assertEqual(row["ageHours"], 49.3)
+        self.assertIn("주말 33.6시간 빼면 15.7시간", row["note"])
+        # 월요일 판을 놓치면 화요일 아침엔 여전히 알린다(주말 48시간을 빼도 48시간 넘음).
+        tuesday = datetime(2026, 11, 24, 9, 0, tzinfo=KST)
+        row = {r["source"]: r for r in v.build_health(Path(tmp.name), tuesday)["items"]}["계약 공시 원장"]
+        self.assertTrue(row["problem"])
+        # 평일만 도는 원천이 아닌 것(DART 출입처 공시)은 주말도 그대로 센다.
+        write(tmp.name, "digests/dart_beat_run_health_latest.json", {"generatedAt": "2026-11-20T08:20:00+09:00", "status": "ok"})
+        row = {r["source"]: r for r in v.build_health(Path(tmp.name), sunday)["items"]}["DART 출입처 공시"]
+        self.assertTrue(row["problem"])
+        self.assertNotIn("note", row)
+
     def test_kipris_row_reads_the_shared_ledger_not_the_old_budget_file(self):
         # 11-02: 예전 예산 파일만 읽어 'KIPRIS 특허: ok · 다음 1회 확인 None'이 떴다
         tmp = tempfile.TemporaryDirectory()

@@ -872,7 +872,8 @@ HEALTH_FILES = (
     ("공식 사건 분류", "digests/official_event_triage_latest.json", 30),
     ("기보도 뉴스 색인", "digests/press_coverage_index_latest.json", 30),
     ("[단독] 기사 색인", "digests/historical_exclusive_press_index_latest.json", 30),
-    ("계약 공시 원장", "digests/recent_contracts_latest.json", 48),
+    # 평일(월~금 08:10)만 도는 원천: 금요일 판이 일요일 아침에 48시간을 넘겨 매주 거짓 ⚠가 떴다(11-22).
+    ("계약 공시 원장", "digests/recent_contracts_latest.json", 48, "weekdays"),
     ("관세청 10일 잠정치", "digests/customs_tenday_latest.json", 24 * 12),
     ("특허 파이프라인", "digests/patent_run_health_latest.json", 72),
     ("지분공시(대량보유·임원 소유)", "digests/governance_latest.json", 96),
@@ -880,16 +881,35 @@ HEALTH_FILES = (
 )
 
 
+def weekend_hours(value, now):
+    """value~now 사이에서 한국 시각 토·일에 걸친 시간. 평일만 도는 원천의 경과 시간에서 뺀다."""
+    start = parse_dt(value)
+    if not start or start >= now:
+        return 0.0
+    start, end = start.astimezone(KST), now.astimezone(KST)
+    total, day0 = 0.0, start.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day0 < end:
+        day1 = day0 + timedelta(days=1)
+        if day0.weekday() >= 5:
+            total += (min(end, day1) - max(start, day0)).total_seconds() / 3600
+        day0 = day1
+    return round(max(total, 0.0), 1)
+
+
 def build_health(root: Path, now: datetime):
     rows = []
-    for label, rel, max_age in HEALTH_FILES:
+    for label, rel, max_age, *flags in HEALTH_FILES:
         data = load(root / rel)
         generated = stamp(data)
         age = age_hours(generated, now)
+        off = weekend_hours(generated, now) if "weekdays" in flags and age is not None else 0.0
         status = str((data or {}).get("status") or ("missing" if data is None else "ok"))
-        problem = data is None or age is None or age > max_age or status in ("degraded", "source_error", "not_connected")
-        rows.append({"source": label, "file": rel, "status": status, "generatedAt": generated,
-                     "ageHours": age, "expectedMaxAgeHours": max_age, "problem": bool(problem)})
+        problem = data is None or age is None or age - off > max_age or status in ("degraded", "source_error", "not_connected")
+        row = {"source": label, "file": rel, "status": status, "generatedAt": generated,
+               "ageHours": age, "expectedMaxAgeHours": max_age, "problem": bool(problem)}
+        if off:
+            row["note"] = f"평일(월~금)만 갱신 — 주말 {off}시간 빼면 {round(age - off, 1)}시간"
+        rows.append(row)
     g2b = load(root / "digests/g2b_source_status_latest.json") or {}
     rows.append({"source": "나라장터 입찰공고", "file": "digests/g2b_source_status_latest.json",
                  "status": g2b.get("status", "missing"), "generatedAt": g2b.get("generatedAt"),
