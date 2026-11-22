@@ -3576,10 +3576,14 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
       spike('cmpl:HYUNDAI:SANTA FE HYBRID'),
       spike('cmpl:KIA:SORENTO', { make: 'KIA', model: 'SORENTO', beat: '기아', brand: '기아', complaints: 9, tier: 'C', parts: [{ component: 'STEERING', recent: 9, baselinePer28: 1.0 }],
         recentRecalls: [{ campaign: '26V700000', received: '2026-10-22', component: 'STEERING:GEAR BOX' }], sameComponentRecall: ['26V700000'] }),
-      spike('cmpl:HYUNDAI:TUCSON', { model: 'TUCSON', active: false })] } };
+      spike('cmpl:HYUNDAI:TUCSON', { model: 'TUCSON', active: false }),
+      // 11-23 운영 꼴: 'VISIBILITY/WIPER'는 앞유리·선루프·와이퍼를 한데 묶는 분류 — 신고 발췌가 앞유리 금·화면 고장
+      spike('cmpl:KIA:TELLURIDE', { make: 'KIA', model: 'TELLURIDE', beat: '기아', brand: '기아', complaints: 9, parts: [{ component: 'VISIBILITY/WIPER', recent: 9, baselinePer28: 3 }],
+        crash: 0, injured: 0, samples: [{ odino: '11774568', year: '2022', received: '2026-10-29', text: 'My 2022 Kia Telluride LX AWD center screen began failing intermittently' },
+          { odino: '11775050', year: '2022', received: '2026-11-02', text: 'While parked in my driveway at 0 mph, the windshield cracked near the interior rearview mirror attachment' }] })] } };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_recalls', {}, opts);
-  assert.match(t.text, /\[소비자 결함 신고 급증 · 최근 28일\(2026-09-30~2026-10-28\), 앞 24주와 비교\] 2건/);
+  assert.match(t.text, /\[소비자 결함 신고 급증 · 최근 28일\(2026-09-30~2026-10-28\), 앞 24주와 비교\] 3건/);
   assert.match(t.text, /\[신규\] B · 현대차 SANTA FE HYBRID · 연식 2025\(8\)·2026\(2\) · 신고 10건 · 충돌 1·부상 1/);
   assert.match(t.text, /부품별: FUEL\/PROPULSION SYSTEM 10건\(평소 28일 2\.3\), POWER TRAIN 8건\(평소 28일 2\.7\)/);
   assert.match(t.text, /신고 11774001\(2025년형, 접수 2026-10-20\): "The car lost power on the highway\."/);
@@ -3595,6 +3599,10 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
   // 11-23: 보도 대조 낱말은 첫 부품(FUEL/PROPULSION SYSTEM → 연료) — 차명+'리콜'로만 찾으면 같은 차종의 다른 결함 기사가 붙는다(텔루라이드 와이퍼 ↔ 엔진오일 누출 기사)
   assert.deepEqual([sf.who, sf.terms, sf.places], ['현대차', ['싼타페', '연료'], ['싼타페']]);
   assert.deepEqual(sf.alts['연료'], ['연료', '주유']);
+  // 11-23: VISIBILITY/WIPER는 신고 발췌 글로 낱말을 고른다(앞유리 금 → '앞유리', 예전엔 늘 '와이퍼')
+  const tl = items.items.find((x) => String(x.id).startsWith('cmpl:KIA:TELLURIDE')).check;
+  assert.deepEqual(tl.terms, ['텔루라이드', '앞유리']);
+  assert.ok(tl.alts['앞유리'].includes('윈드실드'));
 });
 
 test('us_recalls: NHTSA manufacturer communications by campaign — powertrain warranty extension A, campaign B, C hidden unless show_all, baseline not pushed', async () => {
