@@ -252,7 +252,10 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp,
             "checks": [{"source": "OpenDART 공시검색(시장 전체 B·I)", "status": "failed" if failed_list else "partial" if errors else "ok",
                         "returned": len(rows), **({"error": "; ".join(errors[:4])} if errors else {})},
+                       # 열어 볼 새 후보 공시(종류가 맞고 아직 안 본 것)가 없으면 0줄이 정상이다 — 사유를 적어 '형식 변경 의심'(조용한 0건 감시)에서 빼게 한다
+                       # (11-23 radar_today: '공시 원문: 정상 응답인데 0줄, 이전 19·9·20·3줄' — 공시검색 목록은 정상이고 새 후보만 없던 실행)
                        {"source": "공시 원문", "status": "partial" if (doc_errors or pending) else "ok", "returned": opened,
+                        **({"note": f"새로 열어 볼 후보 공시 없음(공시검색 {len(rows)}건 중 거래·계약 종류의 새 공시 0건)"} if not cand and not errors else {}),
                         **({"error": f"원문 읽기 실패 {doc_errors}건"} if doc_errors else {}),
                         **({"pending": pending} if pending else {})}],
             "counts": {"listed": len(rows), "candidates": len(cand), "opened": opened, "matched": sum(1 for x in known.values() if x["firstSeen"] == stamp)},
