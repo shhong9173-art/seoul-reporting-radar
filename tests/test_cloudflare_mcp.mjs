@@ -6307,6 +6307,11 @@ test('주간 판정(11-21): 목록에서 빠진 항목도 id 앞말로 감시를
   assert.equal(watchByPrefix('briefing:156790102'), '공정위·한전·원자재');
   assert.equal(watchByPrefix('ins:000321:2026'), '협력사 회생·파산');
   assert.equal(watchByPrefix('a1b2c3d4e5f6'), undefined);                       // 해시 id(단서)는 짐작하지 않는다
+  // 11-23: 즉시 알림 성적 '감시 미상 2' — 빠져 있던 앞말
+  assert.deepEqual(['dcp:20261118900419', 'grts:4886', 'uspto:50213453', 'euipo:019448518', 'bills:발의|원자력안전법|2026-11-17', 'admrul:2100000288340',
+    'st:ppi-zinc:2026-10:조회 범위 최고', 'au-trn:2026/053 x', 'au-epr:710:doc:18', 'in-dgtr:x', 'ma:123', 'odi:PE26001'].map(watchByPrefix),
+    ['타사 공시 속 출입처(거래상대)', '국내 무상점검·수리', '상표 출원', '상표 출원', '국회 법안', '공장등록·관보', '월간 통계(물가·생산·수입차·완성차 판매)', '무역구제', '무역구제', '무역구제',
+      '협력사 회생·파산', '미국 리콜(NHTSA 전체)']);
   // 패키지 이름으로 남은 판정(11-21 미상 11건 전부 — 'uk-tra-pvc-korea-pms-1113'(씀) 등): 패키지 본문의 레이더 id·원문 주소로
   assert.equal(watchFromPackage({ name: 'uk-tra-pvc-korea-pms-1113', body: '원문 https://public-file.trade-remedies.service.gov.uk/case/ad0092/submission/1201 확인' }), '무역구제');
   assert.equal(watchFromPackage({ name: 'kia-georgia-osha-fatcat-0901', body: '원문 https://www.osha.gov/ords/imis/establishment.inspection_detail?id=349146811' }), '미국 OSHA 점검·위반');

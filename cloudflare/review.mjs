@@ -171,10 +171,18 @@ const PREFIX = { stk: 'kr-stacks', stkmaint: 'kr-stacks', stkgone: 'kr-stacks', 
   ga: 'us-state-env', gap: 'us-state-env', adem: 'us-state-env', ldeq: 'us-state-env', laci: 'us-state-env', lasbc: 'us-state-env', kf: 'kr-fuel',
   ted: 'overseas-awards', fts: 'overseas-awards', wb: 'overseas-awards', bh: 'overseas-awards', bhopen: 'overseas-awards', pcc: 'overseas-awards', tm: 'trademarks',
   bill: 'assembly-bills', korec: 'kr-energy', ledger: 'kr-energy', nssc: 'kr-energy', briefing: 'kr-signals', ftcpress: 'kr-signals', ftc: 'kr-signals',
-  motir: 'kr-signals', province: 'kr-signals', px: 'kr-signals', kepco: 'kr-signals', g2baward: 'kr-signals', sales: 'kr-stats', site: 'page-watch' };
+  motir: 'kr-signals', province: 'kr-signals', px: 'kr-signals', kepco: 'kr-signals', g2baward: 'kr-signals', sales: 'kr-stats', site: 'page-watch',
+  // 11-23: 즉시 알림 성적의 '감시 미상 2'(타사 공시 속 출입처 'dcp:' 등) — 수집기 id 앞말을 맞춰 더함
+  dcp: 'dart-counterparty', st: 'kr-stats', cs: 'kr-stats', kaida: 'kr-stats', eia: 'kr-official', admrul: 'kr-official', ma: 'kr-insolvency', nap: 'assembly-minutes',
+  nar: 'assembly-minutes', odi: 'us-recalls', uspto: 'trademarks', euipo: 'trademarks', bills: 'assembly-bills', fss: 'kr-exec-check', pipc: 'kr-exec-check', pipcd: 'kr-exec-check',
+  tra: 'trade-remedy', 'au-trn': 'trade-remedy', 'au-epr': 'trade-remedy', cbsa: 'trade-remedy', citt: 'trade-remedy', 'in-dgtr': 'trade-remedy', 'in-dgtr-cvd': 'trade-remedy',
+  'vn-trav': 'trade-remedy', 'id-kadi': 'trade-remedy', 'tr-rg': 'trade-remedy' };
+// 감시 목록(WATCHES) 밖 이름으로 화면에 뜨는 갈래 — 자동차리콜센터 무상점검·수리는 kr_fuel 문서 안의 따로 이름(digest FREE_REPAIR)
+const PREFIX_LABEL = { grts: '국내 무상점검·수리' };
 export function watchByPrefix(id) {
   const s = String(id ?? '');
   const head = s.split(/[:|]/)[0];
+  if (PREFIX_LABEL[head]) return PREFIX_LABEL[head];
   // 해외 페이지 id는 '페이지 이름:감지 시각'(genesis-us-home:2026-11-20T…·kia-us-ev9:…)
   const feed = PREFIX[head] ?? (/^[a-z]+-us-[a-z0-9-]+$/.test(head) ? 'page-watch' : undefined);
   return WATCHES.find((w) => w.feed === feed)?.label;
