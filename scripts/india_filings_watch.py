@@ -131,6 +131,15 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
                 reset_note = f"RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행({last.astimezone(KST):%H:%M}) 뒤 {int((reset - last).total_seconds() // 60)}분은 못 봄"
         except (TypeError, ValueError):
             pass
+    # 저장분도 지금 규칙으로 다시 매긴다 — 11-21 RTA(명의개서 대리인) 주소 변경을 C로 바꾼 뒤에도 11-20 저장분이 B로 radar_today·역추적에 남았다
+    for rec in known.values():
+        t = tier_of(rec)
+        if t != rec.get("tier"):
+            rec["tier"], rec["retiered"] = t, stamp
+    for e in events:
+        rec = known.get(e.get("id"))
+        if rec and e.get("tier") != rec["tier"]:
+            e["tier"] = rec["tier"]
     pdfs = 0
     for x in rows:
         comp = beat_of(x["company"])
