@@ -383,7 +383,8 @@ class Proceedings(unittest.TestCase):
         get2, calls2 = fake(BASE + [("52026XC06045", "2026-11-19", T)], bodies={"52026XC06045": body})
         doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
         e = doc2["events"][0]
-        self.assertEqual((e["id"], e["tier"]), ("euoj:52026XC06045", "B"))
+        self.assertEqual((e["id"], e["tier"]), ("euoj:52026XC06045", "C"))          # 한국 줄이 우회 확대뿐 — 한국산 원산지 조치 아님
+        self.assertIn("한국 줄이 모두 우회 확대 적용이라 참고(C)", e["text"])
         self.assertIn("표에서 한국이 든 줄: Silicon(원산지 The People's Republic of China; Republic of Korea; Taiwan · Anti-dumping duty) 만료 2027-08-13", e["text"])
         self.assertIn("'consigned from … Korea'(다른 나라산 조치를 한국 경유 수출에 확대 적용)", e["text"])
         self.assertNotIn("본문에 출입처 이름 없음", e["text"])
@@ -392,14 +393,42 @@ class Proceedings(unittest.TestCase):
         for r in old["records"]:
             r.pop("expiryRows", None)
         old["events"][0]["text"] = old["events"][0]["text"].split(" · 표에서")[0] + " · 본문에 출입처 이름 없음(한국산 품목)"
+        old["events"][0]["tier"] = "B"
+        for r in old["records"]:
+            r["tier"] = "B"
         get3, calls3 = fake(BASE + [("52026XC06045", "2026-11-19", T)], bodies={"52026XC06045": body})
         doc3 = w.run(NOW + dt.timedelta(hours=6), old, get=get3, sleep=lambda s: None)
         self.assertEqual(calls3.count(w.CELLAR + "52026XC06045"), 1)
         self.assertIn("표에서 한국이 든 줄: Silicon", doc3["events"][0]["text"])
+        self.assertEqual(doc3["events"][0]["tier"], "C")                         # 저장분(B)도 다시 읽으며 등급을 고친다
         self.assertEqual(doc3["events"][0]["detectedAt"], doc2["events"][0]["detectedAt"])
         doc4 = w.run(NOW + dt.timedelta(hours=9), doc3, get=get3, sleep=lambda s: None)
         self.assertEqual(calls3.count(w.CELLAR + "52026XC06045"), 1)            # 채운 뒤엔 다시 안 받는다
         self.assertEqual(doc4["events"][0]["text"], doc3["events"][0]["text"])
+        # 표를 이미 읽은 저장분(운영 11-22 #1082 뒤: B·한국 줄 있음)은 본문을 다시 받지 않고 C로 고친다
+        stale = json.loads(json.dumps(doc4))
+        stale["events"][0]["tier"] = "B"
+        stale["events"][0]["text"] = stale["events"][0]["text"].replace(" · 한국 줄이 모두 우회 확대 적용이라 참고(C) — 한국산 원산지 조치 아님", "")
+        for r in stale["records"]:
+            r["tier"] = "B"
+        doc5 = w.run(NOW + dt.timedelta(hours=12), stale, get=get3, sleep=lambda s: None)
+        self.assertEqual(calls3.count(w.CELLAR + "52026XC06045"), 1)
+        self.assertEqual(doc5["events"][0]["tier"], "C")
+        self.assertIn("한국 줄이 모두 우회 확대 적용이라 참고(C)", doc5["events"][0]["text"])
+
+    def test_expiry_notice_with_korea_as_origin_stays_b(self):
+        body = ("<table><tr><td><p>Product</p></td><td><p>Country</p></td><td><p>Measures</p></td><td><p>Reference</p></td><td><p>Date of expiry</p></td></tr>"
+                "<tr><td><p>Stainless steel cold-rolled flat products</p></td><td><p>Republic of Korea</p><p>Taiwan</p></td><td><p>Anti-dumping duty</p></td>"
+                "<td><p>Commission Implementing Regulation (EU) 2021/2012 imposing a definitive anti-dumping duty on imports of stainless steel cold-rolled flat products "
+                "originating in India and Indonesia (OJ L 410, 18.11.2021, p. 153)</p></td><td><p>18.11.2027</p></td></tr></table>")
+        T = "Notice of the impending expiry of certain anti-dumping measures"
+        get, _ = fake(BASE)
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None)
+        get2, _ = fake(BASE + [("52026XC07000", "2026-11-20", T)], bodies={"52026XC07000": body})
+        e = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)["events"][0]
+        self.assertEqual(e["tier"], "B")
+        self.assertIn("Stainless steel cold-rolled flat products(원산지 Republic of Korea; Taiwan · Anti-dumping duty) 만료 2027-11-18", e["text"])
+        self.assertNotIn("우회 확대", e["text"])
 
     def test_add_months_clamps_month_end(self):
         self.assertEqual(w.add_months(dt.date(2026, 8, 31), 6), dt.date(2027, 2, 28))
