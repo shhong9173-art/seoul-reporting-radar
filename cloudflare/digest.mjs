@@ -12,7 +12,7 @@ import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKe
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
 import { beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
-import { basisNote, classLabel, goodsNote, irNote, waitReason } from './trademarks.mjs';
+import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
 import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
@@ -1529,20 +1529,20 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       check: hint(f.company, ['상표', f.title]) });
   }
   // 유럽 상표 출원(EUIPO, 같은 주 1회 실행의 'eu' 칸): 처음 보는 이름+업종 핵심 상품류 B, 그 밖의 새 출원 C.
-  for (const f of docs.trademarks?.eu?.filings ?? []) {
-    if (!f.isNew) continue;
-    if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
+  // 같은 회사·같은 이름·같은 출원일은 한 줄(trademarks 도구와 같은 groupSameName) — 11-22 화면: 'Genesis Magma'·'Hyundai Essential Parts'·'Essential by Hyundai'가
+  // 상품류마다 한 줄씩 C에 깔렸다. 등급은 가장 높은 줄, 상품류는 합치고 출원번호는 '외 N건'(id는 가장 높은 등급 줄 것)
+  const more = (f) => ((f.moreNumbers ?? []).length ? ` 외 ${f.moreNumbers.length}건(${f.moreNumbers.slice(0, 3).join(', ')}${f.moreNumbers.length > 3 ? ' …' : ''})` : '');
+  const recentTm = (f) => f.isNew && (all || Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000));
+  for (const f of groupSameName((docs.trademarks?.eu?.filings ?? []).filter(recentTm))) {
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '유럽 상표 새 이름' : '유럽 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
-      fact: `유럽연합(EUIPO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 출원번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${irNote(f)}${goodsNote(f)}${f.via === 'signa' ? ' · Signa 2차 자료 — EUIPO eSearch 원문 확인' : ''}`,
+      fact: `유럽연합(EUIPO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 출원번호 ${f.applicationNumber}${more(f)}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${irNote(f)}${goodsNote(f)}${f.via === 'signa' ? ' · Signa 2차 자료 — EUIPO eSearch 원문 확인' : ''}`,
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 
   // 미국 상표 출원(USPTO, Signa 경유 — 11-09, 같은 실행의 'us' 칸): 유럽과 같은 등급
-  for (const f of docs.trademarks?.us?.filings ?? []) {
-    if (!f.isNew) continue;
-    if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
+  for (const f of groupSameName((docs.trademarks?.us?.filings ?? []).filter(recentTm))) {
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '미국 상표 새 이름' : '미국 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
-      fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${basisNote(f)}${irNote(f)}${goodsNote(f)} · Signa 2차 자료 — USPTO TSDR 원문 확인`,
+      fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}${more(f)}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${basisNote(f)}${irNote(f)}${goodsNote(f)} · Signa 2차 자료 — USPTO TSDR 원문 확인`,
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 
