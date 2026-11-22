@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-22T17:46:58+09:00",
+  "generatedAt": "2026-11-23T01:43:47+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-22T12:41:53+09:00",
+      "generatedAt": "2026-11-22T17:47:00+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -20,23 +20,23 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-22T17:46:10+09:00",
+      "generatedAt": "2026-11-23T01:42:56+09:00",
       "rows": 118,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
     },
     "investment": {
-      "status": "old_snapshot_not_a_current_scan",
-      "generatedAt": "2026-11-20T13:23:12+09:00",
+      "status": "source_snapshot_checked",
+      "generatedAt": "2026-11-23T00:49:10+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-21T01:03:20+09:00",
-      "rows": 23,
+      "generatedAt": "2026-11-23T00:56:45+09:00",
+      "rows": 21,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
@@ -63,46 +63,47 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 1,
+    "new_official_receipt_review": 0,
     "new_official_list_heading_review": 0,
-    "verified_historical_investment_delta": 0,
-    "verified_historical_numeric_delta": 23,
+    "verified_historical_investment_delta": 3,
+    "verified_historical_numeric_delta": 21,
     "issuer_only_correction_unverified_original": 0,
     "older_public_contract_reference": 0,
     "unlinked_correction_text_followup": 0
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-20",
-    "through": "2026-11-22"
+    "recentFrom": "2026-11-21",
+    "through": "2026-11-23"
   },
-  "checkedOfficialRecentCandidates": 1,
+  "checkedOfficialRecentCandidates": 0,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
-  "historicalResearchCount": 23,
+  "todayOnlyCount": 0,
+  "historicalResearchCount": 24,
   "unlinkedHistoryTextMatchCount": 0,
   "correctionHistorySourceGate": "missing_or_stale_related_snapshots",
   "totalRows": 24,
   "excluded": {
     "invalid_original_identity": 0,
-    "old_and_not_relevant": 0,
+    "old_and_not_relevant": 1,
     "unverified_correction": 0,
-    "same_receipt_merged": 1
+    "same_receipt_merged": 0
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
     {
-      "id": "new_official_receipt_review:DART:20261120800332",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "LG화학",
-      "title": "LG화학 · 정기·주요공시 · 기업가치제고계획(자율공시)              (2026년 이행현황)",
-      "officialDocumentDate": "2026-11-20",
+      "id": "verified_historical_investment_delta:20261116001028:변압기 철심공장",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "변압기 철심공장 · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-11-16",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.01 → 최근 공시 2026.11 (+10개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
       "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261120800332"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
@@ -111,9 +112,59 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_investment_delta:20261116001028:중저압차단기 자동화설비",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "중저압차단기 자동화설비 · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.05 → 최근 공시 2026.10 (+5개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
+      ]
+    },
+    {
+      "id": "verified_historical_investment_delta:20261116001028:청주 배전캠퍼스 신축(*)",
+      "tier": "verified_historical_investment_delta",
+      "tierLabel": "과거 DART 투자계획 기재 비교",
+      "company": "HD현대일렉트릭",
+      "title": "청주 배전캠퍼스 신축(*) · 공시상 투자기간 변경",
+      "officialDocumentDate": "2026-11-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "기존 공시 계획상 종료월 2026.06 → 최근 공시 2026.12 (+6개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116001028"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
+        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
+        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
       ]
     },
     {
@@ -603,56 +654,6 @@
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000749",
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113001360"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
-        "동일 분기/반기 수치 변경인지 공시 원문 대조",
-        "기존 보도 전문과 기업 공개 IR 자료 확인"
-      ]
-    },
-    {
-      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:아시아",
-      "tier": "verified_historical_numeric_delta",
-      "tierLabel": "과거 DART 공시 수치 비교",
-      "company": "금호타이어",
-      "title": "아시아 · segmentSales 공시 수치 비교",
-      "officialDocumentDate": "2026-11-12",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 587796 → 46639 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
-        "동일 분기/반기 수치 변경인지 공시 원문 대조",
-        "기존 보도 전문과 기업 공개 IR 자료 확인"
-      ]
-    },
-    {
-      "id": "verified_historical_numeric_delta:20261112000682:금호타이어:segmentSales:유럽",
-      "tier": "verified_historical_numeric_delta",
-      "tierLabel": "과거 DART 공시 수치 비교",
-      "company": "금호타이어",
-      "title": "유럽 · segmentSales 공시 수치 비교",
-      "officialDocumentDate": "2026-11-12",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 964717 → 1124210 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251113000719",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
