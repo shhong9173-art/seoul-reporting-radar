@@ -119,6 +119,10 @@ def candidate(row):
 
 def offbeat_names(title,companies):
     """제목에 글자 그대로 있는데 [단독] 색인 규칙(historical_exclusive_press_collector.tracked_industry_companies — 계열사·같은 이름·후원)이 뺀 이름."""
+    import sys
+    root=str(Path(__file__).resolve().parent.parent)   # 'python scripts/exclusive_reverse_trace.py'로 돌 때도 scripts 패키지를 찾게
+    if root not in sys.path:
+        sys.path.insert(0,root)
     from scripts.historical_exclusive_press_collector import tracked_industry_companies
     kept=set(tracked_industry_companies(title))
     return {c for c in companies if isinstance(c,str) and c and c in title and c not in kept}
