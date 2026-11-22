@@ -239,13 +239,39 @@ class Run(unittest.TestCase):
                     "check": {"who": "현대차", "terms": ["공장", "증설"]}}
         fresh = [item(i, "2026-11-21") for i in range(rpc.MAX_ITEMS + 5)]
         old = [item(100 + i, "2026-10-15") for i in range(3)]
-        prev = {"items": [{"id": f"bld:{i}", "queries": ["현대차 공장"], "checkedAt": "2026-11-21T18:50:00+09:00"} for i in range(rpc.MAX_ITEMS + 5)]}
+        prev = {"items": [{"id": f"bld:{i}", "queries": ["현대차 공장", "현대차 공장 증설"], "checkedAt": "2026-11-21T18:50:00+09:00"} for i in range(rpc.MAX_ITEMS + 5)]}
         seen = []
         with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
             doc = rpc.run(fresh + old, now=NOW, previous=prev, get=channels({}, seen), sleep=lambda s: None)
         checked = {r["id"] for r in doc["items"] if r.get("checkedAt") == NOW.isoformat(timespec="seconds")}
         self.assertTrue({"bld:100", "bld:101", "bld:102"} <= checked)
         self.assertEqual(doc["screened"], rpc.MAX_ITEMS)
+
+    def test_a_new_must_word_is_a_rule_change(self):
+        # 11-22: #1048이 건축허가 판정에 시 이름을 필수로 넣었다 — 질의('LS일렉트릭 청주')는 그대로라 옛 판정(베트남 박닌 공장 기사로
+        # '관련 보도 있음')이 다시 대조되지 않았다. 필수 낱말이 바뀌어도 규칙이 바뀐 것이다.
+        bld = {"tier": "B", "watch": "공장 부지 건축허가", "id": "bld:1000000000000001051216", "date": "2026-10-22", "company": "LS일렉트릭",
+               "fact": "건축허가: 엘에스일렉트릭(주)청주1공장 부지", "check": {"who": "LS일렉트릭", "terms": ["청주", "공장", "증설"], "places": ["청주"], "must": ["청주"]}}
+        old_row = {"id": bld["id"], "verdict": "관련 보도 있음", "queries": ["LS일렉트릭 청주", "LS일렉트릭 청주 공장"], "checkedAt": "2026-11-22T08:45:00+09:00"}
+        r = rpc.candidates([bld], now=NOW)[0]
+        self.assertEqual(rpc.ss.queries(r), old_row["queries"])                        # 질의는 같다
+        self.assertFalse(rpc.same_rule(old_row, r))                                    # 예전 기록엔 must가 없다
+        self.assertTrue(rpc.same_rule({**old_row, "must": ["청주"]}, r))
+        # 72시간 지난 항목: 한 번 다시 본다
+        self.assertEqual([x["id"] for x in rpc.rechecks([bld], set(), {"items": [old_row]}, now=NOW)], [bld["id"]])
+        # 72시간 안 항목: 상한을 넘는 날 규칙이 같은 이미 본 항목보다 먼저
+        def item(i):
+            return {"tier": "B", "watch": "공장 부지 건축허가", "id": f"bld:{i}", "date": "2026-11-21", "company": "현대차", "fact": "x",
+                    "check": {"who": "현대차", "terms": ["공장", "증설"]}}
+        fresh = [item(i) for i in range(rpc.MAX_ITEMS)]
+        prev = {"items": [old_row] + [{"id": f"bld:{i}", "queries": ["현대차 공장", "현대차 공장 증설"], "checkedAt": "2026-11-22T08:45:00+09:00"} for i in range(rpc.MAX_ITEMS)]}
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run(fresh + [bld], now=NOW, previous=prev, get=channels({}), sleep=lambda s: None)
+        rows = {x["id"]: x for x in doc["items"]}
+        self.assertEqual(rows[bld["id"]]["checkedAt"], NOW.isoformat(timespec="seconds"))
+        self.assertEqual(rows[bld["id"]]["must"], ["청주"])                              # 다음 실행이 견줄 수 있게 적어 둔다
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            self.assertEqual(rpc.rechecks([bld], set(), doc, now=NOW), [])             # 한 번 본 뒤에는 같은 규칙
 
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
