@@ -77,6 +77,12 @@ def candidates(items, *, now, limit=MAX_ITEMS):
     return (a + b)[:limit]
 
 
+def same_rule(old, r):
+    """지난 대조와 지금 대조 규칙이 같은가 — 질의와 필수 낱말(must). 11-22: 건축허가 판정에 시 이름을 필수로 넣었는데(#1048) 질의는 그대로라
+    ('LS일렉트릭 청주') 옛 판정(베트남 공장 기사로 '관련 보도 있음')이 다시 대조되지 않고 남았다. 예전 기록엔 must가 없다 — 지금 must가 있으면 한 번 다시 본다."""
+    return list(old.get("queries") or []) == ss.queries(r) and list(old.get("must") or []) == list(r.get("must") or [])
+
+
 def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
     """대조 범위(72시간)를 지난 항목 중 이미 대조한 적 있고, 그때 질의와 지금 질의가 다른 것(대조 규칙이 바뀜) — A 먼저, 최근 먼저.
     11-22: 한 번도 대조하지 못한 A 항목도 한 번 본다(late) — 대조 낱말이 나중에 생겼거나(11-21 해외 공식 페이지 연식·차명) 연휴로
@@ -89,7 +95,7 @@ def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
             if r["tier"] == "A":
                 out.append({**r, "late": True})
             continue   # 대조한 적 없는 오래된 B는 새로 보지 않는다
-        if list(old.get("queries") or []) == ss.queries(r):
+        if same_rule(old, r):
             continue   # 규칙이 같으면 결과도 같다
         out.append({**r, "recheck": True})
     return out[:limit]
@@ -98,9 +104,11 @@ def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
 def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
     # 11-22: 상한(40건)을 넘는 날엔 같은 등급 안에서 한 번도 대조하지 않은 항목을 먼저 — 날짜 순으로만 자르면 늦게 잡힌 옛 날짜 항목
     # (허가 한 달 뒤 자료에 올라온 건축허가 10건·게재 닷새 뒤 잡힌 외신)이 실행마다 뒤로 밀려 '대조 안 함'으로 남았다(11-22 08:15 항목 53·대조 40)
-    seen = {str(r.get("id")) for r in (previous or {}).get("items", []) if isinstance(r, dict)}
+    # 규칙(질의·필수 낱말)이 바뀐 항목도 한 번도 대조 안 한 항목과 같이 먼저(11-22 건축허가 시 이름 필수 — 옛 판정이 상한에 밀려 남음)
+    before = {str(r.get("id")): r for r in (previous or {}).get("items", []) if isinstance(r, dict)}
     allc = candidates(items, now=now, limit=len(items or []))
-    cands = sorted(allc, key=lambda r: (r["tier"] != "A", r["id"] in seen))[:MAX_ITEMS]   # 안정 정렬 — 같은 칸 안은 기존 순서(최근 먼저)
+    done = lambda r: r["id"] in before and same_rule(before[r["id"]], r)
+    cands = sorted(allc, key=lambda r: (r["tier"] != "A", done(r)))[:MAX_ITEMS]   # 안정 정렬 — 같은 칸 안은 기존 순서(최근 먼저)
     cands += rechecks(older, {str(x.get("id")) for x in items}, previous, now=now)
     rows = ss.screen(cands, now=now, get=get, sleep=sleep)
     stamp = now.isoformat(timespec="seconds")
@@ -109,7 +117,7 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
     for r in rows:
         old = prev.get(r["id"]) or {}
         out.append({"id": r["id"], "tier": r["tier"], "watch": r["watch"], "who": r["company"], "terms": r["terms"],
-                    "since": r["since"], "queries": r["queries"], "verdict": r["verdict"], "evidence": r["evidence"],
+                    "since": r["since"], "queries": r["queries"], "must": list(r.get("must") or []), "verdict": r["verdict"], "evidence": r["evidence"],
                     "channels": r["channels"], "checkedAt": stamp,
                     "firstVerdict": old.get("firstVerdict") or r["verdict"], "firstCheckedAt": old.get("firstCheckedAt") or stamp,
                     **({"recheck": True, "prevQueries": old.get("queries")} if r.get("recheck") else {}),
