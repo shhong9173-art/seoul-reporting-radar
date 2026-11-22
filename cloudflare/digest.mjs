@@ -1472,16 +1472,28 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!mm || !recent(e.detectedAt)) continue;
     excTop.set(mm[2], Math.max(excTop.get(mm[2]) ?? -1, EXC_STAGE[mm[1]]));
   }
+  // 같은 사업장 '가동 중단 신호'(stk:down:회사:사업장:날짜)는 날마다 새 줄이 생기고, 새 줄에 앞서 멈춘 배출구까지 다시 적힌다 — 11-23 월요일 72시간 화면:
+  // KG스틸 당진 11-21·11-22 두 줄이 B에 따로 떴다. 창 안에 같은 사업장의 더 뒤 줄(참고 아님)이 있으면 앞 줄은 참고(C)로 내리고 뒤 줄을 가리킨다
+  const stackTier = (e) => (maintFolded(e, maint) || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B');
+  const downLast = new Map();
+  for (const e of docs['kr-stacks']?.events ?? []) {
+    const dm = /^stk:down:(.+):(\d{4}-\d{2}-\d{2})$/.exec(String(e.id ?? ''));
+    if (!dm || !recent(e.detectedAt) || stackTier(e) === 'C') continue;
+    if (!downLast.has(dm[1]) || dm[2] > downLast.get(dm[1])) downLast.set(dm[1], dm[2]);
+  }
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
     const m = maintFolded(e, maint);
-    const tier = m || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
+    let tier = stackTier(e);
     const em = /^stk:(exceed|exceed2|exceedlong):(.+)$/.exec(String(e.id ?? ''));
     if (em && tier === 'C' && EXC_STAGE[em[1]] < excTop.get(em[2])) continue;
-    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site,
-      fact: m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text,
-      check: stackHint(e) });
+    const dm = /^stk:down:(.+):(\d{4}-\d{2}-\d{2})$/.exec(String(e.id ?? ''));
+    const later = dm && downLast.get(dm[1]) > dm[2] ? downLast.get(dm[1]) : null;
+    if (later) tier = 'C';
+    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, ...(later ? { stackEarlier: true } : {}),
+      fact: `${later ? `〔같은 사업장 ${later.slice(5)} 줄에 이어짐 — 그 줄에 앞서 멈춘 배출구까지 적힘〕 ` : ''}${m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text}`,
+      check: later ? undefined : stackHint(e) });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.
@@ -1974,7 +1986,8 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map(), maint 
 export function convergence(items, { cut } = {}) {
   const groups = new Map();
   for (const x of items) {
-    if (x.tier === 'C' || !x.company || !PLACE_WATCHES.has(x.tool)) continue;
+    // 같은 사업장 뒤 줄 때문에 참고로 내린 굴뚝 앞 줄(stackEarlier)은 묶음에는 넣는다 — '같은 사업장 굴뚝 신호 N번(기간)' 횟수가 그대로 나오게
+    if ((x.tier === 'C' && !x.stackEarlier) || !x.company || !PLACE_WATCHES.has(x.tool)) continue;
     // 법원·검찰청·지청 이름 속 지명은 공장 자리가 아니다(11-22 운영: 두산에너빌리티 3분기 소송 줄 '창원지방법원 2023구합14037'이 창원 굴뚝과,
     // KG스틸 제재 표 '대전지방법원서산지원'·'고용노동청 천안지청'이 서산·천안으로 읽혔다)
     const text = `${x.fact ?? ''} ${x.company ?? ''}`.replace(AGENCY_PLACE, ' ');

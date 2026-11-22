@@ -5175,6 +5175,34 @@ test('kr building: permits of a plant no longer in the plant list are hidden bef
   assert.equal((r.text.match(/\(주\)포스코 부지/g) ?? []).length, 1);
 });
 
+test('kr stacks: an earlier daily shutdown line of the same site drops to C under the later one', async () => {
+  // 11-23 월요일 72시간 화면: KG스틸 당진 '가동 중단 신호' 11-21·11-22 두 줄이 B에 따로 떴다
+  const opts = PRIVATE();
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const older = new Date(NOW.getTime() - 25 * 3600000).toISOString();
+  const site = '케이지스틸(주)당진공장';
+  const ev = (id, at, text) => ({ id, kind: '사업장 가동 중단 신호', tier: 'B', company: 'KG스틸', site: '케이지스틸(주) 당진공장', text, detectedAt: at });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }], sites: [],
+    events: [ev(`stk:down:KG스틸:${site}:2026-10-25`, older, '당진 8번·6번 멈춤'), ev(`stk:down:KG스틸:${site}:2026-10-26`, recent, '당진 8번·6번·13번 멈춤 — 앞서 알린 멈춤 다시 적힘'),
+      ev('stk:down:동국제강:동국제강(주):2026-10-25', older, '동국제강 7번 멈춤')] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, hours: 72, limit: 30 }, opts)).text;
+  const b = r.split('[B · ')[1].split('[C · ')[0], c = r.split('[C · ')[1];
+  assert.match(b, /당진 8번·6번·13번 멈춤/);
+  assert.doesNotMatch(b, /당진 8번·6번 멈춤\n/);
+  assert.match(c, /〔같은 사업장 10-26 줄에 이어짐 — 그 줄에 앞서 멈춘 배출구까지 적힘〕 당진 8번·6번 멈춤/);
+  assert.match(b, /동국제강 7번 멈춤/);                       // 다른 사업장은 그대로
+  // 겹친 신호 묶음의 '같은 사업장 굴뚝 신호 N번'은 내린 앞 줄까지 센다
+  const { convergence, convergenceRows } = await import('../cloudflare/digest.mjs');
+  const items = [
+    { id: `stk:down:KG스틸:${site}:2026-10-26`, tier: 'B', tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: 'KG스틸', fact: '케이지스틸(주) 당진공장 멈춤', date: recent },
+    { id: `stk:down:KG스틸:${site}:2026-10-25`, tier: 'C', stackEarlier: true, tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: 'KG스틸', fact: '케이지스틸(주) 당진공장 멈춤', date: older },
+    { id: 'rptnote:x', tier: 'B', tool: 'kr_signals', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', company: 'KG스틸', fact: 'KG스틸 당진 제재', date: older }];
+  const g = convergence(items, {}).find((x) => x.place === '당진');
+  assert.ok(g);
+  assert.ok(convergenceRows(g).rows.some((x) => /같은 사업장 굴뚝 신호 2번/.test(x.fact)));
+});
+
 test('kr stacks: earlier C stages of the same exceedance fold under the later stage', async () => {
   // 11-22 화면: LG화학 여수 52번 일산화탄소가 B '장기 초과' 아래 C '초과'(626.38)·'초과 지속'(378.48)으로 두 번 더 깔렸다
   const opts = PRIVATE();
