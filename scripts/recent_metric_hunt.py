@@ -41,12 +41,21 @@ def rows(tables):
             }:continue
             key=(table["topic"],table["unit"],norm(table.get("reportingEntity")),labels)
             if key in found:duplicates.add(key)
-            else:found[key]={"value":metrics[0],"priorYear":metrics[1],
+            else:found[key]={"value":metrics[0],"priorYear":metrics[1],"third":metrics[2],
                              "sourceRow":values,"unit":table["unit"],
                              "topic":table["topic"],"labels":values[:-3],
                              "reportingEntity":table.get("reportingEntity","")}
     for key in duplicates:found.pop(key,None)
     return found
+
+def same_basis(before,after):
+    """Both filings must agree on a figure they share, else the row was
+    redefined (segment split, restatement) and the delta is not comparable.
+    Layout A (current, FY-1, FY-2): earlier FY-1 == later FY-2.
+    Layout B (current, same period a year ago, FY-1): earlier current == later column 2.
+    11-23: Kumho Tire 'Asia' 587,796 -> 46,639 (-92.1%) only reflected China
+    being split out of Asia; the shared 2024 figure read 784,278 vs 45,886."""
+    return before["priorYear"]==after["third"] or before["value"]==after["priorYear"]
 
 def evaluate(source,now=None):
     now=now or datetime.now(KST)
@@ -54,6 +63,7 @@ def evaluate(source,now=None):
         raise ValueError("Recent DART verified company records missing")
     report=[]
     coverage=[]
+    restated=[]
     for issuer in source["companies"]:
         company=issuer.get("company")
         a=issuer.get("priorSamePeriod") or {}
@@ -72,6 +82,7 @@ def evaluate(source,now=None):
         old=rows(a.get("tables") or [])
         current=rows(b.get("tables") or [])
         matched=0
+        changed_basis=0
         for key in sorted(set(old)&set(current)):
             before,after=old[key],current[key]
             # one named line, same reporting period, same numerical unit.
@@ -80,6 +91,16 @@ def evaluate(source,now=None):
             shift=after["value"]-before["value"]
             pct=round(float(shift/before["value"]*100),2)
             if abs(pct)<5:continue # publication includes many tiny shifts
+            if not same_basis(before,after):
+                changed_basis+=1
+                restated.append({"company":company,"topic":after["topic"],"rowIdentity":after["labels"],
+                    "period":b["period"],"fromYear":a["year"],"toYear":b["year"],
+                    "sourceRows":[before["sourceRow"],after["sourceRow"]],
+                    "sourceUrls":[
+                        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+a["receiptNo"],
+                        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+b["receiptNo"]],
+                    "reason":"두 보고서가 함께 적은 연도 숫자가 서로 다름 — 분류·기준 변경(재작성)이라 증감으로 세지 않음"})
+                continue
             matched+=1
             report.append({
                 "company":company,"topic":after["topic"],"rowIdentity":after["labels"],
@@ -98,7 +119,8 @@ def evaluate(source,now=None):
                 "reportingStatus":"공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
                 "priority":"business_document_diff_reporter_review"})
         coverage.append({"company":company,"status":"same_period_rows_checked",
-                         "rowsCompared":len(set(old)&set(current)),"changes":matched})
+                         "rowsCompared":len(set(old)&set(current)),"changes":matched,
+                         **({"basisChanged":changed_basis} if changed_basis else {})})
     report.sort(key=lambda x:(-abs(x["percentChange"]),x["company"]))
     return {"generatedAt":now.isoformat(timespec="seconds"),
         "sourceGeneratedAt":source.get("generatedAt"),
@@ -106,6 +128,7 @@ def evaluate(source,now=None):
         "officialChanges":len(report),
         "items":report[:60],
         "coverage":coverage,
+        "basisChanged":restated[:40],
         "checkedCompanies":sum(x["status"]=="same_period_rows_checked" for x in coverage),
         "scoopConfirmed":0,
         "warning":"발췌된 일부 사업표의 첫 보고연도 숫자 비교. 공시 숫자 변화≠물량/가격/가동률 변화. 표 구성·단위/연결범위 최종 원문 확인 필요"}
