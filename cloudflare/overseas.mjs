@@ -1034,6 +1034,8 @@ export async function tradeRemedies(ctx, args) {
       if (docNote) out.push(`   판정문·개시 고시(PDF에서 뽑은 원문 대목): ${docNote.replace(/^DGTR 문서: /, '')}`);
       if (doc.listingProducers?.[e.id]?.line) out.push(`   출입처 단서: ${doc.listingProducers[e.id].line}`);
       if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
+      const stale = staleNoticeLine(e);
+      if (stale) out.push(`   주의: ${staleNoticeNote(stale)}`);
       out.push(`   원문: ${e.url}`);
     }
     if (renumbered) out.push(`(목록 일련번호만 바뀐 재감지 ${renumbered}건은 뺐다 — 같은 줄의 첫 감지에 표시)`);
@@ -1258,6 +1260,22 @@ export async function krFuel(ctx, args) {
 // 탐침 232: 사건 페이지 하나에 원조사·일몰재심·우회조사가 쌓인다 — initiated는 가장 최근 개시 고시(이번 절차), firstInitiated는 첫 조사.
 // 명단은 표 칸을 번호로 다시 묶은 줄(shape=table)이고, 나라 칸이 없어 'Korea'·한국 기업 이름 낱말·출입처 영문 이름으로 고른 것이다.
 const DGTR_KIND = { new: '새로 개시된 조사·재심(개시 30일 안)', procedural: '진행 중인 조사·재심의 절차 공지(새 개시 아님)', progress: '진행 중인 조사·재심에 새 문서' };
+// 호주 TRN 목록 줄 끝의 공지 날짜(dd/mm/yyyy, 호주식). 11-23 운영: 11-17 '새 줄'로 잡힌 「2026/053 [PDF 169.98 KB] Hollow structural sections
+// Expiry of measures … 04/05/2026」은 5월 공지였다(파일 이름 '_1.pdf' — 파일을 다시 올려 줄 글자(용량)가 바뀐 것으로 보임). 공지 날짜가
+// 감지보다 30일 넘게 앞이면 옛 공지가 다시 잡힌 것일 수 있어 C로 내리고 그 날짜를 적는다. 사건 목록(캐나다·인도·영국)은 줄의 날짜가 개시일이라 쓰지 않는다.
+const STALE_NOTICE_DAYS = 30;
+export function staleNoticeLine(e) {
+  if (e?.pageId !== 'au-trn') return null;
+  const m = String(e.text ?? '').match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})\s*$/);
+  if (!m) return null;
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const day = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const gap = Math.floor((Date.parse(e.detectedAt) - Date.parse(`${day}T00:00:00+10:00`)) / 86400000);
+  return Number.isFinite(gap) && gap > STALE_NOTICE_DAYS ? { day, gap } : null;
+}
+export const staleNoticeNote = (st) => `줄에 적힌 공지 날짜 ${st.day}(감지 ${st.gap}일 전) — 새 공지가 아니라 옛 공지의 파일·글자만 바뀌어 다시 잡혔을 수 있음(원문 날짜 확인)`;
+
 export function dgtrCaseNote(c, all = false) {
   if (!c) return '';
   if (!c.latest) return `DGTR 사건 페이지: 못 읽음(${c.error ?? '실패'}) — 새 조사인지 미확인`;
