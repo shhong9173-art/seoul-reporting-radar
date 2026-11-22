@@ -107,9 +107,21 @@ def candidate(row):
         or SPORTS.search(row["title"])):
         return False
     companies=row.get("companies")
-    if not isinstance(companies,list) or not any(x in INDUSTRY_COMPANIES for x in companies):
+    if not isinstance(companies,list):
+        return False
+    # 11-22: 기보도 색인(press index)이 붙인 회사 이름은 [단독] 색인의 같은 이름 걸러내기를 거치지 않았다 — 「포스코인터, 탄자니아 흑연광산…」(포스코 계열사)·
+    # 「프랑스 AI 로봇기업 '제네시스AI'」·「디플러스 기아」가 역추적 후보로 남았다. 제목에 그대로 나온 이름을 [단독] 색인 규칙이 뺐으면 그 이름은 세지 않는다
+    off=offbeat_names(row["title"],companies)
+    if not any(x in INDUSTRY_COMPANIES and x not in off for x in companies):
         return False
     return article_id(row) is not None and aware(row.get("published")) is not None
+
+
+def offbeat_names(title,companies):
+    """제목에 글자 그대로 있는데 [단독] 색인 규칙(historical_exclusive_press_collector.tracked_industry_companies — 계열사·같은 이름·후원)이 뺀 이름."""
+    from scripts.historical_exclusive_press_collector import tracked_industry_companies
+    kept=set(tracked_industry_companies(title))
+    return {c for c in companies if isinstance(c,str) and c and c in title and c not in kept}
 
 
 # 같은 기사(같은 매체의 다른 주소·네이버 잘린 제목·'많이 본 기사' 재게시): 제목 낱말 열의 앞부분이 같으면 하나로 접는다.
