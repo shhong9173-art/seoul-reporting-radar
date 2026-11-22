@@ -1623,6 +1623,16 @@ export function buildingLine(x) {
   return `${x.kind === '새 허가' ? '건축허가' : x.kind}: ${where} · ${what} · ${area} · 허가 ${x.permitted ?? '?'}`
     + `${x.startPlanned ? ` · 착공예정 ${x.startPlanned}` : ''}${x.started ? ` · 착공 ${x.started}` : ''}${x.useApproved ? ` · 사용승인 ${x.useApproved}` : ''}`;
 }
+
+// 번지 확인 공장 수(11-23 화면: '출입처 공장 309곳 중 번지 확인 317곳'). 수집기의 parcelsResolved는 지난 공장 목록에 있던 공장의 번지까지 센다
+// (parcels는 공장 id별로 쌓이고 빠진 공장도 남는다). unresolved는 지금 공장 목록 중 번지 못 찾은 공장 전부(80곳 상한) — 상한 아래면 그 차가 정확하다.
+// 수집기를 고치면 건축HUB 전체 조회가 한 번 더 돌아 화면에서 센다.
+export function resolvedPlants(doc) {
+  const plants = Number(doc?.plants), un = Array.isArray(doc?.unresolved) ? doc.unresolved.length : null;
+  if (Number.isFinite(plants) && un !== null && un < 80) return plants - un;
+  const n = Number(doc?.parcelsResolved ?? 0);
+  return Number.isFinite(plants) ? Math.min(n, plants) : n;
+}
 async function buildingSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-building');
   if (!doc) return ['\n[공장 부지 건축허가] 결과 없음 — 미확인(월 07:50 실행 확인)'];
@@ -1639,7 +1649,7 @@ async function buildingSection(ctx, q, days, limit) {
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || Number(!!b.isNew) - Number(!!a.isNew) || String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
   const freshCount = rows.filter((x) => x.isNew).length;
-  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${freshCount ? `(이번에 새로 잡힘 ${freshCount})` : ''}${all.length - rows.length ? ` · 참고(C: 소규모·가설·이웃 건물) ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
+  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${resolvedPlants(doc)}곳 · 허가일 최근 ${days}일] ${rows.length}건${freshCount ? `(이번에 새로 잡힘 ${freshCount})` : ''}${all.length - rows.length ? ` · 참고(C: 소규모·가설·이웃 건물) ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   // Coverage gaps: plants whose lot is unknown and lots whose query failed have unknown permits, not none.
