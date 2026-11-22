@@ -212,7 +212,9 @@ export function wordMatch(text, companyText, e) {
 const MULTI_TOPIC_ID = /^(?:rptnote|exec):/;
 // 구역 도구 글 덩어리에 id가 안 적힌 정기보고서 줄(kr_signals section=exec 임원 명단 변화·문제 임원 점검 — '2026년 3분기(9-30 기준)')도 같다.
 // 11-22 운영: 고려아연 백순흠 사장 승진·LG화학 권봉석·GS 허연수/허태수 줄이 같은 3분기보고서 주소를 적은 '금속값'·'석화 가동률'·'GS E&R 매각예정' 패키지의 〔이미 처리〕로 찍혔다(다른 건)
-const MULTI_TOPIC_BLOCK = /(?:^|\s)id (?:rptnote|exec):|\d{4}년 (?:1분기|반기|3분기|사업보고서)\(\d{1,2}-\d{1,2} 기준\)/;
+// 11-22: 단독 후보 심사의 사업보고서 수치 단서('단서 · DART_METRIC')도 정기보고서 한 칸이다 — SK이노베이션 '해외판매'·금호석유화학 '하역/서비스'
+// 줄이 같은 3분기보고서 주소를 적은 'SK이노 中 BESK 지분 매각'·'석화 3분기 가동률' 패키지의 〔이미 처리〕로 찍혔다
+const MULTI_TOPIC_BLOCK = /(?:^|\s)id (?:rptnote|exec):|\d{4}년 (?:1분기|반기|3분기|사업보고서)\(\d{1,2}-\d{1,2} 기준\)|DART_METRIC/;
 const HINT_TAIL = / · 품목 (?:이름|낱말)이 나온 출입처 [\s\S]*$/;
 const HINT_LINE = /^\s+(?:〔출입처 단서〕|출입처 단서:)/;
 // 공고 원문 인용 줄(EU 기업결합 사전 신고의 당사자·거래·사업 내용 — 영어 원문)과 검증 상태 안내 줄은 낱말 맞춤에서 뺀다.
@@ -238,7 +240,7 @@ export function matchHandled(item, ledger) {
   let out = null;
   for (const e of entries) {
     if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) { out = { entry: e, how: 'id' }; break; }
-    if (url && !MULTI_TOPIC_ID.test(id) && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
+    if (url && !MULTI_TOPIC_ID.test(id) && !item.multiTopic && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
     prep ??= prepare(itemText(item), `${item.company ?? ''} ${ownFact(item).slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
     const w = matchEntry(prep, e);
     if (!w) continue;

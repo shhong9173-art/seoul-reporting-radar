@@ -504,6 +504,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const recent = (at) => all || !(Date.parse(at) < cut);  // same as before: an unreadable date is not dropped
 
   const scoop = docs['scoop-screen'];
+  // 사업보고서 수치 단서(DART_METRIC)는 정기보고서 한 칸 — 처리 장부가 보고서 주소만으로 잇지 않게 표시(handled.mjs matchHandled)
+  const metricIds = new Set((scoop?.candidates ?? []).filter((c) => c.source === 'DART_METRIC').map((c) => String(c.id)));
   for (const c of scoop?.candidates ?? []) {
     // 후보 목록은 판정 전까지 매 실행 다시 실린다 — 처음 심사한 때가 창 밖이면 새 항목이 아니다(scoop_screen에서는 계속 보임).
     if (c.firstSeen && !recent(c.firstSeen)) continue;
@@ -543,6 +545,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
     else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${title}` });
   }
+  for (const x of items) if (metricIds.has(String(x.id))) x.multiTopic = true;
 
   const kr = docs['kr-official'];
   for (const e of kr?.events ?? []) {
