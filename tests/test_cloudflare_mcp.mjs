@@ -24,7 +24,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1494,6 +1494,13 @@ test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유
   assert.match(block('B'), /현대제철㈜순천공장: 새 배출구/);                  // 멈춤·빠짐이 아닌 신호는 그대로
   // 사흘 넘는 가동중지가 절반 넘어도(4개 중 3개) 정기보수 메모가 있으면 즉시 알림 대상이 아니다
   assert.doesNotMatch(r, /즉시 알림 대상: 장기 가동중지 신고/);
+  // company 낱말은 기자 판정 메모 글자에 걸리지 않는다(11-23 company=당진에 '순천·당진 배출구 가동중지' 메모가 붙은 순천 굴뚝 줄이 떴다)
+  const rq = (await call('radar_today', { include_minor: true, limit: 30, company: '순차' }, opts)).text;
+  assert.doesNotMatch(rq, /현대제철㈜순천공장: 사업장 가동 중단 신호/);
+  assert.match((await call('radar_today', { include_minor: true, limit: 30, company: '순천공장' }, opts)).text, /현대제철㈜순천공장: 사업장 가동 중단 신호 · ⓘ 기자 판정/);
+  assert.equal(queryFact('〔같은 사업장 11-22 줄에 이어짐 — 그 줄에 앞서 멈춘 배출구까지 적힘〕 케이지스틸(주) 당진공장: 멈춤 · ⓘ 기자 판정(11-07 \'순천·당진\') — 12-07까지 접음'),
+    '케이지스틸(주) 당진공장: 멈춤');
+  assert.equal(queryFact('〔같은 내용 외신 — 먼저 난 Reuters 줄(id a)에 묶음〕 POSCO plant'), 'POSCO plant');
   const x = { id: 'stk:down:현대제철:현대제철(주)순천공장:d', tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', site: '현대제철㈜순천공장' };
   const sdoc = { sites: [{ company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } }] };
   assert.match(stackAlert(x, [], sdoc, NOW.getTime()), /장기 가동중지 신고 — 평소 움직이던 배출구 4개 중 3개/);
