@@ -6356,6 +6356,10 @@ test('처리 장부(11-16): 정기보고서 주소를 적은 패키지가 같은
   // 11-22: 단독 후보 심사의 사업보고서 수치 단서(DART_METRIC)도 보고서 주소만으로는 붙지 않는다 — 항목·구역 줄 모두
   const metric = { id: 'clue:0858b1e3472df1a0', watch: '단독 후보 심사', kind: 'DART 하 역/서비스', company: '금호석유화학', date: '2026-11-16', fact: '금호석유화학 · 하 역/서비스', url: URL, multiTopic: true };
   assert.equal(matchHandled(metric, petchem()), null);
+  // 보고서 전체 새 낱말(rptword:)도 — 항목·구역 줄 모두
+  const word = { id: 'rptword:20261116000765', watch: '정기보고서 숨은 대목(보고기간 후 사건·제재·소송)', kind: '보고서 전체 새 낱말', company: 'LG화학', date: '2026-11-17T16:49:00Z', fact: 'LG화학 보고서 전체 새 낱말 〔청산〕 LG Chem Hai Phong Vietnam 청산', url: URL };
+  assert.equal(matchHandled(word, petchem()), null);
+  assert.equal(annotateHandled(`- B · 11-18 01:49 · LG화학 · 보고서 전체 새 낱말 · 접수 2026-11-16\n   새 줄: 〔청산〕 당분기 중 LG Chem Hai Phong Vietnam Company Ltd.는 청산되었습니다.\n   원문: ${URL} · id rptword:20261116000765`, petchem()).marked, 0);
   assert.equal(annotateHandled(`3. [화학·소재] 금호석유화학\n   잡힌 사실: 금호석유화학 · 하 역/서비스 (단서 · DART_METRIC · 2026-11-16)\n   원문: ${URL} · 접수 2026-11-16`, petchem()).marked, 0);
   // 11-22: 직함·인사 낱말('부사장'·'출신')만 맞은 다른 사람 줄은 붙지 않는다 — 사람 이름이 맞으면 붙는다
   const kz = ledgerEntries([pk('koreazinc-3q-new-execs', '[접음] 고려아연 최병권 부사장(국회 수석전문위원 출신)·정책지원팀 등 3분기 신규 임원(국회·기후부·노동부·LG CNS 출신)', '접음', '2026-11-17T01:00:00Z')], []);
