@@ -1,5 +1,6 @@
 """Connector views restate sources; they never upgrade leads or turn 0 into 미보도."""
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -149,6 +150,18 @@ class Views(unittest.TestCase):
         # 11-23: DART 회사명 'POSCO홀딩스'는 출입처 포스코홀딩스(철강·비철) — 'POSCO' 뒤에 한글이 붙어 낱말 경계로는 안 잡혔다
         self.assertEqual(v.beat_name("POSCO홀딩스"), "포스코홀딩스")
         self.assertEqual(v.team_for(v.beats_in("POSCO홀딩스 풍문또는보도에대한해명(미확정)(자회사의 주요경영사항)")), "철강·비철")
+
+    def test_registry_names_match_the_worker_and_the_dart_registry_aliases(self):
+        # 11-23: 'POSCO홀딩스'가 dart_corp_registry 별칭에만 있고 이름표(tool views·Worker)엔 없어 radar_clues에서 '그 외'로 떴다.
+        # 세 곳이 어긋나지 않게: Worker(common.mjs) REGISTRY_NAMES == 이 파일 REGISTRY_NAMES, 공식 회사명 별칭은 모두 출입처로 읽힌다
+        import dart_corp_registry
+        src = (ROOT / "cloudflare" / "common.mjs").read_text(encoding="utf-8")
+        block = re.search(r"export const REGISTRY_NAMES = \{(.*?)\n\};", src, re.S).group(1)
+        worker = dict(re.findall(r"'([^']+)':\s*'([^']+)'", block))
+        self.assertEqual(worker, v.REGISTRY_NAMES)
+        for canon, aliases in dart_corp_registry.ALIASES.items():
+            for alias in aliases:
+                self.assertIsNotNone(v.beat_name(alias), f"{canon} 별칭 {alias}")
 
     def test_same_receipt_merges_without_upgrading_tier(self):
         views = self.build()
