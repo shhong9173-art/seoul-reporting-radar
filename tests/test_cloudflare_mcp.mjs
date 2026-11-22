@@ -5276,7 +5276,12 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   const ko = (await call('kr_official', { section: 'building', company: '대효제약' }, opts)).text;
   assert.match(ko, /검증 상태: 건물명에 다른 회사 이름\('대효제약'\)/);
   assert.doesNotMatch((await call('kr_official', { section: 'building' }, opts)).text, /대효제약/);
-  const { bareFirmName, minorFacility } = await import('../cloudflare/overseas.mjs');
+  const { bareFirmName, minorFacility, retierPermit } = await import('../cloudflare/overseas.mjs');
+  // 한 곳에서 같은 차례로(다른 회사 이름 → 부속 시설 → 이웃 필지 출입처 이름): 이웃 필지 출입처 이름이라도 부속 시설이면 C 그대로(11-23 두 화면 차례가 달랐다)
+  const nb = { company: 'LS일렉트릭', sameLot: false, tier: 'C', archGbCdNm: '증축', totArea: 2000, mainPurpsCdNm: '공장', bldNm: '엘에스일렉트릭 부산공장 경비실' };
+  assert.equal(retierPermit(nb).tier, 'C');
+  assert.equal(retierPermit({ ...nb, bldNm: '엘에스일렉트릭 부산공장' }).tier, 'B');
+  assert.equal(retierPermit({ ...nb, sameLot: true, tier: 'B', bldNm: '대효제약' }).tier, 'C');
   assert.deepEqual([{ bldNm: '가공동 드라이어 보관룸', archGbCdNm: '증축' }, { bldNm: '물류창고', archGbCdNm: '증축' }, { bldNm: '경비실', archGbCdNm: '신축' }, { bldNm: '48번동', archGbCdNm: '증축' }]
     .map(minorFacility), ['보관룸', null, null, null]);   // 창고·동 이름은 크기를 몰라 그대로, 신축은 안 봄
   const { lotOnlyName } = await import('../cloudflare/digest.mjs');
