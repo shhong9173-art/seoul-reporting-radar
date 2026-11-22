@@ -128,6 +128,30 @@ class Run(unittest.TestCase):
         self.assertEqual(doc2["checks"][0]["reset"], "RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행(03:10) 뒤 20분은 못 봄")
 
 
+    def test_gap_only_over_the_indian_weekend_is_a_note_11_23(self):
+        # 11-22(일) 18:40: 토 22:10 실행 뒤 일 03:30(인도 자정)에 RSS가 새로 시작 — 못 본 건 인도 토요일 저녁뿐이라 '일부'가 아니라 메모
+        sat = item("Amanta Healthcare Limited", "AMANTA_21112026180000_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "21-Nov-2026 18:00:00")
+        sun = item("Amanta Healthcare Limited", "AMANTA_22112026000800_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "22-Nov-2026 00:08:00")
+        get, _ = fake(rss(sat))
+        doc = w.run(dt.datetime(2026, 11, 21, 22, 10, tzinfo=KST), None, get=get, sleep=lambda s: None)
+        get2, _ = fake(rss(sun))
+        doc2 = w.run(dt.datetime(2026, 11, 22, 18, 40, tzinfo=KST), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual((doc2["status"], doc2["checks"][0]["status"]), ("complete", "ok"))
+        self.assertIn("인도 토·일 구간만 못 봄", doc2["checks"][0]["reset"])
+        # 월요일 첫 실행(일 22:10 뒤)도 같다
+        mon = item("Amanta Healthcare Limited", "AMANTA_23112026000500_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "23-Nov-2026 00:05:00")
+        get3, _ = fake(rss(mon))
+        doc3 = w.run(dt.datetime(2026, 11, 23, 13, 10, tzinfo=KST), dict(doc2, generatedAt="2026-11-22T22:10:00+09:00"), get=get3, sleep=lambda s: None)
+        self.assertEqual(doc3["status"], "complete")
+        # 평일(인도 금요일 저녁)을 못 봤으면 그대로 '일부'
+        fri = item("Amanta Healthcare Limited", "AMANTA_20112026180000_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "20-Nov-2026 18:00:00")
+        get4, _ = fake(rss(fri))
+        doc4 = w.run(dt.datetime(2026, 11, 20, 22, 10, tzinfo=KST), None, get=get4, sleep=lambda s: None)
+        get5, _ = fake(rss(item("Amanta Healthcare Limited", "AMANTA_21112026000800_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "21-Nov-2026 00:08:00")))
+        doc5 = w.run(dt.datetime(2026, 11, 21, 13, 10, tzinfo=KST), doc4, get=get5, sleep=lambda s: None)
+        self.assertEqual(doc5["status"], "partial")
+
+
 class RoutineNotices(unittest.TestCase):
     def test_rta_and_investor_service_notices_are_routine_11_21(self):
         # 11-20 실제 공시: 명의개서 대리인(RTA) 주소 변경이 B로 떴다

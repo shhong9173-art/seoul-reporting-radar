@@ -86,6 +86,22 @@ def pdf_head(content, n=600):
     return re.sub(r"\s+", " ", text).strip()[:n]
 
 
+IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
+
+
+def weekend_only(last, oldest):
+    """직전 실행~이번 RSS의 가장 오래된 공시 사이(못 본 구간)가 인도 토·일에만 걸치면 True. 03:10 칸(인도 자정 전 마지막 실행)은 화~토만이라
+    일·월요일 첫 실행은 늘 앞 구간을 못 본다 — 11-22(일) 18:40 '일부 실패 1건(NSE 공시 RSS)'이 수집 상태 맨 위에 떴다(인도 토요일 저녁 몇 시간).
+    자정 직후 첫 공시까지 몇 분은 새 날로 치지 않는다."""
+    a, b = last.astimezone(IST), oldest.astimezone(IST) - dt.timedelta(hours=1)
+    d = a.date()
+    while d <= max(a, b).date():
+        if d.weekday() < 5:
+            return False
+        d += dt.timedelta(days=1)
+    return True
+
+
 def run(now, previous=None, *, get=None, sleep=time.sleep):
     if get is None:
         import requests
@@ -129,6 +145,10 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             if oldest >= reset and (reset - last) <= dt.timedelta(minutes=60):
                 gap = False
                 reset_note = f"RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행({last.astimezone(KST):%H:%M}) 뒤 {int((reset - last).total_seconds() // 60)}분은 못 봄"
+            elif weekend_only(last, oldest):
+                gap = False
+                reset_note = (f"RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행({last.astimezone(KST):%m-%d %H:%M}) 뒤 인도 토·일 구간만 못 봄"
+                              "(03:10 칸은 화~토만 — 주말엔 공시가 드물어 '일부'로 올리지 않음)")
         except (TypeError, ValueError):
             pass
     # 저장분도 지금 규칙으로 다시 매긴다 — 11-21 RTA(명의개서 대리인) 주소 변경을 C로 바꾼 뒤에도 11-20 저장분이 B로 radar_today·역추적에 남았다
