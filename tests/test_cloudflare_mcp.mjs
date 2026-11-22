@@ -1606,6 +1606,25 @@ test('같은 사업장 참고(C) 굴뚝 멈춤·가동중지 전환·해제 줄�
   assert.match(c, /오씨아이 주식회사 군산공장: 멈췄던 배출구/);
 });
 
+test('같은 사업장 참고(C) 배출허용기준 초과 줄이 셋 이상이면 배출구·물질별 횟수·최대값으로 한 줄(11-23 세아창원특수강 193번 NOx)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  const site = '㈜세아창원특수강';
+  const x = (code, gas, ko, v, lim, ratio, h) => ({ id: `stk:exceed:세아:(주)세아창원특수강:${code}:${gas}:2026-10-2${5 - Math.floor(h / 24)} 0${h % 10}:00`, kind: '배출허용기준 초과(측정값)', tier: 'C',
+    company: '세아', site, detectedAt: at(h), text: `${site} 배출구 ${code}번 ${ko} 측정값 ${v}이 배출허용기준 ${lim}을 넘음(기준의 ${ratio}배, 측정 2026-10-25 01:00) · 실시간 자동측정 값(확정 전)` });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.5), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events: [x('195', 'nox', '질소산화물', '179.88', '105', '1.7', 1), x('193', 'nox', '질소산화물', '111.66', '105', '1.1', 7), x('193', 'nox', '질소산화물', '200.98', '105', '1.9', 12),
+      x('193', 'nox', '질소산화물', '117.56', '105', '1.1', 45),
+      { ...x('228', 'nox', '질소산화물', '154.71', '140', '1.1', 13), id: 'stk:exceed:포스코:(주)포스코포항제철소:228:nox:2026-10-25 11:00', company: '포스코', site: '㈜포스코 포항제철소',
+        text: '㈜포스코 포항제철소 배출구 228번 질소산화물 측정값 154.71이 배출허용기준 140을 넘음(기준의 1.1배)' }] }) }), opts.env, {});
+  const c = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text.split('[C · ')[1] ?? '';
+  assert.match(c, /같은 사업장 배출허용기준 초과 참고\(C\) 4줄 묶음: ㈜세아창원특수강 — 193번 질소산화물 3번\(최대 200\.98, 기준 105의 1\.9배, \d\d-\d\d~\d\d-\d\d\) · 195번 질소산화물 1번\(179\.88, 기준 105의 1\.7배, \d\d-\d\d\) — 실시간 자동측정 값\(확정 전\)/);
+  assert.match(c, /id stkxlot:stk:exceed:세아:/);
+  assert.equal((c.match(/측정값 111\.66/g) ?? []).length, 0);
+  assert.match(c, /포항제철소 배출구 228번 질소산화물 측정값 154\.71/);   // 한 줄뿐인 사업장은 그대로
+});
+
 test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 먼저 적고 후보는 남은 자리에(11-23)', async () => {
   const opts = PRIVATE();
   const iso = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
@@ -1649,7 +1668,8 @@ test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지
   assert.match(r, /- [^\n]* · 굴뚝 측정\(공장 가동 신호\) · 포스코 · ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 \d+번이 생김[^\n]*… · id stk:newstack:/);   // 한 줄 꼴
   assert.match(r, /\n규칙: 모두 자동 수집 단계다/);                                        // 뒤 구역도 남는다
   // 11-23 02:07: include_minor·limit 60이면 C까지 자리를 남기느라 A·B도 모두 한 줄이 됐다 — 자리 몫은 A·B끼리만, C는 남은 자리에
-  const cev = Array.from({ length: 60 }, (_, i) => ({ ...events[i], id: `stk:exceed:포스코:(주)포스코포항제철소:${i}:nox:x`, kind: '배출허용기준 초과(측정값)', tier: 'C' }));
+  // (사업장마다 한 줄 — 같은 사업장 초과 C 셋 이상은 한 줄로 묶이므로 11-23 뒤로는 사업장을 나눈다)
+  const cev = Array.from({ length: 60 }, (_, i) => ({ ...events[i], id: `stk:exceed:포스코:(주)포스코포항제철소${i}:${i}:nox:x`, kind: '배출허용기준 초과(측정값)', tier: 'C' }));
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
     schema: 'kr_stacks/v1', generatedAt: at(0.4), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
     sites: [], events: [...events.slice(0, 30), ...cev] }) }), opts.env, {});
