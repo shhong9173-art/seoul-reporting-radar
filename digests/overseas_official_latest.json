@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-20T08:12:32+09:00",
+  "generatedAt": "2026-11-23T08:12:45+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-10-21",
+  "windowStart": "2026-10-24",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -33,9 +33,9 @@
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "checked",
-      "returned": 1,
+      "returned": 0,
       "matched": 0,
-      "unverified": 1
+      "unverified": 0
     },
     {
       "provider": "EU TED",
@@ -49,9 +49,9 @@
       "provider": "EU TED",
       "query": "Hyosung Heavy Industries",
       "status": "checked",
-      "returned": 1,
+      "returned": 0,
       "matched": 0,
-      "unverified": 1
+      "unverified": 0
     },
     {
       "provider": "EU TED",
@@ -81,16 +81,16 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 3,
-      "matched": 1,
+      "returned": 4,
+      "matched": 2,
       "unverified": 2
     },
     {
       "provider": "US Federal Register",
       "query": "POSCO",
       "status": "checked",
-      "returned": 2,
-      "matched": 1,
+      "returned": 3,
+      "matched": 2,
       "unverified": 1
     },
     {
@@ -135,6 +135,24 @@
     }
   ],
   "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-23802",
+      "published": "2026-11-23",
+      "companiesMentioned": [
+        "현대제철",
+        "포스코"
+      ],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": true,
+      "title": "Certain Cold-Rolled Steel Flat Products From the Republic of Korea: Preliminary Results and Rescission, in Part of Countervailing Duty Administrative Review; 2024",
+      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that countervailable subsidies were provided to Hyundai Steel Company (Hyundai Steel) and POSCO for the production of certain cold-rolled steel flat products (cold-rolled steel) from the Republic of Korea (Korea). The period of review (POR) is January 1, 2024, through December 31, ",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/23/2026-23802/certain-cold-rolled-steel-flat-products-from-the-republic-of-korea-preliminary-results-and",
+      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
     {
       "source": "US Federal Register",
       "sourceType": "federal_notice",
@@ -213,40 +231,10 @@
       "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
       "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
       "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
-    },
-    {
-      "source": "EU TED",
-      "sourceType": "eu_procurement_notice",
-      "sourceId": "730588-2026",
-      "published": "2026-10-22",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyosung Heavy Industries",
-      "nameVerified": false,
-      "title": "Iceland – Electrical equipment and apparatus – Gas Insulated Switchgear - Direct Award",
-      "buyer": "Landsnet hf",
-      "sourceUrl": "https://ted.europa.eu/en/notice/730588-2026/html",
-      "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
-      "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
-      "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-21630",
-      "published": "2026-10-22",
-      "companiesMentioned": [],
-      "companySearchTerm": "Korea Zinc",
-      "nameVerified": false,
-      "title": "Granting of Requests for Early Termination of the Waiting Period under the Premerger Notification Rules",
-      "abstract": "",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/22/2026-21630/granting-of-requests-for-early-termination-of-the-waiting-period-under-the-premerger-notification",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
-  "matchedCount": 2,
-  "unverifiedSearchMatches": 5,
+  "matchedCount": 3,
+  "unverifiedSearchMatches": 3,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
