@@ -125,6 +125,12 @@ class Run(unittest.TestCase):
         glovis = [x for x in doc2["items"] if x["filer"] == "현대글로비스"][0]
         self.assertEqual((glovis["tier"], glovis["sameGroup"]), ("C", True))   # 같은 그룹 — 참고, 이벤트 없음
         self.assertNotIn("dcp:20261027900002", ev)
+        self.assertNotIn("note", doc2["checks"][1])
+        # 11-23: 새 후보가 없는 실행의 원문 0줄은 사유를 적는다(조용한 0건 '형식 변경 의심'에서 빠지게)
+        get3, _ = fake(ROWS)
+        doc3 = w.run(NOW + dt.timedelta(hours=6), doc2, key="k", get=get3, sleep=lambda s: None)
+        self.assertEqual((doc3["checks"][1]["returned"], doc3["checks"][1]["note"]), (0, "새로 열어 볼 후보 공시 없음(공시검색 8건 중 거래·계약 종류의 새 공시 0건)"))
+        self.assertNotIn("note", doc3["checks"][0])
 
     def test_failures(self):
         get, _ = fake(ROWS[:1])
