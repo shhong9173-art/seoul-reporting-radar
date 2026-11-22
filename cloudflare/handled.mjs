@@ -131,7 +131,24 @@ function compile(e) {
   e.minorL = [...e.words.minor];
   e.urlL = [...e.urls];
   e.idL = [...e.ids].map((id) => `id ${id}`);
+  e.figL = [...(e.figures ?? [])].map((f) => { const [v, n, u] = String(f).split('|'); return { v, d: (v.split('.')[1] ?? '').length, n: Number(n), u }; })
+    .filter((f) => f.v && Number.isFinite(Number(f.v)) && Number.isFinite(f.n));
   return e;
+}
+
+// 패키지 본문 근거 수치(packageFigures)와 항목 글의 수치가 짝으로 맞는가 — 값(패키지 쪽 소수 자리로 반올림해 같음) + 'N일(개월) 만'(±1, 같은 단위).
+// 기자는 하루 뒤 다시 읽은 값을 적기도 한다(11-23: 은 레이더 줄 47.73·376일 만 ↔ 패키지 '은 47.7, 377일 만'). 값 하나만·기간 하나만으로는 잇지 않는다
+const figuresOfText = (text) => {
+  const t = String(text ?? '');
+  return { nums: [...t.matchAll(/(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d+)?|(?<![\d.,])\d+(?:\.\d+)?/g)].map((m) => Number(m[0].replace(/,/g, ''))).filter(Number.isFinite),
+    runs: [...t.matchAll(/(\d{1,4})(일|개월) 만/g)].map((m) => ({ n: Number(m[1]), u: m[2] })) };
+};
+function figureHit(fig, e) {
+  for (const f of e.figL ?? []) {
+    if (!fig.runs.some((r) => r.u === f.u && Math.abs(r.n - f.n) <= 1)) continue;
+    if (fig.nums.some((x) => x.toFixed(f.d) === Number(f.v).toFixed(f.d))) return `${f.v}·${f.n}${f.u} 만`;
+  }
+  return null;
 }
 
 // 패키지·판정 → 장부 줄
@@ -157,7 +174,7 @@ export function ledgerEntries(packages = [], feedback = []) {
     const tag = (/^\s*\[([^\]]+)\]/.exec(p.title) ?? [])[1] ?? '';
     byName.set(p.name, compile({ key: p.name, source: '패키지', state, tag, title: String(p.title ?? ''), subject, reason: fb?.reason ?? '',
       at: Date.parse(p.updated_at) || 0, companies, codes: codesOf(`${subject} ${p.name.replace(/-/g, ' ')}`), words: wordsOf(subject, companies),
-      ids: new Set(links.ids ?? []), urls: new Set(links.urls ?? []) }));
+      ids: new Set(links.ids ?? []), urls: new Set(links.urls ?? []), figures: new Set(links.figures ?? []) }));
   }
   return { entries: [...byName.values()], alerted, skipped };
 }
@@ -238,11 +255,23 @@ export function matchHandled(item, ledger) {
   if (memo.has(key)) return memo.get(key);
   const url = item.url ? String(item.url).replace(/[.,;]+$/, '') : '';
   let prep = null;
+  let fig = null;
   let similar = null;
   let out = null;
   for (const e of entries) {
     if (e.ids.has(id) || (item.parent && e.ids.has(String(item.parent)))) { out = { entry: e, how: 'id' }; break; }
     if (url && !MULTI_TOPIC_ID.test(id) && !item.multiTopic && e.urls.has(url)) { out = { entry: e, how: '원문 주소' }; break; }
+    if (!e.codeM) compile(e);
+    if (e.figL.length) {
+      fig ??= figuresOfText(ownFact(item));
+      const f = figureHit(fig, e);
+      if (f) {
+        const t = itemTime(item);
+        if (!t || t <= e.at + DAY) { out = { entry: e, how: `수치(${f})` }; break; }
+        similar ??= e;
+        continue;
+      }
+    }
     prep ??= prepare(itemText(item), `${item.company ?? ''} ${ownFact(item).slice(0, 200)}`, ledger.anyCodeRe ?? (ledger.anyCodeRe = anyCodeOf(entries)));
     const w = matchEntry(prep, e);
     if (!w) continue;
@@ -289,11 +318,13 @@ export function annotateHandled(text, ledger) {
     const own = lines.slice(from, to).filter((l) => !HINT_LINE.test(l) && !QUOTE_LINE.test(l)).map((l) => l.replace(HINT_TAIL, '').replace(QUOTE_TAIL, '')).join('\n');
     const prep = prepare(own, own, anyCodeRe);
     const multi = MULTI_TOPIC_BLOCK.test(block);   // 정기보고서에서 읽은 항목 — 보고서 주소만으로는 같은 건이 아니다
+    let fig = null;
     const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
     const lineMs = d ? Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) : null;
     for (const e of entries) {
       if (!e.codeM) compile(e);
       if ((!multi && e.urlL.some((u) => urlIn(block, u))) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
+      if (e.figL.length && figureHit(fig ??= figuresOfText(own), e)) { hit = e; break; }
       const w = matchEntry(prep, e);
       if (!w) continue;
       // 낱말만 맞은 오래된 줄(처리한 때보다 120일 넘게 앞선 날짜)은 그 건이 아니다 — 11-13 운영: '한화큐셀 조지아 대기허가 신청(30376)' 보류 건이
