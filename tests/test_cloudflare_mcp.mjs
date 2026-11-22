@@ -5073,6 +5073,10 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.doesNotMatch(r.text, /허가 2026-10-20[^\n]*늦게 올라옴/);    // 엿새 뒤에 잡힌 허가는 그대로
   assert.match(r.text, /사용승인 2026-09-15 · 레이더가 준공을 처음 본 날 10-26\(사용승인 41일 뒤 — 건축 인허가 자료에 늦게 올라옴\) — 건축주 미표기/);
   assert.doesNotMatch(r.text, /사용승인 2026-10-20[^\n]*늦게 올라옴/);
+  // 11-22: 준공 항목의 보도 대조는 사용승인일부터(처음 본 날 사흘 전부터가 아니라)
+  const ri = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.equal(ri.items.find((x) => x.id === 'bld:9')?.check.since, '2026-09-15');
+  assert.equal(ri.items.find((x) => x.id === 'bld:8')?.check.since, undefined);   // 허가 항목은 항목 날짜(허가일) 그대로
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /건축허가: 케이지스틸 주식회사 부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 공장 · 연면적 12,501㎡ · 허가 2026-10-20 · 착공예정 2026-12-01 — 건축주 미표기\(공장과 같은 번지\)/);
   assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\) · 증축 공장 · 연면적 12,501㎡\(건물 전체일 수 있음, 증축분 아님\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
   assert.doesNotMatch(r.text, /첫 조회 번지의 옛 허가|공장 목록에서 빠진 공장/);

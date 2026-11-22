@@ -247,6 +247,7 @@ export const gbHint = (who, terms, country, published, koTitle = '') => {
   return h && Number.isFinite(t) ? { ...h, since: kstDate(t - GB_LEAD_DAYS * 86400000) } : h;
 };
 
+const withSince = (h, day) => (h && /^\d{4}-\d{2}-\d{2}$/.test(String(day ?? '')) ? { ...h, since: day } : h);
 const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? '')) ? { ...h, since: `${month}-01` } : h);
 
 // 무역위 항목 보도 대조(11-08): 회사 이름이 누리집에 대개 없어 품목 이름으로 찾는다('석도강판 반덤핑'). 기사 제목은 짧은 품목 이름을 쓰고
@@ -1209,7 +1210,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
       // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
       // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
-      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)], [cityOf(x.plot)]) });
+      // 사용승인(준공)을 늦게 본 항목은 항목 날짜가 '처음 본 날'이라 대조가 그 사흘 전부터였다 — 준공 기사는 사용승인 무렵에 난다(11-22: 10-06 사용승인을
+      // 11-22에 보고 11-19 이후만 찾음). 대조 시작을 사용승인일로(대조기가 사흘을 더 당긴다)
+      check: x.tier === 'C' ? undefined : withSince(hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)], [cityOf(x.plot)]), x.changedAt ? x.useApproved : null) });
   }
 
   // 통합환경허가 정보공개(11-21): 등급은 수집기(변경허가 B, 통합허가·관련 기업 C). 보도 대조는 회사 + 환경 허가 낱말(사업장 지명이 있으면 함께)

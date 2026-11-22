@@ -80,7 +80,9 @@ def candidates(items, *, now, limit=MAX_ITEMS):
 def same_rule(old, r):
     """지난 대조와 지금 대조 규칙이 같은가 — 질의와 필수 낱말(must). 11-22: 건축허가 판정에 시 이름을 필수로 넣었는데(#1048) 질의는 그대로라
     ('LS일렉트릭 청주') 옛 판정(베트남 공장 기사로 '관련 보도 있음')이 다시 대조되지 않고 남았다. 예전 기록엔 must가 없다 — 지금 must가 있으면 한 번 다시 본다."""
-    return list(old.get("queries") or []) == ss.queries(r) and list(old.get("must") or []) == list(r.get("must") or [])
+    # 대조 시작일(since)도 규칙이다(11-22: 늦게 본 사용승인(준공)은 사용승인일부터 찾게 바꿈) — 예전 기록에 since가 없으면 견주지 않는다
+    same_since = not old.get("since") or old.get("since") == r.get("since")
+    return list(old.get("queries") or []) == ss.queries(r) and list(old.get("must") or []) == list(r.get("must") or []) and same_since
 
 
 def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
