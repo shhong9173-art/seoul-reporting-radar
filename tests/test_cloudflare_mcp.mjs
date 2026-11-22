@@ -1576,6 +1576,28 @@ test('같은 사업장 배출구 목록 빠짐(C)은 한 줄로 묶는다(11-23 
   assert.match(c, /배출구 7번이 굴뚝 자동측정 목록에서 2번 연속 빠짐[^\n]*\n   자세히: kr_official · id stk:gone:GS칼텍스:/);   // 한 줄뿐인 사업장은 그대로
 });
 
+test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 먼저 적고 후보는 남은 자리에(11-23)', async () => {
+  const opts = PRIVATE();
+  const iso = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  // 기자가 처리한 건(5구역)이 많은 날: 40건 × 긴 제목
+  for (let i = 0; i < 40; i += 1) {
+    await call('package_save', { name: `fold-${i}`, state: '접음', title: `[접음] 처리한 건 ${i} ${'— 긴 제목 '.repeat(14)}`, body: '근거' }, opts);
+  }
+  const co = ['기아', '현대차', '제네시스'];
+  const events = Array.from({ length: 40 }, (_, i) => ({ pageId: `kia-us-ev${i}`, scope: 'page', company: co[i % 3], label: `${co[i % 3]} 미국 EV${i} 페이지`, detectedAt: iso(2 + i * 3),
+    url: `https://www.kia.com/us/en/ev${i}`, added: { timing: [`Coming Soon ${'— 긴 문구 '.repeat(60)}${i}`] } }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'page_watch/v1', generatedAt: iso(1), pages: [], events }) }), opts.env, {});
+  const r = (await call('scoop_desk', { limit: 40 }, opts)).text;
+  assert.ok(r.length <= 20000, String(r.length));
+  assert.doesNotMatch(r, /응답 예산 2만 자 초과로 잘림/);
+  assert.match(r, /\[5\. 기자가 이미 처리한 건/);                                  // 다시 추천하지 않을 목록은 잘리지 않는다
+  assert.match(r, /\n규칙: 여기 뜬 것도 단독 확정이 아니다/);
+  assert.match(r, /\(글자 예산 때문에 후보 \d+건은 한 줄로 줄임/);
+  const sec1 = r.split('[1. 새 후보')[1].split('\n[2')[0];
+  assert.match(sec1, /\n   원문: https:\/\/www\.kia\.com\/us\/en\/ev\d+ · 자세히: page_changes/);   // 앞쪽은 온전한 꼴
+  assert.match(sec1, /\n- A · [^\n]* · (?:기아|현대차|제네시스) · [^\n]*… · id kia-us-ev\d+:/);   // 뒤쪽은 한 줄
+});
+
 test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지 보인다(11-23 월요일 72시간 화면이 B 중간에서 잘림)', async () => {
   const opts = PRIVATE();
   const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
