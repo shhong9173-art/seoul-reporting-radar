@@ -439,6 +439,22 @@ class SameStory(unittest.TestCase):
         self.assertEqual(fold_same_story([short1,short2]),{})
         self.assertEqual(fold_same_story([dict(s3,published="2026-12-20T09:00:00+09:00"),s1]),{})
 
+    def test_title_cut_without_ellipsis_joins_the_same_outlet_same_day_row_11_23(self):
+        # 11-22 역추적: 이투데이 「[단독] 법원, 현대모비스 램프사업」('...' 없이 잘림)과 온전한 제목이 두 줄
+        cut=self.row("a","[단독] 법원, 현대모비스 램프사업","2026-11-20T12:27:00+09:00","이투데이","현대모비스")
+        full=self.row("b","[단독] 법원, 현대모비스 램프사업 분할 반발 근로자 가처분 기각","2026-11-20T09:59:00+09:00","이투데이","현대모비스")
+        self.assertEqual(fold_same_story([cut,full]),{"a"*24:"b"*24})
+        d=build(index(cut,full),now=datetime(2026,11,21,10,0,tzinfo=KST))
+        self.assertEqual([x["title"] for x in d["items"]],["[단독] 법원, 현대모비스 램프사업 분할 반발 근로자 가처분 기각"])
+        # 다른 매체·다른 날·너무 짧은 앞부분·회사가 안 겹치면 그대로
+        self.assertEqual(fold_same_story([dict(cut,sourceName="아시아경제"),full]),{})
+        self.assertEqual(fold_same_story([dict(cut,published="2026-11-21T12:27:00+09:00"),full]),{})
+        self.assertEqual(fold_same_story([dict(cut,title="[단독] 법원, 현대"),full]),{})
+        self.assertEqual(fold_same_story([dict(cut,companies=["현대차"]),full]),{})
+        n1=self.row("c","[단독] 현대차 전기차 공장 1","2026-11-20T09:00:00+09:00","이투데이","현대차")
+        n10=self.row("d","[단독] 현대차 전기차 공장 10","2026-11-20T10:00:00+09:00","이투데이","현대차")
+        self.assertEqual(fold_same_story([n1,n10]),{})   # 숫자 가운데서 끊긴 것은 다른 제목
+
     def test_short_titles_need_exact_match(self):
         a=self.row("a","[단독] 포스코 감산","2026-11-02T05:00:00+09:00")
         b=self.row("b","[단독] 포스코 감산 확대","2026-11-02T06:00:00+09:00")
