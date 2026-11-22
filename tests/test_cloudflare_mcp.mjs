@@ -6344,6 +6344,10 @@ test('처리 장부(11-16): 정기보고서 주소를 적은 패키지가 같은
   const mobis = ledgerEntries([pk('mobis-board', '[접음] 현대모비스 이사회 9→7명(강진아 독립이사 퇴임·김도형 CFO 사내이사 이탈)', '접음', '2026-11-17T01:00:00Z', `${LINK_LINE} ${URL}`)], []);
   const mobisBlock = `- A · 11-17 07:54 · 현대모비스 · 명단에서 빠짐\n   잡힌 사실: 현대모비스 2026년 3분기(9-30 기준) 임원 명단에서 빠짐 — 2026년 반기(6-30 기준) 강진아 1967년생 이사(등기 사외이사) · 담당 독립이사후보추천위원회 위원장\n   원문: ${URL}`;
   assert.equal(annotateHandled(mobisBlock, mobis).marked, 1);
+  // 11-22: 단독 후보 심사의 사업보고서 수치 단서(DART_METRIC)도 보고서 주소만으로는 붙지 않는다 — 항목·구역 줄 모두
+  const metric = { id: 'clue:0858b1e3472df1a0', watch: '단독 후보 심사', kind: 'DART 하 역/서비스', company: '금호석유화학', date: '2026-11-16', fact: '금호석유화학 · 하 역/서비스', url: URL, multiTopic: true };
+  assert.equal(matchHandled(metric, petchem()), null);
+  assert.equal(annotateHandled(`3. [화학·소재] 금호석유화학\n   잡힌 사실: 금호석유화학 · 하 역/서비스 (단서 · DART_METRIC · 2026-11-16)\n   원문: ${URL} · 접수 2026-11-16`, petchem()).marked, 0);
   // 11-22: 직함·인사 낱말('부사장'·'출신')만 맞은 다른 사람 줄은 붙지 않는다 — 사람 이름이 맞으면 붙는다
   const kz = ledgerEntries([pk('koreazinc-3q-new-execs', '[접음] 고려아연 최병권 부사장(국회 수석전문위원 출신)·정책지원팀 등 3분기 신규 임원(국회·기후부·노동부·LG CNS 출신)', '접음', '2026-11-17T01:00:00Z')], []);
   assert.equal(annotateHandled('- 롯데정밀화학 · 장사범 1965년생 이사(사외이사) · 고려아연 출신 · 경력 「21.~23. 고려아연㈜ 신소재사업본부장 부사장」', kz).marked, 0);
