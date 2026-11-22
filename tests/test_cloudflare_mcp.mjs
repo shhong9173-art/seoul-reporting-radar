@@ -1209,6 +1209,7 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('kr_official', { section: 'stacks' }, opts);
   assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 5곳 · 배출구 8개/);
+  assert.match(r.text, /규칙\(레이더 화면, 11-23\): 위 등급 상한에 더해, 같은 배출구·같은 물질이 최근 7일 따로 시작한 초과[^\n]*4번 이상이면 radar_today에 B '배출허용기준 되풀이 초과'/);   // 11-23
   // 설정 메모(siteNotes)가 있는 사업장은 '가동중지' 줄에 메모를 붙인다
   assert.match(r.text, /SK이노베이션 · 에스케이이노베이션 주식회사\(전라남도\) · 배출구 1개 중 1개: 1번\(10-31 08:00\) · ⓘ 발전 사업장으로 보임\(공장등록 화력 발전업\)/);
   assert.match(r.text, /- 지금 목록에서 빠져 있는 사업장 1곳\n  동국제강 · 동국제강㈜ 포항공장\(경상북도\) · 연속 3번 빠짐\(평일 일하는 시간 1번\) · 마지막으로 보인 실행 2026-10-31T06:20/);
