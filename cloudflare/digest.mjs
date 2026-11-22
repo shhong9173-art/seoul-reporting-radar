@@ -1587,7 +1587,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const head = list[0].e;
     const kinds = {};
     for (const { e } of list) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
-    const codes = [...new Set(list.flatMap(({ e }) => [...String(e.text ?? '').matchAll(/(?:^|[\s,(—-])([0-9A-Za-z-]{1,8})번\(/g)].map((mm) => mm[1])))];
+    // 배출구 번호는 '59번(평소 …'·'59번(직전 값 …'·"59번('가동중지' …" 꼴만 — '최근 30일 앞선 멈춤 4번(11-06 …'의 횟수를 번호로 읽지 않게(11-23 운영: 59·4·3·2번)
+    const codes = [...new Set(list.flatMap(({ e }) => [...String(e.text ?? '').matchAll(/(?:^|[\s,(—-])([0-9A-Za-z-]{1,8})번\((?:평소|직전|')/g)].map((mm) => mm[1])))];
     const md = (v) => kstMD(Date.parse(v));
     push('C', W['kr-stacks'], { kind: '굴뚝 참고 줄 묶음', id: `stkclot:${head.id}`, date: head.detectedAt, company: head.company, site: head.site,
       fact: `같은 사업장 굴뚝 참고(C) ${list.length}줄 묶음: ${head.site}${codes.length ? ` — 배출구 ${codes.slice(0, 8).join('·')}번${codes.length > 8 ? ' 외' : ''}` : ''}`
