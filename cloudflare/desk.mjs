@@ -175,6 +175,9 @@ export async function scoopDesk(ctx, args) {
     if (press.length) out.push(...press);
     else if (x.watch === W.screen && x.verdict) out.push(`   보도 대조: 단독 후보 심사(scoop_screen)가 따로 대조한 결과 '${x.verdict}'(위 줄) — 질의·채널은 scoop_screen에서. 레이더 자동 대조는 이 항목을 따로 안 본다`);
     else if (!x.check) out.push('   보도 대조(자동): 안 함 — 이 종류는 검색 낱말을 정할 수 없어 자동 대조 대상이 아님. news_check로 직접(낱말 바꿔 2~3번)');
+    // 항목 날짜가 72시간(자동 대조 범위)보다 오래됐는데 기록이 없으면 다음 실행도 안 본다(B는 범위를 지나면 새로 안 봄 — A만 한 번 늦게 본다).
+    // 11-22 운영: 11-12 'Sears v. Hyundai Motor America'(B)가 열흘째 '아직 대조 전(다음 자동 대조 …)'으로 떴다.
+    else if (nowMs - Date.parse(x.date ?? '') > 72 * 3600000 && x.tier !== 'A') out.push('   보도 대조(자동): 기록 없음 — 72시간 대조 범위를 지났거나 실행 상한(40건)에 밀렸다. B는 범위를 지나면 다시 보지 않는다 — news_check로 직접(낱말 바꿔 2~3번)');
     else out.push('   보도 대조(자동): 아직 대조 전(다음 자동 대조 평일 08:50·12:50·18:50·주말 21:00) — 급하면 news_check로 직접(낱말 바꿔 2~3번)');
     if (r.before && STAGED.has(type.key)) out.push(`   ⚠ 항목 날짜 전 기사가 있다(${r.before.date ?? '?'} 「${clipAt(r.before.title ?? '', 50)}」) — 진행 중인 무역구제·소송은 앞선 단계(신청·개시·예비·의견서) 기사일 수 있음. 이번 단계(판정·부과 결정·항소 등)가 그 기사에 이미 있는지 열어 볼 것`);
     else if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
