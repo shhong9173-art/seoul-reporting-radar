@@ -1786,6 +1786,10 @@ export const samePlant = (a, b) => a.endsWith(b) || b.endsWith(a);
 // 의원·노조 발언 같은 자유 글에 나온 공장 이름은 그 출입처 공장이 아닐 때가 많다(11-22: 포항시의회 행감 '협화라고하는 비료공장' 발언으로
 // '포스코 · 포항 · 비료공장' 묶음이 따로 생겨 같은 의회 대목 4줄이 묶음 셋에 되풀이됐다) — 공장 이름으로 나누지 않고 모든 묶음에 붙인다.
 const FREE_TEXT_WATCHES = new Set(WATCHES.filter((w) => ['council-minutes', 'assembly-minutes', 'union-notices'].includes(w.feed)).map((w) => w.label));
+// 노동위 개별 구제신청(부당해고·부당전직·차별시정 — 조정·중재·교섭이 아닌 심판)은 한 사람 사건이라 공장 가동·투자 신호가 아니다
+// (11-22 운영: 르노코리아 부산 '부당전직 구제신청' 심판회의가 국민연금 공사 현장 배경과 '르노코리아 · 부산 — 감시 2곳'으로 묶였다). 단독 데스크도 약한 유형(hearing).
+const LABOR_LABEL = WATCHES.find((w) => w.feed === 'kr-labor')?.label;
+const soloLaborCase = (x) => x.watch === LABOR_LABEL && !/조정|중재|교섭/.test(`${x.kind ?? ''} ${x.fact ?? ''}`.slice(0, 160));
 export function splitByPlant(g) {
   const tok = new Map(g.items.map((x) => [x.id, FREE_TEXT_WATCHES.has(x.watch) ? [] : plantTokens(`${x.fact ?? ''} ${x.site ?? ''}`)]));
   const clusters = [];
@@ -1893,7 +1897,7 @@ export function convergence(items, { cut } = {}) {
     // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다.
     // 그 새 항목이 자유 글(지방의회·국회 회의록·노조 성명)뿐이어도 묶지 않는다 — 시군 이름과 회사 이름이 한 대목에 나온 발언일 뿐이고, 큰 공장 도시는
     // 굴뚝·공사 현장 배경이 늘 있어 발언 하나로 묶음이 생긴다(11-22 운영: 울산시의회 '국제정원박람회' 질의 대목이 굴뚝·명촌천 공사 배경과 '현대차 · 울산 — 감시 3곳')
-    if (watches.length < 2 || !g.items.some((x) => !x.background && !FREE_TEXT_WATCHES.has(x.watch))) continue;
+    if (watches.length < 2 || !g.items.some((x) => !x.background && !FREE_TEXT_WATCHES.has(x.watch) && !soloLaborCase(x))) continue;
     const times = g.items.map((x) => Date.parse(x.date)).filter(Number.isFinite);
     const latest = times.length ? Math.max(...times) : null;
     // 날짜만 있는 항목(공고일·허가일)은 한국 날짜로 견준다
