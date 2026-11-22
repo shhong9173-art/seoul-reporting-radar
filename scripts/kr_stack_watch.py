@@ -350,6 +350,31 @@ def _event_time(v):
     return t if t.tzinfo else t.replace(tzinfo=KST)
 
 
+def restart_detail(back, stacks, judged, present):
+    """재가동 신호에 붙일 문구: 돌아온 배출구(평소→지금)와 아직 멈춤이 이어지는 배출구(멈춤 시작).
+    11-18 12:20·11-20 20:54·11-21 11:30 KG스틸 당진 '멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴'은 어느 배출구인지 없이 났고,
+    그동안 가장 큰 8번(11-15 20:00부터)·6번(11-19 23:00부터)은 값이 비거나 '가동중지'로 계속 멈춰 있었다(멈춤 시작이 그대로 남음)."""
+    def last(c):
+        obs = stacks[c].get("obs") or []
+        return f"{obs[-1][1]:g}" if obs and obs[-1][1] is not None else "?"
+    came = sorted(back, key=lambda c: -(judged[c][1] or 0))
+    text = " — " + ", ".join(f"{c}번(평소 {judged[c][1]:.1f}→지금 {last(c)})" for c in came[:6]) + (" 외" if len(came) > 6 else "")
+    still = sorted((c for c, st in stacks.items() if st.get("stoppedSince") and not st.get("longGoneFor") and c not in back),
+                   key=lambda c: -(stacks[c].get("usual") or 0))
+    if not still:
+        return text + " · 지금 멈춤이 이어지는 배출구 없음"
+    def where(c):
+        if c not in present:
+            return ", 이번 목록에 없음"
+        return ", 이번 값 없음" if (judged.get(c) or ("",))[0] == "unknown" else ""
+    return (text + f" · 아직 멈춤 {len(still)}개: "
+            + ", ".join(f"{c}번({str(stacks[c]['stoppedSince'])[5:16]}부터{where(c)})" for c in still[:6]) + (" 외" if len(still) > 6 else "")
+            + " — 사업장 전체 재가동은 아님")
+
+
+RESTART_NAMED = re.compile(r"돌아옴 — (.+?)(?: · |$)")
+
+
 def retier_short_downs(events, hours=SHORT_DOWN_HOURS):
     """B '사업장 가동 중단 신호' 뒤 hours시간 안에 같은 사업장 '사업장 재가동 신호'가 나고 멈춘 배출구가 모두 사흘 안쪽 멈춤이면 C(한 번)."""
     downs = {}
@@ -365,18 +390,24 @@ def retier_short_downs(events, hours=SHORT_DOWN_HOURS):
         a, b = _event_time((d or {}).get("detectedAt")), _event_time(e.get("detectedAt"))
         if not d or d.get("tier") != "B" or SHORT_DOWN_NOTE in text or not a or not b or not 0 <= (b - a).total_seconds() <= hours * 3600:
             continue
-        spans = []
+        # 재가동 신호가 돌아온 배출구를 적었으면(11-23부터) 중단 신호의 멈춘 배출구가 모두 그 안에 있어야 짧은 멈춤이다 —
+        # 작은 배출구 둘이 돌아오는 동안 큰 배출구는 계속 멈춰 있을 수 있다(11-18~11-21 KG스틸 당진 8번)
+        named = RESTART_NAMED.search(str(e.get("text") or ""))
+        came = set(re.findall(r"(\S+?)번\(평소", named.group(1))) if named else None
+        spans, missing = [], False
         for m in DOWN_PART.finditer(text):
             part = m.group(0)
             st = re.search(r"상태 '([^']+)'", part)
             if st and st.group(1) in INSTRUMENT_STATUS:
                 continue  # 측정기 쪽 상태는 설비 멈춤으로 세지 않는다
+            if came is not None and m.group(1) not in came:
+                missing = True
             since = re.search(r"멈춤 (\d\d-\d\d \d\d:\d\d)부터", part)
             t0 = obs_time(f"{b.year}-{since.group(1)}") if since else a
             if t0 and t0 > b:
                 t0 = t0.replace(year=t0.year - 1)
             spans.append((b - t0).total_seconds() / 3600 if t0 else None)
-        if not spans or any(h is None or h > LONG_STOP_HOURS for h in spans):
+        if missing or not spans or any(h is None or h > LONG_STOP_HOURS for h in spans):
             continue
         back = re.search(r"멈췄던 배출구 \d+개 중 \d+개", str(e.get("text") or ""))
         d["tier"] = "C"
@@ -1133,7 +1164,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             back = [c for c in was if c in judged and judged[c][0] == "running"]
             if was and len(was) >= 2 and len(back) >= len(was) / 2 and s.get("downFlag"):
                 emit(f"stk:up:{sid}:{day}", "사업장 재가동 신호", "B", comp["company"], name,
-                     f"{name}: 멈췄던 배출구 {len(was)}개 중 {len(back)}개 측정값이 평소 수준으로 돌아옴")
+                     f"{name}: 멈췄던 배출구 {len(was)}개 중 {len(back)}개 측정값이 평소 수준으로 돌아옴"
+                     + restart_detail(back, stacks, judged, present))
             # 판단 안 함이 된 배출구도 멈춤이 이어지는 동안(멈춤 시작이 남아 있는 동안)은 멈춘 배출구로 둔다(재가동 판정의 바탕)
             held = [c for c in was if c not in stopped and c in judged and judged[c][0] == "unknown" and stacks[c].get("stoppedSince")]
             if held:
