@@ -247,6 +247,13 @@ def from_clue(x):
     if BODY_TITLE_FORMS.search(title) and dart:
         return body_pending(x, company, title)
     nums, unit = set(), ""
+    # 사업보고서 수치 단서(DART_METRIC)는 숫자가 제목이 아니라 설명(note)에 있다 — 'SK이노베이션 · 해외판매'만으로 찾아 숫자 대조를 못 했다
+    # (11-22: SK온 3분기 누적 해외판매 5,643,930→5,090,699백만원이 제목에 없어 '같은 수치 선행' 판정이 불가능). 설명의 첫 숫자 쌍을 제목에 붙인다.
+    if x.get("source") == "DART_METRIC" and "숫자" not in title:
+        pair = re.search(r"수치\s*(-?[\d,]+)\s*→\s*(-?[\d,]+)\s*\(([^)]*)\)", str(x.get("note") or ""))
+        if pair:
+            fmt = lambda v: f"{int(v.replace(',', '')):,}"
+            title = f"{title} 숫자 {fmt(pair.group(1))} → {fmt(pair.group(2))} ({pair.group(3).strip()})"
     m = re.search(r"숫자\s*([\d,]+)\s*→\s*([\d,]+)\s*\(([^)]*)\)", title)
     if m:
         unit = m.group(3).strip()

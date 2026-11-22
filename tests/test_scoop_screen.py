@@ -494,6 +494,23 @@ class Screen(unittest.TestCase):
         self.assertEqual(s.judge(c, channels([other]), now=now)[0], "미보도 후보")
         self.assertFalse(s.company_in_title("현대제철", "현대차, 국제무역법원 제소", "현대제철도"))  # '현대차'의 '현대'는 줄임이 아님
 
+    def test_business_report_number_clue_takes_its_numbers_from_the_note(self):
+        # 11-22 운영 단서(clues.json a2a371769b1f77c0): 제목 'SK이노베이션 · 해외판매'에 숫자가 없어 숫자 대조 없이 '미보도 후보'
+        clue = {"id": "a2a371769b1f77c0", "team": "전력·에너지", "published": "2026-11-16", "source": "DART_METRIC",
+                "title": "SK이노베이션 · 해외판매", "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000957",
+                "companies": ["SK이노베이션"], "tier": "공개 원자료 추적",
+                "note": "동일 회계기간·단위 DART 기재 수치 5643930 → 5090699 (백만원), 실제 제품 출하량·사업 확정 아님"}
+        c = s.from_clue(clue)
+        self.assertEqual(c["title"], "SK이노베이션 · 해외판매 숫자 5,643,930 → 5,090,699 (백만원)")
+        self.assertEqual(c["unit"], "백만원")
+        self.assertIn("5조907억", c["numbers"])
+        self.assertIn("5조6439억", c["numbers"])
+        self.assertIn("9.8%", c["ratios"])
+        self.assertEqual(c["terms"][0], "해외판매")
+        # 설명에 숫자가 없거나 다른 원천이면 그대로
+        self.assertEqual(s.from_clue({**clue, "note": None})["numbers"], [])
+        self.assertEqual(s.from_clue({**clue, "source": "DART"})["title"], "SK이노베이션 · 해외판매")
+
     def test_domestic_recall_is_searched_by_model_strictly(self):
         # 10-31 운영 단서(clues.json 384a5fb21a248f1e) + 공지 줄(scoop.json details)
         clue = {"id": "384a5fb21a248f1e", "team": "자동차", "published": "2026-10-30", "source": "자동차리콜센터(국토교통부·자동차안전연구원)",
