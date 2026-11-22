@@ -834,6 +834,19 @@ def build_stats(root: Path, now: datetime):
             "count": len(unique), "items": unique}
 
 
+def strip_publisher(title):
+    """구글 뉴스 제목 끝 매체 꼬리 — ' - 머니투데이'(11-22: ' - 머니투데이 - 머니투데이'처럼 두 번 붙은 것도), ' By EBN'·' By The Guru - …'."""
+    t = str(title or "").strip()
+    t = re.sub(r"\s+By\s+(?:The\s+)?[A-Z][\w.]*(?:\s+-\s+[^-]{1,40})?$", "", t)
+    m = re.search(r"\s+-\s+([^-]{1,40})$", t)
+    if m:
+        tail = m.group(1).strip()
+        t = t[:m.start()]
+        while t.endswith(f" - {tail}"):
+            t = t[: -len(f" - {tail}")]
+    return t.strip()
+
+
 def fold_same_outlet(rows):
     """같은 날 같은 매체의 같은 기사 두 줄을 한 줄로(긴 제목을 남김). 11-22 dandok_monitor: 이투데이 '[단독] 법원, 현대모비스 램프사업'(잘린 제목,
     '...' 표시 없음 — 역추적 묶음은 16자 미만 제목을 그대로 둔다)과 온전한 제목이 두 줄, 전기신문 SK온 기사가 '입찰 도전'·'입찰 참여'로 제목만 바꿔 두 줄."""
@@ -875,12 +888,13 @@ def build_dandok(root: Path, now: datetime, keep_days=120):
         if x["id"] in folded:
             continue
         published = day(x.get("published"))
-        title = re.sub(r"\s+-\s+[^-]{1,40}$", "", str(best_title(x, others.get(x["id"])))).strip()
+        title = strip_publisher(best_title(x, others.get(x["id"])))
         key = (title, x.get("sourceName"))
         if key in seen:
             continue
         seen.add(key)
-        companies = [c for c in (beat_name(c) for c in x.get("companies") or []) if c]
+        # '제네시스'·'현대차'가 둘 다 현대차로 바뀌면 '(현대차·현대차)'로 두 번 붙었다(11-22) — 한 번만
+        companies = list(dict.fromkeys(c for c in (beat_name(c) for c in x.get("companies") or []) if c))
         rows.append({"published": published, "source": x.get("sourceName"), "title": title[:200],
                      "url": x.get("url"), "companies": companies, "team": team_for(companies)})
     rows.sort(key=lambda r: r["published"], reverse=True)
