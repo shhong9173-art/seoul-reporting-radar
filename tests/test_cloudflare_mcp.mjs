@@ -2503,6 +2503,12 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(folded[0].title, /^\(문자 없는 도형 상표\) · 같은 날 이어진 출원번호 3건 — 같은 도형일 수 있음\(견본 이미지 확인\)$/);
   assert.deepEqual([folded[0].classes, folded[0].coreClasses, folded[0].applicationNumbers.length], [['03', '09', '12'], ['12'], 3]);
   assert.equal(folded[1].applicationNumbers[0], '4020260239999');
+  // 11-22: 유럽·미국 줄도 같은 이름·같은 날은 한 줄(등급은 가장 높은 줄, 상품류 합침)
+  const { groupSameName } = await import('../cloudflare/trademarks.mjs');
+  const us = (n, c, tier, titleNew = false) => ({ company: '현대자동차', title: n % 2 ? 'GENESIS MAGMA' : 'Genesis Magma', applicationDate: '2026-11-17', applicationNumber: String(50223370 + n), classes: [c], tier, titleNew, isNew: true });
+  const g = groupSameName([us(1, '03', 'C'), us(2, '12', 'B', true), us(3, '24', 'C'), { ...us(5, '35', 'C'), applicationDate: '2026-11-18' }]);
+  assert.equal(g.length, 2);
+  assert.deepEqual([g[0].tier, g[0].titleNew, g[0].classes, g[0].applicationNumber, g[0].moreNumbers], ['B', true, ['03', '12', '24'], '50223372', ['50223371', '50223373']]);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /기자 전용 감시 43개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
