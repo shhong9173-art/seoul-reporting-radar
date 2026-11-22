@@ -204,6 +204,21 @@ class TextRules(unittest.TestCase):
                                    url="u", base_as_of=None, watch={}, others={})
         self.assertEqual(next(x for x in ev if x["kind"] == "직위 변경")["tier"], "A")
 
+    def test_stored_wording_only_change_is_rejudged(self):
+        # 11-22: #864(11-17 09:02) 전에 A로 저장된 LS일렉트릭 구소희 '연구위원(이사)' → '이사'가 그대로 A였다 — 저장분도 다시 판정
+        stored = {"id": "exec:00105855:202611014:직위 변경|구소희|198611", "kind": "직위 변경", "tier": "A", "company": "LS일렉트릭",
+                  "person": {"name": "구소희", "birth": "1986.11", "ofcps": "이사", "reg": "미등기", "rel": "특수관계인(친인척)"},
+                  "before": {"ofcps": "연구위원(이사)", "reg": "미등기"}, "flags": [{"kind": "오너 일가", "text": "x"}],
+                  "text": "LS일렉트릭 2026년 3분기(9-30 기준) 임원 직위 변경 — 구소희 연구위원(이사)(미등기) → 이사(미등기)", "detectedAt": "2026-11-17T07:54:00+09:00"}
+        got = kx.rejudge_wording(stored)
+        self.assertEqual(got["tier"], "C")
+        self.assertTrue(got["text"].endswith(" · 직위 표기만 바뀜"))
+        self.assertEqual(kx.rejudge_wording(got)["text"].count("직위 표기만 바뀜"), 1)
+        promoted = {**stored, "person": {**stored["person"], "ofcps": "전무"}, "before": {"ofcps": "상무", "reg": "미등기"}}
+        self.assertIs(kx.rejudge_wording(promoted), promoted)                  # 직급이 바뀌면 그대로
+        other = {**stored, "kind": "새 임원"}
+        self.assertIs(kx.rejudge_wording(other), other)
+
     def test_keys(self):
         self.assertEqual(kx.birth_key("1970년 10월"), "197010")
         self.assertEqual(kx.birth_key("1970.10"), "197010")
