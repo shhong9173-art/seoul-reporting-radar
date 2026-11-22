@@ -520,6 +520,16 @@ MARGINAL = 1.05  # 측정값/기준이 이 아래면 '조금 넘은 값'
 
 
 RESTART_NOTE = " — 직전까지 '가동중지'·멈춤이던 배출구가 다시 값을 보내며 넘은 것이라 가동 개시 직후 값일 수 있음(처음 넘은 값은 한 단계 낮춤)"
+# 장기 초과(실행 8번·약 하루)에는 '가동 개시 직후 값일 수 있음'이 맞지 않는다 — 처음 넘은 값만 재가동 직후였다는 사실을 적는다
+# (11-22 운영: LG화학 여수 용성1단지 52번 일산화탄소, 11-21 17:00 재가동 직후 626.38부터 하루 넘게 기준 200의 1.8~1.9배)
+LONG_RESTART_NOTE = " — 처음 넘은 값은 '가동중지'·멈춤이던 배출구가 다시 값을 보낸 직후였다(그 뒤 약 하루 계속 넘음)"
+
+
+def fix_long_restart_notes(events):
+    """저장해 둔 '배출허용기준 장기 초과'의 재가동 꼬리말을 장기 초과용으로 고쳐 쓴다(11-22 12:20에 나온 LG화학 52번)."""
+    for e in events:
+        if e.get("kind") == "배출허용기준 장기 초과" and RESTART_NOTE in str(e.get("text") or ""):
+            e["text"] = str(e["text"]).replace(RESTART_NOTE, LONG_RESTART_NOTE)
 
 # 기자 판정 반영(11-08): 11-04~11-07 굴뚝 항목 16건이 모두 킬이었다(정기보수 확인 8·'실시간 기준 초과 값만으로는 애매' 3·
 # '굴뚝 실시간 신호만 있고 뒷받침할 증거가 없음' 5), 즉시 알림으로 보낸 굴뚝 21건도 킬 9·판정 없음 12. 기자: '굴뚝 측정 쓸데없는게 너무 많이 와'.
@@ -971,7 +981,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                         strong = m / lim >= LONG_EXCEED_RATIO and not small
                         emit(f"stk:exceedlong:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 장기 초과", "B" if strong else "C", comp["company"], name,
                              f"{what} — {ep['start']} 측정부터 이 감시의 실행 {LONG_EXCEED_RUNS}번(약 하루) 연속 초과(처음 {ep['first'][0]:g})"
-                             + ("" if strong else f" — 기준의 {LONG_EXCEED_RATIO}배 아래라 C") + note + tail)
+                             + ("" if strong else f" — 기준의 {LONG_EXCEED_RATIO}배 아래라 C") + note.replace(RESTART_NOTE, LONG_RESTART_NOTE) + tail)
             if new_codes:
                 days = age_days(s.get("firstSeen"), now)
                 tier = new_tier(days)
@@ -1177,6 +1187,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     collapse_long_gone(allev)
     retier_repeat_downs(allev)
     retier_short_downs(allev)
+    fix_long_restart_notes(allev)
     cap_tiers(allev)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
