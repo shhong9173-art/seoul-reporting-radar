@@ -3537,7 +3537,9 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.deepEqual([us.check.terms, us.check.places, us.check.must], [['공장', '앨라배마', '투자'], ['앨라배마'], ['앨라배마']]);
   // '인도네시아'를 '인도'로 자르지 않고, '인도량'(차량 인도)은 나라로 보지 않는다
   assert.deepEqual(items.items.find((x) => x.id === 'gl:id').check.must, ['인도네시아']);
-  assert.equal(items.items.find((x) => x.id === 'gl:dl').check.must, undefined);
+  // 11-22: 나라·고유어 없이 넓은 낱말('투자')뿐이면 자동 대조하지 않는다(Nikkei '현대차 투자'가 영남권 메가프로젝트 기사로 '관련 보도 있음')
+  assert.ok(!items.items.find((x) => x.id === 'gl:dl'));          // 대조 목록에 없다
+  assert.match(b, /출입처 외신 · 기아\n   외신 World Nuclear News 「기아, 3분기 인도량 늘려 투자」/);   // 화면에는 B 그대로
   assert.ok(!items.items.find((x) => x.id === 'gl:af'));
   assert.match(r.text.split('[C · ')[1], /⚠ 본문 첫머리 주체가 계열사\(포스코퓨처엠\) — 출입처 외일 수 있음 · 외신 World Nuclear News 「포스코, LG에너지솔루션에 신규 배터리 소재 공급」/);
   assert.ok(!items.items.find((x) => x.id === 'gl:honda'));
