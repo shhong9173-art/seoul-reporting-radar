@@ -163,6 +163,11 @@ def strip_publisher(title):
         t=t[:m.start()]
         while t.endswith(f" - {tail}"):
             t=t[:-len(f" - {tail}")]
+        # 꼬리가 둘인 것(11-22 역추적: ' - 조선비즈 - Chosunbiz', ' - 이비엔(EBN)뉴스센터 - www.ebn.co.kr', ' - 경제 | 기사 - 더팩트') — 마지막 꼬리가
+        # 영문·주소이거나 앞 꼬리가 '구역 | 기사' 꼴이면 앞 꼬리도 매체 표기로 보고 뗀다(제목 속 ' - '는 그대로)
+        m2=re.search(r"\s+-\s+([^-]{1,40})$",t)
+        if m2 and (re.fullmatch(r"[A-Za-z0-9.\s]+",tail) or "|" in m2.group(1)):
+            t=t[:m2.start()]
     return t.strip()
 
 
