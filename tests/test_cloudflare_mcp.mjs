@@ -5238,6 +5238,9 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: [], checks: [],
     permits: [p('bld:L1', { bldNm: '송정동 1' }),   // 건물명 칸에 번지만 — 싣지 않는다
       p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00',
+        bldNm: '엘에스일렉트릭 청주1사업장 본관동' }),
+      // 11-23: 건물명이 부속 시설(장비출입구)인 증축 준공 — 연면적은 건물 전체라 큰 증설처럼 보이지만 작은 공사 — 참고(C)
+      p('bld:L6', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00',
         bldNm: '엘에스일렉트릭 청주1사업장 본관동 장비출입구' }),
       p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
       p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 }),   // 다른 번지 — 안 붙인다
@@ -5248,9 +5251,12 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   const r = (await call('radar_today', { hours: 72, include_minor: true }, opts)).text;
   const line = (id) => r.split('\n').findIndex((l) => l.includes(`id ${id}`));
   const block = (id) => { const lines = r.split('\n'); const i = line(id); let j = i; while (j > 0 && /^\s/.test(lines[j])) j -= 1; return lines.slice(j, i + 1).join('\n'); };
-  assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡ '엘에스일렉트릭 청주1사업장 본관동 장비출입구'\(bld:L2\)〕/);
+  assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡ '엘에스일렉트릭 청주1사업장 본관동'\(bld:L2\)〕/);
   // 같은 번지 허가의 건물명(공사 이름)도 줄에 — 규모·용도의 첫 단서(건물 전체 연면적만으로는 큰 증설처럼 보인다)
-  assert.match(block('bld:L2'), /건축주 미표기\(공장과 같은 번지\) · 건물명 '엘에스일렉트릭 청주1사업장 본관동 장비출입구'/);
+  assert.match(block('bld:L2'), /건축주 미표기\(공장과 같은 번지\) · 건물명 '엘에스일렉트릭 청주1사업장 본관동'/);
+  assert.doesNotMatch(r.split('[B · ')[1].split('[C · ')[0], /bld:L6/);   // 부속 시설 공사는 B에서 빠지고(서로 가리키기에도 안 들어감)
+  assert.match(block('bld:L6'), /건물명 '엘에스일렉트릭 청주1사업장 본관동 장비출입구' — 건물명이 부속 시설\('장비출입구'\)이라 공사가 작을 수 있어 참고\(C\)\(연면적은 건물 전체\)/);
+  assert.match((await call('kr_official', { section: 'building', company: '장비출입구' }, opts)).text, /검증 상태: 건물명이 부속 시설\('장비출입구'\)/);
   assert.doesNotMatch(block('bld:L1'), /· 건물명/);   // 건물명이 번지뿐인 허가는 건물명을 안 싣는다(대지위치와 같은 말)
   assert.match(block('bld:L2'), /증축 5,200㎡\(bld:L1\)〕/);   // 서로 가리키기 표시에도 번지뿐인 건물명은 빼고
   assert.match(block('bld:L2'), /〔같은 번지 다른 인허가 1건: 허가 2026-10-22 증축 5,200㎡\(bld:L1\)〕/);
@@ -5264,7 +5270,9 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
   const ko = (await call('kr_official', { section: 'building', company: '대효제약' }, opts)).text;
   assert.match(ko, /검증 상태: 건물명에 다른 회사 이름\('대효제약'\)/);
   assert.doesNotMatch((await call('kr_official', { section: 'building' }, opts)).text, /대효제약/);
-  const { bareFirmName } = await import('../cloudflare/overseas.mjs');
+  const { bareFirmName, minorFacility } = await import('../cloudflare/overseas.mjs');
+  assert.deepEqual([{ bldNm: '가공동 드라이어 보관룸', archGbCdNm: '증축' }, { bldNm: '물류창고', archGbCdNm: '증축' }, { bldNm: '경비실', archGbCdNm: '신축' }, { bldNm: '48번동', archGbCdNm: '증축' }]
+    .map(minorFacility), ['보관룸', null, null, null]);   // 창고·동 이름은 크기를 몰라 그대로, 신축은 안 봄
   const { lotOnlyName } = await import('../cloudflare/digest.mjs');
   assert.deepEqual([['상개동 427-3', '울산광역시 남구 상개동 427-3번지'], ['옥산면 남촌리 1114-1', '충청북도 청주시 흥덕구 옥산면 남촌리 1114-1번지'],
     ['48번동', '전남광주통합특별시 여수시 평여동 1006번지'], ['송정동 2', '충청북도 청주시 흥덕구 송정동 1번지']].map(([n, p2]) => lotOnlyName(n, p2)), [true, true, false, false]);
