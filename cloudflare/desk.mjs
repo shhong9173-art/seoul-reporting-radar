@@ -254,7 +254,8 @@ export async function scoopDesk(ctx, args) {
       const block = candLines(r);
       left -= 1;
       const size = block.reduce((a, l) => a + l.length + 1, 0);
-      if (used + size + left * COMPACT <= budget) { for (const l of block) put(l); continue; }
+      // 한 번 줄이기 시작하면 그 뒤는 모두 한 줄(11-23 02:29 화면: 긴 후보만 한 줄이 되고 다음 짧은 후보는 다시 온전한 꼴로 섞였다)
+      if (!squeezed && !cut && used + size + left * COMPACT <= budget) { for (const l of block) put(l); continue; }
       const when = x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : '';
       const line = `- ${x.tier} · ${when}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''} · ${clipAt(x.fact, 80)} · id ${x.id}${ledgerMark(x)}`;
       if (used + line.length + 1 > budget) { cut += 1; continue; }

@@ -1584,8 +1584,8 @@ test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 �
     await call('package_save', { name: `fold-${i}`, state: '접음', title: `[접음] 처리한 건 ${i} ${'— 긴 제목 '.repeat(14)}`, body: '근거' }, opts);
   }
   const co = ['기아', '현대차', '제네시스'];
-  const events = Array.from({ length: 40 }, (_, i) => ({ pageId: `kia-us-ev${i}`, scope: 'page', company: co[i % 3], label: `${co[i % 3]} 미국 EV${i} 페이지`, detectedAt: iso(2 + i * 3),
-    url: `https://www.kia.com/us/en/ev${i}`, added: { timing: [`Coming Soon ${'— 긴 문구 '.repeat(60)}${i}`] } }));
+  const events = Array.from({ length: 40 }, (_, i) => ({ pageId: `kia-us-ev${i}`, scope: 'page', company: co[i % 3], label: `${co[i % 3]} 미국 EV${i} 페이지`, detectedAt: iso(2 + i * 4),
+    url: `https://www.kia.com/us/en/ev${i}`, added: { timing: [`Coming Soon ${i % 2 ? '짧음 ' : '— 긴 문구 '.repeat(60)}${i}`] } }));   // 짧은 후보가 섞인다
   await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'page_watch/v1', generatedAt: iso(1), pages: [], events }) }), opts.env, {});
   const r = (await call('scoop_desk', { limit: 40 }, opts)).text;
   assert.ok(r.length <= 20000, String(r.length));
@@ -1596,6 +1596,9 @@ test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 �
   const sec1 = r.split('[1. 새 후보')[1].split('\n[2')[0];
   assert.match(sec1, /\n   원문: https:\/\/www\.kia\.com\/us\/en\/ev\d+ · 자세히: page_changes/);   // 앞쪽은 온전한 꼴
   assert.match(sec1, /\n- A · [^\n]* · (?:기아|현대차|제네시스) · [^\n]*… · id kia-us-ev\d+:/);   // 뒤쪽은 한 줄
+  // 한 번 한 줄로 줄이기 시작하면 그 뒤에 온전한 꼴이 다시 섞이지 않는다
+  const firstShort = sec1.search(/\n- A · [^\n]*… · id kia-us-ev/);
+  assert.doesNotMatch(sec1.slice(firstShort), /\n   원문: /);
 });
 
 test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지 보인다(11-23 월요일 72시간 화면이 B 중간에서 잘림)', async () => {
@@ -1624,6 +1627,8 @@ test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지
   assert.ok(r2.length <= 20000, String(r2.length));
   const b2 = r2.split('[B · ')[1].split('[C · ')[0];
   assert.ok((b2.match(/\n   ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구/g) ?? []).length >= 5);   // B 앞쪽은 온전한 꼴
+  const short2 = r2.search(/\n- [^\n]*… · id stk:/);
+  assert.doesNotMatch(r2.slice(short2).split('\n[경쟁지')[0], /\n   자세히: kr_official/);   // 줄이기 시작한 뒤에는 온전한 꼴이 섞이지 않는다
   assert.match(r2.split('[C · ')[1], /\n- [^\n]* · id stk:exceed:포스코:/);                                  // C는 남은 자리에 한 줄로
 });
 
