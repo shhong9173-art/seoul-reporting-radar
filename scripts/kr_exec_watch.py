@@ -662,6 +662,21 @@ def _event(kind, tier, company, code, p, flags, url, text, extra=None):
             "flags": flags, "url": url, "text": text, **(extra or {})}
 
 
+def rejudge_wording(e):
+    """저장해 둔 '직위 변경'에 지금 규칙(직위 표기만 바뀐 줄은 C — #864)을 다시 적용한다. 보고서를 다시 받지 않는다.
+    11-22: LS일렉트릭 구소희 '연구위원(이사)' → '이사'(미등기·오너 일가)는 #864 배포(11-17 09:02) 전 07:54에 A로 저장돼 그대로 A였다."""
+    if e.get("kind") != "직위 변경" or e.get("tier") == "C":
+        return e
+    x, y = e.get("before") or {}, e.get("person") or {}
+    ox, oy = norm_ofcps(x.get("ofcps")), norm_ofcps(y.get("ofcps"))
+    top = bool(TOP.search(oy)) and not TOP.search(ox)
+    if ox and oy and not top and rank_of(x.get("ofcps")) == rank_of(y.get("ofcps")) and (ox in oy or oy in ox) \
+            and norm_reg(x.get("reg")) == norm_reg(y.get("reg")):
+        text = str(e.get("text") or "")
+        return {**e, "tier": "C", "text": text if "직위 표기만 바뀜" in text else f"{text} · 직위 표기만 바뀜"}
+    return e
+
+
 # ---------- run ----------
 
 PACK = ("name", "birth", "ofcps", "reg", "end", "rel", "job")
@@ -698,7 +713,7 @@ def run(key, *, now=None, year=None, report=None, previous=None, get=None, sleep
     # 회사별 마지막으로 읽은 명단(기간·접수번호·사람 줄) — 다음 분기의 '앞 보고서'로 다시 쓴다(원문을 또 받지 않음)
     rosters = {k: v for k, v in ((previous or {}).get("rosters") or {}).items() if isinstance(v, dict) and v.get("people")}
     keys = {k: {person_key(p) for p in unpack(v["people"])} for k, v in rosters.items()}
-    old = {e["id"]: e for e in (previous or {}).get("events") or [] if isinstance(e, dict) and e.get("id")}
+    old = {e["id"]: rejudge_wording(e) for e in (previous or {}).get("events") or [] if isinstance(e, dict) and e.get("id")}
     budget = [DOC_BUDGET]
     names = [n for n, _, _ in BEATS]
     codes, missing = gw.resolve_codes(names, registry, table)
