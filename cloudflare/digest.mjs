@@ -1551,6 +1551,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const maintLots = new Map();
   const goneLots = new Map();
   const cycLots = new Map();
+  const excLots = new Map();
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
@@ -1568,6 +1569,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const gone = !lot && tier === 'C' && /^stk:gone:/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
     // 같은 사업장의 참고(C) 배출구 단위 줄(멈춤 신호·가동중지 전환·해제·오래 멈춤). 사업장 단위 '가동 중단·재가동 신호'는 보도 대조가 붙을 수 있어 따로 둔다
     const cyc = !lot && !gone && tier === 'C' && !later && /^stk:(?:stop|halt|resume|longstop):/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
+    // 같은 사업장의 참고(C) 배출허용기준 초과 줄(처음 초과·초과 지속 — 더 뒤 단계가 있으면 위에서 이미 접음)
+    const exc = !lot && !gone && !cyc && tier === 'C' && /^stk:exceed2?:/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
     if (lot) {
       if (!maintLots.has(lot)) maintLots.set(lot, []);
       maintLots.get(lot).push({ e, row, m });
@@ -1577,7 +1580,36 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     } else if (cyc) {
       if (!cycLots.has(cyc)) cycLots.set(cyc, []);
       cycLots.get(cyc).push({ e, row });
+    } else if (exc) {
+      if (!excLots.has(exc)) excLots.set(exc, []);
+      excLots.get(exc).push({ e, row });
     } else push(tier, W['kr-stacks'], row);
+  }
+  // 같은 사업장 참고(C) 초과 줄이 셋 이상이면 한 줄로 — 11-23 72시간 화면: 세아창원특수강 193번 질소산화물이 11-21 03:20·11-22 15:20·20:40
+  // 따로 C(최대 200.98, 기준 105의 1.9배), 195번 11-23 한 줄. 배출구·물질별 횟수·최대값·배수·기간(되풀이 초과 자체가 단서일 수 있어 숫자를 남긴다)
+  for (const list of excLots.values()) {
+    if (list.length < 3) { for (const { row } of list) push('C', W['kr-stacks'], row); continue; }
+    list.sort((a, b) => String(b.e.detectedAt).localeCompare(String(a.e.detectedAt)));
+    const head = list[0].e;
+    const by = new Map();
+    for (const { e } of list) {
+      const mm = /배출구 (\S+)번 (\S+?) 측정값 ([\d.]+)이 배출허용기준 ([\d.]+)을 넘음\(기준의 ([\d.]+)배/.exec(String(e.text ?? ''));
+      const key = mm ? `${mm[1]}번 ${mm[2]}` : '번호 미상';
+      if (!by.has(key)) by.set(key, { n: 0, max: null, limit: mm?.[4], times: [] });
+      const g = by.get(key);
+      g.n += 1;
+      g.times.push(Date.parse(e.detectedAt));
+      if (mm && (!g.max || Number(mm[3]) > Number(g.max[0]))) g.max = [mm[3], mm[5]];
+    }
+    const md = (t) => kstMD(t);
+    const parts = [...by.entries()].sort((a, b) => b[1].n - a[1].n).map(([k, g]) => {
+      const ts = g.times.filter(Number.isFinite).sort((a, b) => a - b);
+      const span = ts.length ? (md(ts[0]) === md(ts[ts.length - 1]) ? md(ts[0]) : `${md(ts[0])}~${md(ts[ts.length - 1])}`) : '';
+      return `${k} ${g.n}번(${g.max ? `${g.n > 1 ? '최대 ' : ''}${g.max[0]}, 기준 ${g.limit}의 ${g.max[1]}배` : '값 미상'}${span ? `, ${span}` : ''})`;
+    });
+    push('C', W['kr-stacks'], { kind: '배출허용기준 초과 묶음', id: `stkxlot:${head.id}`, date: head.detectedAt, company: head.company, site: head.site,
+      fact: `같은 사업장 배출허용기준 초과 참고(C) ${list.length}줄 묶음: ${head.site} — ${parts.slice(0, 6).join(' · ')}${parts.length > 6 ? ' 외' : ''}`
+        + ` — 실시간 자동측정 값(확정 전), 측정기 점검·교정 값일 수 있음 — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인 — 하나씩은 kr_official(section=stacks, company=${head.company})` });
   }
   // 같은 사업장 참고(C) 굴뚝 줄이 셋 이상이면 한 줄로 — 11-23 72시간 화면: 동국씨엠 부산공장 59번이 '멈춤 신호'(11-21)→'가동중지 해제'(11-22 15:20)→
   // '가동중지 전환'(18:20)→'멈춤 신호'(11-23), 4번 '멈춤 신호'(11-20)로 C 다섯 줄. 배출구 번호·종류별 수·기간과 가장 최근 줄 글(id는 stkclot:<가장 최근 줄 id>)
