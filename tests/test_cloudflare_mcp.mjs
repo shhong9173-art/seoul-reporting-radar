@@ -5804,7 +5804,8 @@ test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급�
     body: `{"schema": "kr_local/v1", "generatedAt": "${at}", "status": "ok", "checks": [{"source": "울주군", "status": "ok", "returned": ${n}, "total": 812}], "items": []}` }), opts.env, {});
   for (const [i, n] of [7, 6, 5, 5, 0, 0].entries()) await postT(n, `2026-11-${10 + i}T06:30:00+09:00`);
   const hq = (await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-15T22:00:00Z') })).text;
-  assert.match(hq, /^- 지자체 고시·공고: 새 글 없음 연속 1곳\(울주군: 이전 5·5·6·7줄 → 0, 목록 전체 812건은 응답\) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음 — 해당 부분 0건은 미확인$/m);
+  // 11-23 문구: 언제부터·어느 쪽이 최근인지 적는다
+  assert.match(hq, /^- 지자체 고시·공고: 새 글 0건이 이어지는 곳 1곳\(울주군: 기간 안 새 글 0건이 두 번 이상 연달아, \d\d-\d\d \d\d:\d\d 실행에서 처음 표시 — 0건 전 실행\(최근부터\) 5·5·6·7건, 목록 자체는 812건 응답\) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음 — 해당 부분 0건은 미확인$/m);
   assert.doesNotMatch(hq, /형식 변경 의심/);
 });
 
