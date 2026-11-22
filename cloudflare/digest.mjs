@@ -2004,9 +2004,12 @@ function health(ctx, docs) {
     }
     // 11-21: 기간 안 새 글만 0이고 목록 전체(total)는 응답 — 한산한 기간일 수 있다(공고가 다른 번호로 옮겨 간 경우도 total은 남는다)
     if (quiet.length) {
-      issues.push(`새 글 없음 연속 ${quiet.length}곳(${quiet.slice(0, 3).map((x) => `${x.source}: 이전 ${(x.before ?? []).join('·')}줄 → 0, 목록 전체 ${Number(x.total).toLocaleString('en-US')}건은 응답`).join(' / ')}) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음`);
+      // 11-23 문구: '새 글 없음 연속 1곳 … 이전 5·5·5·5줄 → 0'이 무슨 뜻인지(언제부터·어느 쪽이 최근인지) 바로 읽히지 않았다
+      // since는 '두 번째 0건'을 받은 시각(screen.mjs returnedWatch) — 0건이 시작된 시각이 아니므로 '처음 표시'로 적는다
+      const sinceOf = (x) => { const t = Date.parse(x.since ?? ''); return Number.isFinite(t) ? `, ${kstStamp(new Date(t).toISOString())} 실행에서 처음 표시` : ''; };
+      issues.push(`새 글 0건이 이어지는 곳 ${quiet.length}곳(${quiet.slice(0, 3).map((x) => `${x.source}: 기간 안 새 글 0건이 두 번 이상 연달아${sinceOf(x)} — 0건 전 실행(최근부터) ${(x.before ?? []).join('·')}건, 목록 자체는 ${Number(x.total).toLocaleString('en-US')}건 응답`).join(' / ')}) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음`);
     }
-    const onlyQuiet = issues.length === 1 && quiet.length && issues[0].startsWith('새 글 없음 연속');
+    const onlyQuiet = issues.length === 1 && quiet.length && issues[0].startsWith('새 글 0건이 이어지는 곳');
     if (issues.length) (onlyQuiet ? low : lines).push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
     // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
     if (typeof d.healthNote === 'string' && d.healthNote) lines.push(`- ${w.label}: ${d.healthNote.slice(0, 300)}`);
