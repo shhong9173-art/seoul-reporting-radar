@@ -2276,7 +2276,9 @@ test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, r
   assert.match(sec('C'), /마다가스카르 세이프가드 · 현미/);
   const t = await call('trade_remedies', { section: 'kita' }, opts);
   assert.match(t.text, /\[대한 수입규제 · 무역협회 수입규제DB · 확인 [^\]]*\] 아는 사건 2건 · 감지 3건\(기준선 2026-10-30 이후\)\n- A · /);
-  assert.match(t.text, /최근 갱신 사건\(갱신순\) 2\/2:\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07/);
+  assert.match(t.text, /최근 갱신 사건\(갱신순 · 출입 업종 분류 철강\/금속·화학·플라스틱\/고무·전기전자·기계\) 1\/1 · 그 밖 업종 1건\(company 낱말로 보기\):\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07/);
+  assert.doesNotMatch(t.text, /  2026-10-29 · 마다가스카르 세이프가드 · 현미/);   // 11-22: 출입 업종 밖 사건은 수만
+  assert.match((await call('trade_remedies', { section: 'kita', company: '마다가스카르' }, opts)).text, /  2026-10-29 · 마다가스카르 세이프가드 · 현미/);
   assert.doesNotMatch(t.text, /EU 철강 쿼터|미국 상무부/);
   const q = await call('trade_remedies', { section: 'kita', company: '포스코' }, opts);
   assert.match(q.text, /감지 1건/);
