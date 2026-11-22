@@ -154,9 +154,13 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = 
       + `${eu.signaCreditsLeft != null ? ` · 남은 크레딧 ${eu.signaCreditsLeft}` : ''} — 2차 자료라 기사 전 ${T.check} 확인`);
     // 11-14(Signa 답장): 출원인 id 목록 한 번 조회로 전 회사를 본다(평일 매일). Signa가 이 관청 자료를 마지막으로 맞춘 때가 이틀 넘게 지났으면 새 출원 0건은 미확인
     const ids = Object.values(eu.ownerIds ?? {}).filter((m) => m && Object.keys(m).length).length;
-    const syncH = eu.providerSyncedAt ? (nowMs - Date.parse(eu.providerSyncedAt)) / 3600000 : null;
+    // 지연은 우리 확인 시각(generatedAt) 기준으로 잰다 — 지금 기준이면 주말·월요일 아침마다(마지막 확인 금요일) Signa가 늦은 것처럼 떴다
+    // (11-23 06:31 화면: 'Signa가 EUIPO 자료를 마지막으로 맞춘 때 11-19 16:05 KST (⚠ 86시간 전…)' — 11-20 07:11 확인 때는 15시간 전 자료).
+    // 확인 자체가 오래된 것은 머리줄 '확인' 시각과 원천 상태(radar_today)가 알린다
+    const checkedMs = Date.parse(eu.generatedAt ?? '');
+    const syncH = eu.providerSyncedAt ? ((Number.isFinite(checkedMs) ? checkedMs : nowMs) - Date.parse(eu.providerSyncedAt)) / 3600000 : null;
     if (ids || eu.providerSyncedAt) out.push(`조회 방식: 출원인 id를 모은 회사 ${ids}곳은 목록 한 번 조회(평일 매일)${eu.list ? ` — 이번 ${eu.list.combined ? '유럽·미국 한 요청 ' : ''}${eu.list.pages}쪽 ${eu.list.rows}줄${eu.list.updatedSince ? `(${eu.list.updatedSince} 이후 Signa가 넣거나 고친 줄만)` : '(출원일 창 전체)'}${eu.list.truncated ? ' · ⚠ 쪽 한도로 덜 읽음' : ''}${eu.list.error ? ` · ⚠ 목록 조회 실패(${eu.list.error}) — 미확인` : ''}` : ''}`
-      + `${eu.providerSyncedAt ? ` · Signa가 ${office === 'EM' ? 'EUIPO' : 'USPTO'} 자료를 마지막으로 맞춘 때 ${kstShort(eu.providerSyncedAt)}${Number.isFinite(syncH) && syncH > 48 ? ` (⚠ ${Math.round(syncH)}시간 전 — 그 뒤 출원은 미확인)` : ''}` : ''}`);
+      + `${eu.providerSyncedAt ? ` · Signa가 ${office === 'EM' ? 'EUIPO' : 'USPTO'} 자료를 마지막으로 맞춘 때 ${kstShort(eu.providerSyncedAt)}${Number.isFinite(syncH) && syncH > 48 ? ` (⚠ 확인 시각에 이미 ${Math.round(syncH)}시간 지난 자료 — 그 뒤 출원은 미확인)` : ''}` : ''}`);
   } else if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
   const waitingEu = checks.filter((c) => c.status === 'waiting');
   const bad = checks.filter((c) => !['ok', 'waiting'].includes(c.status));

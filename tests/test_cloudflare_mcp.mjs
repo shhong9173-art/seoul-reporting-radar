@@ -2932,7 +2932,13 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     // 맞춘 지 이틀이 넘었으면 그 뒤 출원은 미확인이라고 적는다
     s.us.providerSyncedAt = '2026-10-22T13:14:40.468Z';
     await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
-    assert.match((await call('trademarks', {}, opts)).text, /마지막으로 맞춘 때 10-22 22:14 KST \(⚠ 83시간 전 — 그 뒤 출원은 미확인\)/);
+    // 11-23: 지연은 확인 시각(us.generatedAt 10-26 07:30 KST) 기준 — 지금 기준이면 주말·월요일 아침마다 Signa가 늦은 것처럼 떴다
+    assert.match((await call('trademarks', {}, opts)).text, /마지막으로 맞춘 때 10-22 22:14 KST \(⚠ 확인 시각에 이미 81시간 지난 자료 — 그 뒤 출원은 미확인\)/);
+    // 확인 때 15시간 전 자료면 확인이 사흘 묵어도 Signa 지연 경고는 없다
+    const oldCheck = { ...s, us: { ...s.us, generatedAt: '2026-10-23T07:30:00+09:00', providerSyncedAt: '2026-10-22T07:30:00.000Z' } };
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(oldCheck) }), env, {});
+    assert.match((await call('trademarks', {}, opts)).text, /USPTO 자료를 마지막으로 맞춘 때 10-22 16:30 KST\n/);
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
     // 마드리드 지정 줄(탐침 230): '출원일'은 이 관청 지정일 — 국제등록일이 1년 넘게 앞이면 예전 이름일 수 있다고 적는다. 유럽·미국 한 요청 표시
     const pz = s.eu.filings.find((x) => x.applicationNumber === 'W11481965');
     pz.ir = { number: '1481965', registered: '2019-06-24' };
