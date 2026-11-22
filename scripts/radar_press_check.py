@@ -82,7 +82,9 @@ def same_rule(old, r):
     ('LS일렉트릭 청주') 옛 판정(베트남 공장 기사로 '관련 보도 있음')이 다시 대조되지 않고 남았다. 예전 기록엔 must가 없다 — 지금 must가 있으면 한 번 다시 본다."""
     # 대조 시작일(since)도 규칙이다(11-22: 늦게 본 사용승인(준공)은 사용승인일부터 찾게 바꿈) — 예전 기록에 since가 없으면 견주지 않는다
     same_since = not old.get("since") or old.get("since") == r.get("since")
-    return list(old.get("queries") or []) == ss.queries(r) and list(old.get("must") or []) == list(r.get("must") or []) and same_since
+    # 같은 뜻 낱말 묶음(alts)도 판정 규칙이다(11-22: 상표 묶음에서 '브랜드'를 뺌) — 예전 기록에 없으면 견주지 않는다
+    same_alts = "alts" not in old or (old.get("alts") or {}) == (r.get("alts") or {})
+    return list(old.get("queries") or []) == ss.queries(r) and list(old.get("must") or []) == list(r.get("must") or []) and same_since and same_alts
 
 
 def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
@@ -119,7 +121,7 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
     for r in rows:
         old = prev.get(r["id"]) or {}
         out.append({"id": r["id"], "tier": r["tier"], "watch": r["watch"], "who": r["company"], "terms": r["terms"],
-                    "since": r["since"], "queries": r["queries"], "must": list(r.get("must") or []), "verdict": r["verdict"], "evidence": r["evidence"],
+                    "since": r["since"], "queries": r["queries"], "must": list(r.get("must") or []), "alts": r.get("alts") or {}, "verdict": r["verdict"], "evidence": r["evidence"],
                     "channels": r["channels"], "checkedAt": stamp,
                     "firstVerdict": old.get("firstVerdict") or r["verdict"], "firstCheckedAt": old.get("firstCheckedAt") or stamp,
                     **({"recheck": True, "prevQueries": old.get("queries")} if r.get("recheck") else {}),

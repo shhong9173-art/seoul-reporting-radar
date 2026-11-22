@@ -276,6 +276,14 @@ class Run(unittest.TestCase):
         moved = dict(bld, check={**bld["check"], "since": "2026-10-06"})
         self.assertFalse(rpc.same_rule(rows[bld["id"]], rpc.candidates([moved], now=NOW)[0]))
         self.assertTrue(rpc.same_rule({**rows[bld["id"]], "since": None}, rpc.candidates([moved], now=NOW)[0]))   # 예전 기록에 since가 없으면 견주지 않음
+        # 같은 뜻 낱말 묶음(alts)이 바뀌어도 규칙이 바뀐 것 — 예전 기록에 alts가 없으면 견주지 않음
+        tm = {"tier": "B", "watch": "상표 출원", "id": "uspto:50213518", "date": "2026-11-11", "company": "현대자동차", "fact": "x",
+              "check": {"who": "현대차", "terms": ["상표", "ESSENTIAL BY HYUNDAI"], "alts": {"상표": ["상표", "출원", "명칭"]}}}
+        r_tm = rpc.candidates([tm], now=NOW)[0]
+        old_tm = {"id": tm["id"], "queries": rpc.ss.queries(r_tm), "since": r_tm["since"], "alts": {"상표": ["상표", "출원", "브랜드", "명칭"]}}
+        self.assertFalse(rpc.same_rule(old_tm, r_tm))
+        self.assertTrue(rpc.same_rule({k: v for k, v in old_tm.items() if k != "alts"}, r_tm))
+        self.assertEqual(rows[bld["id"]]["alts"], r["alts"] if r.get("alts") else {})
 
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
