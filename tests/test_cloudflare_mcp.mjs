@@ -2924,6 +2924,15 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     const line = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], evidence: [], checkedAt: '2026-11-09T11:02:00+09:00', recheck: true },
       '11-09 12:50', '2026-11-09T12:50:00+09:00')[0];
     assert.match(line, /보도 대조\(자동 11-09 11:02\): 관련 보도 있음 — "현대제철 강관 관세" · 대조 규칙이 바뀌어 72시간 지난 뒤 11-09 11:02에 한 번 다시 봄\(그 뒤로는 범위 밖\)$/);
+    // 11-22: 처음 '관련 보도 있음'이 지금 '미보도 후보'로 바뀌었고 근거 기사가 필수 낱말 없는 약한 근거면 그렇다고 적는다(기사가 사라진 게 아니다)
+    const flip = pressLines({ verdict: '미보도 후보', since: '2026-10-19', queries: ['LS일렉트릭 청주', 'LS일렉트릭 청주 공장'], checkedAt: '2026-11-22T16:29:00+09:00',
+      firstVerdict: '관련 보도 있음', firstCheckedAt: '2026-11-22T08:45:00+09:00', evidence: [
+        { date: '2026-11-17', channel: 'bing', title: 'LS일렉트릭, 베트남 공장 증설', url: 'https://v', why: '제목에 회사·낱말(공장)이 있으나 청주 없음 — 다른 사업장·다른 건 기사일 수 있음' }] },
+      '11-22 16:29', '2026-11-22T16:29:00+09:00')[0];
+    assert.match(flip, / · 처음\(11-22 08:45\) 관련 보도 있음 — 지금은 회사 이름이 든 기사 1건에 필수 낱말\(시·군 등\)이 없어 약한 근거로만 셈\(아래 ↳\)/);
+    const flip2 = pressLines({ verdict: '미보도 후보', since: '2026-10-19', queries: ['x'], checkedAt: '2026-11-22T16:29:00+09:00',
+      firstVerdict: '관련 보도 있음', firstCheckedAt: '2026-11-22T08:45:00+09:00', evidence: [] }, '11-22 16:29', '2026-11-22T16:29:00+09:00')[0];
+    assert.match(flip2, / · 처음\(11-22 08:45\) 관련 보도 있음$/);                     // 약한 근거가 없으면 덧붙이지 않는다
     // 11-22: 72시간 안에 못 본 A를 그 뒤 한 번 처음 본 것(late) — '다시 안 봄' 표시 대신 한 줄
     const late = pressLines({ verdict: '미보도 후보', since: '2026-11-17', queries: ['제네시스 G80'], evidence: [], checkedAt: '2026-11-23T08:50:00+09:00', late: true },
       '11-23 12:50', '2026-11-23T12:50:00+09:00')[0];

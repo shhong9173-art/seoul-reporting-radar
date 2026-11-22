@@ -1667,9 +1667,14 @@ export function pressLines(r, stamp, docAt) {
   const qs = (r.queries ?? []).map((q) => `"${q}"`).join(', ');
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
     : r.verdict === '미확인' ? ` — ${failed.length ? `채널 ${failed.join(', ')}` : '기사 날짜 오류 또는 사건 식별 불가'}(0건 아님)` : ` — ${qs}`;
-  const was = r.firstVerdict && r.firstVerdict !== r.verdict ? ` · 처음(${kstStamp(r.firstCheckedAt)}) ${r.firstVerdict}` : '';
   // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
   const ev = r.evidence ?? [];
+  // 11-22: '처음(08:45) 관련 보도 있음 → 지금 미보도 후보'만 적으면 기사가 사라진 것처럼 읽혔다(LS일렉트릭·LG화학 청주 건축허가 — 그때 근거는 시 이름 없는
+  // 베트남·여수 기사였고, 시 이름을 필수로 넣은 뒤 약한 근거로 내려감). 지금 근거가 필수 낱말 없는 약한 근거면 그렇다고 붙인다
+  const weakNow = ev.filter((e) => !e.before && /있으나 .+? 없음|겹치나 .+? 없음/.test(String(e.why ?? ''))).length;
+  const why = r.firstVerdict === '관련 보도 있음' && r.verdict === '미보도 후보' && weakNow
+    ? ` — 지금은 회사 이름이 든 기사 ${weakNow}건에 필수 낱말(시·군 등)이 없어 약한 근거로만 셈(아래 ↳)` : '';
+  const was = r.firstVerdict && r.firstVerdict !== r.verdict ? ` · 처음(${kstStamp(r.firstCheckedAt)}) ${r.firstVerdict}${why}` : '';
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   // 다시 본 항목은 그 뒤 실행에서 또 보지 않는다 — 두 표시를 한 줄로(11-09 13:10: '다시 봄 · 다시 안 봄'이 함께 떠 헷갈림)
   const again = r.recheck ? (old ? ` · 대조 규칙이 바뀌어 72시간 지난 뒤 ${own}에 한 번 다시 봄(그 뒤로는 범위 밖)` : ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄')
