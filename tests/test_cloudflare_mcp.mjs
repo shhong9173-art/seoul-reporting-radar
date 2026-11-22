@@ -5237,14 +5237,18 @@ test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상�
     kind: '새 허가', tier: 'B', firstSeen: '2026-10-25T07:45:00+09:00', baseline: false, isNew: true, ...extra });
   const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: [], checks: [],
     permits: [p('bld:L1'),
-      p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00' }),
+      p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00',
+        bldNm: '엘에스일렉트릭 청주1사업장 본관동 장비출입구' }),
       p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
       p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 })] };   // 다른 번지 — 안 붙인다
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
   const r = (await call('radar_today', { hours: 72, include_minor: true }, opts)).text;
   const line = (id) => r.split('\n').findIndex((l) => l.includes(`id ${id}`));
   const block = (id) => { const lines = r.split('\n'); const i = line(id); let j = i; while (j > 0 && /^\s/.test(lines[j])) j -= 1; return lines.slice(j, i + 1).join('\n'); };
-  assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡\(bld:L2\)〕/);
+  assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡ '엘에스일렉트릭 청주1사업장 본관동 장비출입구'\(bld:L2\)〕/);
+  // 같은 번지 허가의 건물명(공사 이름)도 줄에 — 규모·용도의 첫 단서(건물 전체 연면적만으로는 큰 증설처럼 보인다)
+  assert.match(block('bld:L2'), /건축주 미표기\(공장과 같은 번지\) · 건물명 '엘에스일렉트릭 청주1사업장 본관동 장비출입구'/);
+  assert.doesNotMatch(block('bld:L1'), /· 건물명/);   // 건물명 없는 허가는 그대로
   assert.match(block('bld:L2'), /〔같은 번지 다른 인허가 1건: 허가 2026-10-22 증축 5,200㎡\(bld:L1\)〕/);
   assert.doesNotMatch(block('bld:L4'), /같은 번지 다른 인허가/);
   assert.doesNotMatch(r, /bld:L3\)/);   // 참고 허가는 남의 줄에 안 적는다
