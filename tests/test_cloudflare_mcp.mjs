@@ -6203,6 +6203,16 @@ test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·�
   assert.equal(got2.cities.find((c) => c.city === '구미시').via, undefined);
 });
 
+test('보기 도구의 목록 밖 인자(11-23): kr_signals section=\'notes\'가 기본 화면 일부를 조용히 돌려줬다 — 오류로 밝힌다', async () => {
+  const opts = PRIVATE();
+  const r = await call('kr_signals', { section: 'notes', company: 'KG스틸' }, opts);
+  assert.match(r.text, /^도구 인자 오류: section 값은 ftc·ftc_press·kepco·g2b·motir·briefing·province·price·energy·counterparty·exec·report 중 하나 — 받은 값 'notes'\(조회하지 않음, 미확인\)$/);
+  assert.match((await call('trade_remedies', { section: 'notice' }, opts)).text, /^도구 인자 오류: section 값은 quota·us·eu·notices/);
+  assert.doesNotMatch((await call('kr_signals', { section: 'report' }, opts)).text, /도구 인자 오류/);   // 목록 안 값은 그대로
+  const { enumMismatch } = await import('../cloudflare/mcp.mjs');
+  assert.equal(enumMismatch({ properties: { section: { type: 'string', enum: ['a'] } } }, { section: '' }), null);   // 빈 값은 기본 화면
+});
+
 test('local_notice_submit: the reporter computer posts browser-read 새올 rows for fixed cities, kr-local runs once an hour at most', async () => {
   const seen = [];
   const fetch = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };

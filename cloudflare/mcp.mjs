@@ -286,6 +286,10 @@ async function handleMessage(msg, ctx) {
   if (method === 'tools/call') {
     const tool = TOOLS.find((t) => t.name === params.name);
     if (!tool || (tool.access === 'private' && !ctx.private)) return rpcError(id, -32602, `Unknown tool: ${params.name}`);
+    // 11-23: 목록에 없는 값(kr_signals section='notes')은 조용히 다른 화면(기본 화면 일부)을 돌려줬다 — 무엇을 안 봤는지 밝히고 돌려보낸다
+    // 보기 도구만 — 저장·제출 도구(local_notice_submit 등)는 모르는 값만 버리고 나머지를 받는다(각 도구가 거름)
+    const bad = /submit|save|feedback|upload/.test(tool.name) ? null : enumMismatch(tool.inputSchema, params.arguments ?? {});
+    if (bad) return { jsonrpc: '2.0', id, result: textResult(`도구 인자 오류: ${bad.key} 값은 ${bad.allowed.join('·')} 중 하나 — 받은 값 '${bad.value}'(조회하지 않음, 미확인)`, true) };
     try {
       const result = await tool.handler(ctx, params.arguments ?? {});
       return { jsonrpc: '2.0', id, result: ctx.private && MARK_HANDLED.has(tool.name) ? await markHandled(ctx, result) : result };
@@ -294,6 +298,16 @@ async function handleMessage(msg, ctx) {
     }
   }
   return rpcError(id, -32601, `Method not found: ${method}`);
+}
+
+// 맨 위 문자열 인자 가운데 enum이 정해진 것만 본다(배열 안 항목은 각 도구가 거른다)
+export function enumMismatch(schema, args) {
+  for (const [key, prop] of Object.entries(schema?.properties ?? {})) {
+    const v = args?.[key];
+    if (v === undefined || v === null || v === '' || !Array.isArray(prop?.enum)) continue;
+    if (!prop.enum.includes(v)) return { key, value: String(v).slice(0, 40), allowed: prop.enum };
+  }
+  return null;
 }
 
 export async function authorize(pathname, env) {
