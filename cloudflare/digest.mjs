@@ -1193,6 +1193,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const bd = docs['kr-building'];
   const bdBase = baselineOf(bd?.permits ?? []);
   const gone = plantGone(docs);
+  const bdSmall = new Map();
   for (const x of dedupePermits((bd?.permits ?? []).filter((p) => !p.orphan && !gone(p)))) {
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
@@ -1206,13 +1207,34 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const useLate = x.changedAt && Number.isFinite(uT) && Number.isFinite(cT) && cT - uT > 30 * 86400000 ? Math.floor((cT - uT) / 86400000) : 0;
     const late = lateDays ? ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)`
       : useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
-    push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
+    const entry = { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)}${late} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
       // 시·군 이름이 기사에 있어야 같은 허가로 센다(11-22 운영: 청주1공장 증축 허가가 「LS일렉트릭, 베트남 공장 증설」, 청주·익산 허가가
       // 「LG화학 여수공장 반도체 소재 증설」로 '관련 보도 있음') — 국민연금·공장등록 고용 대조와 같은 규칙
       // 사용승인(준공)을 늦게 본 항목은 항목 날짜가 '처음 본 날'이라 대조가 그 사흘 전부터였다 — 준공 기사는 사용승인 무렵에 난다(11-22: 10-06 사용승인을
       // 11-22에 보고 11-19 이후만 찾음). 대조 시작을 사용승인일로(대조기가 사흘을 더 당긴다)
-      check: x.tier === 'C' ? undefined : withSince(hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)], [cityOf(x.plot)]), x.changedAt ? x.useApproved : null) });
+      check: x.tier === 'C' ? undefined : withSince(hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)], [cityOf(x.plot)]), x.changedAt ? x.useApproved : null) };
+    // 같은 번지의 참고(C) 새 허가는 번지마다 모은다 — 11-22 운영: 월간 갱신에 포스코 포항 동촌동 5번지 18~342㎡ '용도 미기재' 허가가 수십 줄 C로 깔렸다
+    if ((x.tier ?? 'C') === 'C' && !x.changedAt) {
+      const k = `${x.company}|${x.plot}`;
+      if (!bdSmall.has(k)) bdSmall.set(k, []);
+      bdSmall.get(k).push({ x, entry });
+    } else push(x.tier ?? 'C', W['kr-building'], entry);
+  }
+  // 한 번지에 3건 이상이면 한 줄(C)로 — id는 가장 최근 허가 것을 따서, 새 허가가 붙으면 새 줄로 다시 뜬다. 하나씩은 kr_official(section=building, company=…)
+  for (const list of bdSmall.values()) {
+    if (list.length < 3) { for (const { entry } of list) push('C', W['kr-building'], entry); continue; }
+    const xs = list.map((v) => v.x).sort((a, b) => String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
+    const head = xs[0];
+    const areas = xs.map((v) => Number(v.totArea)).filter((v) => Number.isFinite(v) && v > 0);
+    const fmt = (v) => v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const kinds = [...new Set(xs.map((v) => v.archGbCdNm).filter(Boolean))].join('·');
+    const late = xs.filter((v) => { const pT = Date.parse(`${v.permitted ?? ''}T00:00:00+09:00`), fT = Date.parse(v.firstSeen ?? ''); return fT - pT > 30 * 86400000; }).length;
+    push('C', W['kr-building'], { kind: '건축 참고 허가 묶음', id: `bdlot:${head.id}`, date: head.permitted ?? head.firstSeen, company: head.company,
+      fact: `같은 번지 참고(C) 건축허가 ${xs.length}건 묶음: ${head.factory ?? head.company} 부지(${head.plot})${kinds ? ` · ${kinds}` : ''}`
+        + ` · 허가 ${xs[xs.length - 1].permitted ?? '?'}~${head.permitted ?? '?'}`
+        + `${areas.length ? ` · 연면적 각 ${fmt(Math.min(...areas))}~${fmt(Math.max(...areas))}㎡(합 ${fmt(areas.reduce((a, b) => a + b, 0))}㎡)` : ''}`
+        + `${late ? ` · 그중 ${late}건은 허가 30일 넘게 뒤에 자료에 올라옴` : ''} — 소규모·가설·용도 미기재 허가라 참고. 하나씩은 kr_official(section=building, company=${head.company})` });
   }
 
   // 통합환경허가 정보공개(11-21): 등급은 수집기(변경허가 B, 통합허가·관련 기업 C). 보도 대조는 회사 + 환경 허가 낱말(사업장 지명이 있으면 함께)
