@@ -35,6 +35,26 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(rows[0]["unit"],"억원")
         self.assertEqual(rows[0]["rows"][0][1],"125,000")
 
+    def test_embedded_sub_heading_after_footnote(self):
+        # 11-23: 엘에스일렉트릭 3분기보고서(20261116002011) — '주) 작성기준 … 라. 생산실적 및 가동률(1) 생산실적'이 한 줄로 붙어
+        # 생산실적 표(청주2 1,475,594)가 앞 생산능력 제목 그대로 '생산능력'으로 읽혔다(radar_stats에 청주2 생산능력이 두 줄)
+        def tbl(v):
+            return f'<TABLE><TR><TH>사업장</TH><TH>주요제품</TH><TH>제53기 3분기</TH></TR><TR><TD>청주2</TD><TD>배전반</TD><TD>{v}</TD></TR></TABLE>'
+        def run(between, tail='<P>[LS ELECTRIC] (단위 : 백만원)</P>'):
+            body = ('<SECTION-1><TITLE>II. 사업의 내용</TITLE><P>다. 생산능력</P><P>[LS ELECTRIC] (단위 : 백만원)</P>' + tbl('1,635,398')
+                    + between + tail + tbl('1,475,594') + '</SECTION-1>')
+            return [(e["topic"], e["rows"][-1][-1]) for e in bc.evidence_tables(bc.business_section(body), A)]
+        want = [("productionCapacity", "1,635,398"), ("productionActual", "1,475,594")]
+        self.assertEqual(run('<P>주) 작성기준 : 월제작 가능 생산시설 라. 생산실적 및 가동률(1) 생산실적</P>'), want)
+        self.assertEqual(run('<P>라. 생산실적 및 가동률(1) 생산실적</P>'), want)          # 큰 제목·작은 제목이 한 줄(예전엔 표를 버림)
+        self.assertEqual(run('<P>라. 생산실적 및 가동률</P><P>(1) 생산실적</P>'), want)    # 줄이 나뉜 예전 꼴 그대로
+        # 주석 글 속 낱말(산출 근거의 '생산실적/회수율')·긴 글 뒤 표지는 제목이 아니다 — 다음 회사 생산능력 표는 그대로
+        prose = run('<P>주2) 각 사업장별 생산능력의 산출 근거는 하기와 같습니다. - 양산(청주 1, 천안) : 생산실적/회수율 [LS메탈] (단위 : 백만원)</P>', tail='')
+        self.assertEqual([t for t, _ in prose], ["productionCapacity", "productionCapacity"])
+        long_ = run('<P>주) (1) 생산실적은 투입공수 기준으로 단순 계산한 금액이며 회수율을 반영하였습니다</P>')
+        self.assertEqual([t for t, _ in long_], ["productionCapacity", "productionCapacity"])
+        self.assertEqual(bc.EXTRACTION_VERSION, "heading-scope-v3")   # 판을 올려 저장된 발췌를 다시 받는다
+
     def test_compare_only_same_topic_single_table_unit(self):
         old=bc.evidence_tables(bc.business_section(markup(value="100,000")),B)
         new=bc.evidence_tables(bc.business_section(markup(value="125,000")),A)

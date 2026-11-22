@@ -27,7 +27,10 @@ from dart_corrections import Tables
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 
 KST=timezone(timedelta(hours=9))
-EXTRACTION_VERSION="heading-scope-v2"
+# v3(11-23): 주석 줄 끝이나 큰 제목 뒤에 붙어 온 작은 제목('주) 작성기준 … 라. 생산실적 및 가동률(1) 생산실적')을 읽는다 —
+# 엘에스일렉트릭 3분기보고서(20261116002011)의 생산실적 표가 앞 생산능력 제목 그대로 '생산능력'으로 읽혔다(청주2 1,475,594).
+# 판을 올리면 저장된 발췌를 다시 받는다(캐시는 같은 판일 때만 쓴다).
+EXTRACTION_VERSION="heading-scope-v3"
 # Direct beat companies with verified legal corp codes in dart_corp_codes.json.
 # Missing company codes and source failures remain explicit non-results.
 CORPS=("HD현대일렉트릭","엘에스일렉트릭","효성중공업",
@@ -216,6 +219,18 @@ def table_rows(table):
     return valid[:7]
 
 
+# 줄 안 마지막 제목 표지('라. ', '(1) ', '2) ') 뒤가 주제 낱말로 시작하고 짧으면(30자) 그 뒤만 제목으로 본다
+EMBEDDED_HEAD=re.compile(r"(?:\(\d{1,2}\)|(?:(?<=\s)|^)[가-힣]\.|(?:(?<=\s)|^)\d{1,2}\))\s*(?=생산능력|생산실적|당\S{0,6}가동률|평균가동률|가동률|매출|수주|진행|향후|설비)")
+
+
+def embedded_heading(text):
+    marks=list(EMBEDDED_HEAD.finditer(text))
+    if not marks or marks[-1].start()==0:
+        return text
+    rest=text[marks[-1].start():].strip()
+    return rest if len(re.sub(r"\s*\[.*?\]\s*|\s*\(?단위\s*[:：].*$","",rest))<=30 else text
+
+
 def evidence_tables(section,receipt):
     evidence=[]
     counts=defaultdict(int)
@@ -234,6 +249,7 @@ def evidence_tables(section,receipt):
             owners=re.findall(r"\[([^\[\]]{2,70})\]",text)
             if owners:
                 owner=re.sub(r"\s+","",owners[-1])
+            text=embedded_heading(text)
             title=re.sub(r"^(?:[가-힣A-Za-z0-9]+[.)]|\([가-힣A-Za-z0-9]+\))\s*","",text).strip()
             title=re.sub(r"\s*\[.*?\]\s*$","",title)
             title=re.sub(r"\s*\(?단위\s*[:：].*$","",title).strip()
