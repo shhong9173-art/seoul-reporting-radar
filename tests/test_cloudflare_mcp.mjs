@@ -3540,6 +3540,14 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   // 11-22: 나라·고유어 없이 넓은 낱말('투자')뿐이면 자동 대조하지 않는다(Nikkei '현대차 투자'가 영남권 메가프로젝트 기사로 '관련 보도 있음')
   assert.ok(!items.items.find((x) => x.id === 'gl:dl'));          // 대조 목록에 없다
   assert.match(b, /출입처 외신 · 기아\n   외신 World Nuclear News 「기아, 3분기 인도량 늘려 투자」/);   // 화면에는 B 그대로
+  // 규칙이 바뀌기 전 대조 결과('관련 보도 있음')는 쓰지 않는다 — 대조 낱말이 있는 항목의 결과는 그대로
+  await worker.fetch(new Request(ORIGIN + '/ingest/radar-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'radar_check/v1', generatedAt: now, items: [
+    { id: 'gl:dl', verdict: '관련 보도 있음', since: '2026-10-20', queries: ['기아 투자'], evidence: [{ date: '2026-10-25', channel: 'naver', title: '기아 투자 점검', url: 'https://n/x', why: '제목에 회사·낱말(투자)' }], channels: { naver: { status: 'ok' } }, checkedAt: now },
+    { id: 'gl:a', verdict: '미보도 후보', since: '2026-10-20', queries: ['두산에너빌리티 원자로'], evidence: [], channels: { naver: { status: 'ok' } }, checkedAt: now }] }) }), env, {});
+  const r2 = await call('radar_today', { include_minor: true }, opts);
+  const dlBlock = r2.text.split('「기아, 3분기 인도량 늘려 투자」')[1].split('\n- ')[0];
+  assert.doesNotMatch(dlBlock, /보도 대조\(자동/);
+  assert.match(r2.text.split('「두산, 뉴스케일 소형모듈원전 상부 원자로 용기 제작」')[1].split('\n- ')[0], /보도 대조\(자동 [^)]*\): 미보도 후보/);
   assert.ok(!items.items.find((x) => x.id === 'gl:af'));
   assert.match(r.text.split('[C · ')[1], /⚠ 본문 첫머리 주체가 계열사\(포스코퓨처엠\) — 출입처 외일 수 있음 · 외신 World Nuclear News 「포스코, LG에너지솔루션에 신규 배터리 소재 공급」/);
   assert.ok(!items.items.find((x) => x.id === 'gl:honda'));
