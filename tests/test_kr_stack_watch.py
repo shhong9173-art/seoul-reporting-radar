@@ -990,6 +990,16 @@ class TierCapTest(unittest.TestCase):
         _, weak = self.run_exceed([150.0] * 8)                              # 1.07배로 하루 → C
         self.assertEqual(weak[7], [("배출허용기준 장기 초과", "C")])
 
+    def test_long_exceedance_after_restart_does_not_say_startup_value(self):
+        # 11-22 운영: LG화학 52번 — 재가동 직후 처음 넘은 뒤 하루 내내 넘었는데 장기 초과 B에도 '가동 개시 직후 값일 수 있음'이 붙었다
+        stored = {"id": "stk:exceedlong:x", "kind": "배출허용기준 장기 초과", "tier": "B",
+                  "text": "52번 일산화탄소 … 실행 8번(약 하루) 연속 초과(처음 626.38)" + w.RESTART_NOTE + " · 실시간 자동측정 값(확정 전)."}
+        two = {"id": "stk:exceed2:x", "kind": "배출허용기준 초과 지속", "tier": "C", "text": "…" + w.RESTART_NOTE}
+        w.fix_long_restart_notes([stored, two])
+        self.assertNotIn("가동 개시 직후 값일 수 있음", stored["text"])
+        self.assertIn("처음 넘은 값은 '가동중지'·멈춤이던 배출구가 다시 값을 보낸 직후였다(그 뒤 약 하루 계속 넘음) · 실시간", stored["text"])
+        self.assertIn("가동 개시 직후 값일 수 있음", two["text"])          # 처음·지속(2번) 줄은 그대로
+
     def test_stored_events_are_capped_and_keep_the_old_tier(self):
         ev = [{"id": "a", "kind": "배출허용기준 초과 지속", "tier": "A"}, {"id": "b", "kind": "배출구 오래 멈춤", "tier": "B"},
               {"id": "c", "kind": "사업장 가동 중단 신호", "tier": "A"}, {"id": "d", "kind": "새 배출구", "tier": "A"},
