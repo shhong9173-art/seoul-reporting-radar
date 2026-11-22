@@ -71,7 +71,9 @@ export const DESK_TYPES = [
   { key: 'smallinsolv', strength: 'weak', label: '거래 관계 모르는 소규모 회생·파산', why: '출입처 협력사 명단에 없고 종업원 수 명~십수 명', test: (x) => x.watch === W.insolv && x.tier !== 'A' },
   { key: 'consumer', strength: 'weak', label: '미국 소비자·개인 소송', why: '출입처 미국 법인을 상대로 한 일상 소송', test: (x) => x.watch === W.court && x.tier === 'C' },
   { key: 'reference', strength: 'weak', label: '참고 자료(상표·특허 공개·통계·외신·EPA·연비)', why: '그 자체로 사건이 아님 — 다른 단서와 겹칠 때만',
-    test: (x) => [W.tm, W.epo, W.stats, W.global, W.epa, W.fuel, W.page].includes(x.watch) && x.tier !== 'A' },
+    // 단독 후보 심사(scoop_screen)가 넘긴 국내 공개특허도 같은 유형 — 11-23 단독 데스크 '그 밖' 후보에 현대제철 수소취성 평가 방법 특허(B)가
+    // 떴다(같은 화면 해외 특허 공개(EP·WO)는 이 유형으로 걷어냄). 레이더 줄에도 '특허 공개만으로는 단독이 아님'이 적혀 있다
+    test: (x) => ([W.tm, W.epo, W.stats, W.global, W.epa, W.fuel, W.page].includes(x.watch) || (x.watch === W.screen && x.kind === '특허')) && x.tier !== 'A' },
   // 레이더 규칙에 이미 '단독 근거로 쓰지 않는다'고 적힌 공개 공고. 11-13 운영: 7일 후보 37건 중 17건이 이 감시(공장등록·관보)였다
   { key: 'gazette', strength: 'weak', label: '관보 입법예고·법제처 확정 발령', why: '공개 공고 — 보도자료와 같은 날 나오는 경우가 많아 단독 근거로 쓰지 않는다(레이더 규칙). 일반 발제 자료',
     test: (x) => x.watch === W.official && /^(?:관보 입법예고|법제처 )/.test(x.kind ?? '') },
