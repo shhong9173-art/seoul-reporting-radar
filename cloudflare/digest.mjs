@@ -1463,11 +1463,22 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
+  // 같은 초과(같은 배출구·같은 물질·같은 시작 측정)는 처음 초과 → 초과 지속 → 장기 초과로 이어지며 줄이 하나씩 더 생긴다 — 11-22 화면: LG화학 여수 52번
+  // 일산화탄소가 B '장기 초과' 아래 C '초과'·'초과 지속'으로 두 번 더 깔렸다. 더 뒤 단계가 있으면 앞 단계의 참고(C) 줄은 접는다(장기 초과 글에 처음 값이 들어 있다)
+  const EXC_STAGE = { exceed: 0, exceed2: 1, exceedlong: 2 };
+  const excTop = new Map();
+  for (const e of docs['kr-stacks']?.events ?? []) {
+    const mm = /^stk:(exceed|exceed2|exceedlong):(.+)$/.exec(String(e.id ?? ''));
+    if (!mm || !recent(e.detectedAt)) continue;
+    excTop.set(mm[2], Math.max(excTop.get(mm[2]) ?? -1, EXC_STAGE[mm[1]]));
+  }
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
     const m = maintFolded(e, maint);
     const tier = m || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
+    const em = /^stk:(exceed|exceed2|exceedlong):(.+)$/.exec(String(e.id ?? ''));
+    if (em && tier === 'C' && EXC_STAGE[em[1]] < excTop.get(em[2])) continue;
     push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site,
       fact: m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text,
       check: stackHint(e) });
