@@ -165,7 +165,7 @@ const ALT = {
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 무상수리: ['무상수리', '무상 수리', '보증 연장', '보증기간', '서비스 캠페인', '무상 교체', '무상 점검'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   // 미국 소비자 결함 신고 급증의 부품 낱말(NHTSA 부품 분류 → 기사 낱말, 11-23)
-  와이퍼: ['와이퍼', '시야', '앞유리'], 시야: ['시야', '와이퍼', '앞유리', '김서림'], 앞유리: ['앞유리', '유리', '윈드실드', '깨짐', '파손'], 선루프: ['선루프', '썬루프', '파노라마', '유리'], 에어백: ['에어백'], 엔진: ['엔진'], 전기장치: ['전기', '배선', '배터리', '전장', '퓨즈'],
+  와이퍼: ['와이퍼', '시야', '앞유리'], 시야: ['시야', '와이퍼', '앞유리', '김서림'], 앞유리: ['앞유리', '유리', '윈드실드', '깨짐', '파손'], 엔진오일: ['엔진오일', '엔진 오일', '오일 소모', '오일 감소', '오일 과다'], ICCU: ['ICCU', '통합충전제어장치', '충전제어'], 선루프: ['선루프', '썬루프', '파노라마', '유리'], 에어백: ['에어백'], 엔진: ['엔진'], 전기장치: ['전기', '배선', '배터리', '전장', '퓨즈'],
   변속기: ['변속기', '동력', '파워트레인', '구동'], 조향: ['조향', '스티어링', '핸들'], 브레이크: ['브레이크', '제동'], 연료: ['연료', '주유'], 안전벨트: ['안전벨트'],
   시트: ['시트', '좌석'], 서스펜션: ['서스펜션', '현가'], 도어: ['도어', '잠금', '문 열림'], 램프: ['램프', '전조등', '조명', '라이트'], 후방카메라: ['후방', '카메라'],
   전방충돌: ['전방충돌', '긴급제동', '충돌방지'], 차로: ['차로', '차선'], 크루즈: ['크루즈', '급가속', '속도'], 자세제어: ['자세제어', 'ESC'], 휠: ['휠'], 차체: ['차체'],
@@ -1035,8 +1035,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 딜러용 통신이라 리콜·결함 인정이 아니다 — 국내 무상수리 여부는 회사 확인.
   const tsItems = ur?.tsbs?.items ?? [];
   const tsBase = baselineOf(tsItems);
+  // 같은 주제 통신이 브랜드·문서를 바꿔 이어 나온다(11-23 us_recalls B: 엔진오일 소모 — 현대 26-EM-015H(10-13)·016H(10-14)·기아 텔루라이드 ENG270(10-13)
+  // ·제네시스 26-EM-019G(11-20)가 따로따로). 요약 원문의 동력계통 주제로 앞선 통신을 붙이고, 보도 대조 낱말도 주제로(통신은 무상수리가 아님)
+  const TSB_THEME = [[/OIL CONSUMPTION/i, '엔진오일', '엔진오일 소모'], [/\bICCU\b|INTEGRATED CHARGING CONTROL/i, 'ICCU', 'ICCU(통합충전제어장치)'],
+    [/HIGH[- ]VOLTAGE BATTERY|\bHV BATTERY|TRACTION BATTERY|BATTERY PACK|\bBMS\b|BATTERY MANAGEMENT/i, '배터리', '고전압 배터리'], [/\bTRANSMISSION\b|\bDCT\b|\bIVT\b|\bCVT\b/i, '변속기', '변속기']];
+  const tsbTheme = (y) => TSB_THEME.find(([re]) => re.test(String(y?.summary ?? '')));
   for (const x of tsItems) {
     if (!fresh(x, tsBase, 'added')) continue;
+    const theme = ['A', 'B'].includes(x.tier) ? tsbTheme(x) : null;
+    const before = theme ? tsItems.filter((y) => y !== x && y.id !== x.id && tsbTheme(y)?.[1] === theme[1] && String(y.added ?? '') <= String(x.added ?? ''))
+      .sort((a, b) => String(a.added).localeCompare(String(b.added))) : [];
+    const series = before.length ? ` · 같은 주제(${theme[2]}) 앞선 통신 ${before.length}건: ${before.slice(0, 4).map((y) => `${(y.brands ?? [])[0] ?? ''} ${y.campaign || y.doc}(${String(y.added ?? '').slice(5)})`.trim()).join('·')}${before.length > 4 ? ' 외' : ''}(최근 120일, 다른 브랜드 포함)` : '';
     const modelText = (x.models ?? []).map((m) => m.model).join(', ');
     const models = usRecallModels(modelText);
     const brand = (x.brands ?? [])[0] ?? (x.companies ?? [])[0];
@@ -1045,8 +1054,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       company: (x.companies ?? []).join('·'),
       fact: `미국 NHTSA 제조사 통신 ${x.kindName ?? x.type} · 추가 ${x.added} · ${(x.brands ?? []).join('·')} ${(x.models ?? []).slice(0, 4).map((m) => m.model).join(', ')}${x.modelCount > 4 ? ` 외 ${x.modelCount - 4}개` : ''}`
         + `${years.length ? `(${years[0]}${years.length > 1 && years[years.length - 1] !== years[0] ? `~${years[years.length - 1]}` : ''}년형)` : ''} · ${x.campaign ? `캠페인 ${x.campaign} · ` : ''}문서 ${x.docCount > 1 ? `${x.docCount}건` : x.doc} · 「${clipAt(x.summary ?? '', 160)}」`
-        + ' — 딜러용 통신이라 리콜·결함 인정 아님, 국내 무상수리 해당 여부는 회사 확인',
-      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(brand, [models[0], '무상수리'], [models[0]], models) : hint(brand, ['무상수리', '미국'])) });
+        + `${series} — 딜러용 통신이라 리콜·결함 인정 아님, 국내 무상수리 해당 여부는 회사 확인`,
+      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(brand, [models[0], theme?.[1] ?? '무상수리'], [models[0]], models) : hint(brand, [theme?.[1] ?? '무상수리', '미국'])) });
   }
 
   // 출입처 외신(global_collector.py): 한국어 제목에 사건 낱말(공장·투자·수주·원자로 등)이 있으면 B(자동 보도 대조), 없으면 참고(C).
