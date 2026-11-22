@@ -180,6 +180,22 @@ class Views(unittest.TestCase):
         self.assertFalse(zinc["routine"])
         self.assertTrue(self.clue(views, "국민연금공단")["routine"])
 
+    def test_merged_stake_row_keeps_the_reporter(self):
+        # 11-22 radar_clues: 같은 접수번호의 DART 공시 줄에 지분공시 줄이 합쳐져 '현대제철 · 임원ㆍ주요주주특정증권등소유상황보고서'만 남고
+        # 보고자(국민연금공단)가 사라졌다. 첫 보고는 증감이 보유 전체라 '+10.00%p'로 적지 않는다
+        rno = "20261119000277"
+        dart = v.from_dart_beat({"records": [{"company": "현대제철", "receiptNo": rno, "published": "20261119",
+                                               "report": "임원ㆍ주요주주특정증권등소유상황보고서", "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + rno}]})
+        gov = v.from_governance({"items": [{"company": "현대제철", "team": "철강·비철", "kind": "임원·주요주주", "date": "2026-11-19", "receiptNo": rno,
+                                            "reporter": "국민연금공단", "role": "10%이상주주", "ratio": 10.0, "ratioChange": 10.0, "firstReport": True,
+                                            "tags": ["[10% 이상 주주로 첫 보고 · 보유 10.00%]"], "routine": False}]})
+        self.assertEqual(gov[0]["title"], "현대제철 · 임원·주요주주 · 국민연금공단(10%이상주주)")
+        row = v.merge_clues(dart + gov)[0]
+        self.assertEqual(row["title"], "현대제철 · 임원ㆍ주요주주특정증권등소유상황보고서")
+        self.assertEqual(row["note"], "보고자 국민연금공단(10%이상주주) · [10% 이상 주주로 첫 보고 · 보유 10.00%]")
+        # 지분공시 줄이 먼저 오면 제목에 보고자가 이미 있다 — 메모에 다시 적지 않는다
+        self.assertNotIn("보고자", v.merge_clues(gov + dart)[0]["note"])
+
     def test_group_affiliate_disclosures_are_routine(self):
         # 10-29~30 운영 제목(공정거래법 대규모기업집단 정기 공시)
         for t in ["현대자동차 · 특수관계인으로부터채권매수", "현대자동차 · 특수관계인에대한부동산임대", "현대자동차 · 특수관계인과의내부거래",
