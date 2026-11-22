@@ -1484,6 +1484,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!dm || !recent(e.detectedAt) || stackTier(e) === 'C') continue;
     if (!downLast.has(dm[1]) || dm[2] > downLast.get(dm[1])) downLast.set(dm[1], dm[2]);
   }
+  // 기자 판정(정기보수 메모)으로 접은 사업장의 멈춤·빠짐 줄은 사업장마다 한 줄로 — 11-23 72시간 화면: 현대제철 순천공장 C가 '오래 멈춤' 30번·25번,
+  // '가동 중단 신호'로 석 줄(모두 같은 메모 '정기보수(순천·당진 배출구 가동중지)', 12-07까지 접음). 가장 최근 줄 글을 싣고 나머지는 개수·종류만
+  const maintLots = new Map();
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
@@ -1494,9 +1497,28 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const dm = /^stk:down:(.+):(\d{4}-\d{2}-\d{2})$/.exec(String(e.id ?? ''));
     const later = dm && downLast.get(dm[1]) > dm[2] ? downLast.get(dm[1]) : null;
     if (later) tier = 'C';
-    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, ...(later ? { stackEarlier: true } : {}),
+    const row = { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, ...(later ? { stackEarlier: true } : {}),
       fact: `${later ? `〔같은 사업장 ${later.slice(5)} 줄에 이어짐 — 그 줄에 앞서 멈춘 배출구까지 적힘〕 ` : ''}${m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text}`,
-      check: later ? undefined : stackHint(e) });
+      check: later ? undefined : stackHint(e) };
+    const lot = m && tier === 'C' ? stackSiteKey(e.id) : null;
+    if (lot) {
+      if (!maintLots.has(lot)) maintLots.set(lot, []);
+      maintLots.get(lot).push({ e, row, m });
+    } else push(tier, W['kr-stacks'], row);
+  }
+  for (const list of maintLots.values()) {
+    if (list.length < 2) { for (const { row } of list) push('C', W['kr-stacks'], row); continue; }
+    list.sort((a, b) => String(b.e.detectedAt).localeCompare(String(a.e.detectedAt)));
+    const { e: head, m } = list[0];
+    const md = (v) => kstMD(Date.parse(v));
+    const kinds = {};
+    for (const { e } of list) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+    const place = (/([가-힣]{2})(?=\s*(?:\d*공장|제철소|사업장|제련소))/.exec(String(head.site ?? '').replace(/^.*?[)㈜]\s*/, '')) ?? [])[1];
+    push('C', W['kr-stacks'], { kind: '기자 판정으로 접은 굴뚝 줄 묶음', id: `stkmaint:${head.id}`, date: head.detectedAt, company: head.company, site: head.site,
+      fact: `기자 판정으로 접은 사업장 ${head.site}: 굴뚝 멈춤·빠짐 줄 ${list.length}개(${md(list[list.length - 1].e.detectedAt)}~${md(head.detectedAt)} · `
+        + `${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(' · ')}) — 가장 최근 줄: ${head.text}`
+        + ` · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음`
+        + ` — 하나씩은 kr_official(section=stacks, company=${place ?? head.company})` });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.

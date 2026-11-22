@@ -1536,6 +1536,30 @@ test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유
   assert.match(st, /- 정기보수 메모\(기자 판정 — 이 기간 멈춤·빠짐 신호는 레이더에서 접음\) 1곳: 현대제철\(주\)순천공장 \d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중' → \d\d-\d\d까지/);
 });
 
+test('정기보수 메모로 접은 사업장의 멈춤·빠짐 줄은 한 줄로 묶는다(11-23 현대제철 순천 C 석 줄)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  await call('candidate_feedback', { item_id: 'stk:longstop:현대제철:현대제철(주)순천공장:81:old', verdict: '킬', reason: '현대제철 확인 결과 정기보수(순천·당진 배출구 가동중지)' },
+    { ...opts, now: new Date(NOW.getTime() - 86400000) });
+  const ev = (id, kind, tier, h, text) => ({ id, kind, tier, company: '현대제철', site: '현대제철㈜순천공장', text: `현대제철㈜순천공장: ${text}`, detectedAt: at(h) });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(1), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [{ id: '현대제철:현대제철(주)순천공장', company: '현대제철', name: '현대제철㈜순천공장', meaningful: 5, stacks: {} }],
+    events: [ev('stk:longstop:현대제철:현대제철(주)순천공장:30:d2', '배출구 오래 멈춤', 'B', 10, '배출구 1개가 사흘 넘게 — 30번'),
+      ev('stk:down:현대제철:현대제철(주)순천공장:d2', '사업장 가동 중단 신호', 'C', 10, '평소 움직이던 배출구 5개 중 5개'),
+      ev('stk:longstop:현대제철:현대제철(주)순천공장:25:d1', '배출구 오래 멈춤', 'B', 28, '배출구 1개가 사흘 넘게 — 25번'),
+      ev('stk:up:현대제철:현대제철(주)순천공장:d2', '사업장 재가동 신호', 'C', 16, '멈췄던 배출구 6개 중 4개 측정값이 평소 수준으로 돌아옴'),
+      ev('stk:exceed:현대제철:현대제철(주)순천공장:1:hcl:x', '배출허용기준 초과(측정값)', 'C', 3, '배출구 1번 염화수소 측정값 10.79이 배출허용기준 3을 넘음')] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, limit: 30, company: '순천' }, opts)).text;
+  const c = r.split('[C · ')[1] ?? '';
+  assert.match(c, /기자 판정으로 접은 사업장 현대제철㈜순천공장: 굴뚝 멈춤·빠짐 줄 3개\(\d\d-\d\d~\d\d-\d\d · 배출구 오래 멈춤 2 · 사업장 가동 중단 신호 1\) — 가장 최근 줄: 현대제철㈜순천공장: (배출구 1개가 사흘 넘게 — 30번|평소 움직이던 배출구 5개 중 5개) · ⓘ 기자 판정\(\d\d-\d\d '현대제철 확인 결과 정기보수\(순천·당진 배출구 가동중지\)'\) — \d\d-\d\d까지 이 사업장 멈춤·빠짐 신호는 접음 — 하나씩은 kr_official\(section=stacks, company=순천\)/);
+  assert.match(c, /id stkmaint:stk:/);
+  assert.equal((c.match(/· ⓘ 기자 판정/g) ?? []).length, 1);                 // 묶은 석 줄은 따로 안 나온다
+  assert.match(c, /멈췄던 배출구 6개 중 4개/);                               // 메모가 접지 않는 종류(재가동·기준 초과)는 그대로
+  assert.match(c, /염화수소 측정값 10\.79/);
+  // 메모로 접힌 줄이 하나뿐이면 묶지 않는다(앞 테스트의 '사업장 가동 중단 신호 · ⓘ 기자 판정' 꼴 그대로)
+});
+
 test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {
   assert.deepEqual(plantTokens('롯데케미칼㈜울산2공장'), ['울산2공장']);
   assert.deepEqual(plantTokens('㈜엘지화학 여수공장(용성1단지)'), ['여수공장', '용성1단지']);
