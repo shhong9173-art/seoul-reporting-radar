@@ -211,12 +211,20 @@ def expiry_rows(raw, limit=4):
     return out
 
 
+def expiry_consigned_only(rec):
+    """만료 예정 공고의 한국 줄이 전부 우회 확대 적용('consigned from … Korea')이고 출입처 이름도 없으면 참고(C) —
+    11-22 운영: 52026XC06045(중국산 실리콘, 한국·대만 경유 확대)가 B로 떠 단독 데스크 후보에 올랐다. 한국산 원산지 조치가 아니다."""
+    rows = rec.get("expiryRows") or []
+    return rec.get("kind") == "만료 예정 공고" and bool(rows) and all(r.get("consigned") for r in rows) and not rec.get("companies")
+
+
 def expiry_note(rows):
     def one(r):
         via = " — 참조 규정에 'consigned from … Korea'(다른 나라산 조치를 한국 경유 수출에 확대 적용)" if r.get("consigned") else ""
         return f"{r['product']}(원산지 {r['countries']} · {r['measure']}) 만료 {r['expiry']}{via}"
+    tail = " · 한국 줄이 모두 우회 확대 적용이라 참고(C) — 한국산 원산지 조치 아님" if rows and all(r.get("consigned") for r in rows) else ""
     return (" · 표에서 한국이 든 줄: " + " / ".join(one(r) for r in rows)
-            + " — 종료재심 요청은 만료 3개월 전까지(EU 생산자 측, 공고 본문). 요청이 없으면 만료")
+            + " — 종료재심 요청은 만료 3개월 전까지(EU 생산자 측, 공고 본문). 요청이 없으면 만료" + tail)
 
 
 def record_of(d, body, stamp, raw=None):
@@ -239,6 +247,8 @@ def record_of(d, body, stamp, raw=None):
         rec["safeguard"] = True
     if names and tier == "A":
         rec["tier"] = "A"
+    elif expiry_consigned_only(rec):
+        rec["tier"] = "C"
     elif rec.get("safeguard") and kind in ("세이프가드 조사 개시", "세이프가드 잠정 조치", "세이프가드 조치"):
         rec["tier"] = "A"
     elif korea and beat_product and kind in ("확정 관세", "잠정 관세", "조사 개시", "확정 관세 연장(종료재심 결과)", "조사 종료·조치 폐지"):
@@ -657,9 +667,19 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             rec["expiryTries"] = rec.get("expiryTries", 0) + 1     # 두 번 실패하면 그만(원문 열기)
             errors.append(f"{rec['celex']} 표 {str(e)[:30] or type(e).__name__}")
             continue
+        if expiry_consigned_only(rec):
+            rec["tier"] = "C"
         for e in events:
             if e.get("id") == rec["id"] and rec["expiryRows"]:
                 e["text"] = event_of(rec, e.get("detectedAt") or stamp)["text"]
+                e["tier"] = rec["tier"]
+    # 이미 표를 읽은 저장분도 규칙(우회 확대뿐이면 C)으로 다시 매긴다 — 본문을 다시 받지 않는다
+    for rec in recs.values():
+        if expiry_consigned_only(rec) and rec.get("tier") != "C":
+            rec["tier"] = "C"
+            for e in events:
+                if e.get("id") == rec["id"]:
+                    e["tier"], e["text"] = "C", event_of(rec, e.get("detectedAt") or stamp)["text"]
     pending = sum(1 for d in new if d["celex"] not in set(seen))
     if pending:
         errors.append(f"본문 {pending}건은 다음 실행(한도)")
