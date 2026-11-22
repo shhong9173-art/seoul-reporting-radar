@@ -2343,7 +2343,8 @@ export async function radarTodayText(ctx, args) {
       block.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${ledgerMark(x)}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}${x.leadFrom ? ' 〔취재 단서 — 감시 등급 A였지만 단독 후보에서 내림(11-18)〕' : ''}`);
       const size = block.reduce((a, l) => a + l.length + 1, 0);
       left -= 1;
-      if (used + size + left * COMPACT <= ITEM_BUDGET) { add(...block); continue; }
+      // 한 번 줄이기 시작하면 그 뒤(아래 등급 포함)는 모두 한 줄 — 긴 항목만 한 줄이 되고 짧은 다음 항목이 다시 온전한 꼴로 섞이지 않게(11-23 02:29 단독 데스크)
+      if (!squeezed && !cut && used + size + left * COMPACT <= ITEM_BUDGET) { add(...block); continue; }
       const v = checked.get(String(x.id))?.verdict;
       const line = `- ${when}${x.watch}${x.company ? ` · ${x.company}` : ''} · ${clipAt(x.fact, 70)}${v ? ` · 〔${v}〕` : ''} · id ${x.id}`;
       // 한 줄로도 넘치면(뒤 구역 몫 3,000자는 남긴다) 거기서 멈추고 남은 수만 적는다
