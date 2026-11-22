@@ -308,6 +308,10 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         self.assertEqual(len(result),1)
         self.assertEqual(result[0]["companies"],["포스코"])
         self.assertEqual(stats["offBeatOrSport"],2)
+        # 11-22: e스포츠 팀 후원 이름·대학 계약학과 입결도 업종 단독이 아니다
+        self.assertEqual(tracked_industry_companies("[단독] T1 떠난 '도란' 최현준, 차기 행선지는 디플러스 기아 유력"),[])
+        self.assertEqual(tracked_industry_companies("[단독] [2027대입] 대기업 계약학과 2026정시 입결.. 고대 스마트모빌리티(현대차)/한대 반도체(닉스)"),[])
+        self.assertEqual(tracked_industry_companies("[단독] 기아, 美 조지아 공장 증설"),["기아"])
 
     def test_corrupt_or_malicious_prior_history_never_overwritten_as_zero(self):
         a=parse_observed_headlines(rss(article()),WIN,now=NOW)[0][0]

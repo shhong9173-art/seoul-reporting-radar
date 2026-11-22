@@ -51,6 +51,11 @@ CONSTRUCTION_POSCO=re.compile(
 SPORTS_GOLF=re.compile(
     r"KPGA|KLPGA|LPGA|프로골프|골프|선수권|"
     r"제네시스.{0,8}챔피언십|피버스|타이거즈",re.I)
+# 11-22: 출입처 이름이 후원·학과 이름으로만 나온 기사 — e스포츠 팀 '디플러스 기아'(「T1 떠난 '도란' 최현준, 차기 행선지는 디플러스 기아 유력」),
+# 대학 계약학과 입결(「대기업 계약학과 2026정시 입결.. 고대 스마트모빌리티(현대차)」). 업종 단독이 아니다.
+SPONSOR_OR_SCHOOL=re.compile(
+    r"디플러스\s*기아|e\s*스포츠|이스포츠|LCK|롤드컵|프로게이머|"
+    r"대입|입결|계약학과|수시\s*모집|정시\s*모집",re.I)
 HUNGER_KIA=re.compile(
     r"기아\s*(?:호적|아동|문제|상태|극복|퇴치|빈곤|지수|위기|사태)|"
     r"기아호적|기아퇴치",re.I)
@@ -65,7 +70,7 @@ def tracked_industry_companies(title):
     """
     if not isinstance(title,str):
         return []
-    if SPORTS.search(title) or SPORTS_GOLF.search(title):
+    if SPORTS.search(title) or SPORTS_GOLF.search(title) or SPONSOR_OR_SCHOOL.search(title):
         return []
     names=[name for name in sorted(INDUSTRY_COMPANIES,key=len,reverse=True)
            if name.casefold() in title.casefold()]
