@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from difflib import SequenceMatcher
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -148,7 +149,21 @@ def same_story(a,b):
     short,long_=sorted((ka,kb),key=len)
     if len(short)<STORY_MIN:
         return ka==kb
-    return long_.startswith(short)
+    # 11-22: 전기신문 SK온 기사가 '입찰 도전'·'입찰 참여'로 제목 낱말 하나만 바꿔 두 번 올라 역추적에 두 줄 — 거의 같은 제목(유사도 0.9 이상)도 같은 기사
+    return long_.startswith(short) or SequenceMatcher(None,ka,kb).ratio()>=0.9
+
+
+def strip_publisher(title):
+    """구글 뉴스 제목 끝 매체 꼬리 — ' - 머니투데이'(' - 머니투데이 - 머니투데이'처럼 두 번 붙은 것도), ' By EBN'·' By The Guru - …'(11-22 역추적·dandok 화면)."""
+    t=str(title or "").strip()
+    t=re.sub(r"\s+By\s+(?:The\s+)?[A-Z][\w.]*(?:\s+-\s+[^-]{1,40})?$","",t)
+    m=re.search(r"\s+-\s+([^-]{1,40})$",t)
+    if m:
+        tail=m.group(1).strip()
+        t=t[:m.start()]
+        while t.endswith(f" - {tail}"):
+            t=t[:-len(f" - {tail}")]
+    return t.strip()
 
 
 def _clipped(title):
@@ -361,7 +376,7 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None,
     for row in sample:
         proof=validate_review(labelled[row["id"]],row) if row["id"] in labelled else None
         items.append({
-            "articleId":row["id"],"title":best_title(row,others.get(row["id"])),
+            "articleId":row["id"],"title":strip_publisher(best_title(row,others.get(row["id"]))),
             "published":row["published"],
             "sourceName":row["sourceName"],
             "articleUrl":row["url"],
