@@ -234,8 +234,13 @@ const GB_LATIN_SKIP = new Set(['MOU', 'EV', 'EVS', 'SUV', 'SUVS', 'AI', 'ESS', '
 export const gbNames = (koTitle) => [...new Set((String(koTitle ?? '').match(/[A-Za-z][A-Za-z0-9&-]*[A-Za-z0-9]/g) ?? [])
   .filter((w) => !GB_LATIN_SKIP.has(w.toUpperCase())))].slice(0, 3);
 
+// 회사 이름과 함께 쓰면 거의 모든 기사에 걸리는 낱말. 나라·고유어 없이 이 낱말뿐인 외신은 자동 대조하지 않는다(대조 안 함 — news_check로 직접).
+// 11-22 운영: Nikkei 「현대차·혼다, 하이브리드차 출격…전기차 투자 확대세」가 "현대차 투자"로 대조돼 「312조 영남권 메가프로젝트…현대차 투자 점검」·
+// 「완주군 '수소산업'…현대차 투자연계」로 '관련 보도 있음' — 단독 데스크에서 '이미 보도'로 걷혔다.
+const GB_BROAD = new Set(['투자', '관세']);
 export const gbHint = (who, terms, country, published, koTitle = '') => {
   const names = country ? [] : gbNames(koTitle);
+  if (!country && !names.length && terms.every((t) => GB_BROAD.has(t))) return undefined;
   const h = country ? hint(who, [terms[0], country, ...terms.slice(1)], [country], [country])
     : names.length ? hint(who, terms, [], names) : hint(who, terms);
   const t = Date.parse(published ?? '');
