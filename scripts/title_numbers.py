@@ -6,13 +6,14 @@
 import math
 import re
 
-NUM_RX = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(%|％|조\s*원|억\s*원|조|억|MW|GW|kV|만\s*대|만\s*톤|톤)(대)?")
+# 11-22: '74억달러'의 '74억'을 74억원으로 셌다(고려아연 외신 줄) — 조·억 뒤에 달러·유로·위안·엔이 붙으면 원화 금액이 아니다
+NUM_RX = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(%|％|조\s*원|억\s*원|조(?!\s*(?:달러|유로|위안|엔|파운드))|억(?!\s*(?:달러|유로|위안|엔|파운드))|MW|GW|kV|만\s*대|만\s*톤|톤)(대)?")
 NUM_UNIT = {"％": "%", "조원": "억", "조": "억", "억원": "억", "만대": "만대", "만톤": "만톤"}
 
 
 def numbers_in(text):
     """[(값, 단위, 원문, '대' 여부)] — 조는 억으로 바꾼다('1조2000억'은 한 값). 0은 흔해서 뺀다(휴스틸 0%)."""
-    both = re.compile(r"(\d[\d,]*)\s*조\s*(\d[\d,]*)\s*억\s*원?")
+    both = re.compile(r"(\d[\d,]*)\s*조\s*(\d[\d,]*)\s*억(?!\s*(?:달러|유로|위안|엔|파운드))\s*원?")
     out = [(int(m.group(1).replace(",", "")) * 10000 + int(m.group(2).replace(",", "")), "억", m.group(0).strip(), False)
            for m in both.finditer(text or "")]
     t = both.sub(" ", text or "")
@@ -30,6 +31,12 @@ def numbers_in(text):
     return out
 
 
+def round_figure(v):
+    """유효숫자 두 자리 이하(10조=100000억 → '1', 1조2000억=12000억 → '12', 500억 → '5')."""
+    digits = f"{v:.6f}".rstrip("0").rstrip(".").replace(".", "").lstrip("0").rstrip("0")
+    return 0 < len(digits) <= 2
+
+
 def same_numbers(title, text):
     """기사 제목 숫자 중 레이더 원문에도 있는 것: (제목 숫자 원문 목록, 원문에도 있는 것 목록, 비교할 숫자가 원문에 있었는지).
     원문 글에 같은 단위 숫자가 하나도 없으면 '다름'이 아니라 비교 못 함이다(11-09: 세율 없는 단서 글 ↔ 강관 4.20%)."""
@@ -40,7 +47,10 @@ def same_numbers(title, text):
         for w, u2, _, _ in item:
             if u2 != unit:
                 continue
-            if (band and v <= w < v + (10 if unit == "%" else 10 ** math.floor(math.log10(v)))) or (not band and (abs(v - w) < 0.005 if unit == "%" else abs(v - w) <= max(v, w) * 0.01)):
+            # 11-22: 제목은 금액을 둥글려 쓴다 — '10조원 프로젝트' ↔ 레이더 '74억달러(약 9조8479억원)'(1.5% 차이)를 '다름'으로 적었다.
+            # 유효숫자 두 자리 이하로 둥근 제목 숫자(10조·500억·1조2000억)는 5%까지, 그 밖(4882억·9조8479억)은 1%까지 같다고 본다. 세율(%)은 그대로 엄격
+            tol = 0.05 if round_figure(v) else 0.01
+            if (band and v <= w < v + (10 if unit == "%" else 10 ** math.floor(math.log10(v)))) or (not band and (abs(v - w) < 0.005 if unit == "%" else abs(v - w) <= max(v, w) * tol)):
                 found.append(raw)
                 break
     return [raw for _, _, raw, _ in art], found, comparable
