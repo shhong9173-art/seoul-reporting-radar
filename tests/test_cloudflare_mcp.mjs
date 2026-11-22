@@ -21,7 +21,7 @@ import { foreignGloss } from '../cloudflare/gloss.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
-import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut } from '../cloudflare/overseas.mjs';
+import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
@@ -995,6 +995,34 @@ test('trade_remedies and radar_today drop rows re-caught only because the list r
   const c = today.text.split('[C · ')[1] ?? '';
   assert.match(c, /3 - Ongoing Investigation[^\n]*목록 일련번호만 바뀌어 1번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음/);
   assert.doesNotMatch(today.text.split('[C · ')[0], /Isopropyl/);
+});
+
+test('호주 TRN 옛 공지 재감지(11-23): 줄 끝 공지 날짜가 감지보다 30일 넘게 앞이면 C로 내리고 날짜를 적는다 — 최근 공지는 B 그대로', async () => {
+  const env = PRIVATE().env;
+  const at = new Date(Date.now() - 3600000);
+  const dmy = (days) => { const d = new Date(at.getTime() - days * 86400000 + 10 * 3600000); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`; };
+  const label = '호주 무역구제위원회 공지(TRN)';
+  const doc = { schema: 'trade_remedy/v1', generatedAt: at.toISOString(), quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [],
+    checks: [{ source: label, status: 'ok', returned: 19 }], pages: [{ id: 'au-trn', label, status: 'ok' }],
+    events: [
+      { id: 'au-trn:old', pageId: 'au-trn', country: '호주', label, text: `2026/053 [PDF 169.98 KB] Hollow structural sections Expiry of measures - Hollow Structural Sections China, Korea, Malaysia, Taiwan ${dmy(197)}`,
+        url: 'https://www.industry.gov.au/sites/default/files/adc/public-record/2026-05/expiry-of-measures-hollow-structural-sections_1.pdf', detectedAt: at.toISOString() },
+      { id: 'au-trn:new', pageId: 'au-trn', country: '호주', label, text: `2026/141 [PDF 120.00 KB] Zinc coated steel Initiation - Zinc Coated Steel Korea, Vietnam ${dmy(3)}`,
+        url: 'https://www.industry.gov.au/sites/default/files/adc/public-record/2026-11/x.pdf', detectedAt: at.toISOString() }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const today = (await call('radar_today', { include_minor: true, limit: 60 }, opts)).text;
+  const [head, c = ''] = today.split('[C · ');
+  assert.match(c, /Hollow Structural Sections[^\n]*줄에 적힌 공지 날짜 \d{4}-\d{2}-\d{2}\(감지 19[67]일 전\) — 새 공지가 아니라 옛 공지의 파일·글자만 바뀌어 다시 잡혔을 수 있음/);
+  assert.doesNotMatch(head, /Hollow Structural Sections/);
+  assert.match(head.split('[B · ')[1] ?? '', /Zinc Coated Steel/);
+  assert.doesNotMatch(today, /Zinc Coated Steel[^\n]*줄에 적힌 공지 날짜/);
+  const r = (await call('trade_remedies', { section: 'notices' }, opts)).text;
+  assert.match(r, /Hollow Structural Sections[^\n]*\n   주의: 줄에 적힌 공지 날짜 \d{4}-\d{2}-\d{2}\(감지 19[67]일 전\)/);
+  // 사건 목록(인도 DGTR 등)의 날짜는 개시일 — 쓰지 않는다
+  assert.equal(staleNoticeLine({ pageId: 'in-dgtr', text: 'Ongoing Investigation ... 04/05/2026', detectedAt: '2026-11-17T10:45:00+09:00' }), null);
+  assert.deepEqual(staleNoticeLine({ pageId: 'au-trn', text: 'x 04/05/2026', detectedAt: '2026-11-17T10:45:00+09:00' }), { day: '2026-05-04', gap: 197 });
+  assert.equal(staleNoticeLine({ pageId: 'au-trn', text: 'x 31/13/2026', detectedAt: '2026-11-17T10:45:00+09:00' }), null);
 });
 
 test('trade_remedies ktc: meeting agenda before the meeting, recent cases with last step, old cases hidden; radar_today tiers by beat product', async () => {
