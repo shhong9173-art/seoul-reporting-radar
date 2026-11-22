@@ -1582,6 +1582,18 @@ export function ownNameNeighbor(x) {
   const base = x.archGbCdNm === '신축' && a >= 1000 ? 'A' : 'B';
   return base === x.tier ? null : base;
 }
+// 화면 쪽 등급 다시 매기기를 한 곳에서(radar_today 줄·겹친 신호 배경·kr_official) — 차례: 다른 회사 이름 → 부속 시설 → 이웃 필지 출입처 이름.
+// 11-23: 두 화면이 차례를 따로 적어, 이웃 필지 '엘에스일렉트릭 … 경비실' 같은 허가가 radar_today엔 C·kr_official엔 B로 갈릴 수 있었다
+export function retierPermit(x) {
+  if (!x) return x;
+  const ab = x.tier === 'A' || x.tier === 'B';
+  const bare = !x.otherName && x.sameLot !== false && ab ? bareFirmName(x.bldNm, x.company) : null;
+  if (bare) return { ...x, otherName: bare, tier: 'C', bareOther: true };
+  const minor = minorFacility(x);
+  if (minor) return ab ? { ...x, tier: 'C', minorFacility: minor } : x;
+  const own = ownNameNeighbor(x);
+  return own ? { ...x, tier: own, ownNameNeighbor: true } : x;
+}
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   // 기본개요에 주용도가 없으면 동별개요(수집기가 채움)로: '가설건축물 2동' 등
@@ -1602,14 +1614,7 @@ async function buildingSection(ctx, q, days, limit) {
   const plants = await readFeed(ctx, 'kr-official');
   const gone = plantGone({ 'kr-official': plants && !plants.broken ? plants : null });
   // 법인 표기 없는 다른 회사 건물명(대효제약 등)은 radar_today와 같이 참고(C) — 검증 상태 줄은 다른 회사 이름 줄로
-  const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).map((x) => {
-    const bare = !x.otherName && x.sameLot !== false && (x.tier === 'A' || x.tier === 'B') ? bareFirmName(x.bldNm, x.company) : null;
-    if (bare) return { ...x, otherName: bare, tier: 'C' };
-    const own = ownNameNeighbor(x);
-    if (own) return { ...x, tier: own, ownNameNeighbor: true };
-    const minor = (x.tier === 'A' || x.tier === 'B') ? minorFacility(x) : null;
-    return minor ? { ...x, minorFacility: minor, tier: 'C' } : x;
-  }).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+  const all = dedupePermits((doc.permits ?? []).filter((x) => !x.orphan && !gone(x))).map(retierPermit).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
   // 같은 등급 안에서는 이번에 새로 잡힌 것([신규])부터 — 월간 갱신으로 새 허가가 한꺼번에 들어오면(11-22: 317건) 지난주 본 것과 섞였다

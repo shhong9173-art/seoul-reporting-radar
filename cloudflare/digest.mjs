@@ -15,7 +15,7 @@ import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { dgtrCaseNote, dgtrDocNote, attachmentOutline, bareFirmName, buildingLine, minorFacility, ownNameNeighbor, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { dgtrCaseNote, dgtrDocNote, attachmentOutline, buildingLine, retierPermit, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1251,11 +1251,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // 같은 번지 허가의 건물명이 법인 표기 없는 다른 회사 이름(업종 꼬리말로 끝나고 출입처 이름이 없음)이면 참고(C) — 수집기는 '(주)·㈜·주식회사'가 붙은
     // 이름만 다른 회사로 본다(other_company). 11-23 화면: 두산에너빌리티 화성 석우동 2-3번지 사용승인(준공) 건물명 '대효제약', 현대모비스 울산 염포동
     // 265번지 사용승인(준공) 건물명 '현대스틸파이프'가 B '미보도 후보'로 떴다(같은 번지에 든 다른 회사 건물일 수 있음)
-    const bare = !x0.otherName && x0.sameLot !== false && (x0.tier === 'A' || x0.tier === 'B') ? bareFirmName(x0.bldNm, x0.company) : null;
-    const minor = !bare && (x0.tier === 'A' || x0.tier === 'B') ? minorFacility(x0) : null;
-    const own = !bare && !minor ? ownNameNeighbor(x0) : null;
-    const x = bare ? { ...x0, otherName: bare, tier: 'C', bareOther: true } : minor ? { ...x0, tier: 'C', minorFacility: minor }
-      : own ? { ...x0, tier: own, ownNameNeighbor: true } : x0;
+    // 부속 시설 건물명('장비출입구')·이웃 필지인데 출입처 이름 건물명도 여기서(overseas.retierPermit — kr_official·겹친 신호 배경과 같은 판단)
+    const x = retierPermit(x0);
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
@@ -1924,7 +1921,8 @@ export function background(docs, nowMs) {
   }
   const from = new Date(nowMs - 120 * 86400000).toISOString().slice(0, 10);
   const gone = plantGone(docs);
-  for (const x of docs['kr-building']?.permits ?? []) {
+  for (const x0 of docs['kr-building']?.permits ?? []) {
+    const x = retierPermit(x0);   // 화면과 같은 등급(다른 회사 건물명·부속 시설은 배경에서도 빼고, 출입처 이름 건물명인 이웃 필지는 넣는다)
     if (x.orphan || gone(x) || x.tier === 'C' || !x.company || String(x.permitted ?? '') < from) continue;
     out.push({ id: `bg:bd:${x.id}`, background: true, tier: x.tier, tool: 'kr_official', watch: W['kr-building'].label, company: x.company, date: x.permitted,
       fact: `건축 ${x.kind ?? ''} ${buildingLine(x)}` });
