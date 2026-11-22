@@ -5829,6 +5829,15 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   assert.match(a.text, /- 개시 2026-10-01 · 현대차 · 민원 점검\n/);
   assert.match(a.text, /Commission Determination 〔처리 이력 있음: \[보류·예약 중\] 한화 ITC 337-1494 재검토 · 11-13 — 그 뒤 새 항목일 수 있음\(새 사실인지 확인\)〕$/);
   assert.equal(annotateHandled(txt, { entries: [] }).marked, 0);
+  // 11-22: 요약 머리줄 아래 사업장별 줄은 줄마다 — 머리줄에 붙이면 목록 전체가 처리된 것으로 읽힌다
+  const KG = ledgerEntries([{ name: 'kg-dangjin-stack', title: "[보류] KG스틸 당진공장 굴뚝 '가동중지' — 회사 답변 대기", state: '보류', updated_at: '2026-11-22T01:00:00Z', created_at: '2026-11-22T01:00:00Z', body: '' }], []);
+  const st = annotateHandled(['- 지금 멈춤으로 판단한 배출구가 있는 사업장 2곳(관측 6번 전 사업장은 판단 안 함)',
+    "  KG스틸 · 케이지스틸(주) 당진공장(충청남도) · 평소 움직이던 배출구 5개 중 멈춤 3개: 8번(측정 2026-11-22 08:00, 멈춤 2026-11-15 20:00부터·사흘 넘음, 상태 '가동중지')",
+    '  현대제철 · 현대제철㈜ 순천공장(전남) · 평소 움직이던 배출구 9개 중 멈춤 2개: 81번'].join('\n'), KG);
+  assert.equal(st.marked, 1);
+  assert.doesNotMatch(st.text.split('\n')[0], /〔/);
+  assert.match(st.text.split('\n')[1], /〔이미 처리: \[보류\] KG스틸 당진공장 굴뚝 '가동중지'/);
+  assert.doesNotMatch(st.text.split('\n')[2], /〔/);
 
   // 11-13 운영에서 본 잘못 붙은 표시와 빠진 표시
   // ① 영문 낱말은 낱말 경계로만: 'Fat/Cat'의 Cat이 'Application'에 걸려 기아 조지아 대기 허가 기준선 줄에 OSHA 건이 붙었다
