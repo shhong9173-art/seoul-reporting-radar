@@ -1625,6 +1625,27 @@ test('같은 사업장 참고(C) 배출허용기준 초과 줄이 셋 이상이�
   assert.match(c, /포항제철소 배출구 228번 질소산화물 측정값 154\.71/);   // 한 줄뿐인 사업장은 그대로
 });
 
+test('되풀이 초과: 같은 배출구·같은 물질이 최근 7일 따로 시작한 초과 4번 이상이면 B 한 줄(11-23 두산에너빌리티 30번 NOx 5번)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  const site = '두산에너빌리티(주)';
+  const x = (stage, code, start, v, ratio, h) => ({ id: `stk:${stage}:두산에너빌리티:두산에너빌리티(주):${code}:nox:${start}`, kind: stage === 'exceed' ? '배출허용기준 초과(측정값)' : '배출허용기준 초과 지속',
+    tier: 'C', company: '두산에너빌리티', site, detectedAt: at(h), text: `${site} 배출구 ${code}번 질소산화물 측정값 ${v}이 배출허용기준 115을 넘음(기준의 ${ratio}배)` });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.5), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events: [x('exceed', '30', '2026-10-25 08:00', '150.75', '1.3', 2), x('exceed2', '30', '2026-10-25 08:00', '140.1', '1.2', 1),   // 같은 초과(시작 같음)는 한 번
+      x('exceed', '30', '2026-10-24 10:00', '130.2', '1.1', 26), x('exceed', '30', '2026-10-23 09:00', '120.5', '1.0', 50), x('exceed', '30', '2026-10-21 09:00', '125.0', '1.1', 98),
+      x('exceed', '30', '2026-10-10 09:00', '199.0', '1.7', 380),   // 7일 밖은 안 센다
+      x('exceed', '45', '2026-10-25 07:00', '118.0', '1.0', 3), x('exceed', '45', '2026-10-24 07:00', '119.0', '1.0', 27), x('exceed', '45', '2026-10-23 07:00', '121.0', '1.1', 51)] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text;
+  const b = r.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /두산에너빌리티\(주\) 배출구 30번 질소산화물이\(가\) 최근 7일 배출허용기준을 4번 따로 넘음\(\d\d-\d\d~\d\d-\d\d, 최대 150\.75 — 기준 115의 1\.3배\) — 한 번씩은 짧은 초과\(참고\)지만 되풀이돼 B/);
+  assert.match(b, /id stkrep:두산에너빌리티:두산에너빌리티\(주\):30:nox:2026-10-25/);
+  assert.doesNotMatch(b, /45번/);   // 3번은 B 아님
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((y) => /^stkrep:/.test(y.id)).check.terms.slice(-2), ['배출허용기준', '초과']);   // 보도 대조 낱말
+});
+
 test('scoop_desk 글자 예산: 뒤 구역(5. 이미 처리한 건·규칙)을 먼저 적고 후보는 남은 자리에(11-23)', async () => {
   const opts = PRIVATE();
   const iso = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
