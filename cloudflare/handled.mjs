@@ -276,6 +276,7 @@ export function annotateHandled(text, ledger) {
   // 묶음 머리줄('- 출입처 사건 · 최근 30일 3건') 아래 들여쓴 항목 줄 — 표시는 머리줄이 아니라 그 항목 줄에 붙인다(머리줄에 붙이면 묶음 전체가 처리된 것으로 읽힌다)
   const SUB = /^\s+(?:[ABC] · |\[기준선\]|\[신규\]|20\d{2}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?(?:\([^)]*\))? · )/;   // 'B · …' · '[기준선] …' · '2026-11-16 13:30 · B · …'(앞으로 열릴 회의)
   const TAIL = /^\s*(?:검증 상태|규칙|읽는 법)/;
+  const SUMMARY_HEAD = /^- [^·]*\d[\d,]*\s*(?:곳|건)(?:\(|\s|$|:)/;
   let marked = 0;
   const mark = (from, to) => {
     const block = lines.slice(from, to).join('\n');
@@ -312,7 +313,11 @@ export function annotateHandled(text, ledger) {
     while (j < lines.length && /^\s+\S/.test(lines[j])) j += 1;
     const subs = [];
     for (let k = i + 1; k < j; k += 1) if (SUB.test(lines[k])) subs.push(k);
-    if (!subs.length) mark(i, j);
+    // 요약 머리줄('- 지금 멈춤으로 판단한 배출구가 있는 사업장 2곳', '- 자사 사업장 126곳') 아래 사업장별 줄은 줄마다 맞춘다 — 머리줄에 붙이면
+    // 목록 전체가 처리된 것으로 읽힌다(11-22 운영: 굴뚝 화면 '사업장 2곳' 머리줄에 'KG스틸 인천·당진 굴뚝 동시 가동중지' 보류 표시)
+    const kids = SUMMARY_HEAD.test(lines[i]) ? [...Array(j - i - 1).keys()].map((n) => i + 1 + n).filter((k) => /^ {2,}\S/.test(lines[k]) && !TAIL.test(lines[k])) : [];
+    if (!subs.length && kids.length) kids.forEach((k) => mark(k, k + 1));
+    else if (!subs.length) mark(i, j);
     else subs.forEach((k, n) => {
       let end = k + 1;
       const stop = subs[n + 1] ?? j;
