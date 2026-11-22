@@ -295,6 +295,7 @@ def retier_status_transitions(events):
 DOWN_STACK = re.compile(r"(\S+?)번\(평소 [^()]*?멈춤 (\d\d-\d\d \d\d:\d\d)부터")
 REPEAT_DOWN_NOTE = "같은 멈춤을 먼저 알림"
 PARTIAL_DOWN_NOTE = "앞서 알린 멈춤 다시 적힘"
+PARTIAL_TAIL = re.compile(r" — 앞서 알린 멈춤 다시 적힘: [^—]*$")
 
 
 def retier_repeat_downs(events):
@@ -317,10 +318,15 @@ def retier_repeat_downs(events):
         # 일부만 반복: B는 그대로 두고 무엇이 새것인지 적는다(11-22 운영: KG스틸 당진 11-21·11-22 B — 8번·6번은 같은 멈춤, 새로 멈춘 것은 13번)
         codes_all = re.findall(r"(\S+?)번\(평소", text)
         rep = [c for c, since in pairs if c in seen and seen[c][0] == since]
-        if rep and len(rep) < len(codes_all) and PARTIAL_DOWN_NOTE not in text:
-            first = min(seen[c][1] for c in rep)
+        if rep and len(rep) < len(codes_all):
+            # 저장된 예전 꼴('8번·6번(11-18에 먼저 알림)')은 떼고 다시 적는다(규칙이 바뀌면 저장분도 다시 본다 — 같으면 그대로)
+            text = PARTIAL_TAIL.sub("", text)
             new = [c for c in codes_all if c not in rep]
-            e["text"] = text + (f" — {PARTIAL_DOWN_NOTE}: {'·'.join(f'{c}번' for c in rep)}({first[5:10]}에 먼저 알림) · 새로 멈춘 배출구 "
+            # 배출구마다 먼저 알린 날(11-22 운영: '8번·6번(11-18에 먼저 알림)' — 6번은 11-21에 처음 알렸다). 날이 모두 같으면 한 번만
+            days = {seen[c][1][5:10] for c in rep}
+            first_told = (f"{'·'.join(f'{c}번' for c in rep)}({days.pop()}에 먼저 알림)" if len(days) == 1
+                          else f"{'·'.join(f'{c}번({seen[c][1][5:10]})' for c in rep)}에 먼저 알림")
+            e["text"] = text + (f" — {PARTIAL_DOWN_NOTE}: {first_told} · 새로 멈춘 배출구 "
                                 f"{'·'.join(f'{c}번' for c in new)}")
         for c, since in pairs:
             if c not in seen or seen[c][0] != since:

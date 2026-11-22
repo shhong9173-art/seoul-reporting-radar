@@ -150,6 +150,23 @@ class StackTest(unittest.TestCase):
         # 일부만 반복이면 B 그대로 두고 무엇이 새것인지 적는다(11-22 KG스틸 당진 꼴)
         self.assertTrue(ev[1]["text"].endswith(" — 앞서 알린 멈춤 다시 적힘: 3번(11-16에 먼저 알림) · 새로 멈춘 배출구 2번"))
         self.assertTrue(ev[4]["text"].endswith(" — 앞서 알린 멈춤 다시 적힘: 17번·3번(11-16에 먼저 알림) · 새로 멈춘 배출구 20번"))
+        # 배출구마다 먼저 알린 날이 다르면 따로(11-22 KG스틸 당진: 8번 11-18·6번 11-21)
+        kg = ("케이지스틸(주) 당진공장: 평소 움직이던 배출구 5개 중 3개가 3번 연속 평소의 10% 아래 — 8번(평소 60.5→최근 0.0, 측정 2026-11-{d} 23:00, 멈춤 11-15 20:00부터, "
+              "상태 '가동중지'){six}{thirteen} · 설비 정지")
+        six = ", 6번(평소 29.8→최근 0.0, 측정 2026-11-21 23:00, 멈춤 11-19 23:00부터, 상태 '가동중지')"
+        thirteen = ", 13번(평소 24.0→최근 0.0, 측정 2026-11-21 23:00, 멈춤 11-21 14:00부터, 상태 '가동중지')"
+        kev = [{"id": "stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-18", "kind": "사업장 가동 중단 신호", "tier": "B", "detectedAt": "2026-11-18T15:20:00+09:00", "text": kg.format(d="18", six="", thirteen="")},
+               {"id": "stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-21", "kind": "사업장 가동 중단 신호", "tier": "B", "detectedAt": "2026-11-21T00:20:00+09:00", "text": kg.format(d="20", six=six, thirteen="")},
+               {"id": "stk:down:KG스틸:케이지스틸(주)당진공장:2026-11-22", "kind": "사업장 가동 중단 신호", "tier": "B", "detectedAt": "2026-11-22T00:20:00+09:00", "text": kg.format(d="21", six=six, thirteen=thirteen)}]
+        w.retier_repeat_downs(kev)
+        self.assertTrue(kev[2]["text"].endswith(" — 앞서 알린 멈춤 다시 적힘: 8번(11-18)·6번(11-21)에 먼저 알림 · 새로 멈춘 배출구 13번"), kev[2]["text"])
+        # 예전 꼴로 저장된 표시는 고쳐 적는다(한 번만)
+        old_tail = " — 앞서 알린 멈춤 다시 적힘: 8번·6번(11-18에 먼저 알림) · 새로 멈춘 배출구 13번"
+        kev2 = [dict(x) for x in kev[:2]] + [dict(kev[2], text=kg.format(d="21", six=six, thirteen=thirteen) + old_tail)]
+        w.retier_repeat_downs(kev2)
+        w.retier_repeat_downs(kev2)
+        self.assertTrue(kev2[2]["text"].endswith("8번(11-18)·6번(11-21)에 먼저 알림 · 새로 멈춘 배출구 13번"))
+        self.assertEqual(kev2[2]["text"].count("앞서 알린 멈춤 다시 적힘"), 1)
         self.assertEqual(ev[4]["text"].count("앞서 알린 멈춤 다시 적힘"), 1)
 
     def test_a_site_stop_that_restarts_within_a_day_is_lowered(self):
