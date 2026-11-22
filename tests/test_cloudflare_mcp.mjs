@@ -1560,6 +1560,25 @@ test('정기보수 메모로 접은 사업장의 멈춤·빠짐 줄은 한 줄�
   // 메모로 접힌 줄이 하나뿐이면 묶지 않는다(앞 테스트의 '사업장 가동 중단 신호 · ⓘ 기자 판정' 꼴 그대로)
 });
 
+test('radar_today 글자 예산: 넘치는 항목은 한 줄로 줄여 끝까지 보인다(11-23 월요일 72시간 화면이 B 중간에서 잘림)', async () => {
+  const opts = PRIVATE();
+  const at = (h) => new Date(NOW.getTime() - h * 3600000).toISOString();
+  const events = Array.from({ length: 60 }, (_, i) => ({ id: `stk:newstack:포스코:(주)포스코포항제철소:${900 + i}`, kind: '새 배출구', tier: 'B', company: '포스코',
+    site: '㈜포스코 포항제철소', text: `㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 ${900 + i}번이 생김 — ${'설비 설명 '.repeat(60)}끝${i}`, detectedAt: at(1 + i / 10) }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: at(0.5), status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [], events }) }), opts.env, {});
+  const r = (await call('radar_today', { limit: 60 }, opts)).text;
+  assert.ok(r.length <= 20000, String(r.length));
+  assert.doesNotMatch(r, /응답 예산 2만 자 초과로 잘림/);
+  assert.match(r, /\(글자 예산 때문에 \d+건은 한 줄로 줄임 — 줄 끝 id로 각 감시 도구를 열거나 company·hours로 좁혀 다시 보면 전체 글\)/);
+  assert.match(r, /id stk:newstack:포스코:\(주\)포스코포항제철소:959/);                   // 마지막 항목까지 보인다
+  assert.doesNotMatch(r, /글자 예산으로 \d+건 더 못 실음/);
+  assert.match(r, /\n   ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 \d+번이 생김/);          // 앞쪽은 온전한 꼴
+  assert.match(r, /- [^\n]* · 굴뚝 측정\(공장 가동 신호\) · 포스코 · ㈜포스코 포항제철소 굴뚝 자동측정에 새 배출구 \d+번이 생김[^\n]*… · id stk:newstack:/);   // 한 줄 꼴
+  assert.match(r, /\n규칙: 모두 자동 수집 단계다/);                                        // 뒤 구역도 남는다
+});
+
 test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {
   assert.deepEqual(plantTokens('롯데케미칼㈜울산2공장'), ['울산2공장']);
   assert.deepEqual(plantTokens('㈜엘지화학 여수공장(용성1단지)'), ['여수공장', '용성1단지']);

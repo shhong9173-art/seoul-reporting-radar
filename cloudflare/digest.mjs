@@ -10,7 +10,7 @@ import { alertHealth, taskHealth } from './alert_health.mjs';
 import { runsHealth } from './gh_runs.mjs';
 import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
-import { beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
+import { MAX_TEXT, beatName, clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
@@ -2287,33 +2287,53 @@ export async function radarTodayText(ctx, args) {
   }
   if ((d.peers ?? []).length) out.push(...d.peers);
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
+  // 글자 예산(11-23): 월요일 72시간 화면이 응답 상한(2만 자)을 넘어 B 중간에서 '…(응답 예산 2만 자 초과로 잘림)'으로 끊겼다 — 뒤 B·C·역추적이 통째로 안 보였다.
+  // 상한에서 뒤 구역(역추적·숨김·규칙) 몫을 남기고, 넘치는 항목부터는 한 줄(날짜·감시·회사·글 앞부분·id)로 줄여 모두 보이게 한다
+  const ITEM_BUDGET = MAX_TEXT - 3500;
+  const COMPACT = 170;   // 한 줄 꼴의 대략 길이 — 남은 항목이 모두 한 줄로라도 들어갈 자리를 남기며 온전한 꼴을 싣는다
+  let left = tiers.reduce((a, [t]) => a + (t === 'C' && !showC ? 0 : Math.min(d.tiers[t].length, limit)), 0);
+  let used = out.reduce((a, l) => a + l.length + 1, 0);
+  let squeezed = 0;
+  let cut = 0;
+  const add = (...lines) => { for (const l of lines) { out.push(l); used += l.length + 1; } };
   for (const [t, title] of tiers) {
     const rows = d.tiers[t];
     if (t === 'C' && !showC) {
       if (rows.length) out.push(`\n[C · ${title}] ${rows.length}건 — 소비자 소송·사이트 공통 문구·기보도 후보 등 (include_minor=true)`);
       continue;
     }
-    out.push(`\n[${t} · ${title}] ${rows.length}건`);
+    add(`\n[${t} · ${title}] ${rows.length}건`);
     if (press && !press.broken && rows.length) {
       const n = (v) => rows.filter((x) => checked.get(String(x.id))?.verdict === v).length;
       const none = rows.filter((x) => x.watch !== WATCHES[0].label && !checked.has(String(x.id))).length;
-      out.push(`(보도 대조 자동 ${kstStamp(press.generatedAt)}: 미보도 후보 ${n('미보도 후보')} · 관련 보도 있음 ${n('관련 보도 있음') + n('같은 수치 선행')} · 미확인 ${n('미확인')} · 대조 안 함 ${none} — 미보도 후보부터)`);
+      add(`(보도 대조 자동 ${kstStamp(press.generatedAt)}: 미보도 후보 ${n('미보도 후보')} · 관련 보도 있음 ${n('관련 보도 있음') + n('같은 수치 선행')} · 미확인 ${n('미확인')} · 대조 안 함 ${none} — 미보도 후보부터)`);
     }
     for (const x of rows.slice(0, limit)) {
-      out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
-      out.push(`   ${x.fact}`);
+      const when = x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : '';
+      const block = [`- ${when}${x.watch}${x.company ? ` · ${x.company}` : ''}`, `   ${x.fact}`];
       // 기사 준비(무역구제 등): 다음 절차·회사에 물을 것
-      if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
-      if (/^fr:/.test(String(x.id)) && (x.tier === 'A' || x.tier === 'B') && rivalPaceLine(rev, d.now.getTime())) out.push(`   ${rivalPaceLine(rev, d.now.getTime())}`);
-      if (x.next) out.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
-      if (x.ask) out.push(`   물을 것: ${x.ask}`);
-      out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt), press?.generatedAt));
+      if (x.point) block.push(`   〔기사 포인트〕 ${x.point}`);
+      if (/^fr:/.test(String(x.id)) && (x.tier === 'A' || x.tier === 'B') && rivalPaceLine(rev, d.now.getTime())) block.push(`   ${rivalPaceLine(rev, d.now.getTime())}`);
+      if (x.next) block.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
+      if (x.ask) block.push(`   물을 것: ${x.ask}`);
+      block.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt), press?.generatedAt));
       const w = d.wrote?.get(String(x.id));
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${ledgerMark(x)}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}${x.leadFrom ? ' 〔취재 단서 — 감시 등급 A였지만 단독 후보에서 내림(11-18)〕' : ''}`);
+      block.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${ledgerMark(x)}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}${x.leadFrom ? ' 〔취재 단서 — 감시 등급 A였지만 단독 후보에서 내림(11-18)〕' : ''}`);
+      const size = block.reduce((a, l) => a + l.length + 1, 0);
+      left -= 1;
+      if (used + size + left * COMPACT <= ITEM_BUDGET) { add(...block); continue; }
+      const v = checked.get(String(x.id))?.verdict;
+      const line = `- ${when}${x.watch}${x.company ? ` · ${x.company}` : ''} · ${clipAt(x.fact, 70)}${v ? ` · 〔${v}〕` : ''} · id ${x.id}`;
+      // 한 줄로도 넘치면(뒤 구역 몫 3,000자는 남긴다) 거기서 멈추고 남은 수만 적는다
+      if (used + line.length + 1 > MAX_TEXT - 3000) { cut += 1; continue; }
+      add(line);
+      squeezed += 1;
     }
-    if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
-    if (!rows.length) out.push('없음');
+    if (cut) { add(`… 글자 예산으로 ${cut}건 더 못 실음(company·hours·limit로 좁혀 다시 보기)`); cut = 0; }
+    if (rows.length > limit) add(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
+    if (!rows.length) add('없음');
   }
+  if (squeezed) out.push(`\n(글자 예산 때문에 ${squeezed}건은 한 줄로 줄임 — 줄 끝 id로 각 감시 도구를 열거나 company·hours로 좁혀 다시 보면 전체 글)`);
   if (firsts.length) {
     const alertedFirst = firsts.filter((a) => alertBeforeArticle(d.ledger?.alerted, a.best.id, a.published)).length;
     out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건${alertedFirst ? `(그중 즉시 알림을 보낸 항목 ${alertedFirst}건)` : ''} · 확인 ${kstStamp(rev.generatedAt)}`);
