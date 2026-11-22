@@ -140,6 +140,8 @@ STORY_DAYS=3
 # 큰 그림 '최근 7일 [단독] 흐름' 맨 위 다섯 줄 중 두 줄이 옛 기사였다). 뒤에 나온 쪽이 구글 뉴스 줄이고 제목이 충분히 길게 같으면 이만큼 떨어져도 같은 기사.
 REDATED_DAYS=60
 REDATED_MIN=24
+# '...' 표시 없이 잘린 제목: 같은 매체·같은 날 다른 줄 제목의 앞부분(제목 열쇠 10자 이상)이면 그 줄에 붙인다
+CUT_MIN=10
 
 
 def story_key(title):
@@ -214,6 +216,28 @@ def fold_same_story(rows,keep=()):
                 merged=ga+gb
                 for x in merged:
                     group_of[x["id"]]=merged
+    # 11-22 역추적: 이투데이 「[단독] 법원, 현대모비스 램프사업」('...' 없이 잘린 제목)과 「… 램프사업 분할 반발 근로자 가처분 기각」이 두 줄 —
+    # 잘린 쪽 제목 열쇠가 16자 미만이라 같은 통에도 안 들어갔다. 같은 매체·같은 날(KST)이고 회사가 겹치면 홀로 남은 잘린 줄을 붙인다
+    by_outlet={}
+    for r in rows:
+        t=aware(r.get("published"))
+        if r.get("sourceName") and t is not None:
+            by_outlet.setdefault((str(r["sourceName"]),t.astimezone(KST).date()),[]).append(r)
+    # 낱말 경계에서 잘린 것만 — '공장 1'이 '공장 10'의 앞부분인 것처럼 숫자·낱말 가운데서 끊긴 것은 다른 제목이다
+    def cut_of(short,long_):
+        a,b=strip_publisher(short).strip(),strip_publisher(long_).strip()
+        return len(b)>len(a) and b.startswith(a) and not b[len(a)].isalnum()
+    for same in by_outlet.values():
+        for a in same:
+            if len(group_of[a["id"]])>1 or len(story_key(a.get("title")))<CUT_MIN:
+                continue
+            for b in same:
+                if b is a or not cut_of(a.get("title"),b.get("title")) or not set(a.get("companies") or [])&set(b.get("companies") or []):
+                    continue
+                merged=group_of[b["id"]]+[a]
+                for x in merged:
+                    group_of[x["id"]]=merged
+                break
     folded,done=set(),{}
     for g in group_of.values():
         if id(g) in done or len(g)<2:
