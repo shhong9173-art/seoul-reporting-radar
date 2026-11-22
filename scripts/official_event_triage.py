@@ -85,7 +85,10 @@ def source_health(label, data, collection, now, required_check=None):
 # 제목에 없어 SK이노베이션 전체 해외판매로 읽혔다. 머리 칸 이름('주요종속회사의내용')이나 회사 자신의 영문 이름(LSELECTRIC)은 붙이지 않는다.
 ENTITY_GENERIC=re.compile(r"^(?:주요\s*종속\s*회사의?\s*내용|연결|별도|합계|소계|계)$")
 def entity_note(value):
-    v=re.sub(r"^주요\s*종속\s*회사\s*:\s*","",str(value or "").strip()).replace("자산항목:","자산 항목 ")
+    # '자산항목:…'은 매출 표에 붙은 다른 표의 머리 칸이다(11-22 운영: HL만도 '인도/제품, 상품, 기타매출'에 '자산항목:비품') — 붙이지 않는다
+    if re.match(r"^\s*자산\s*항목",str(value or "")):
+        return ""
+    v=re.sub(r"^주요\s*종속\s*회사\s*:\s*","",str(value or "").strip())
     v=re.sub(r"㈜|\(주\)|주식회사","",v).strip()   # 검색어에 '㈜'가 들어가지 않게(scoop_screen 질의 낱말)
     if not v or ENTITY_GENERIC.match(v) or re.fullmatch(r"[A-Za-z0-9 .&,()-]+",v):
         return ""

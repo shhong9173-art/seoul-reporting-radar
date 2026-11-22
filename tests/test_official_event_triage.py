@@ -134,7 +134,7 @@ class OfficialEventTriage(unittest.TestCase):
         # 11-22: 'SK이노베이션 · 해외판매'는 SK온㈜ 표 숫자였다 — 자회사·부문·자산 항목은 제목에, 머리 칸 이름·회사 영문 이름은 빼고
         self.assertEqual(t.entity_note("SK온㈜")," (SK온)")
         self.assertEqual(t.entity_note("주요종속회사:금호티앤엘(주)")," (금호티앤엘)")
-        self.assertEqual(t.entity_note("자산항목:비품")," (자산 항목 비품)")
+        self.assertEqual(t.entity_note("자산항목:비품"),"")   # 11-22: HL만도 매출 줄에 붙은 다른 표 머리 칸
         self.assertEqual(t.entity_note("타이어부문")," (타이어부문)")
         for v in ("","주요종속회사의내용","LSELECTRIC",None):
             self.assertEqual(t.entity_note(v),"")
