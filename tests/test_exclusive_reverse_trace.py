@@ -399,6 +399,11 @@ class SameStory(unittest.TestCase):
         self.assertEqual(strip_publisher("[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설 - 머니투데이 - 머니투데이"),"[단독]'TF' 보면 현대차그룹 미래 보인다..대거 신설")
         self.assertEqual(strip_publisher("[단독] 현대차 퇴사 10일만에 BMW 옷 입었다 By The Guru"),"[단독] 현대차 퇴사 10일만에 BMW 옷 입었다")
         self.assertEqual(strip_publisher("[단독] LS-니꼬동제련 지분 정리"),"[단독] LS-니꼬동제련 지분 정리")
+        # 꼬리가 둘(한글 매체명 - 영문·주소, 구역 | 기사 - 매체)
+        self.assertEqual(strip_publisher("[단독] 현대차증권, 2심도 정몽구재단에 90억 배상 판결 - 조선비즈 - Chosunbiz"),"[단독] 현대차증권, 2심도 정몽구재단에 90억 배상 판결")
+        self.assertEqual(strip_publisher("[단독] 현대차, 린번 엔진 - 이비엔(EBN)뉴스센터 - www.ebn.co.kr"),"[단독] 현대차, 린번 엔진")
+        self.assertEqual(strip_publisher("[단독] 현대차 GBC - 경제 | 기사 - 더팩트"),"[단독] 현대차 GBC")
+        self.assertEqual(strip_publisher("[단독] 포스코 - 현대제철 합작 - 매일경제"),"[단독] 포스코 - 현대제철 합작")   # 앞 꼬리가 매체 표기로 안 보이면 그대로
         # 서로 다른 기사(같은 회사·같은 날)는 그대로
         c=self.row("c","[단독] 현대차 '집콕 근무' 사라진다","2026-11-19T17:47:00+09:00","mk.co.kr","현대차")
         d=self.row("d","[단독] 현대차, 채용 웹사이트서 ‘재택근무’ 항목삭제…집콕 원천차단 속도","2026-11-19T14:38:00+09:00","매일경제","현대차")
