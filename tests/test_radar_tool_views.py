@@ -146,6 +146,9 @@ class Views(unittest.TestCase):
         # 세아씨엠 is monitored but not a confirmed direct beat.
         self.assertEqual(self.clue(views, "세아씨엠")["team"], "그 외")
         self.assertEqual(self.clue(views, "154kV")["team"], "조달")
+        # 11-23: DART 회사명 'POSCO홀딩스'는 출입처 포스코홀딩스(철강·비철) — 'POSCO' 뒤에 한글이 붙어 낱말 경계로는 안 잡혔다
+        self.assertEqual(v.beat_name("POSCO홀딩스"), "포스코홀딩스")
+        self.assertEqual(v.team_for(v.beats_in("POSCO홀딩스 풍문또는보도에대한해명(미확정)(자회사의 주요경영사항)")), "철강·비철")
 
     def test_same_receipt_merges_without_upgrading_tier(self):
         views = self.build()

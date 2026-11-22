@@ -6252,6 +6252,9 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   // 부호: 연도·날짜·금액·차종 이름은 부호가 아니다
   assert.deepEqual([...codesOf('한화 ITC 337-1494 재검토 2026년 11/24 4882억원 EV6 GV70 AD0071 kia georgia osha 0901 2026부노46 26V539000')].sort(), ['1494', '2026부노46', '26V539000', 'AD0071']);
   assert.deepEqual([...companiesIn('KIA GEORGIA, INC. · 엘지화학 · Hanwha Qcells')].sort(), ['LG화학', '기아', '한화솔루션']);
+  // 11-23: DART 회사명 'POSCO홀딩스'는 출입처 포스코홀딩스
+  assert.ok(companiesIn('POSCO홀딩스 풍문또는보도에대한해명(미확정)').has('포스코홀딩스'));
+  assert.equal((await import('../cloudflare/common.mjs')).beatName('POSCO홀딩스'), '포스코홀딩스');
 
   // 구역 도구 글에 붙이는 표시: 처리한 건은 〔이미 처리〕, 처리한 뒤 날짜의 줄은 〔처리 이력 있음〕
   const txt = ['[미국 OSHA 점검·위반 · 출입처 미국 법인·공장] 2건', '규칙: 점검은 위반 확정이 아니다', '- 개시 2026-09-01 · 기아 · 사망·중대사고(M) 점검 · 진행 중',
