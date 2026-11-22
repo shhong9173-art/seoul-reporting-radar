@@ -1675,6 +1675,11 @@ test('되풀이 초과: 같은 배출구·같은 물질이 최근 7일 따로 �
   assert.match(b, /두산에너빌리티\(주\) 배출구 30번 질소산화물이 최근 7일 배출허용기준을 4번 따로 넘음\(\d\d-\d\d~\d\d-\d\d, 최대 150\.75 — 기준 115의 1\.3배\) — 한 번씩은 짧은 초과\(참고\)지만 되풀이돼 B/);
   assert.match(b, /id stkrep:두산에너빌리티:두산에너빌리티\(주\):30:nox:2026-10-25/);
   assert.doesNotMatch(b, /45번/);   // 3번은 B 아님
+  // 11-23: 같은 배출구·물질의 참고(C) 초과 줄은 B 한 줄에 합친다 — 다른 배출구(45번)의 C는 그대로
+  const c = r.split('[C · ')[1] ?? '';
+  assert.doesNotMatch(c, /30번 질소산화물/);
+  assert.match(c, /45번 질소산화물/);
+  assert.match(b, /같은 배출구·물질의 참고\(C\) 초과 줄은 이 줄에 합침/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: NOW })).json();
   assert.deepEqual(items.items.find((y) => /^stkrep:/.test(y.id)).check.terms.slice(-2), ['배출허용기준', '초과']);   // 보도 대조 낱말
 });

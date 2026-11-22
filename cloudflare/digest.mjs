@@ -1563,6 +1563,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 나머지는 1~2번. id는 4번째 초과의 시작일로(새 초과가 붙어도 같은 줄 — 날마다 새 줄을 만들지 않는다)
   const REPEAT_MIN = 4;
   const repeat = new Map();
+  const repKeys = new Set();   // B '되풀이 초과'를 낸 회사|사업장|배출구|물질 — 같은 열쇠의 참고(C) 초과 줄은 아래에서 뺀다
   for (const e of docs['kr-stacks']?.events ?? []) {
     const p = String(e.id ?? '').split(':');
     if (p[0] !== 'stk' || !/^exceed(?:2|long)?$/.test(p[1] ?? '') || p.length < 7) continue;
@@ -1585,10 +1586,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const top = eps.map(([, v]) => v.max).filter(Boolean).sort((a, b) => Number(b.v) - Number(a.v))[0];
     const [co, siteId, code, gas] = key.split('|');
     const cross = eps[REPEAT_MIN - 1][0].slice(0, 10);
+    repKeys.add(key);
     push('B', W['kr-stacks'], { kind: '배출허용기준 되풀이 초과', id: `stkrep:${co}:${siteId}:${code}:${gas}:${cross}`, date: g.last.detectedAt, company: g.company, site: g.site,
       fact: `${g.site ?? siteId} 배출구 ${top?.code ?? code}번 ${subjectJosa(top?.gas ?? gas)} 최근 7일 배출허용기준을 ${eps.length}번 따로 넘음(${kstMD(eps[0][1].t)}~${kstMD(eps[eps.length - 1][1].t)}`
         + `${top ? `, 최대 ${top.v} — 기준 ${top.lim}의 ${top.ratio}배` : ''}) — 한 번씩은 짧은 초과(참고)지만 되풀이돼 B · 실시간 자동측정 값(확정 전), 측정기 점검·교정 값일 수 있음`
-        + ` — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인 — 하나씩은 kr_official(section=stacks, company=${g.company})`,
+        + ` — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인 — 같은 배출구·물질의 참고(C) 초과 줄은 이 줄에 합침, 하나씩은 kr_official(section=stacks, company=${g.company})`,
       check: stackHint({ kind: '배출허용기준 초과', company: g.company, site: g.site, text: g.last.text }) });
   }
   // 같은 사업장 '가동 중단 신호'(stk:down:회사:사업장:날짜)는 날마다 새 줄이 생기고, 새 줄에 앞서 멈춘 배출구까지 다시 적힌다 — 11-23 월요일 72시간 화면:
@@ -1613,6 +1615,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     let tier = stackTier(e);
     const em = /^stk:(exceed|exceed2|exceedlong):(.+)$/.exec(String(e.id ?? ''));
     if (em && tier === 'C' && EXC_STAGE[em[1]] < excTop.get(em[2])) continue;
+    // 11-23 화면: 세아창원특수강 193번 질소산화물이 B '되풀이 초과'(5번)와 C '초과 묶음'(193번 2번)에 겹쳐 실렸다 — 참고 줄은 B 한 줄로
+    if (em && tier === 'C' && repKeys.has(String(e.id).split(':').slice(2, 6).join('|'))) continue;
     const dm = /^stk:down:(.+):(\d{4}-\d{2}-\d{2})$/.exec(String(e.id ?? ''));
     const later = dm && downLast.get(dm[1]) > dm[2] ? downLast.get(dm[1]) : null;
     if (later) tier = 'C';
