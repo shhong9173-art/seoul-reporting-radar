@@ -1537,6 +1537,39 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!mm || !recent(e.detectedAt)) continue;
     excTop.set(mm[2], Math.max(excTop.get(mm[2]) ?? -1, EXC_STAGE[mm[1]]));
   }
+  // 되풀이 초과(11-23): 같은 배출구·같은 물질이 최근 7일 따로 시작한 초과 4번 이상이면 B 한 줄(한 번씩은 짧은 초과 C라도). 11-23 기준 7일 기록 —
+  // 세아창원특수강 193번 질소산화물 5번(11-20~11-22, 최대 기준의 1.9배)·두산에너빌리티 30번 질소산화물 5번(11-17~11-19), 3번은 포스코 광양 37번 황산화물 하나,
+  // 나머지는 1~2번. id는 4번째 초과의 시작일로(새 초과가 붙어도 같은 줄 — 날마다 새 줄을 만들지 않는다)
+  const REPEAT_MIN = 4;
+  const repeat = new Map();
+  for (const e of docs['kr-stacks']?.events ?? []) {
+    const p = String(e.id ?? '').split(':');
+    if (p[0] !== 'stk' || !/^exceed(?:2|long)?$/.test(p[1] ?? '') || p.length < 7) continue;
+    const t = Date.parse(e.detectedAt);
+    if (!Number.isFinite(t) || now - t > 7 * 86400000) continue;
+    const key = `${p[2]}|${p[3]}|${p[4]}|${p[5]}`;
+    if (!repeat.has(key)) repeat.set(key, { eps: new Map(), company: e.company, site: e.site, last: e });
+    const g = repeat.get(key);
+    const start = p.slice(6).join(':');
+    const mm = /배출구 (\S+)번 (\S+?) 측정값 ([\d.]+)이 배출허용기준 ([\d.]+)을 넘음\(기준의 ([\d.]+)배/.exec(String(e.text ?? ''));
+    const ep = g.eps.get(start) ?? { t, max: null };
+    ep.t = Math.min(ep.t, t);
+    if (mm && (!ep.max || Number(mm[3]) > Number(ep.max.v))) ep.max = { v: mm[3], lim: mm[4], ratio: mm[5], code: mm[1], gas: mm[2] };
+    g.eps.set(start, ep);
+    if (t > Date.parse(g.last.detectedAt)) g.last = e;
+  }
+  for (const [key, g] of repeat) {
+    if (g.eps.size < REPEAT_MIN || !recent(g.last.detectedAt)) continue;
+    const eps = [...g.eps.entries()].sort((a, b) => a[1].t - b[1].t);
+    const top = eps.map(([, v]) => v.max).filter(Boolean).sort((a, b) => Number(b.v) - Number(a.v))[0];
+    const [co, siteId, code, gas] = key.split('|');
+    const cross = eps[REPEAT_MIN - 1][0].slice(0, 10);
+    push('B', W['kr-stacks'], { kind: '배출허용기준 되풀이 초과', id: `stkrep:${co}:${siteId}:${code}:${gas}:${cross}`, date: g.last.detectedAt, company: g.company, site: g.site,
+      fact: `${g.site ?? siteId} 배출구 ${top?.code ?? code}번 ${top?.gas ?? gas}이(가) 최근 7일 배출허용기준을 ${eps.length}번 따로 넘음(${kstMD(eps[0][1].t)}~${kstMD(eps[eps.length - 1][1].t)}`
+        + `${top ? `, 최대 ${top.v} — 기준 ${top.lim}의 ${top.ratio}배` : ''}) — 한 번씩은 짧은 초과(참고)지만 되풀이돼 B · 실시간 자동측정 값(확정 전), 측정기 점검·교정 값일 수 있음`
+        + ` — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인 — 하나씩은 kr_official(section=stacks, company=${g.company})`,
+      check: stackHint({ kind: '배출허용기준 초과', company: g.company, site: g.site, text: g.last.text }) });
+  }
   // 같은 사업장 '가동 중단 신호'(stk:down:회사:사업장:날짜)는 날마다 새 줄이 생기고, 새 줄에 앞서 멈춘 배출구까지 다시 적힌다 — 11-23 월요일 72시간 화면:
   // KG스틸 당진 11-21·11-22 두 줄이 B에 따로 떴다. 창 안에 같은 사업장의 더 뒤 줄(참고 아님)이 있으면 앞 줄은 참고(C)로 내리고 뒤 줄을 가리킨다
   const stackTier = (e) => (maintFolded(e, maint) || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B');
