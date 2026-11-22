@@ -90,6 +90,14 @@ class TransientError(RuntimeError):
     pass
 
 
+
+def subject_josa(word):
+    """주격 조사 '이'·'가'를 앞 글자 받침으로 고른다(11-23 단독 데스크: '두산에너빌리티이(가) 공급계약 상대'). 한글이 아니면 '이(가)' 그대로."""
+    w = str(word or "").rstrip()
+    if not w or not ("가" <= w[-1] <= "힣"):
+        return f"{w}이(가)"
+    return w + ("이" if (ord(w[-1]) - 0xAC00) % 28 else "가")
+
 def target_period(now):
     """The report whose season is now: Oct–Dec → 3분기, Jan–Apr → 전년 사업보고서, May–Jul → 1분기, Aug–Sep → 반기."""
     m = now.month
@@ -470,7 +478,7 @@ def peers(companies, period_label, previous=None):
                 c = by_name[n]
                 leads.append({"id": lid, "group": group, "metric": metric, "label": label, "company": n, "value": v, "why": why,
                               "rest": [[m, x] for m, x in vals if m != n], "text": text, "url": c.get("url"), "filedOn": c.get("filedOn"),
-                              "question": f"왜 {group}에서 {n}만 {label}이(가) {'다른 방향' if why == '혼자 반대 방향' else '크게 다른가'} — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+                              "question": f"왜 {group}에서 {n}만 {subject_josa(label)} {'다른 방향' if why == '혼자 반대 방향' else '크게 다른가'} — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
                               "firstSeen": seen.get(lid)})
         groups.append(g)
     order = {"혼자 반대 방향": 0, "업종과 차이 큼": 1}

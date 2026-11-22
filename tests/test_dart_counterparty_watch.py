@@ -118,7 +118,8 @@ class Run(unittest.TestCase):
         self.assertEqual(sorted((e["company"], e["tier"]) for e in ev.values()), [("LS일렉트릭", "A"), ("기아", "A")])
         st = ev["dcp:20261029000111"]
         self.assertEqual(st["kind"], "타사 공시 · 자산·영업·지분 거래 상대")
-        self.assertIn("에스트래픽 공시 「[기재정정]주요사항보고서(영업양수결정)」(20261029) — LS일렉트릭이(가) 자산·영업·지분 거래 상대 · 금액 74,536,000,000원(약 745억원)", st["text"])
+        self.assertEqual([w.subject_josa(x) for x in ("두산에너빌리티", "LG화학", "LS일렉트릭", "S-OIL")], ["두산에너빌리티가", "LG화학이", "LS일렉트릭이", "S-OIL이(가)"])   # 11-23
+        self.assertIn("에스트래픽 공시 「[기재정정]주요사항보고서(영업양수결정)」(20261029) — LS일렉트릭이 자산·영업·지분 거래 상대 · 금액 74,536,000,000원(약 745억원)", st["text"])
         self.assertIn("상대 회사 공시(출입처 공시 아님)", st["text"])
         self.assertEqual(st["url"], "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000111")
         glovis = [x for x in doc2["items"] if x["filer"] == "현대글로비스"][0]

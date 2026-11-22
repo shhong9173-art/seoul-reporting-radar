@@ -221,6 +221,7 @@ class Earnings(unittest.TestCase):
         self.assertEqual(next(g for g in v["groups"] if g["group"] == "정유")["metrics"]["opMarginPp"]["median"], 1.1)
         lead = next(x for x in v["leads"] if x["company"] == "금호석유화학")
         self.assertIn("회사 IR·공시 원문", lead["question"])
+        self.assertIn("금호석유화학만 누적 영업이익률 변화가 다른 방향", lead["question"])   # 11-23: '변화이(가)' → 받침 따라 '가
         self.assertEqual(lead["url"], "https://dart/금호석유화학")
         # 처음 본 때는 직전 결과에서 이어 받는다
         prev = {"leads": [{"id": lead["id"], "firstSeen": "2026-11-12T18:40:00+09:00"}]}

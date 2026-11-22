@@ -75,6 +75,14 @@ LABEL = re.compile(r"계약\s*상대|거래\s*상대|상대방|양수인|양도�
 SKIP_KIND = re.compile(r"전환사채|신주인수권|교환사채|자기주식|자기사채|기업설명회|투자유의|조회공시|임원|최대주주등소유주식|실적|배당|주주총회|감사보고서")
 
 
+
+def subject_josa(word):
+    """주격 조사 '이'·'가'를 앞 글자 받침으로 고른다(11-23 단독 데스크: '두산에너빌리티이(가) 공급계약 상대'). 한글이 아니면 '이(가)' 그대로."""
+    w = str(word or "").rstrip()
+    if not w or not ("가" <= w[-1] <= "힣"):
+        return f"{w}이(가)"
+    return w + ("이" if (ord(w[-1]) - 0xAC00) % 28 else "가")
+
 def beats_in(text, loose=False):
     out = []
     for k, rx in BEAT_RX:
@@ -235,7 +243,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
         if not first and tier in ("A", "B"):
             events.append({"id": fid, "tier": tier, "kind": f"타사 공시 · {role}", "company": beat, "filer": x["corp_name"], "report": rec["report"],
                            "detectedAt": stamp, "url": rec["url"],
-                           "text": (f"{x['corp_name']} 공시 「{rec['report']}」({x.get('rcept_dt')}) — {beat}이(가) {role}"
+                           "text": (f"{x['corp_name']} 공시 「{rec['report']}」({x.get('rcept_dt')}) — {subject_josa(beat)} {role}"
                                     + (f" · 금액 {amount:,}원({eok(amount)})" if amount else "") + f" · 원문 「{rec['context'][:200]}」"
                                     + " · 상대 회사 공시(출입처 공시 아님) — 거래 조건·시점은 원문과 출입처 확인")})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
