@@ -169,7 +169,13 @@ export async function scoopDesk(ctx, args) {
     if (pace) out.push(`   ${pace}`);
     if (x.ask) out.push(`   물을 것: ${x.ask}`);
     const press = pressLines(r.rec, kstStamp(d.press?.generatedAt), d.press?.generatedAt);
-    if (press.length) out.push(...press); else out.push('   보도 대조(자동): 아직 대조 전 — news_check로 직접(낱말 바꿔 2~3번)');
+    // 11-22: 자동 대조 기록이 없는 까닭이 셋이다 — 단독 후보 심사가 따로 대조한 것(줄에 그 판정이 있다), 대조 낱말을 정할 수 없는 종류
+    // (해외 페이지 '+ Coming Soon' 같은 판매 상태 문구 — 기아 텔루라이드 11-18 A가 나흘째 '아직 대조 전'), 낱말은 있는데 다음 실행 전인 것.
+    // 셋 다 '아직 대조 전'으로 적어 곧 자동 대조가 될 것처럼 읽혔다.
+    if (press.length) out.push(...press);
+    else if (x.watch === W.screen && x.verdict) out.push(`   보도 대조: 단독 후보 심사(scoop_screen)가 따로 대조한 결과 '${x.verdict}'(위 줄) — 질의·채널은 scoop_screen에서. 레이더 자동 대조는 이 항목을 따로 안 본다`);
+    else if (!x.check) out.push('   보도 대조(자동): 안 함 — 이 종류는 검색 낱말을 정할 수 없어 자동 대조 대상이 아님. news_check로 직접(낱말 바꿔 2~3번)');
+    else out.push('   보도 대조(자동): 아직 대조 전(다음 자동 대조 평일 08:50·12:50·18:50·주말 21:00) — 급하면 news_check로 직접(낱말 바꿔 2~3번)');
     if (r.before && STAGED.has(type.key)) out.push(`   ⚠ 항목 날짜 전 기사가 있다(${r.before.date ?? '?'} 「${clipAt(r.before.title ?? '', 50)}」) — 진행 중인 무역구제·소송은 앞선 단계(신청·개시·예비·의견서) 기사일 수 있음. 이번 단계(판정·부과 결정·항소 등)가 그 기사에 이미 있는지 열어 볼 것`);
     else if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
     out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${ledgerMark(x)}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
