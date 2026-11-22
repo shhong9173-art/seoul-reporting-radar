@@ -657,13 +657,18 @@ export function jpSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
 export function euOjSection(doc, q = '', limit = 5, ctx = null) {
   if (!doc) return ['\n[EU 관보 무역구제] 아직 수집 전 — 미확인'];
   const c = (doc.checks ?? [])[0] ?? {};
-  const all = (doc.records ?? []).filter((r) => matches(q, r.title, r.product, r.number, (r.companies ?? []).join(' ')));
+  const all = (doc.records ?? []).filter((r) => matches(q, r.title, r.product, r.number, (r.companies ?? []).join(' '), (r.expiryRows ?? []).map((x) => x.product).join(' ')));
   const out = [`\n[EU 관보 무역구제 · 한국산 출입 업종 품목·출입처가 수출자로 나온 규정 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] ${all.length}건 · 원천 ${c.source ?? 'EU 관보'} ${c.status ?? '?'}(최근 21일 무역구제 문서 ${c.returned ?? 0}건${c.error ? `, ${c.error}` : ''})${doc.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''}`];
   for (const r of all.slice(0, limit)) {
     out.push(`- ${r.tier}${r.isNew ? ' [신규]' : r.baseline ? ' [기준선]' : ''} · ${r.date} · ${r.kind} · ${r.number}${r.korea ? ' · 한국산' : ''} · 「${String(r.title).slice(0, 220)}」`);
     if ((r.companies ?? []).length) out.push(`   본문에 출입처: ${r.companies.join('·')}${r.korea ? '' : ' — 제목에 한국 없음(출입처 해외 법인이 수출자일 수 있다)'}`);
     if ((r.rates ?? []).length) out.push(`   제1조 세율: ${r.rates.map((x) => `${x.exporter} ${x.rate}${x.code ? `(${x.code})` : ''}`).join(' · ')}`);
     for (const t of (r.snippets ?? []).slice(0, 2)) out.push(`   본문 대목: "${t}"`);
+    // 11-22: 만료 예정 공고 표의 한국 줄(수집기 expiry_rows) — radar_today 줄에는 있었는데 이 구역엔 제목만 떴다
+    for (const x of (r.expiryRows ?? []).slice(0, 4)) {
+      out.push(`   표의 한국 줄: ${x.product} · 원산지 ${x.countries} · ${x.measure} · 만료 ${x.expiry}${x.consigned ? " · 참조 규정에 'consigned from … Korea'(다른 나라산 조치를 한국 경유 수출에 확대 적용 — 한국산 원산지 조치 아님)" : ''}`);
+    }
+    if ((r.expiryRows ?? []).length) out.push('   종료재심 요청은 만료 3개월 전까지(EU 생산자 측, 공고 본문). 요청이 없으면 만료');
     if (r.note) out.push(`   ${r.note}`);
     out.push(`   원문: ${r.url}`);
   }

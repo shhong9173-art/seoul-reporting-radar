@@ -4252,6 +4252,14 @@ test('EU 관보 무역구제(11-19 기자 "다음발전해"): 포스코 베트�
   // 영국 고시: TRA 권고 범위 ↔ 국무장관 확정 범위, 결정 대목
   const uk = (await call('trade_remedies', { section: 'tra' }, opts)).text;
   assert.match(uk, /   TRA 권고 5\.98~25\.71% → 국무장관 확정 7\.04~23\.07%\(권고 거부·다르게 결정\)\n   권고 대목: "The TRA recommended[^\n]*"\n   결정 대목: "The Secretary of State has decided[^\n]*reject the TRA/);
+  // 11-22: 만료 예정 공고 표의 한국 줄(수집기 expiry_rows)을 이 구역에도 — radar_today 줄에만 있고 여기엔 제목만 떴다
+  await post('eu-trade-defence', { schema: 'eu_trade_defence/v1', generatedAt: now, status: 'ok', checks: [{ source: 'EU 관보(Cellar SPARQL)', status: 'ok', returned: 15 }],
+    records: [{ id: 'euoj:52026XC06045', celex: '52026XC06045', number: '52026XC06045', date: '2026-11-19', title: 'Notice of the impending expiry of certain anti-dumping measures',
+      product: '', kind: '만료 예정 공고', korea: false, companies: [], rates: [], snippets: [], url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52026XC06045', tier: 'C',
+      expiryRows: [{ product: 'Silicon', countries: "The People's Republic of China; Republic of Korea; Taiwan", measure: 'Anti-dumping duty', expiry: '2027-08-13', consigned: true }],
+      firstSeen: now, isNew: true, baseline: false }], events: [] });
+  const ex = (await call('trade_remedies', { section: 'eu', company: 'Silicon' }, opts)).text;
+  assert.match(ex, /- C \[신규\] · 2026-11-19 · 만료 예정 공고 · 52026XC06045 · 「Notice of the impending expiry of certain anti-dumping measures」\n   표의 한국 줄: Silicon · 원산지 The People's Republic of China; Republic of Korea; Taiwan · Anti-dumping duty · 만료 2027-08-13 · 참조 규정에 'consigned from … Korea'\(다른 나라산 조치를 한국 경유 수출에 확대 적용 — 한국산 원산지 조치 아님\)\n   종료재심 요청은 만료 3개월 전까지/);
 });
 
 test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출신은 한 단계 내리고, 해외 파트너 공시는 본문 대목을 붙이며 대목 없는 것은 A를 주지 않는다', async () => {
