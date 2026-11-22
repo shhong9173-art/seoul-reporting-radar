@@ -5452,6 +5452,13 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.doesNotMatch(r.text, /허가 2026-10-20[^\n]*늦게 올라옴/);    // 엿새 뒤에 잡힌 허가는 그대로
   assert.match(r.text, /사용승인 2026-09-15 · 레이더가 준공을 처음 본 날 10-26\(사용승인 41일 뒤 — 건축 인허가 자료에 늦게 올라옴\) — 건축주 미표기/);
   assert.doesNotMatch(r.text, /사용승인 2026-10-20[^\n]*늦게 올라옴/);
+  // 11-23: 문턱 30일 → 7일 — 넥센타이어 창녕 10-26 허가를 11-22에 처음 봄(27일 뒤)이 '최근 72시간'에 10-26 날짜로만 떴다
+  const { permitLateNote } = await import('../cloudflare/digest.mjs');
+  assert.equal(permitLateNote({ permitted: '2026-10-26', firstSeen: '2026-11-22T06:45:00+09:00' }), ' · 레이더가 처음 본 날 11-22(허가 27일 뒤 — 건축 인허가 자료에 늦게 올라옴)');
+  assert.equal(permitLateNote({ permitted: '2026-11-15', firstSeen: '2026-11-22T06:45:00+09:00' }), ' · 레이더가 처음 본 날 11-22(허가 7일 뒤 — 건축 인허가 자료에 늦게 올라옴)');
+  assert.equal(permitLateNote({ permitted: '2026-11-16', firstSeen: '2026-11-22T06:45:00+09:00' }), '');   // 엿새 남짓은 그대로
+  assert.equal(permitLateNote({ permitted: '2026-08-12', useApproved: '2026-11-10', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-11-22T06:45:00+09:00' }),
+    ' · 레이더가 준공을 처음 본 날 11-22(사용승인 12일 뒤 — 건축 인허가 자료에 늦게 올라옴)');
   // 11-22: 준공 항목의 보도 대조는 사용승인일부터(처음 본 날 사흘 전부터가 아니라)
   const ri = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.equal(ri.items.find((x) => x.id === 'bld:9')?.check.since, '2026-09-15');

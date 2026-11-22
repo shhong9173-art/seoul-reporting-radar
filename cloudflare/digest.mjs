@@ -484,6 +484,19 @@ function opinionHint(x) {
   return hint((x.beat ?? [])[0], [x.courtId === 'cit' ? '국제무역법원' : '항소', '판결', duty]);
 }
 // 건물명이 번지뿐인가: '상개동 427-3'·'옥산면 남촌리 1114-1'·'용제동 601'(대지위치 끝과 같음) — 동 번호('48번동')·회사·시설 이름은 아님
+// 허가 한참 뒤에 자료에 올라온 허가(11-22 운영: 건축HUB 월간 갱신으로 08-19 허가가 11-22에 처음 잡힘) — 처음 본 날을 밝힌다.
+// 사용승인도 같다(11-22 운영: 10-06 사용승인이 11-22에 '사용승인(준공)'으로 처음 잡혀 오늘 준공처럼 보였다) — 준공을 처음 본 날(changedAt)과 사용승인일.
+// 11-23: 30일 문턱이면 넥센타이어 창녕 10-26 허가(11-22에 처음 봄, 27일 뒤)가 '최근 72시간' 화면에 10-26 날짜로만 떴다 — 이레 넘게 늦으면 적는다
+const LATE_SEEN_DAYS = 7;
+export function permitLateNote(x) {
+  const pT = Date.parse(`${x?.permitted ?? ''}T00:00:00+09:00`), fT = Date.parse(x?.firstSeen ?? '');
+  const lateDays = !x?.changedAt && Number.isFinite(pT) && Number.isFinite(fT) && fT - pT > LATE_SEEN_DAYS * 86400000 ? Math.floor((fT - pT) / 86400000) : 0;
+  if (lateDays) return ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)`;
+  const uT = Date.parse(`${x?.useApproved ?? ''}T00:00:00+09:00`), cT = Date.parse(x?.changedAt ?? '');
+  const useLate = x?.changedAt && Number.isFinite(uT) && Number.isFinite(cT) && cT - uT > LATE_SEEN_DAYS * 86400000 ? Math.floor((cT - uT) / 86400000) : 0;
+  return useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
+}
+
 export function lotOnlyName(bldNm, plot) {
   const n = String(bldNm ?? '').replace(/\s+/g, ' ').trim();
   if (!/^(?:[가-힣0-9]+(?:읍|면|동|리|가|로|길) )*[가-힣0-9]+(?:읍|면|동|리|가) ?\d+(?:-\d+)?(?:번지)?$/.test(n)) return false;
@@ -1272,14 +1285,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
-    // 허가 한참 뒤에 자료에 올라온 허가(11-22 운영: 건축HUB 월간 갱신으로 08-19 허가가 11-22에 처음 잡힘) — 처음 본 날을 밝힌다
-    const pT = Date.parse(`${x.permitted ?? ''}T00:00:00+09:00`), fT = Date.parse(x.firstSeen ?? '');
-    const lateDays = !x.changedAt && Number.isFinite(pT) && Number.isFinite(fT) && fT - pT > 30 * 86400000 ? Math.floor((fT - pT) / 86400000) : 0;
-    // 사용승인도 같다(11-22 운영: 10-06 사용승인이 11-22에 '사용승인(준공)'으로 처음 잡혀 오늘 준공처럼 보였다) — 준공을 처음 본 날(changedAt)과 사용승인일
-    const uT = Date.parse(`${x.useApproved ?? ''}T00:00:00+09:00`), cT = Date.parse(x.changedAt ?? '');
-    const useLate = x.changedAt && Number.isFinite(uT) && Number.isFinite(cT) && cT - uT > 30 * 86400000 ? Math.floor((cT - uT) / 86400000) : 0;
-    const late = lateDays ? ` · 레이더가 처음 본 날 ${kstDate(fT).slice(5)}(허가 ${lateDays}일 뒤 — 건축 인허가 자료에 늦게 올라옴)`
-      : useLate ? ` · 레이더가 준공을 처음 본 날 ${kstDate(cT).slice(5)}(사용승인 ${useLate}일 뒤 — 건축 인허가 자료에 늦게 올라옴)` : '';
+    const late = permitLateNote(x);
     const entry = { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       // 같은 번지 허가의 건물명(허가서의 공사·건물 이름)도 싣는다 — 11-23 LS일렉트릭 청주1공장 '사용승인(준공) 증축 연면적 66,680㎡(건물 전체)'의 건물명은
       // '청주1사업장 본관동 장비출입구', 10-22 증축 허가는 '가공동 드라이어 보관룸'이었다(kr_official 화면에만 있고 radar_today 줄엔 없었다) — 규모·용도의 첫 단서
