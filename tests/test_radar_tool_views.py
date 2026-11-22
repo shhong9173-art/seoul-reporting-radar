@@ -245,6 +245,21 @@ class Views(unittest.TestCase):
         self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표"])
         self.assertEqual(dandok["items"][0]["team"], "철강·비철")
 
+    def test_dandok_folds_same_outlet_same_day_duplicates(self):
+        # 11-22 dandok_monitor: 잘린 제목('...' 없음)과 온전한 제목, 제목 낱말 하나만 바꾼 재게시가 두 줄씩 떴다
+        rows = [{"published": "2026-11-20", "source": "이투데이", "title": "[단독] 법원, 현대모비스 램프사업", "url": "u1", "companies": ["현대모비스"]},
+                {"published": "2026-11-20", "source": "이투데이", "title": "[단독] 법원, 현대모비스 램프사업 분할 반발 근로자 가처분 기각", "url": "u2", "companies": ["현대모비스"]},
+                {"published": "2026-11-20", "source": "전기신문", "title": "[단독] SK온, LFP로 ‘제주 25년 장기계약’ 입찰 도전…초장기 수명 검증 시험대", "url": "u3", "companies": []},
+                {"published": "2026-11-20", "source": "전기신문", "title": "[단독] SK온, LFP로 ‘제주 25년 장기계약’ 입찰 참여…초장기 수명 검증 시험대", "url": "u4", "companies": []},
+                {"published": "2026-11-19", "source": "mk.co.kr", "title": "[단독] 현대차 '집콕 근무' 사라진다", "url": "u5", "companies": ["현대차"]},
+                {"published": "2026-11-19", "source": "매일경제", "title": "[단독] 현대차, 채용 웹사이트서 ‘재택근무’ 항목삭제…집콕 원천차단 속도", "url": "u6", "companies": ["현대차"]}]
+        out = v.fold_same_outlet([dict(r) for r in rows])
+        self.assertEqual([r["title"] for r in out], ["[단독] 법원, 현대모비스 램프사업 분할 반발 근로자 가처분 기각",
+                                                    "[단독] SK온, LFP로 ‘제주 25년 장기계약’ 입찰 도전…초장기 수명 검증 시험대",
+                                                    "[단독] 현대차 '집콕 근무' 사라진다",
+                                                    "[단독] 현대차, 채용 웹사이트서 ‘재택근무’ 항목삭제…집콕 원천차단 속도"])   # 다른 매체·다른 기사는 그대로
+        self.assertEqual(out[0]["url"], "u2")
+
     def test_health_marks_missing_and_not_connected_sources(self):
         health = self.build()["health"]
         by = {r["source"]: r for r in health["items"]}
