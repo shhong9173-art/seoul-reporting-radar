@@ -2195,6 +2195,18 @@ export function lawRulesSection(lr, q = '', limit = 15, showAll = false) {
 const eok = (v) => (Number.isFinite(v) && v > 0 ? `${v.toLocaleString('en-US')}원(약 ${(v / 1e8).toLocaleString('en-US', { maximumFractionDigits: v >= 1e10 ? 0 : 1 })}억원)` : '미기재');
 const signed = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''}${v}%`);
 const ymd8 = (s) => (/^\d{8}/.test(String(s ?? '')) ? `${String(s).slice(0, 4)}-${String(s).slice(4, 6)}-${String(s).slice(6, 8)}` : String(s ?? ''));
+// 한전 입찰 신청 마감(bidAttendReqCloseDatetime). 수집기가 앞 12자만 저장해 '2026-11-10 18:00:00' 꼴은 '2026-11-10 1'로 남았다(11-23 kr_signals 화면:
+// '신청 마감 2026-11-10 1'). 시각이 온전할 때만 시각까지, 아니면 날짜만. 수집기 push는 한전·공정위·KOMIS 조회를 한 번 더 돌려 화면에서 고친다
+export function closeAtText(v) {
+  const s = String(v ?? '').trim();
+  let m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(s);
+  if (m) return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+  m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(s);
+  if (m) return `${m[1]} ${m[2]}`;
+  m = /^(\d{4}-\d{2}-\d{2})/.exec(s);
+  if (m) return m[1];
+  return ymd8(s);
+}
 
 // 국내 신호: 공정위 의결서(출입처 이름) · 한전 전자입찰(전력기기·전선) · 원자재 가격(KOMIS)
 // 전기위원회 발전사업 허가·원안위 안건(kr-energy feed), shown under kr_signals (no new connector tool).
@@ -2537,7 +2549,7 @@ export async function krSignals(ctx, args) {
       out.push(`\n[한전 전자입찰 · 전력기기·전선 자재구매(+HVDC·765kV급 공사) · 추정가격 큰 순] ${rows.length}건`);
       for (const x of rows.slice(0, limit)) {
         out.push(`- ${x.isNew ? '[신규] ' : ''}공고 ${ymd8(x.noticeDate)} · ${x.company} · ${x.state}${x.big ? ' · 대형' : ''} · 추정가격 ${eok(x.price)}`);
-        out.push(`   입찰건명: ${x.name}${x.closeAt ? ` · 신청 마감 ${ymd8(x.closeAt)}` : ''}`);
+        out.push(`   입찰건명: ${x.name}${x.closeAt ? ` · 신청 마감 ${closeAtText(x.closeAt)}` : ''}`);
         out.push(`   공고번호 ${x.no}${(x.files ?? []).length ? ` · 첨부 ${x.files.slice(0, 2).join(', ')}` : ''} (원문: 한전 전자조달 srm.kepco.net에서 공고번호로)`);
       }
       if (!rows.length) out.push('없음');

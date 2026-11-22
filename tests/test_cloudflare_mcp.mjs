@@ -2369,6 +2369,10 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match((await call('kr_signals', { section: 'ftc', include_mentions: true }, opts)).text, /롯데케미칼/);
   assert.match(k.text, /⚠ 개방문서 없음\(PDF만\)/);
   assert.match(k.text, /\[한전 전자입찰\] 미설정 — GitHub Secrets에 KEPCO_API_KEY/);
+  // 11-23: 수집기가 앞 12자만 저장해 '2026-11-10 18:00:00'이 '2026-11-10 1'로 — 시각이 온전할 때만 시각까지
+  const { closeAtText } = await import('../cloudflare/overseas.mjs');
+  assert.deepEqual(['2026-11-10 1', '202611101800', '20261110', '2026-11-10 18:00', '2026-11-10T09:30:00'].map(closeAtText),
+    ['2026-11-10', '2026-11-10 18:00', '2026-11-10', '2026-11-10 18:00', '2026-11-10 09:30']);
   assert.match(k.text, /- 아연 LME CASH\(USD\/ton\) · 2026-10-23 3,900\n   전일 \+2\.9% · 1주 \+3\.28% · 한 달\(2026-09-25~\) -3\.94% · 연초\(2026-01-02~\) \+25\.56% · LME 재고 166,950\(한 달 \+37\.29%\)/);
   assert.match(k.text, /조회 범위\(2024-01-02~2026-10-23\) 최고 2026-09-09 4,186 · 최저 2024-02-14 2,285\.5/);
   const m = await call('kr_signals', { section: 'motir' }, opts);
