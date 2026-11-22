@@ -5139,6 +5139,34 @@ test('kr building: permits of a plant no longer in the plant list are hidden bef
   assert.equal((r.text.match(/\(주\)포스코 부지/g) ?? []).length, 1);
 });
 
+test('kr building: three or more small (C) permits on one parcel fold into one C line', async () => {
+  // 11-22 운영: 월간 갱신에 포스코 포항 동촌동 5번지 18~342㎡ '용도 미기재' 허가가 수십 줄 C로 깔렸다
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const p = (id, extra) => ({ id, company: '포스코', companies: ['포스코'], factory: '(주)포스코', factoryId: 'fac:1', plot: '경상북도 포항시 남구 동촌동 5번지',
+    bldNm: null, archGbCdNm: '신축', mainPurpsCdNm: null, totArea: 54, permitted: '2026-10-13', kind: '새 허가', tier: 'C', firstSeen: now, baseline: false, isNew: true, ...extra });
+  const bdoc = { schema: 'kr_building/v1', generatedAt: now, status: 'complete', plants: 2, parcelsResolved: 2, rules: [], checks: [{ source: '건축인허가', status: 'ok', returned: 6 }],
+    permits: [p('bld:s1', { totArea: 18, permitted: '2026-09-01' }), p('bld:s2', { totArea: 342, permitted: '2026-10-20', archGbCdNm: '증축' }), p('bld:s3'), p('bld:s4', { totArea: 45, permitted: '2026-10-02' }),
+      p('bld:first', { plot: '경상북도 포항시 남구 괴동동 1번지', permitted: '2026-08-01', firstSeen: new Date(NOW.getTime() - 7 * 86400000).toISOString(), baseline: true }),  // 지난 실행(기준선)
+      p('bld:big', { totArea: 49112, archGbCdNm: '증축', mainPurpsCdNm: '공장', tier: 'B' }),
+      p('bld:o1', { plot: '경상북도 포항시 남구 장흥동 470번지', totArea: 30 }), p('bld:o2', { plot: '경상북도 포항시 남구 장흥동 470번지', totArea: 40 })] };
+  const kdoc = { schema: 'kr_official/v1', generatedAt: now, status: 'complete', checks: [], events: [], gazette: [],
+    factories: [{ id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코', rnAdres: '경상북도 포항시 남구 동해안로 6262', tags: [] }] };
+  for (const [feed, doc] of [['kr-building', bdoc], ['kr-official', kdoc]]) {
+    assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  }
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const c = r.text.split('[C · ')[1];
+  assert.match(c, /같은 번지 참고\(C\) 건축허가 4건 묶음: \(주\)포스코 부지\(경상북도 포항시 남구 동촌동 5번지\) · 증축·신축 · 허가 2026-09-01~2026-10-20 · 연면적 각 18~342㎡\(합 459㎡\) · 그중 1건은 허가 30일 넘게 뒤에 자료에 올라옴 — [^\n]*하나씩은 kr_official\(section=building, company=포스코\)/);
+  assert.match(c, /id bdlot:bld:s2/);
+  assert.doesNotMatch(c, /id bld:s[134]\b/);
+  assert.equal((c.match(/장흥동 470번지/g) ?? []).length, 2);                 // 두 건뿐인 번지는 그대로 한 줄씩
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /연면적 49,112㎡/);    // B는 묶지 않는다
+  const t = await call('kr_official', { section: 'building', company: '동촌동' }, opts);
+  assert.equal((t.text.match(/^- /gm) ?? []).length, 5);                           // 도구에서는 하나씩
+});
+
 test('overseas registry: a new UK company with a beat parent as PSC is A; a missing key is 미설정', async () => {
   const opts = PRIVATE();
   const env = opts.env;
