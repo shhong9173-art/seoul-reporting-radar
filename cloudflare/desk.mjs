@@ -6,7 +6,7 @@
 //  ① 기자가 이미 처리한 것(처리 장부)과 판정한 것, ② 자동 보도 대조가 '관련 보도 있음'인 것, ③ 기자가 여러 번 킬한 유형을 걷어내고
 //  ④ 기자가 실제로 단독을 쓴 유형부터 보여 준다.
 // 유형 표(DESK_TYPES)의 근거는 기자의 판정 기록이다 — 바꾸는 건 기자가 정한다.
-import { clampInt, textResult } from './common.mjs';
+import { MAX_TEXT, clampInt, textResult } from './common.mjs';
 import { clipAt, kstStamp, ledgerMark, pressLines, radarTodayData, rivalPaceLine } from './digest.mjs';
 import { EXCLUDING, companiesIn, entryLabel } from './handled.mjs';
 import { AHEAD_NOTE, aheadLine, foreignAhead } from './ahead.mjs';
@@ -234,14 +234,39 @@ export async function scoopDesk(ctx, args) {
   out.push(`\n[1. 새 후보 — 실적 있는 유형부터] ${shown.length}건${folded ? ` (같은 날 같은 종류·같은 원문 ${folded}건 접음)` : ''}`);
   // 후보는 있는데 실적 있는 유형이 하나도 없는 날: 그렇다고 먼저 말한다(약한 날을 강한 날처럼 보이게 하지 않는다)
   if (shown.length && shown[0].type.strength !== 'strong') out.push('〈실적 있는 유형〉 없음 — 기자가 단독을 쓴 유형(무역위 신청·미국 법원 제소·출입처 이름이 적힌 해외 문서·큰 공시·신축 허가)에서 새로 잡힌 것이 없다.');
-  let lastStrength = null;
-  for (const r of shown.slice(0, limit)) {
-    const { type } = r;
-    if (type.strength !== lastStrength) { out.push(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
-    out.push(...candLines(r));
-  }
-  if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건(limit 또는 company로 좁히기)`);
-  if (!shown.length) out.push('없음 — 오늘은 걷어내고 남는 후보가 없다. 약한 유형에서 억지로 올리지 않는다(include_weak=true로 볼 수는 있다).');
+  // 후보 줄은 맨 끝에 채운다(11-23): 7일 화면이 응답 상한(2만 자)에 거의 닿았다 — 넘치면 맨 끝 '5. 기자가 이미 처리한 건'(다시 추천하지 않을 목록)과
+  // 규칙이 먼저 잘린다. 뒤 구역을 다 적은 뒤 남은 자리에 후보를 싣고, 모자라면 뒤쪽 후보부터 한 줄(등급·날짜·유형·회사·글 앞부분·id)로 줄인다
+  const candAt = out.length;
+  const candidateLines = () => {
+    const lines = [];
+    const fixed = out.reduce((a, l) => a + l.length + 1, 0);
+    const budget = MAX_TEXT - fixed - 400;
+    const COMPACT = 190;
+    let used = 0;
+    let left = Math.min(shown.length, limit);
+    let squeezed = 0;
+    let cut = 0;
+    let lastStrength = null;
+    const put = (l) => { lines.push(l); used += l.length + 1; };
+    for (const r of shown.slice(0, limit)) {
+      const { type, x } = r;
+      if (type.strength !== lastStrength) { put(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
+      const block = candLines(r);
+      left -= 1;
+      const size = block.reduce((a, l) => a + l.length + 1, 0);
+      if (used + size + left * COMPACT <= budget) { for (const l of block) put(l); continue; }
+      const when = x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : '';
+      const line = `- ${x.tier} · ${when}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''} · ${clipAt(x.fact, 80)} · id ${x.id}${ledgerMark(x)}`;
+      if (used + line.length + 1 > budget) { cut += 1; continue; }
+      put(line);
+      squeezed += 1;
+    }
+    if (cut) put(`… 글자 예산으로 ${cut}건 더 못 실음(company·days·limit로 좁혀 다시 보기)`);
+    if (shown.length > limit) put(`… 남은 ${shown.length - limit}건(limit 또는 company로 좁히기)`);
+    if (!shown.length) put('없음 — 오늘은 걷어내고 남는 후보가 없다. 약한 유형에서 억지로 올리지 않는다(include_weak=true로 볼 수는 있다).');
+    if (squeezed) put(`(글자 예산 때문에 후보 ${squeezed}건은 한 줄로 줄임 — 줄 끝 id로 각 감시 도구를 열거나 company로 좁혀 다시 보면 전체 글)`);
+    return lines;
+  };
 
   // company로 좁혀 물었으면 일정도 그 낱말이 든 사건만(11-13 운영: company=포스코에 한화솔루션 신청 사건 일정이 붙었다)
   const qWords = String(args.company ?? '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -313,5 +338,6 @@ export async function scoopDesk(ctx, args) {
 
   out.push('\n처리 기록 남기는 법: 레이더 항목은 candidate_feedback(item_ids=[id…], verdict=킬/보류/씀, reason). 레이더 밖에서 찾은 건·답변 대기·후배 토스·예약은 package_save(state=보류/접음/발제함, item_ids=[관련 레이더 id나 원문 주소…]) — 다음부터 이 화면과 구역 도구에서 빠지거나 표시가 붙는다.');
   out.push("규칙: 여기 뜬 것도 단독 확정이 아니다 — 원문 확인 → news_check(낱말 바꿔 2~3번) → 회사 확인. '미보도 후보'는 검색 범위 결과일 뿐이고, 수집 실패는 미보도의 증거가 아니다. 관계자 발언을 만들지 않는다.");
+  out.splice(candAt, 0, ...candidateLines());
   return textResult(out.join('\n'));
 }
