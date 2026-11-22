@@ -1238,6 +1238,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const bdBase = baselineOf(bd?.permits ?? []);
   const gone = plantGone(docs);
   const bdSmall = new Map();
+  const bdBig = new Map();
   for (const x of dedupePermits((bd?.permits ?? []).filter((p) => !p.orphan && !gone(p)))) {
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
     if (x.orphan || gone(x)) continue;  // its plant left the plant list
@@ -1263,7 +1264,23 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       const k = `${x.company}|${x.plot}`;
       if (!bdSmall.has(k)) bdSmall.set(k, []);
       bdSmall.get(k).push({ x, entry });
-    } else push(x.tier ?? 'C', W['kr-building'], entry);
+    } else if ((x.tier ?? 'C') !== 'C') {
+      const k = `${x.company}|${x.plot}`;
+      if (!bdBig.has(k)) bdBig.set(k, []);
+      bdBig.get(k).push({ x, entry });
+    } else push('C', W['kr-building'], entry);
+  }
+  // 같은 번지의 A·B 인허가가 창 안에 둘 이상이면 줄마다 서로 가리킨다(11-23 72시간 화면: LS일렉트릭 청주1공장 송정동 1번지 사용승인(준공,
+  // 허가 08-26)과 증축 건축허가(10-22)가 B 두 줄로 따로 — 같은 공장의 잇단 공사인지 한눈에). 묶지는 않는다(허가마다 기사 각도가 다를 수 있다).
+  // 다른 줄 id는 'id ' 없이 적는다(처리 장부가 줄 속 'id …'로 잇는다 — 남의 id로 이 줄을 처리한 것으로 보지 않게)
+  const bdTag = (o) => `${o.kind === '사용승인(준공)' || o.changedAt ? `사용승인(준공) ${o.useApproved ?? '?'}` : `허가 ${o.permitted ?? '?'}`}`
+    + ` ${o.archGbCdNm ?? ''}${Number(o.totArea) ? ` ${Math.round(Number(o.totArea)).toLocaleString('en-US')}㎡` : ''}(${o.id})`;
+  for (const list of bdBig.values()) {
+    for (const { x, entry } of list) {
+      const others = list.filter((o) => o.x.id !== x.id).map((o) => o.x);
+      if (others.length) entry.fact += ` 〔같은 번지 다른 인허가 ${others.length}건: ${others.slice(0, 3).map(bdTag).join(' · ')}${others.length > 3 ? ' 외' : ''}〕`;
+      push(x.tier, W['kr-building'], entry);
+    }
   }
   // 한 번지에 3건 이상이면 한 줄(C)로 — id는 가장 최근 허가 것을 따서, 새 허가가 붙으면 새 줄로 다시 뜬다. 하나씩은 kr_official(section=building, company=…)
   for (const list of bdSmall.values()) {

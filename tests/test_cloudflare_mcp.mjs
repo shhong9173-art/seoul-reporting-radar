@@ -5228,6 +5228,29 @@ test('kr energy: beat-group power permits and nuclear agenda results show in rad
   assert.deepEqual(dueAt(new Date('2026-10-29T09:10:00Z')), ['kr-report-notes.yml', 'kr-energy.yml']);  // Thu 18:10 KST(11-15: 정기보고서 숨은 대목도 이 칸)
 });
 
+test('kr building(11-23): 같은 번지 A·B 인허가가 창 안에 둘 이상이면 줄마다 서로 가리킨다 — 다른 번지·참고(C)는 안 붙인다', async () => {
+  // 11-23 72시간 화면: LS일렉트릭 청주1공장 송정동 1번지 사용승인(준공, 허가 08-26)과 증축 건축허가(10-22)가 B 두 줄로 따로
+  const opts = PRIVATE();
+  const lot = '충청북도 청주시 흥덕구 송정동 1번지';
+  const p = (id, extra) => ({ id, company: 'LS일렉트릭', companies: ['LS일렉트릭'], factory: '엘에스일렉트릭(주)청주1공장', factoryId: 'fac:9', plot: lot, bldNm: null,
+    archGbCdNm: '증축', mainPurpsCdNm: '공장', totArea: 5200, permitted: '2026-10-22', startPlanned: null, started: null, useApproved: null,
+    kind: '새 허가', tier: 'B', firstSeen: '2026-10-25T07:45:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: [], checks: [],
+    permits: [p('bld:L1'),
+      p('bld:L2', { totArea: 66680, permitted: '2026-08-26', useApproved: '2026-10-08', kind: '사용승인(준공)', firstSeen: '2026-09-01T07:45:00+09:00', changedAt: '2026-10-25T07:45:00+09:00' }),
+      p('bld:L3', { totArea: 120, tier: 'C' }),                                     // 같은 번지 참고(C) — 안 센다
+      p('bld:L4', { plot: '충청북도 청주시 흥덕구 송정동 99번지', totArea: 3000 })] };   // 다른 번지 — 안 붙인다
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+  const r = (await call('radar_today', { hours: 72, include_minor: true }, opts)).text;
+  const line = (id) => r.split('\n').findIndex((l) => l.includes(`id ${id}`));
+  const block = (id) => { const lines = r.split('\n'); const i = line(id); let j = i; while (j > 0 && /^\s/.test(lines[j])) j -= 1; return lines.slice(j, i + 1).join('\n'); };
+  assert.match(block('bld:L1'), /〔같은 번지 다른 인허가 1건: 사용승인\(준공\) 2026-10-08 증축 66,680㎡\(bld:L2\)〕/);
+  assert.match(block('bld:L2'), /〔같은 번지 다른 인허가 1건: 허가 2026-10-22 증축 5,200㎡\(bld:L1\)〕/);
+  assert.doesNotMatch(block('bld:L4'), /같은 번지 다른 인허가/);
+  assert.doesNotMatch(r, /bld:L3\)/);   // 참고 허가는 남의 줄에 안 적는다
+  assert.doesNotMatch(block('bld:L1'), /id bld:L2/);   // 남의 id는 'id ' 없이(처리 장부 연결 오인 방지)
+});
+
 test('kr building: a permit on a beat factory parcel is A; unset datasets show as 미설정', async () => {
   const opts = PRIVATE();
   const env = opts.env;
