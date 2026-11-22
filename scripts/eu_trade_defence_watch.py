@@ -180,14 +180,46 @@ def snippets(text, names, limit=2, cap=260):
     return out
 
 
-def read_body(get, celex):
+def read_html(get, celex):
     r = get(CELLAR + celex, headers={**UA, "Accept": "application/xhtml+xml, text/html", "Accept-Language": "eng"}, timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}")
-    return plain(r.text)
+    return r.text
 
 
-def record_of(d, body, stamp):
+def read_body(get, celex):
+    return plain(read_html(get, celex))
+
+
+def expiry_rows(raw, limit=4):
+    """만료 예정 공고 표에서 한국이 든 줄 — (품목, 원산지, 조치, 만료일, 우회 확대 여부). 11-22 운영: 52026XC06045가 '본문에 출입처 이름 없음(한국산 품목)'으로만
+    떠 무슨 품목인지 원문을 열어야 했다(표의 한국 줄은 중국산 실리콘 — 한국·대만은 우회 수출 확대 적용). 표 칸은 품목·원산지·조치·참조 규정·만료일 차례."""
+    out = []
+    for tr in re.findall(r"<tr\b.*?</tr>", raw or "", re.S | re.I):
+        # 칸 안 문단(나라 이름마다 <p>)은 '; '로 잇는다 — 그냥 지우면 'China Republic of Korea Taiwan'으로 붙는다
+        cells = ["; ".join(t for t in (plain(x) for x in re.split(r"</p>|<br\s*/?>", c, flags=re.I)) if t)
+                 for c in re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", tr, re.S | re.I)]
+        if len(cells) < 5 or not any(KOREA.search(c) for c in cells[:2]):
+            continue
+        m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", cells[4])
+        out.append({"product": cells[0][:120], "countries": cells[1][:160], "measure": cells[2][:60],
+                    "expiry": f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}" if m else cells[4][:30],
+                    # 참조 규정에 'consigned from … Korea'(우회 수출 확대 적용)면 한국산 원산지 조치가 아니다
+                    "consigned": bool(re.search(r"consigned from[^.;]{0,60}\bKorea\b", cells[3], re.I))})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def expiry_note(rows):
+    def one(r):
+        via = " — 참조 규정에 'consigned from … Korea'(다른 나라산 조치를 한국 경유 수출에 확대 적용)" if r.get("consigned") else ""
+        return f"{r['product']}(원산지 {r['countries']} · {r['measure']}) 만료 {r['expiry']}{via}"
+    return (" · 표에서 한국이 든 줄: " + " / ".join(one(r) for r in rows)
+            + " — 종료재심 요청은 만료 3개월 전까지(EU 생산자 측, 공고 본문). 요청이 없으면 만료")
+
+
+def record_of(d, body, stamp, raw=None):
     kind, tier = kind_of(d["title"])
     korea = bool(KOREA.search(d["title"]))
     names = companies_in(body) if body is not None else []
@@ -198,6 +230,8 @@ def record_of(d, body, stamp):
         rec["koreaMentions"] = len(KOREA.findall(body))
         rec["rates"] = rates_for(body, names) if names else []
         rec["snippets"] = snippets(body, names) if names else []
+        if kind == "만료 예정 공고" and raw is not None:
+            rec["expiryRows"] = expiry_rows(raw)
     else:
         rec["note"] = "본문 미읽음(실행 한도) — 원문 열기"
     beat_product = bool(BEAT_PRODUCT.search(d["title"]))
@@ -219,6 +253,7 @@ def event_of(rec, stamp):
     text = (f"EU 관보 무역구제 — {rec['kind']}: {rec['number']} 「{rec['title'][:240]}」({rec['date']})"
             + (f" · 본문에 출입처 {'·'.join(rec['companies'])}" if rec.get("companies")
                else " · 세이프가드 — 원산지 구분 없이 모든 수입(한국산 포함) 대상, 나라별 예외·쿼터는 원문" if rec.get("safeguard") and not rec.get("korea")
+               else expiry_note(rec["expiryRows"]) if rec.get("expiryRows")
                else " · 본문에 출입처 이름 없음(한국산 품목)")
             + (f" · 제1조 세율 {rates}" if rates else "")
             + (f" · 본문 대목 「{rec['snippets'][0]}」" if rec.get("snippets") else "")
@@ -593,12 +628,12 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
         budget -= 1
         sleep(PAUSE)
         try:
-            body = read_body(get, d["celex"])
+            raw = read_html(get, d["celex"])
         except Exception as e:  # noqa: BLE001
             errors.append(f"{d['celex']} {str(e)[:30] or type(e).__name__}")
             continue
         seen.append(d["celex"])
-        rec = record_of(d, body, stamp)
+        rec = record_of(d, plain(raw), stamp, raw)
         # 만료 예정 공고는 본문에 한국이 나올 때만, 제목에 한국이 없는 규정은 출입처 이름이 나올 때만 남긴다
         if not rec["korea"] and not rec["companies"] and not rec.get("safeguard") and not (kind == "만료 예정 공고" and rec.get("koreaMentions")):
             skipped += 1
@@ -608,6 +643,23 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
         if not first:
             events.append(event_of(rec, stamp))
             fresh += 1
+    # 11-22: 표의 한국 줄을 읽기 전에 저장된 만료 예정 공고는 한 번만 다시 읽어 줄을 채운다(남은 본문 한도 안에서) — 규칙이 바뀌면 저장분도 다시 본다
+    for rec in recs.values():
+        if budget <= 0:
+            break
+        if rec.get("kind") != "만료 예정 공고" or "expiryRows" in rec or rec.get("expiryTries", 0) >= 2:
+            continue
+        budget -= 1
+        sleep(PAUSE)
+        try:
+            rec["expiryRows"] = expiry_rows(read_html(get, rec["celex"]))
+        except Exception as e:  # noqa: BLE001
+            rec["expiryTries"] = rec.get("expiryTries", 0) + 1     # 두 번 실패하면 그만(원문 열기)
+            errors.append(f"{rec['celex']} 표 {str(e)[:30] or type(e).__name__}")
+            continue
+        for e in events:
+            if e.get("id") == rec["id"] and rec["expiryRows"]:
+                e["text"] = event_of(rec, e.get("detectedAt") or stamp)["text"]
     pending = sum(1 for d in new if d["celex"] not in set(seen))
     if pending:
         errors.append(f"본문 {pending}건은 다음 실행(한도)")
