@@ -132,6 +132,20 @@ class Run(unittest.TestCase):
         self.assertEqual((doc3["checks"][1]["returned"], doc3["checks"][1]["note"]), (0, "새로 열어 볼 후보 공시 없음(공시검색 8건 중 거래·계약 종류의 새 공시 0건)"))
         self.assertNotIn("note", doc3["checks"][0])
 
+    def test_rest_window_runs_are_not_counted_by_quiet_zero_watch(self):
+        # 11-23: 토요일 03:52 늦은 예약 실행·월요일 02:54 push 실행(목록 1줄)이 '형식 변경 의심'으로 견줘졌다
+        sat = dt.datetime(2026, 11, 21, 3, 52, tzinfo=KST)
+        mon_early = dt.datetime(2026, 11, 23, 2, 54, tzinfo=KST)
+        mon_work = dt.datetime(2026, 11, 23, 10, 50, tzinfo=KST)
+        tue_early = dt.datetime(2026, 11, 24, 2, 54, tzinfo=KST)
+        self.assertEqual([w.rest_window(t, frozenset()) for t in (sat, mon_early, mon_work, tue_early)], [True, True, False, False])
+        self.assertTrue(w.rest_window(dt.datetime(2026, 12, 26, 3, 0, tzinfo=KST), frozenset({"2026-12-25"})))   # 공휴일 다음 날 새벽
+        get, _ = fake(ROWS[:1])
+        doc = w.run(mon_early, None, key="k", get=get, sleep=lambda s: None, holidays=frozenset())
+        self.assertEqual([c.get("restDay") for c in doc["checks"]], [True, True])
+        doc2 = w.run(mon_work, doc, key="k", get=get, sleep=lambda s: None, holidays=frozenset())
+        self.assertEqual([c.get("restDay") for c in doc2["checks"]], [None, None])
+
     def test_failures(self):
         get, _ = fake(ROWS[:1])
         doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)
