@@ -3546,7 +3546,9 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
   assert.match(r.text.split('[C · ')[1], /기아 SORENTO[^\n]*같은 부품 리콜 26V700000 뒤 신고일 수 있음/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const sf = items.items.find((x) => String(x.id).startsWith('cmpl:HYUNDAI:SANTA FE HYBRID')).check;
-  assert.deepEqual([sf.who, sf.terms, sf.places], ['현대차', ['싼타페', '리콜'], ['싼타페']]);
+  // 11-23: 보도 대조 낱말은 첫 부품(FUEL/PROPULSION SYSTEM → 연료) — 차명+'리콜'로만 찾으면 같은 차종의 다른 결함 기사가 붙는다(텔루라이드 와이퍼 ↔ 엔진오일 누출 기사)
+  assert.deepEqual([sf.who, sf.terms, sf.places], ['현대차', ['싼타페', '연료'], ['싼타페']]);
+  assert.deepEqual(sf.alts['연료'], ['연료', '주유']);
 });
 
 test('us_recalls: NHTSA manufacturer communications by campaign — powertrain warranty extension A, campaign B, C hidden unless show_all, baseline not pushed', async () => {

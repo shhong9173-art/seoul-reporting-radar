@@ -164,6 +164,11 @@ const ALT = {
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 무상수리: ['무상수리', '무상 수리', '보증 연장', '보증기간', '서비스 캠페인', '무상 교체', '무상 점검'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
+  // 미국 소비자 결함 신고 급증의 부품 낱말(NHTSA 부품 분류 → 기사 낱말, 11-23)
+  와이퍼: ['와이퍼', '시야', '앞유리'], 시야: ['시야', '와이퍼', '앞유리', '김서림'], 에어백: ['에어백'], 엔진: ['엔진'], 전기장치: ['전기', '배선', '배터리', '전장', '퓨즈'],
+  변속기: ['변속기', '동력', '파워트레인', '구동'], 조향: ['조향', '스티어링', '핸들'], 브레이크: ['브레이크', '제동'], 연료: ['연료', '주유'], 안전벨트: ['안전벨트'],
+  시트: ['시트', '좌석'], 서스펜션: ['서스펜션', '현가'], 도어: ['도어', '잠금', '문 열림'], 램프: ['램프', '전조등', '조명', '라이트'], 후방카메라: ['후방', '카메라'],
+  전방충돌: ['전방충돌', '긴급제동', '충돌방지'], 차로: ['차로', '차선'], 크루즈: ['크루즈', '급가속', '속도'], 자세제어: ['자세제어', 'ESC'], 휠: ['휠'], 차체: ['차체'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'], 파산: ['파산', '청산', '회생', '법정관리'], 매각: ['매각', '인수', 'M&A', '새 주인'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
   발주: ['발주', '입찰', '낙찰', '구매'],
@@ -978,6 +983,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: x.url, check: x.tier === 'C' ? undefined : hint((x.why ?? [])[0]?.name, ['미국', '조사']) });
   }
 
+  // 결함 신고 급증 보도 대조는 부품 낱말로(11-23: 기아 텔루라이드 '와이퍼·시야' 신고 9건 급증이 「원고 측 "엔진오일 누출 결함…"」 기사로 '관련 보도 있음'이 됐다 —
+  // 차명+'리콜'(결함)로만 찾으면 같은 차종의 다른 결함 기사가 붙는다). 첫 부품의 NHTSA 분류를 기사 낱말로, 모르는 분류면 예전대로 '리콜'
+  const COMPLAINT_WORD = [[/WIPER/, '와이퍼'], [/VISIBILITY/, '시야'], [/AIR ?BAG/, '에어백'], [/SEAT ?BELT/, '안전벨트'], [/FORWARD COLLISION/, '전방충돌'], [/LANE/, '차로'],
+    [/BACK ?OVER/, '후방카메라'], [/STABILITY/, '자세제어'], [/SPEED CONTROL/, '크루즈'], [/ENGINE/, '엔진'], [/ELECTRICAL/, '전기장치'], [/POWER ?TRAIN/, '변속기'],
+    [/STEERING/, '조향'], [/BRAKE/, '브레이크'], [/FUEL/, '연료'], [/SEAT/, '시트'], [/SUSPENSION/, '서스펜션'], [/LATCH|LOCK/, '도어'], [/LIGHTING/, '램프'],
+    [/WHEEL/, '휠'], [/STRUCTURE/, '차체']];
+  const complaintWord = (parts) => { const c = String((parts ?? [])[0]?.component ?? '').toUpperCase(); return (COMPLAINT_WORD.find(([re]) => re.test(c)) ?? [])[1]; };
   // 미국 소비자 결함 신고 급증(리콜·조사 전 단계): 출입처 차종의 부품별 최근 28일 신고가 앞 24주 평균의 2.5배 넘게 튄 것 B,
   // 같은 부품 리콜이 60일 안에 있으면 C. 신고는 소비자가 낸 것이라 A로 올리지 않는다(수집기 nhtsa_complaints.py).
   for (const x of ur?.complaints?.spikes ?? []) {
@@ -988,7 +1000,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const recall = (x.sameComponentRecall ?? []).length ? ` · 같은 부품 리콜 ${x.sameComponentRecall.join(',')} 뒤 신고일 수 있음` : '';
     push(x.tier ?? 'B', W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
       fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
-      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
+      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], complaintWord(x.parts) ?? '리콜'], [models[0]], models) : hint(x.brand, [complaintWord(x.parts) ?? '리콜', '미국'])) });
   }
 
   // 미국 제조사 통신(nhtsa_tsbs.py, 캠페인 단위). 11-12 기자 결정(한 단계 내림): 동력계통 보증 연장 B(예전 A), 그 밖 보증 연장·서비스 캠페인·
