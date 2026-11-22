@@ -56,6 +56,10 @@ SPORTS_GOLF=re.compile(
 SPONSOR_OR_SCHOOL=re.compile(
     r"디플러스\s*기아|e\s*스포츠|이스포츠|LCK|롤드컵|프로게이머|"
     r"대입|입결|계약학과|수시\s*모집|정시\s*모집",re.I)
+# 11-22: 포스코 계열사 이름만 나온 기사(「[단독] 포스코인터, 탄자니아 흑연광산 투자계약 개정…」)가 '포스코'로 잡혀 단독 흐름·큰 그림 포스코 건수에 들어갔다.
+# AGENTS.md: 계열사는 출입처가 아니다. 계열사 이름을 지운 뒤에도 '포스코'가 남을 때만 포스코로 센다(포스코필바라리튬솔루션은 기존 판단대로 둠)
+POSCO_AFFILIATE=re.compile(
+    r"포스코(?:인터내셔널|인터|퓨처엠|DX|스틸리온|엠텍|플로우|모빌리티솔루션|와이드|A&C)",re.I)
 HUNGER_KIA=re.compile(
     r"기아\s*(?:호적|아동|문제|상태|극복|퇴치|빈곤|지수|위기|사태)|"
     r"기아호적|기아퇴치",re.I)
@@ -81,6 +85,8 @@ def tracked_industry_companies(title):
     # Never silently map an explicit POSCO E&C-only mention to the
     # separately covered steel producer POSCO.
     if re.search(r"포스코(?:이앤씨|E&C|건설)",title,re.I) and not INDUSTRY_TERMS.search(title):
+        names=[x for x in names if x!="포스코"]
+    if "포스코" in names and "포스코" not in POSCO_AFFILIATE.sub("",title):
         names=[x for x in names if x!="포스코"]
     return names
 
