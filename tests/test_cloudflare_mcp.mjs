@@ -1272,6 +1272,10 @@ test('scoop candidates: business-report number clues (DART_METRIC) are leads, no
   // 판매 상태 문구('+ Coming Soon')는 검색 낱말을 정할 수 없어 자동 대조를 안 한다(11-18 기아 텔루라이드 A)
   await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'page_watch/v1', generatedAt: iso(1), pages: [],
     events: [{ pageId: 'kia-us-telluride', scope: 'page', company: '기아', label: '기아 미국 텔루라이드', detectedAt: iso(3), url: 'https://www.kia.com/us/en/telluride', added: { timing: ['Coming Soon'] } }] }) }), env, {});
+  // 11-22: 72시간 대조 범위를 지난 B(기록 없음)는 다음 실행도 안 본다 — 'Sears v. Hyundai Motor America'(11-12)가 열흘째 '아직 대조 전'
+  const old5 = new Date(now + 9 * 3600000 - 5 * 86400000).toISOString().slice(0, 10);
+  await worker.fetch(new Request(ORIGIN + '/ingest/us-litigation', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'us_litigation/v1', generatedAt: iso(1), checks: [], itc: [], opinions: [],
+    cases: [{ id: 'cl:sears', beat: ['현대차'], caseName: 'Sears v. Hyundai Motor America', court: 'N.D. Cal.', category: '분류 없음', priority: 2, role: '피고·기타 당사자', dateFiled: old5, firstSeen: iso(24 * 5), url: 'https://cl/sears' }] }) }), env, {});
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
@@ -1287,7 +1291,9 @@ test('scoop candidates: business-report number clues (DART_METRIC) are leads, no
   const line = (w) => fresh.split('\n- ').find((l) => l.includes(w)) ?? '';
   assert.match(line('고려아연'), /보도 대조: 단독 후보 심사\(scoop_screen\)가 따로 대조한 결과 '미보도 후보'\(위 줄\)/);
   assert.match(line('텔루라이드'), /보도 대조\(자동\): 안 함 — 이 종류는 검색 낱말을 정할 수 없어 자동 대조 대상이 아님/);
-  assert.doesNotMatch(fresh, /아직 대조 전/);
+  for (const w of ['고려아연', '텔루라이드']) assert.doesNotMatch(line(w), /아직 대조 전/);
+  const desk7 = (await call('scoop_desk', { days: 7 }, { ...opts, now: new Date(now) })).text.split('[1. 새 후보')[1].split('[2. ')[0];
+  assert.match(desk7.split('\n- ').find((l) => l.includes('Sears v. Hyundai')) ?? '', /보도 대조\(자동\): 기록 없음 — 72시간 대조 범위를 지났거나 실행 상한\(40건\)에 밀렸다/);
   assert.match(desk.text, /취재 단서\(단독 추천 안 함\) 1/);
   const weak = await call('scoop_desk', { include_weak: true }, opts);
   assert.match(weak.text, /해외판매/);    // 걷어낸 쪽에 그대로 남는다
