@@ -2818,6 +2818,12 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   const t = await call('trademarks', {}, opts);
   assert.match(t.text, /이름 일부만 같은 다른 출원인만 나온 곳\(이 회사 0건\): 영풍\(영풍제약 주식회사\)/);
   assert.match(t.text, /평일 재시도 10-27T07:10: 영풍 — 월요일에 실패·대기한 회사만 다시 조회/);
+  // 11-23: radar_today 수집 상태의 실패 줄에도 평일 재시도를 적는다(주 1회 감시라 한 주 내내 미확인인지 안 보였다)
+  const failedDoc = { ...doc, checks: [...doc.checks, { source: '상표 포스코홀딩스', status: 'failed', error: 'RemoteDisconnected' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(failedDoc) }), env, {});
+  assert.match((await call('radar_today', { hours: 72 }, { ...opts, now: new Date('2026-10-26T01:00:00Z') })).text,
+    /^- 상표 출원: 일부 실패 1건\(상표 포스코홀딩스\) — 화~금 07:10 재시도에서 실패·대기한 회사만 다시 조회/m);
+  await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   assert.match(t.text, /\[유럽 상표 출원\(EUIPO\) · 출원일 2026-06-28~2026-10-26 · 확인 2026-10-26T07:10\] 조회 정상 2\/3/);
   assert.match(t.text, /미확인\(0건 아님\): LG화학\(HTTP 500\)\n검색 0건\(영문 출원인 이름 형식 확인\): 포스코/);
   assert.match(t.text, /- \[B · 처음 보는 이름\] 현대자동차 · 「AERO DRIVE」 · 출원 2026-10-20 · 12류\(차량·부품\), 35류\(광고·사업관리\) · 출원번호 019000002 · 출원인 Hyundai Motor Company/);
