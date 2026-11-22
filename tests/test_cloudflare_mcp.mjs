@@ -2254,6 +2254,12 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   const us = await call('kr_stats', { section: 'us_imports' }, opts);
   assert.match(us.text, /\[미국 수입\(한국산\) · US Census 품목별 월간 일반수입액\] 1개 계열[\s\S]*변압기·전력변환기\(HS 8504\) · 2026-08 169\.83\(백만달러\)[\s\S]*\+31\.2%/);
   assert.doesNotMatch(us.text, /용융아연도강판/);
+  assert.doesNotMatch(us.text, /원\/달러/);   // 환율 저장분이 없으면 달러만(추정 환율을 쓰지 않는다)
+  // 11-22: 출입처 외신 저장분의 한국은행 매매기준율이 있으면 원화를 붙인다(169.83백만달러 × 1,330.8 = 약 2,260억원)
+  await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'global_beat/v1', generatedAt: NOW.toISOString(), checks: [], items: [], fx: { rates: { 달러: { rate: 1330.8, date: '2026-11-20', label: '원/달러', per: 1 } } } }) }), env, {});
+  const usw = await call('kr_stats', { section: 'us_imports' }, opts);
+  assert.match(usw.text, /2026-08 169\.83\(백만달러\) \(약 2,260억원 · 원\/달러 1,330\.8\(2026-11-20\) 한국은행 매매기준율\) · 전월/);
   const r = await call('radar_today', {}, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /월간 통계: 생산자물가 중후판 2026-09 150\.84\(2020=100\) · 2023-10\(153\.04\) 이후 최고/);
