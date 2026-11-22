@@ -2381,6 +2381,36 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
 });
 
+test('radar_today folds three or more same-release monthly-stat C lines into one row; B lines, other families and pairs stay apart', async () => {
+  // 11-23 72시간 화면: 생산자물가 2026-10 '전년 대비 큰 변동'(C)이 품목마다 한 줄씩 15줄 — 같은 발표는 한 줄, 품목마다 신호 한 토막
+  const opts = PRIVATE();
+  const env = opts.env;
+  const at = '2026-10-25T07:30:00+09:00';
+  const ev = (series, period, signal, text, company) => ({ id: `st:${series}:${period}:${signal}`, kind: '월간 통계', signal, series, period, company, detectedAt: at, text });
+  const doc = { schema: 'kr_stats/v1', generatedAt: '2026-10-26T07:30:00+09:00', checks: [{ source: 'ECOS 통계', status: 'ok', ok: 23, failed: 0 }], rules: [], series: [], kaidaMonths: {},
+    events: [ev('ppi-hot-rolled', '2026-10', '전년 대비 큰 변동', '생산자물가 열연강대및강판 2026-10 128.1(2020=100) · 전년 같은 달(2025-10, 112.3) 대비 +14.1%', '포스코·현대제철'),
+      ev('ppi-naphtha', '2026-10', '전년 대비 큰 변동', '생산자물가 나프타 2026-10 101.2(2020=100) · 전년 같은 달 대비 -18.0%', 'LG화학·롯데케미칼'),
+      ev('ppi-naphtha', '2026-10', '연속 하락', '생산자물가 나프타 2026-10 101.2(2020=100) · 3개월 연속 하락', 'LG화학·롯데케미칼'),
+      ev('ppi-gasoline', '2026-10', '전년 대비 큰 변동', '생산자물가 휘발유 2026-10 110.4(2020=100) · 전년 같은 달 대비 -11.2%', 'SK이노베이션·S-OIL·현대제철'),
+      ev('ppi-plate', '2026-10', '최고(기간)', '생산자물가 중후판 2026-10 151.2(2020=100) · 2023-10(153.04) 이후 최고 — 36개월 만', '포스코·현대제철'),
+      ev('xp-hot-rolled', '2026-10', '전년 대비 큰 변동', '수출물가(원화) 열연강대및강판 2026-10 120.0(2020=100) · 전년 같은 달 대비 +10.5%', '포스코'),
+      ev('steel-50', '2026-09', '연속 증가', '철강 생산 열연강판(철강협회) 2026-09 1,020(천톤) · 4개월 연속 증가', '포스코·현대제철'),
+      ev('steel-60', '2026-09', '연속 증가', '철강 생산 냉연강판(철강협회) 2026-09 801(천톤) · 3개월 연속 증가', '포스코·현대제철')],
+    confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-stats', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = (await call('radar_today', { include_minor: true }, opts)).text;
+  const c = r.split('[C · ')[1];
+  assert.match(c, /월간 통계 생산자물가 2026-10 참고\(C\) 3개 품목: 열연강대및강판 전년비 \+14\.1% · 나프타 전년비 -18\.0% \/ 3개월 연속 하락 · 휘발유 전년비 -11\.2% — 하나씩은 kr_stats/);
+  assert.match(c, /id stlot:st:ppi-hot-rolled:2026-10:전년 대비 큰 변동/);
+  assert.equal((r.match(/나프타/g) ?? []).length, 1);   // 나프타 두 신호는 묶음 안 한 토막
+  assert.match(r.split('[B · ')[1].split('[C · ')[0], /생산자물가 중후판 2026-10 151\.2\(2020=100\) · 2023-10\(153\.04\) 이후 최고/);   // B는 따로
+  assert.match(c, /월간 통계: 수출물가\(원화\) 열연강대및강판 2026-10/);   // 다른 발표(수출물가) 한 줄은 그대로
+  assert.match(c, /월간 통계: 철강 생산 열연강판\(철강협회\) 2026-09[\s\S]*월간 통계: 철강 생산 냉연강판\(철강협회\) 2026-09|월간 통계: 철강 생산 냉연강판\(철강협회\) 2026-09[\s\S]*월간 통계: 철강 생산 열연강판\(철강협회\) 2026-09/);   // 둘은 묶지 않는다
+  assert.match((await call('radar_today', {}, opts)).text, /\[C · 참고\(접힘\)\] 4건/);
+  // 묶음도 회사로 찾는다(묶음 안 품목의 회사 합집합)
+  assert.match((await call('radar_today', { include_minor: true, company: 'S-OIL' }, opts)).text, /stlot:st:ppi-hot-rolled/);
+});
+
 test('kr_stats carsales: latest-month signals A first, model months on query, radar_today puts a stopped model in A and a drop in B', async () => {
   const opts = PRIVATE();
   const env = opts.env;

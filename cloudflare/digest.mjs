@@ -707,12 +707,33 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(tier, W['kr-stats'], { kind: `${e.kind === '수입차 등록' ? '수입차' : '통계'} ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
   }
   // 등급이 높은 줄(최고·최저 B)을 앞에 두고 나머지 신호는 같은 줄 끝에 — id는 앞 줄 것(판정·처리 장부 그대로)
+  // 같은 발표(생산자물가 2026-10 등)의 참고(C) 줄이 셋 이상이면 한 줄로(11-23 72시간 화면: 생산자물가 2026-10 '전년 대비 큰 변동' C가 열연·도금·철근·
+  // 나동선·알루미늄·변압기·나프타·휘발유·경유·에틸렌·프로필렌·PE·PP·SBR·BR 15줄) — 품목마다 신호 한 토막, 하나씩은 kr_stats
+  const statC = new Map();
   for (const list of statGroups.values()) {
     const sorted = [...list].sort((a, b) => (a.tier === 'B' ? 0 : 1) - (b.tier === 'B' ? 0 : 1));
     const [{ e, tier }] = sorted;
     const tails = sorted.slice(1).map((v) => String(v.e.text ?? '').split(' · ').slice(1).join(' · ')).filter(Boolean);
-    push(tier, W['kr-stats'], { kind: `통계 ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company,
-      fact: `${e.kind}: ${e.text}${tails.length ? ` · 같은 달 다른 신호: ${tails.join(' · ')}` : ''}` });
+    const row = { kind: `통계 ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company,
+      fact: `${e.kind}: ${e.text}${tails.length ? ` · 같은 달 다른 신호: ${tails.join(' · ')}` : ''}` };
+    const fam = `${String(e.series).split('-')[0]}|${e.period}`;
+    if (tier === 'C') { if (!statC.has(fam)) statC.set(fam, []); statC.get(fam).push({ e, row, tails }); } else push(tier, W['kr-stats'], row);
+  }
+  for (const list of statC.values()) {
+    if (list.length < 3) { for (const { row } of list) push('C', W['kr-stats'], row); continue; }
+    const head = list[0].e;
+    // 계열 이름(text의 '<이름> <기간>' 앞부분)의 공통 앞말을 묶음 이름으로, 나머지를 품목으로 — 공통 앞말이 없으면(광공업동향 '나동선 생산량' 등) 계열 앞말 이름
+    const words = list.map(({ e }) => String(e.text ?? '').split(` ${e.period}`)[0].split(' '));
+    let k = 0;
+    while (k < words[0].length - 1 && words.every((w) => w.length > k + 1 && w[k] === words[0][k])) k += 1;
+    const FAM = { ppi: '생산자물가', xp: '수출물가(원화)', mp: '수입물가(원화)', steel: '철강 생산', mm: '광공업동향', us: '미국 수입(한국산)' };
+    const label = k ? words[0].slice(0, k).join(' ') : (FAM[String(head.series).split('-')[0]] ?? '같은 발표');
+    const clean = (t) => String(t ?? '').replace(/전년 같은 달\([^)]*\) 대비 /, '전년비 ').replace(/^전년 같은 달 대비 /, '전년비 ');
+    const bits = ({ e, tails }) => [String(e.text ?? '').split(' · ').slice(1).join(' · ') || e.signal, ...tails].map(clean).filter(Boolean).join(' / ');
+    const companies = [...new Set(list.flatMap(({ e }) => String(e.company ?? '').split('·')).filter(Boolean))];
+    push('C', W['kr-stats'], { kind: '월간 통계 묶음', id: `stlot:${head.id}`, date: head.detectedAt, company: companies.join('·'),
+      fact: `월간 통계 ${label} ${head.period} 참고(C) ${list.length}개 품목: `
+        + list.map((v, i) => `${words[i].slice(k).join(' ')} ${bits(v)}`).join(' · ') + ' — 하나씩은 kr_stats' });
   }
 
   const tr = docs['trade-remedy'];
