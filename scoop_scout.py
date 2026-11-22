@@ -70,7 +70,7 @@ ALIASES={
  "SK온":("SK온","SK On"),"SK이노베이션":("SK이노베이션","SK Innovation"),
  "포스코퓨처엠":("포스코퓨처엠","POSCO Future M"),"엘앤에프":("엘앤에프","L&F","LNF"),
  "포스코인터내셔널":("포스코인터내셔널","POSCO International"),
- "포스코":("포스코","POSCO"),"포스코홀딩스":("포스코홀딩스","POSCO Holdings"),"현대제철":("현대제철","Hyundai Steel"),
+ "포스코":("포스코","POSCO"),"포스코홀딩스":("포스코홀딩스","POSCO Holdings","POSCO홀딩스"),"현대제철":("현대제철","Hyundai Steel"),
  "KG스틸":("KG스틸","KG Steel"),"세아홀딩스":("세아홀딩스","SeAH Holdings"),"세아제강":("세아제강","SeAH Steel"),
  "세아씨엠":("세아씨엠","SeAH CM"),"동국제강":("동국제강","Dongkuk Steel"),"동국씨엠":("동국씨엠","Dongkuk CM"),
  "고려아연":("고려아연","Korea Zinc"),"영풍":("영풍","Young Poong"),"LS MnM":("LS MnM","LS MnM Inc."),
