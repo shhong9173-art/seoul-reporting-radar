@@ -1491,6 +1491,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 기자 판정(정기보수 메모)으로 접은 사업장의 멈춤·빠짐 줄은 사업장마다 한 줄로 — 11-23 72시간 화면: 현대제철 순천공장 C가 '오래 멈춤' 30번·25번,
   // '가동 중단 신호'로 석 줄(모두 같은 메모 '정기보수(순천·당진 배출구 가동중지)', 12-07까지 접음). 가장 최근 줄 글을 싣고 나머지는 개수·종류만
   const maintLots = new Map();
+  const goneLots = new Map();
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
@@ -1505,10 +1506,28 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${later ? `〔같은 사업장 ${later.slice(5)} 줄에 이어짐 — 그 줄에 앞서 멈춘 배출구까지 적힘〕 ` : ''}${m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text}`,
       check: later ? undefined : stackHint(e) };
     const lot = m && tier === 'C' ? stackSiteKey(e.id) : null;
+    const gone = !lot && tier === 'C' && /^stk:gone:/.test(String(e.id ?? '')) ? stackSiteKey(e.id) : null;
     if (lot) {
       if (!maintLots.has(lot)) maintLots.set(lot, []);
       maintLots.get(lot).push({ e, row, m });
+    } else if (gone) {
+      if (!goneLots.has(gone)) goneLots.set(gone, []);
+      goneLots.get(gone).push({ e, row });
     } else push(tier, W['kr-stacks'], row);
+  }
+  // 같은 사업장 '배출구 목록에서 빠짐'(참고 C)은 한 줄로 — 11-23 72시간 화면: S-OIL 온산공장 4·51·6·69번이 실행마다 따로 C 넉 줄.
+  // 배출구 번호·기간·다시 나타난 수를 적고 가장 최근 줄 글을 싣는다(id는 stkgone:<가장 최근 줄 id> — 새 줄이 붙으면 다시 뜬다)
+  for (const list of goneLots.values()) {
+    if (list.length < 2) { for (const { row } of list) push('C', W['kr-stacks'], row); continue; }
+    list.sort((a, b) => String(b.e.detectedAt).localeCompare(String(a.e.detectedAt)));
+    const head = list[0].e;
+    const codes = [...new Set(list.map(({ e }) => String(e.id).split(':')[4]).filter(Boolean))];
+    const back = list.filter(({ e }) => /다시 나타남/.test(e.text ?? '')).length;
+    const md = (v) => kstMD(Date.parse(v));
+    push('C', W['kr-stacks'], { kind: '배출구 목록 빠짐 묶음', id: `stkgone:${head.id}`, date: head.detectedAt, company: head.company, site: head.site,
+      fact: `같은 사업장 배출구 목록 빠짐 ${list.length}줄 묶음: ${head.site} — 배출구 ${codes.slice(0, 12).join('·')}번${codes.length > 12 ? ' 외' : ''}`
+        + `(${md(list[list.length - 1].e.detectedAt)}~${md(head.detectedAt)})${back ? ` · 그중 ${back}줄은 이후 다시 나타남(일시적 누락)` : ''}`
+        + ` — 가장 최근 줄: ${head.text} — 하나씩은 kr_official(section=stacks, company=${head.company})` });
   }
   for (const list of maintLots.values()) {
     if (list.length < 2) { for (const { row } of list) push('C', W['kr-stacks'], row); continue; }
