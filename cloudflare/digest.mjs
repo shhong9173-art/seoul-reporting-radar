@@ -680,6 +680,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(tier, W['kr-signals'], { kind: e.kind === '원자재 가격' ? `원자재 ${e.signal}` : e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
   }
 
+  const statGroups = new Map();
   for (const e of docs['kr-stats']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     if (e.kind === '모델별 판매') {  // 현대차·기아 IR 엑셀: 끊김·공장 멈춤 A, 급감·급증·첫 판매·세대 교체 B(이유는 회사 확인)
@@ -689,7 +690,22 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     }
     const record = /최고|최저/.test(e.signal ?? '');
     const tier = e.kind === '수입차 등록' ? (e.top ? 'B' : 'C') : record ? 'B' : 'C';
+    // 같은 계열·같은 달의 월간 통계 신호는 한 줄(11-22 화면: 냉연강대 2026-10이 B '27개월 만 최고'와 C '6개월 연속 증가', 열연은 C 두 줄) — 아래에서 묶는다
+    if (e.kind === '월간 통계' && e.series && e.period) {
+      const k = `${e.series}|${e.period}`;
+      if (!statGroups.has(k)) statGroups.set(k, []);
+      statGroups.get(k).push({ e, tier });
+      continue;
+    }
     push(tier, W['kr-stats'], { kind: `${e.kind === '수입차 등록' ? '수입차' : '통계'} ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
+  }
+  // 등급이 높은 줄(최고·최저 B)을 앞에 두고 나머지 신호는 같은 줄 끝에 — id는 앞 줄 것(판정·처리 장부 그대로)
+  for (const list of statGroups.values()) {
+    const sorted = [...list].sort((a, b) => (a.tier === 'B' ? 0 : 1) - (b.tier === 'B' ? 0 : 1));
+    const [{ e, tier }] = sorted;
+    const tails = sorted.slice(1).map((v) => String(v.e.text ?? '').split(' · ').slice(1).join(' · ')).filter(Boolean);
+    push(tier, W['kr-stats'], { kind: `통계 ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company,
+      fact: `${e.kind}: ${e.text}${tails.length ? ` · 같은 달 다른 신호: ${tails.join(' · ')}` : ''}` });
   }
 
   const tr = docs['trade-remedy'];
