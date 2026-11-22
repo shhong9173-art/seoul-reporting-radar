@@ -1256,6 +1256,35 @@ test('radar_today: scoop candidates count as new only when first screened inside
   assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
 });
 
+test('scoop candidates: business-report number clues (DART_METRIC) are leads, not the filing type on top of the desk', async () => {
+  // 11-22 운영: SK이노베이션 '해외판매'(SK온 3분기 누적 5,643,930→5,090,699백만원)·금호석유화학 '하 역/서비스'가 공시 주소만으로
+  // 단독 데스크 '공시(정정 중 큰 변경·소송·계약)' 실적 유형 맨 위에 6일째 떴다 — 정기보고서 표 숫자 비교라 취재 단서(11-18 기자 결정)
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  const day = new Date(now + 9 * 3600000 - 86400000).toISOString().slice(0, 10);
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    { id: 'clue:metric1', kind: '단서', source: 'DART_METRIC', company: 'SK이노베이션', title: 'SK이노베이션 · 해외판매', verdict: '미보도 후보',
+      published: day, firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000957' },
+    { id: 'clue:suit1', kind: '단서', source: 'DART', company: '고려아연', title: '고려아연 · 소송등의제기ㆍ신청', verdict: '미보도 후보',
+      published: day, firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000111' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('radar_today', {}, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /고려아연 · 소송등의제기ㆍ신청/);
+  assert.doesNotMatch(a, /해외판매/);
+  assert.match(b, /SK이노베이션 · 해외판매 \(단서\) — 보도 대조 '미보도 후보'[\s\S]*?id clue:metric1 〔취재 단서 — 감시 등급 A였지만 단독 후보에서 내림\(11-18\)〕/);
+  const desk = await call('scoop_desk', {}, opts);
+  const fresh = desk.text.split('[1. 새 후보')[1].split('[2. ')[0];
+  assert.match(fresh, /〈실적 있는 유형〉\n- A · [^\n]* · 고려아연/);
+  assert.doesNotMatch(fresh, /해외판매/);
+  assert.match(desk.text, /취재 단서\(단독 추천 안 함\) 1/);
+  const weak = await call('scoop_desk', { include_weak: true }, opts);
+  assert.match(weak.text, /해외판매/);    // 걷어낸 쪽에 그대로 남는다
+});
+
 test('scoop candidates: a correction filing shows what changed before the same-counterparty comparison', async () => {
   const env = PRIVATE().env;
   const now = Date.now();

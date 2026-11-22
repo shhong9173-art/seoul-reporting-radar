@@ -545,7 +545,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       fact: `${title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
     else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${title}` });
   }
-  for (const x of items) if (metricIds.has(String(x.id))) x.multiTopic = true;
+  // 11-22: 사업보고서 수치 단서(DART_METRIC — 같은 분기 두 해 보고서 표 숫자 비교, SK온 '해외판매' 5,643,930→5,090,699백만원)는 정기보고서
+  // 한 칸이다. 단독 데스크가 공시 주소(dart)만 보고 '공시(정정 중 큰 변경·소송·계약)' 실적 유형 맨 위에 6일째 올렸다 — 정기보고서 숨은 대목과
+  // 같이 취재 단서(11-18 기자 결정): A면 B로 내리고 알림을 걸지 않는다. 화면에는 그대로 남는다(〔취재 단서 …〕 표시).
+  for (const x of items) {
+    if (!metricIds.has(String(x.id))) continue;
+    Object.assign(x, { multiTopic: true, metric: true });
+    if (x.tier === 'A') Object.assign(x, { tier: 'B', lead: true, leadFrom: 'A' });
+    else if (x.tier === 'B') x.lead = true;
+  }
 
   const kr = docs['kr-official'];
   for (const e of kr?.events ?? []) {
