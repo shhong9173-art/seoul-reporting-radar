@@ -105,6 +105,21 @@ class StackTest(unittest.TestCase):
                      get=Api(world(T0 + dt.timedelta(hours=34))), sleep=lambda s: None)
         up = [e for e in doc2["events"] if e["kind"] == "사업장 재가동 신호"]
         self.assertEqual([(e["tier"], e["site"]) for e in up], [("B", "현대제철㈜포항2공장")])
+        self.assertTrue(up[0]["text"].endswith("돌아옴 — 1번(평소 20.0→지금 20), 2번(평소 15.0→지금 15) · 지금 멈춤이 이어지는 배출구 없음"))
+
+    def test_restart_names_the_stacks_that_came_back_and_the_ones_still_stopped(self):
+        # 11-18 12:20·11-20 20:54·11-21 11:30 운영: KG스틸 당진 '멈췄던 배출구 2개 중 2개 측정값이 평소 수준으로 돌아옴'이 어느 배출구인지
+        # 없이 났고, 가장 큰 8번(11-15 20:00부터)은 그동안 계속 멈춰 있었다
+        doc = series(10, at=lambda i: {"dangjin": (30.0, 8.0, 6.0, 5.0) if i < 6 else (0.0, 0.0, 0.0, 5.0) if i < 9 else (0.0, 8.0, 6.0, 5.0)})
+        up = [e for e in doc["events"] if e["kind"] == "사업장 재가동 신호" and e["site"] == "현대제철㈜"]
+        self.assertEqual([e["text"] for e in up], ["현대제철㈜: 멈췄던 배출구 3개 중 2개 측정값이 평소 수준으로 돌아옴 — 2번(평소 8.0→지금 8), 3번(평소 6.0→지금 6)"
+                                                   " · 아직 멈춤 1개: 1번(10-31 06:00부터) — 사업장 전체 재가동은 아님"])
+        # 아직 멈춘 배출구가 이번 목록에 없거나 값이 비었으면 그렇게 적는다
+        stacks = next(x for x in doc["sites"] if x["name"] == "현대제철㈜")["stacks"]
+        self.assertIn("1번(10-31 06:00부터, 이번 목록에 없음)",
+                      w.restart_detail(["2"], stacks, {"2": ("running", 8.0)}, {"2", "3", "4"}))
+        self.assertIn("1번(10-31 06:00부터, 이번 값 없음)",
+                      w.restart_detail(["2"], stacks, {"1": ("unknown", 30.0), "2": ("running", 8.0)}, {"1", "2", "3", "4"}))
 
     def test_same_stop_seen_again_after_unreadable_runs_is_not_a_new_down_or_restart(self):
         # 11-16~11-21 운영: OCI 군산공장 17번(11-15부터)·3번(11-12부터)이 매일 오전 측정 쪽 상태 글자로 값이 없어 판단 안 함 →
@@ -200,6 +215,13 @@ class StackTest(unittest.TestCase):
         ev2 = [k_down, k_up, late_down, late_up, other, dict(up)]
         w.retier_short_downs(ev2)
         self.assertEqual([k_down["tier"], late_down["tier"], other["tier"]], ["B", "B", "B"])
+        # 재가동 신호가 돌아온 배출구를 적었으면(11-23부터) 중단 신호의 멈춘 배출구(측정기 쪽 상태 5번 빼고)가 모두 돌아왔을 때만 짧은 멈춤
+        for came, tier in (("194번(평소 60.9→지금 55), 191번(평소 28.7→지금 30) · 지금 멈춤이 이어지는 배출구 없음", "C"),
+                           ("77번(평소 12.0→지금 11), 78번(평소 9.0→지금 9) · 아직 멈춤 1개: 194번(11-21 17:00부터) — 사업장 전체 재가동은 아님", "B")):
+            d = dict(down, tier="B", text=sea)
+            u = dict(up, text=f"㈜세아창원특수강: 멈췄던 배출구 3개 중 2개 측정값이 평소 수준으로 돌아옴 — {came}")
+            w.retier_short_downs([d, u])
+            self.assertEqual(d["tier"], tier, came)
 
     def test_one_big_stack_is_B_small_or_near_zero_stack_is_nothing(self):
         # 당진: 큰 배출구(30) 하나가 멈춤 → B(큰 배출구), 0.1인 배출구는 원래 거의 0이라 판단 안 함
