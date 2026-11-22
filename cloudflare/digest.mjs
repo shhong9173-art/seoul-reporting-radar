@@ -1609,7 +1609,9 @@ export function pressLines(r, stamp, docAt) {
   const at = Date.parse(r.checkedAt ?? '');
   const own = Number.isFinite(at) ? kstStamp(r.checkedAt) : stamp;
   const old = Number.isFinite(at) && at < Date.parse(docAt ?? '') - 60000;
-  const stale = old && !r.recheck && !r.late ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
+  // 11-22: 늦게 잡힌 옛 날짜 항목(허가 40일 뒤 자료에 올라온 건축허가)은 72시간 안에 있어도 한 번 대조한 뒤엔 실행 상한(40건)에서 뒤로 밀린다 —
+  // '최근 72시간 범위 밖'만 적으면 오늘 처음 본 항목에 맞지 않았다(LG화학 익산 11-22 09:55 대조 뒤 15:33 안 봄). 두 까닭을 함께 적는다.
+  const stale = old && !r.recheck && !r.late ? ` · 그 뒤 대조에서는 다시 안 봄(72시간 대조 범위를 지났거나, 대조 규칙이 그대로라 실행 상한 40건에서 처음 보는 항목에 밀림) — 질의·판정은 ${own} 것` : '';
   const failed = Object.entries(r.channels ?? {}).filter(([, v]) => v.status !== 'ok').map(([k, v]) => `${k} ${v.status}${v.error ? `(${v.error})` : ''}`);
   const qs = (r.queries ?? []).map((q) => `"${q}"`).join(', ');
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`

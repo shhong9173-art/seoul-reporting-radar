@@ -2928,7 +2928,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     assert.match(lines[2], /예비 4\.19% https:\/\/b \(숫자 4\.19% — 항목 숫자와 다름, 다른 건일 수 있음\)$/);
   }
   // 이번 실행에서 다시 대조하지 않은 항목(11-09 강관 관보): 자기 대조 시각과 '다시 안 봄'
-  assert.match(a, /보도 대조\(자동 10-23 12:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\) · 그 뒤 대조에서는 다시 안 봄\(최근 72시간 범위 밖 등\) — 질의·판정은 10-23 12:50 것/);
+  assert.match(a, /보도 대조\(자동 10-23 12:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\) · 그 뒤 대조에서는 다시 안 봄\(72시간 대조 범위를 지났거나, 대조 규칙이 그대로라 실행 상한 40건에서 처음 보는 항목에 밀림\) — 질의·판정은 10-23 12:50 것/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
   const none = await call('radar_today', {}, PRIVATE());
