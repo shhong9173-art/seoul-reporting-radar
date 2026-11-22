@@ -3585,6 +3585,9 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
       published: new Date(Date.parse(now) - 10 * 3600000).toISOString() }),
     it('gl:catl2', { title: 'POSCO Group signs lithium deal with CATL', koTitle: '포스코그룹, CATL과 리튬 공급 계약', source: 'digitimes', beatCompanies: ['포스코'], titleCompanies: ['포스코'], checkTerms: ['수주'],
       published: new Date(Date.parse(now) - 5 * 3600000).toISOString() }),
+    // 11-23 운영: 국내 공장 지명이 공장 앞에 붙은 외신 — 지명을 둘째 낱말·필수어로
+    it('gl:hp', { title: 'Kumho Tire seeks KRW 10 billion subsidy for Hampyeong plant', koTitle: '금호타이어, 함평공장 100억원 보조금 신청', source: 'Tyrepress',
+      beatCompanies: ['금호타이어'], titleCompanies: ['금호타이어'], checkTerms: ['보조금', '공장'] }),
     // 11-22 운영: 게재 나흘 뒤에 처음 잡힌 기사(출입처 이름 검색은 7일 전까지 읽음)
     it('gl:late', { title: 'Korea Zinc secures U.S. power supply for smelter', koTitle: '고려아연, 제련소 미국 전력 공급 확보', beatCompanies: ['고려아연'], titleCompanies: ['고려아연'],
       checkTerms: ['제련소'], published: new Date(Date.parse(now) - 4.5 * 86400000).toISOString() })] };
@@ -3638,6 +3641,8 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.deepEqual(items.items.find((x) => x.id === 'gl:htwo').check.must, ['HTWO']);
   assert.deepEqual(items.items.find((x) => x.id === 'gl:pv5').check.must, ['PV5', 'Chassis']);   // EV는 흔한 약어
   assert.deepEqual(us.check.must, ['앨라배마']);                                                // 나라·주 이름이 있으면 그것만(예전대로)
+  const hp = items.items.find((x) => x.id === 'gl:hp');
+  assert.deepEqual([hp.check.terms, hp.check.places, hp.check.must], [['보조금', '함평', '공장'], ['함평'], ['함평']]);
   // 같은 내용 외신은 먼저 난 것 하나만 B·대조, 나머지는 C로 접는다
   assert.match(b, /포스코, CATL과 3년간 리튬 공급 계약 체결[^\n]* · 같은 내용으로 보이는 외신 1건 더\(digitimes — 가장 먼저 난 기사 기준, 참고로 접음\)/);
   assert.match(r.text.split('[C · ')[1], /〔같은 내용 외신 — 먼저 난 upi 줄\(id gl:catl1\)에 묶음〕 외신 digitimes 「포스코그룹, CATL과 리튬 공급 계약」/);

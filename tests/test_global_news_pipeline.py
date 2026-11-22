@@ -209,6 +209,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual(gc.check_terms("서울 법원, LG화학의 론베이 단위 양극재 생산 중단 신청 기각한 것으로 알려져",["LG화학"]),["법원","양극재"])
         self.assertEqual(gc.check_terms("LG화학, 中 업체 상대 특허 가처분 신청",["LG화학"]),["가처분"])
         self.assertEqual(gc.check_terms("포스코, 광양 고로 가동 중단",["포스코"]),["감산"])          # 법원 사건이 아니면 그대로
+        self.assertEqual(gc.check_terms("금호타이어, 함평공장 100억원 보조금 신청",["금호타이어"]),["보조금","공장"])   # 11-23
 
     def test_push_beat_sends_only_beat_items(self):
         import os, types, sys as _sys
