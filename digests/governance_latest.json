@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-23T07:40:58+09:00",
- "windowStart": "2026-10-24",
+ "generatedAt": "2026-11-24T07:41:07+09:00",
+ "windowStart": "2026-10-25",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -164,8 +164,8 @@
    "company": "넥센타이어",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 6,
-   "rowsInWindow": 2
+   "rowsReturned": 7,
+   "rowsInWindow": 3
   },
   {
    "company": "넥센타이어",
@@ -726,8 +726,26 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 25,
+ "count": 26,
  "items": [
+  {
+   "company": "넥센타이어",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-23",
+   "receiptNo": "20261123000169",
+   "reporter": "넥센",
+   "role": "사실상지배주주",
+   "shares": 46743759.0,
+   "sharesChange": 488558.0,
+   "ratio": 44.87,
+   "ratioChange": 0.47,
+   "tags": [
+    "[지분율 +0.47%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261123000169"
+  },
   {
    "company": "두산에너빌리티",
    "team": "전력·에너지",
