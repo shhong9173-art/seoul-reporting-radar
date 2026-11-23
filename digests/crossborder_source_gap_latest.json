@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-20T16:10:44+09:00",
+  "generatedAt": "2026-11-23T16:32:01+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-11-20T11:33:19.504485+09:00",
-    "dartDividend": "2026-11-20T11:33:21.082101+09:00",
-    "slovakGovernmentRegistry": "2026-11-20T16:10:16+09:00",
-    "czechAresRegistry": "2026-11-20T16:10:40+09:00"
+    "nhtsa": "2026-11-23T10:58:38.919700+09:00",
+    "dartDividend": "2026-11-23T10:58:41.280651+09:00",
+    "slovakGovernmentRegistry": "2026-11-23T16:31:28+09:00",
+    "czechAresRegistry": "2026-11-23T16:32:00+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -17,7 +17,7 @@
     "sameAngleNewsFulltext": "not_verified"
   },
   "sourceStale48h": false,
-  "slovakPdfOriginalEvidenceGeneratedAt": "2026-11-20T16:10:24+09:00",
+  "slovakPdfOriginalEvidenceGeneratedAt": "2026-11-23T16:31:41+09:00",
   "foreignLegalEntityLinks": {
     "kiaSlovakia": {
       "company": "Kia Slovakia s. r. o.",
@@ -37,8 +37,8 @@
       "dividendsPaidVerified": false
     }
   },
-  "dossierCount": 4,
-  "usSafetyDossiers": 4,
+  "dossierCount": 3,
+  "usSafetyDossiers": 3,
   "issuerExactDividendDossiers": 0,
   "domesticRecallAbsenceVerified": false,
   "foreignParentCashTransferVerified": false,
@@ -47,267 +47,12 @@
   "warning": "US recall ≠ Korea recall absence. DART dividend income recognition ≠ cash transferred; original record already public, press same angle unknown. New first-monitor observation ≠ scoop.",
   "items": [
     {
-      "id": "usrecall:26V664000",
-      "type": "overseas_safety_domestic_comparison",
-      "companyGroup": "현대차·기아·제네시스",
-      "headline": "미국 리콜 26V664000 · 국내 동일 부품/시정조치 대조 필요",
-      "officialPublicationDate": "2026-10-08",
-      "publicationAgeDays": 43,
-      "reportingWindowStatus": "older_public_record_background_only",
-      "reporterPriority": "background_followup",
-      "sourceEvidence": [
-        {
-          "system": "NHTSA",
-          "scope": "US vehicle recall campaign",
-          "identifier": "26V664000",
-          "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V664000",
-          "verifiedFact": "U.S. campaign officially published",
-          "originalDocumentRead": "archive_flat_record_only_not_Part573_chronology"
-        }
-      ],
-      "officialFact": {
-        "usCampaign": "26V664000",
-        "usModelYears": [
-          {
-            "model": "G80",
-            "year": "2017"
-          },
-          {
-            "model": "G80",
-            "year": "2018"
-          },
-          {
-            "model": "G80",
-            "year": "2019"
-          },
-          {
-            "model": "G80",
-            "year": "2020"
-          },
-          {
-            "model": "GENESIS",
-            "year": "2015"
-          },
-          {
-            "model": "GENESIS",
-            "year": "2016"
-          }
-        ],
-        "usDefectSummary": "Hyundai Motor America (Genesis) is recalling certain 2015-2016 Hyundai Genesis, and 2017-2020 Genesis G80 vehicles. The front power seat motors may overheat due to a stuck power seat control switch, which can result in a fire while parked or driving.",
-        "riskWordingFlagged": true
-      },
-      "criticalEvidenceNotYetVerified": [
-        "NHTSA Part 573 chronology, exact component and U.S. affected part/specification",
-        "Korea-sold variant actual part number/production range; cannot infer it from U.S. model name",
-        "Korean MOLIT/KATRI official recall and free-repair records for those exact parts",
-        "Domestic incident report or absence of recall NOT established",
-        "Previous publication of this precise Korea-US discrepancy by Korean/overseas press"
-      ],
-      "sourceAvailability": {
-        "nhtsaArchive": "available",
-        "part573Attachments": "not_collected",
-        "koreanOfficialRecall": "api_not_connected_requires_authorization",
-        "pressFulltext": "not_collected",
-        "domesticIdenticalPart": "not_verified"
-      },
-      "officialComparisonLinks": [
-        "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V664000",
-        "https://www.car.go.kr/ri/stat/list.do"
-      ],
-      "koreanModelSearchLinks": [
-        {
-          "searchTerm": "G80",
-          "officialSearchUrl": "https://www.car.go.kr/ri/stat/list.do?ctype=O&currentPageNo=1&searchProductName=G80",
-          "searchResultRead": false,
-          "matchingRecallVerified": false,
-          "absenceOfRecallVerified": false,
-          "koreanIdenticalComponentVerified": false
-        },
-        {
-          "searchTerm": "제네시스",
-          "officialSearchUrl": "https://www.car.go.kr/ri/stat/list.do?ctype=O&currentPageNo=1&searchProductName=%EC%A0%9C%EB%84%A4%EC%8B%9C%EC%8A%A4",
-          "searchResultRead": false,
-          "matchingRecallVerified": false,
-          "absenceOfRecallVerified": false,
-          "koreanIdenticalComponentVerified": false
-        }
-      ],
-      "domesticRecallSearchPageIsNotEvidenceOfNoRecall": true,
-      "pitchGate": {
-        "primaryUSRecord": true,
-        "domesticOfficialChecked": false,
-        "exactComponentMatch": false,
-        "domesticIncidentVerified": false,
-        "sameAnglePriorPressChecked": false,
-        "companyImpactVerified": false,
-        "approvedForPitch": false,
-        "exclusiveConfirmed": false
-      },
-      "questionsForPublicSources": [
-        "자동차리콜센터에서 해당 차종·연식과 실제 부품의 국내 리콜·무상수리 기록 확인",
-        "NHTSA 제조사 Part 573 보고서에서 해당 부품·제작기간과 위험 설명 확인",
-        "현대차·기아 홍보팀에 국내 판매 사양의 동일 부품 적용 여부 및 공개된 시정조치만 질의",
-        "국내외 기보도 기사 전문에서 동일한 국내 적용 쟁점이 보도됐는지 확인"
-      ],
-      "publicationAloneIsNotScoop": true,
-      "nhtsaPart573Original": {
-        "status": "us_manufacturer_part573_pages_require_korean_spec_check",
-        "originalReportsRead": 1,
-        "passages": [
-          {
-            "page": 2,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "all Report 26V664 Description of the defect or noncompliance: The front seat slider and height adjustment control switch used on non-memory power seats in the subject vehicles may become dislodged or damaged when subjected to external force(s), potentially causing the switch to remain engaged and the sea",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          },
-          {
-            "page": 4,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "rive Park Outside Description of remedy program: Hyundai is currently working on a remedy for this defect condition. While the remedy is being developed, Hyundai recommends all owners to park their vehicles outdoors and away from other vehicles or structures until the repair has been performed. When avai",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          },
-          {
-            "page": 1,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "ark Ignition Fuel Production Dates: Mar 17, 2016 - Nov 07, 2019 Number of potentially involved: 39,978 Descriptive Information: The subject vehicles include model year 2017-2020 Genesis G80 vehicles assembled on the specified production dates by Hyundai Motor Company (“HMC”) in South Korea for sale in th",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          },
-          {
-            "page": 1,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "dai Motor America Total number of potentially involved: 94,622 Address: 10550 Talbert Avenue Estimated percentage with defect: 1% Fountain Valley CA, 92708 Vehicle Information Vehicle 1: 2017-2020 GENESIS G80 Product Category: Light Vehicles Product Type: Passenger Car Fuel / Propulsion: Spark Ignition F",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          },
-          {
-            "page": 2,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "WER SEAT- DRV(LH) Component Description: DH POWER SEAT Component Part Number: 88990-B1030 The information contained in this report was submitted pursuant to 49 CFR § 573",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          },
-          {
-            "page": 2,
-            "officialPart573PdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "literalPdfExcerpt": "g that can occur: 1. Burning odor (seat) 2. Inoperative seat control switch(s) Component Manufacturer Tier of Supplier: Tier 1 Supplier Type: OEM Name: NIDEC MOBILITY KOREA CORPORATION Address: 790-12, Bogaewonsam-ro Bogae-myeon, Aneseong-si Gyeonggi-do Foreign States, 17507 Country: Korea, Republ",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "basis": "nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
-            "koreanSamePartVerified": false,
-            "domesticRecallAbsentVerified": false
-          }
-        ],
-        "koreanMarketSourceClaims": [
-          {
-            "pdfPage": 3,
-            "literalKoreanMarketPhrase": "Korean market",
-            "usManufacturerContext": "e confirmed in the U.S. July 2, 2026 – Hyundai received additional information related to power seat switch performance and associated thermal event allegations from the Korean market, resulting in technical review of the condition and assessment of its risk of occurrence in the U.S. October 1, 2026 Based on the investigation findings, NASO convened its NASDA and decided to conduc",
-            "incidentTermNearby": true,
-            "incidentLanguageClassification": "thermal_event_allegation_unverified",
-            "manufacturerInformationReceivedDateFromExactText": "2026-07-02",
-            "explicitFireConfirmedByManufacturer": false,
-            "officialPdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
-            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
-            "sourceIsManufacturerAllegationOnly": true,
-            "domesticIncidentIndependentlyVerified": false,
-            "domesticIdenticalPartVerified": false,
-            "koreanRecallAbsenceVerified": false
-          }
-        ],
-        "koreanMarketIncidentIndependentlyVerified": false,
-        "usManufacturerReportedAffectedCount": 94622,
-        "usVehicleCountScope": "official_us_market_not_korean_sales",
-        "differentPdfVersionsAffectedCountConflict": false,
-        "koreanSameComponentVerified": false,
-        "koreanRecallAbsenceVerified": false,
-        "priorSameAngleNewsChecked": false
-      },
-      "domesticPublicScreen": {
-        "status": "public_search_screen_manual_verification_required",
-        "officialQueries": [
-          {
-            "term": "G80",
-            "url": "https://www.car.go.kr/ri/stat/list.do?ctype=O&currentPageNo=1&searchProductName=G80",
-            "status": "public_first_page_only_search_filter_unverified",
-            "titles": [
-              "[현대] G80 등 2차종 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
-              "[제네시스] G80 - 점화 코일 접지용(GND) 볼트 관련 리콜"
-            ],
-            "searchScopeVerified": false,
-            "samePartVerified": false,
-            "absenceOfRecallVerified": false
-          },
-          {
-            "term": "제네시스",
-            "url": "https://www.car.go.kr/ri/stat/list.do?ctype=O&currentPageNo=1&searchProductName=%EC%A0%9C%EB%84%A4%EC%8B%9C%EC%8A%A4",
-            "status": "public_first_page_only_search_filter_unverified",
-            "titles": [
-              "[현대] 제네시스 쿠페 - 이그니션 락 스위치 관련 리콜",
-              "[현대] 제네시스 등 2차종 - 스타트모터 관련 리콜",
-              "[현대] 제네시스 쿠페 등 2차종 - 전자제어유압장치(HECU) 관련 리콜",
-              "[현대] 제네시스/G80(DH) - 전자제어유압장치 관련 리콜",
-              "[현대] 제네시스 쿠페 - 운전석 에어백 모듈 하단의 고정 볼트 관련 리콜"
-            ],
-            "searchScopeVerified": false,
-            "samePartVerified": false,
-            "absenceOfRecallVerified": false
-          }
-        ],
-        "press": {
-          "status": "headline_index_only",
-          "articles": [
-            {
-              "title": "제네시스 美 9.5만대 리콜⋯현대차 \"국내서도 스위치 소손, 고객 조치 예정\" - 아이뉴스24",
-              "publishedAt": "2026-10-16T16:00+09:00",
-              "indexUrl": "https://news.google.com/rss/articles/CBMiS0FVX3lxTE9BUURrcXJxaTV0VnR3aWc2Y2JraEZRXzBZZmlvTS1YQ3BYblRlNHk2STFUU295RnI4cVEyQWVvNXJxRFZ2ZmRJMUNCaw?oc=5",
-              "sameIssueVerified": false
-            },
-            {
-              "title": "현대차, 美서 제네시스·G80 9만4600여대 리콜…전동시트 화재 위험 - KPI뉴스",
-              "publishedAt": "2026-10-15T16:00+09:00",
-              "indexUrl": "https://news.google.com/rss/articles/CBMiV0FVX3lxTFBIMlA1U1ZrMVNablNaS1ZwWnpJQVJmbDFCMmJmTjVmWjBRZzg2TnlaZDZVc0dsbjRKajdGS2ZPSk1NcXFqZ01reFdsZ0ExaW82b2d6WGVsVdIBU0FVX3lxTFBMVm1EcDlwdi1pSG1yeTlaeGFlelU3bm1FS05jcV9rTmFncWhMNGJqZGo0Q2hpVUtKaXBmYVNsWG44RmFRd19uNEJXNkJvR1FWOEJR?oc=5",
-              "sameIssueVerified": false
-            },
-            {
-              "title": "현대·제네시스 9만4000대 리콜…전동시트 과열로 화재 위험 - 애틀랜타 K 뉴스",
-              "publishedAt": "2026-10-19T06:15+09:00",
-              "indexUrl": "https://news.google.com/rss/articles/CBMisgJBVV95cUxPeXFhcUZBZ0FLbEEwRkM4UkZiLWFzQUoySE0wV3NuS0FQZ1hGM0txdDJiRnVtNEstMFJPSFZoS2hWTnNHbXIxUFNkSW5CdEVrMUVRa051VjVwdXJ6VlJCbWRXSXEzWEN4QTd0S1VyY2lHT1FINlJEYjR3Ni1iNi04SC1WblVBUEczRlFaaU91MHFKN2dVRE1BZGlheFBMQUQzUDVlSHExd200WFFBcjNQeE9qZkVmeUpEQndjNEpjYjd2V29qMmxEZjhiQ2hqNFoxcVREa09COGZPVHZneVdrcVlaeU1HdWI2WU40N3FCNy1nU2FjYjl3ajJ2NF9aMjZtS01fMDhmdkN5TEJxeVV5WjhZM0dkQzNYZXVRdWVKbzN1TF9DQ1Jaanhpd3hHNnZwemc?oc=5",
-              "sameIssueVerified": false
-            },
-            {
-              "title": "현대·제네시스 9만4622대 리콜…전동시트 과열로 화재 위험 - 뉴스앤포스트",
-              "publishedAt": "2026-10-17T16:00+09:00",
-              "indexUrl": "https://news.google.com/rss/articles/CBMic0FVX3lxTFBnSGJkM21hR1ZFWmtlOU8yT25OcWdBUkJQeG90aHlkVDRjSjBXOThjWTVJN1JwRXA2bHJNZ0dUd04zV0NTOHJ5Sm5OYVZvV0htOWc3T2JjLTIwUkMwWHNVaEVYREMyaU4yTHJMM01Gd19aaEU?oc=5",
-              "sameIssueVerified": false
-            }
-          ],
-          "fulltextRead": false,
-          "pressAbsenceVerified": false
-        },
-        "domesticRecallAbsenceVerified": false,
-        "domesticIdenticalPartVerified": false,
-        "sameAnglePressFulltextVerified": false
-      }
-    },
-    {
       "id": "usrecall:26V692000",
       "type": "overseas_safety_domestic_comparison",
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-10-20",
-      "publicationAgeDays": 31,
+      "publicationAgeDays": 34,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
@@ -400,7 +145,7 @@
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V693000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-10-20",
-      "publicationAgeDays": 31,
+      "publicationAgeDays": 34,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
@@ -501,7 +246,7 @@
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V728000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-11-02",
-      "publicationAgeDays": 18,
+      "publicationAgeDays": 21,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
