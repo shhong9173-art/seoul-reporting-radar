@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-11-23T08:12:37+09:00",
-  "dartSourceGeneratedAt": "2026-11-23T08:12:27+09:00",
+  "generatedAt": "2026-11-24T08:12:48+09:00",
+  "dartSourceGeneratedAt": "2026-11-24T08:12:33+09:00",
   "status": "reporter_review_not_exclusive",
-  "sourceItemCount": 2,
+  "sourceItemCount": 1,
   "sourceCompanyChecks": 13,
   "uninspectedDartListCount": 0,
-  "reviewedEvents": 2,
+  "reviewedEvents": 1,
   "reviewLimit": 9,
   "unreviewedDartItems": 0,
-  "mediaLookupFailedEvents": 2,
-  "correctionsWithoutVerifiedOriginal": 2,
+  "mediaLookupFailedEvents": 0,
+  "correctionsWithoutVerifiedOriginal": 1,
   "independentlyComparedMaterialFields": 0,
   "issuerOnlyMaterialRowsForReview": 1,
   "recentIssuerOnlyCorrectionFilings": 0,
@@ -54,23 +54,42 @@
       "conflictingDocumentFields": [],
       "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
-      "pressIndexStatus": "press_index_partial_failure",
-      "pressSearchCompleted": false,
+      "pressIndexStatus": "indexed_possible_articles_require_fulltext",
+      "pressSearchCompleted": true,
       "pressSearchQueries": [
         {
           "query": "\"20261116802608\"",
-          "status": "lookup_error",
+          "status": "no_index_hits",
           "articles": [],
-          "errorType": "HTTPError"
+          "errorType": null
         },
         {
           "query": "\"두산에너빌리티\" \"공급계약\"",
-          "status": "lookup_error",
-          "articles": [],
-          "errorType": "HTTPError"
+          "status": "hits",
+          "articles": [
+            {
+              "title": "두산에너빌, 日 미쓰비시와 가스터빈 공급 계약…8400억 베트남 오몬3 사업 '탄력' - 더구루",
+              "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE90TUt1ZTFkbzN3ajBhcWJZV1pqTlNqaDQ0VjRPR2ljb21NSGZKd0NIVF9FT19CM0gxV1dPZGMxQXBxS2UxVXpjRnNya254NTc4UFhEeTVlOHVrMHA2NkVQYkNfcw?oc=5",
+              "publishedAt": "2026-11-20T16:00:52+09:00",
+              "indexResultNotVerifiedSameEvent": true
+            },
+            {
+              "title": "두산에너빌리티, 중국 라이양 원전 5·6호기 핵심 단조품 공급 계약 - 쿠키뉴스",
+              "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE5ZX1BIOXVuek5mZUtEZW5iUTd4a2sxMUo1eEw2QU9VcnE2Z0ZrUXZiS2c4dXBxTTE5QTMtcVV4NzdudDg4eEE0WjNMZnpqOUxiYnh4TkU2QlNmYVBXNUZuLVMwWQ?oc=5",
+              "publishedAt": "2026-11-19T01:00:12+09:00",
+              "indexResultNotVerifiedSameEvent": true
+            },
+            {
+              "title": "체코 원전 '팀코리아' 결속 재확인…시공계약 결렬 후 사업 정상화 다짐 - 인사이트N파워",
+              "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE5RSlFCOC1GbHVfTHRwQzFSTV8xR3JKWEQ3M08wV3JsdVhKVk9SVUg0c1pYZ0F3dzBGRmUzei1OZlVSY21rWHlzMENnb3JZSnVVZUxuY0FJNjI0T280TXJSOXdWWW9iUQ?oc=5",
+              "publishedAt": "2026-11-23T10:56:46+09:00",
+              "indexResultNotVerifiedSameEvent": true
+            }
+          ],
+          "errorType": null
         }
       ],
-      "indexedArticleCount": 0,
+      "indexedArticleCount": 3,
       "possiblePreOrSameFilingDayIndexedCount": 0,
       "exactReceiptNumberIndexLead": false,
       "priorCoverageOfSameContractVerified": false,
@@ -80,62 +99,6 @@
       "approvedForPitch": false,
       "nextChecks": [
         "정정문 자체의 전후 기재 차이 발견: 실제 원공시·이전 정정문 대조 및 최초 공개 시점 확인(현재 원공시 직접 대조 미완료)",
-        "원공시 접수번호가 정정문에 명시됐는지 추가 확인(동일 날짜 추정 연결 금지)",
-        "기보도 전문 원문과 동일 계약 여부 확인",
-        "공시 계약 상대방·금액·기간·실제 효력 별도 검증",
-        "해당 출입처 사업부·납품 물량·매출 영향 직접 답변"
-      ],
-      "warnings": "공개 공시/뉴스 RSS 색인 참고자료. 검색 미발견=미보도 증거 아님. 원공시 번호 확인 전 변경 확정 금지."
-    },
-    {
-      "id": "DART:20261102800394",
-      "company": "영풍",
-      "receiptNo": "20261102800394",
-      "published": "20261102",
-      "category": "생산중단",
-      "headline": "영풍 · [기재정정]생산중단",
-      "officialSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394",
-      "officialSourceStatus": "original_not_verified",
-      "isCorrection": true,
-      "originalReceiptNo": null,
-      "originalSourceUrl": null,
-      "comparisonStatus": "original_unverified_no_comparison",
-      "materialFieldChanges": [],
-      "issuerCorrectionTableStatus": "issuer_table_no_verified_material_rows",
-      "issuerDeclaredMaterialChanges": [],
-      "revisionEditorialClass": "no_supported_material_revision_observed",
-      "officialPublishedWithinLast3Days": false,
-      "correctionDateIsNotFreshNews": true,
-      "unambiguousCurrentDocumentFields": {},
-      "currentDocumentFieldEvidence": {},
-      "conflictingDocumentFields": [],
-      "documentTablesExamined": null,
-      "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
-      "pressIndexStatus": "press_index_partial_failure",
-      "pressSearchCompleted": false,
-      "pressSearchQueries": [
-        {
-          "query": "\"20261102800394\"",
-          "status": "lookup_error",
-          "articles": [],
-          "errorType": "HTTPError"
-        },
-        {
-          "query": "\"영풍\" \"생산중단\"",
-          "status": "lookup_error",
-          "articles": [],
-          "errorType": "TimeoutError"
-        }
-      ],
-      "indexedArticleCount": 0,
-      "possiblePreOrSameFilingDayIndexedCount": 0,
-      "exactReceiptNumberIndexLead": false,
-      "priorCoverageOfSameContractVerified": false,
-      "companyImpactVerified": false,
-      "actualShipmentChangeVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
         "원공시 접수번호가 정정문에 명시됐는지 추가 확인(동일 날짜 추정 연결 금지)",
         "기보도 전문 원문과 동일 계약 여부 확인",
         "공시 계약 상대방·금액·기간·실제 효력 별도 검증",
