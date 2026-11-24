@@ -186,12 +186,40 @@ class PublisherIntegration(unittest.TestCase):
         git(self.peer,"add","digests/dart_beat_monitor_latest.json")
         git(self.peer,"commit","-m","beat source updated without event triage")
         git(self.peer,"push","origin","main")
+        delays=[]
         with self.assertRaisesRegex(ValueError,"official_dart_snapshot_identity"):
-            publish(self.root,"news")
+            publish(self.root,"news",retry_sleep=delays.append)
+        self.assertEqual(delays,[5,10,15,20,20])     # 끝까지 어긋나면 멈춘다
         git(self.peer,"fetch","origin","main")
         self.assertEqual(
             json.loads(self.remote_file("digests/reverse_trace_dart_followups_latest.json"))
             ["dartOfficialSourceAt"],"2026-10-18T10:03:00+09:00")
+
+    def test_publisher_waits_for_event_triage_to_catch_up_with_dart(self):
+        # 11-24 10:46 KST 실제: dart_beat가 먼저 올라오고 사건 분류는 5초 뒤 맞춰졌다 — 그 사이에 읽은 발행이 멈췄다.
+        beat="2026-11-24T10:46:00+09:00"
+        (self.peer/"digests/dart_beat_monitor_latest.json").write_text(
+            json.dumps({"status":"industry_beat_official_receipt_review","generatedAt":beat}))
+        git(self.peer,"add","digests/dart_beat_monitor_latest.json")
+        git(self.peer,"commit","-m","beat first")
+        git(self.peer,"push","origin","main")
+        delays=[]
+        def triage_lands(seconds):
+            delays.append(seconds)
+            (self.peer/"digests/official_event_triage_latest.json").write_text(json.dumps({
+                "status":"official_date_triage","generatedAt":"2026-11-24T10:46:40+09:00",
+                "beatWideDartSourceAt":beat,"confirmedScoops":0,"backgroundReference":[],
+                "freshOfficialReview":[],"incompleteOrStaleFeeds":[]}))
+            git(self.peer,"add","digests/official_event_triage_latest.json")
+            git(self.peer,"commit","-m","triage aligned")
+            git(self.peer,"push","origin","main")
+        write_news(self.root,"fresh")
+        self.assertEqual(publish(self.root,"news",retry_sleep=triage_lands),"published")
+        self.assertEqual(delays,[5])
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file("digests/reverse_trace_dart_followups_latest.json"))
+                         ["dartOfficialSourceAt"],beat)
+        self.assertEqual(json.loads(self.remote_file("data.json"))[0]["title"],"fresh news 0")
 
     def test_news_never_overwrites_scoop_and_leaves_dirty_collector_untouched(self):
         # Independent scoop writer gets a newer result just before newsroom publish.

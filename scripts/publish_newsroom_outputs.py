@@ -509,7 +509,17 @@ def publish(root: Path, mode: str, *, attempts: int = 6, before_push=None, retry
                     # DART may update while Auto Desk is collecting news.
                     # A news branch checkout must never silently publish a
                     # research queue tied to the *older* DART snapshot.
-                    rebuild_dart_followups_from_current_remote(output)
+                    try:
+                        rebuild_dart_followups_from_current_remote(output)
+                    except ValueError as exc:
+                        # 11-24 10:46 KST: dart_beat 발행(01:46:35Z)과 사건 분류 맞춤(01:46:40Z) 사이
+                        # 5초에 main을 읽어 두 스냅샷이 어긋났다 — 다음 실행은 정상. 짝이 맞을 때까지
+                        # 새로 받아 다시 본다(5·10·15·20초). 끝까지 어긋나면 예전처럼 멈춘다.
+                        if (str(exc) != "official_dart_snapshot_identity_mismatch"
+                                or attempt + 1 >= attempts):
+                            raise
+                        retry_sleep(min(5 * (attempt + 1), 20))
+                        continue
                 run(output, "add", "--", *names)
                 changed = run(output, "diff", "--cached", "--quiet", check=False)
                 if changed.returncode == 0:
