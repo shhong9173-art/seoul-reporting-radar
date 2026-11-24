@@ -952,6 +952,32 @@ def weekend_hours(value, now):
     return round(max(total, 0.0), 1)
 
 
+SIZE_WARN = 0.8
+
+
+def publish_size_rows(root: Path):
+    """발행 상한의 80%를 넘은 결과 파일(11-24): 1년 기보도 색인이 12MiB 상한을 넘어 Auto Desk 발행이 04:50부터
+    19회 연속 실패했는데, 그 전까지 어디에도 '곧 찬다'는 표시가 없었다. 넘으면 그 모드의 발행 전체가 멈춘다."""
+    try:
+        from scripts.publish_newsroom_outputs import OUTPUTS, output_size_limit
+    except ModuleNotFoundError:
+        from publish_newsroom_outputs import OUTPUTS, output_size_limit
+    rows = []
+    for mode, names in OUTPUTS.items():
+        for rel in names:
+            path = root / rel
+            if not path.is_file():
+                continue
+            size, cap = path.stat().st_size, output_size_limit(rel)
+            if size < cap * SIZE_WARN:
+                continue
+            rows.append({"source": f"발행 파일 크기 {rel}", "file": rel, "status": "발행 상한 가까움",
+                         "generatedAt": None, "ageHours": None, "expectedMaxAgeHours": None, "problem": True,
+                         "note": f"{size / 1048576:.1f}MiB / 상한 {cap // 1048576}MiB({size * 100 // cap}%) — 넘으면 '{mode}' 발행 전체가 멈춘다"
+                                 "(11-24 Auto Desk 19회 연속 실패). 보존 기간·파일 분할 조정 필요"})
+    return rows
+
+
 def build_health(root: Path, now: datetime):
     rows = []
     for label, rel, max_age, *flags in HEALTH_FILES:
@@ -966,6 +992,7 @@ def build_health(root: Path, now: datetime):
         if off:
             row["note"] = f"평일(월~금)만 갱신 — 주말 {off}시간 빼면 {round(age - off, 1)}시간"
         rows.append(row)
+    rows.extend(publish_size_rows(root))
     g2b = load(root / "digests/g2b_source_status_latest.json") or {}
     rows.append({"source": "나라장터 입찰공고", "file": "digests/g2b_source_status_latest.json",
                  "status": g2b.get("status", "missing"), "generatedAt": g2b.get("generatedAt"),

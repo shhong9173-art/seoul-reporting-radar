@@ -324,6 +324,25 @@ class Views(unittest.TestCase):
         self.assertTrue(row["problem"])
         self.assertNotIn("note", row)
 
+    def test_publish_files_near_size_limit_are_flagged(self):
+        # 11-24: 1년 기보도 색인이 12MiB 발행 상한을 넘어 Auto Desk가 19회 연속 실패 — 80%부터 미리 알린다
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fixture(tmp.name, True)
+        root = Path(tmp.name)
+        (root / "data.json").write_text("x" * (10 * 1024 * 1024), encoding="utf-8")       # 12MiB의 83%
+        (root / "archive.json").write_text("x" * (20 * 1024 * 1024), encoding="utf-8")    # 32MiB의 62% — 아직
+        health = v.build_health(root, NOW)
+        rows = {r["source"]: r for r in health["items"]}
+        row = rows["발행 파일 크기 data.json"]
+        self.assertTrue(row["problem"])
+        self.assertIn("10.0MiB / 상한 12MiB(83%)", row["note"])
+        self.assertIn("'news' 발행 전체가 멈춘다", row["note"])
+        self.assertNotIn("발행 파일 크기 archive.json", rows)
+        (root / "archive.json").write_text("x" * (27 * 1024 * 1024), encoding="utf-8")    # 84%
+        rows = {r["source"]: r for r in v.build_health(root, NOW)["items"]}
+        self.assertIn("27.0MiB / 상한 32MiB(84%)", rows["발행 파일 크기 archive.json"]["note"])
+
     def test_kipris_row_reads_the_shared_ledger_not_the_old_budget_file(self):
         # 11-02: 예전 예산 파일만 읽어 'KIPRIS 특허: ok · 다음 1회 확인 None'이 떴다
         tmp = tempfile.TemporaryDirectory()
