@@ -109,7 +109,9 @@ export async function runsHealth(ctx) {
         + ` · 마지막 성공 ${Number.isFinite(ok) ? `${kst(ok)} KST` : '기록 없음'} — 실패한 도구의 0건·오류는 미확인`);
       continue;
     }
-    lines.push(`⚠ GitHub 실행 ${n}회 연속 실패: ${w.name}(${file}) · 마지막 실패 ${Number.isFinite(last) ? `${kst(last)} KST` : '?'}`
+    // 11-24: 워크플로마다 최근 8번만 남겨 Auto Desk 19회 연속 실패가 '8회'로 보였다 — 남긴 실행이 전부 실패면 '8회 이상'
+    const more = n >= KEEP && n === w.runs.length ? ' 이상' : '';
+    lines.push(`⚠ GitHub 실행 ${n}회${more} 연속 실패: ${w.name}(${file}) · 마지막 실패 ${Number.isFinite(last) ? `${kst(last)} KST` : '?'}`
       + ` · 마지막 성공 ${Number.isFinite(ok) ? `${kst(ok)} KST` : `기록 없음(최근 ${w.runs.length}번 안)`} — 이 프로그램이 만드는 결과는 그 성공 때 것, 그 뒤 0건은 미확인`);
   }
   if (bad.length > 6) lines.push(`⚠ GitHub 실행 연속 실패 ${bad.length - 6}개 더: ${bad.slice(6).map((x) => x.file).join(', ')}`);
