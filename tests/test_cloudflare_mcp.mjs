@@ -6133,6 +6133,31 @@ test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓
   assert.match((await call('radar_today', {}, { ...none, now: new Date('2026-11-07T16:05:00Z') })).text, /GitHub 실행 상태\(30분마다 확인\): 워커에 GITHUB_DISPATCH_TOKEN 없음/);
 });
 
+test('GitHub 연속 실패(11-24 Auto Desk 19회): 남긴 8번이 전부 실패면 "8회 이상", 기자 전용 radar_health에도 싣고 문제 수에 센다', async () => {
+  const run = (id, at, c) => ({ id, path: '.github/workflows/auto-desk.yml', name: 'Auto Desk News Update', run_started_at: at, created_at: at, status: 'completed', conclusion: c, event: 'workflow_dispatch' });
+  const list = [run(100, '2026-11-23T19:30:00Z', 'success')];
+  for (let i = 0; i < 19; i += 1) list.push(run(101 + i, new Date(Date.parse('2026-11-23T19:50:00Z') + i * 20 * 60000).toISOString(), 'failure'));
+  const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
+  await runSchedule(opts.env, new Date('2026-11-24T02:00:00Z'), { fetch: async (url) => (url.includes('/actions/runs?') ? Response.json({ workflow_runs: list }) : new Response(null, { status: 204 })) });
+  const now = new Date('2026-11-24T02:03:00Z');
+  const today = (await call('radar_today', { hours: 24 }, { ...opts, now })).text;
+  assert.match(today, /^- ⚠ GitHub 실행 8회 이상 연속 실패: Auto Desk News Update\(auto-desk\.yml\) · 마지막 실패 11-24 10:50 KST · 마지막 성공 11-24 04:30 KST/m);
+  const fetch = fakeFetch();
+  const h = (await call('radar_health', {}, { ...opts, fetch, now })).text;
+  assert.match(h.split('\n')[0], / · \[기자 전용\] GitHub 연속 실패 1개$/);
+  assert.match(h, /\n\[기자 전용\] ⚠ GitHub 실행 8회 이상 연속 실패: Auto Desk News Update/);
+  // 공개 연결에는 없음
+  const pub = (await call('radar_health', {}, { fetch, now })).text;
+  assert.doesNotMatch(pub, /GitHub/);
+  // 실패가 남긴 수보다 적으면 '이상'을 붙이지 않는다
+  assert.equal(failStreak(mergeRuns({}, list.slice(0, 4), now.getTime())['auto-desk.yml']), 3);
+  await runSchedule(opts.env, new Date('2026-11-24T02:30:00Z'), { fetch: async (url) => (url.includes('/actions/runs?')
+    ? Response.json({ workflow_runs: [...list, run(200, '2026-11-24T02:10:00Z', 'success')] }) : new Response(null, { status: 204 })) });
+  const fixed = (await call('radar_health', {}, { ...opts, fetch, now: new Date('2026-11-24T02:35:00Z') })).text;
+  assert.match(fixed.split('\n')[0], /문제 \d+곳$/);
+  assert.doesNotMatch(fixed, /GitHub/);
+});
+
 test('radar_today 수집 상태: 기자 컴퓨터(Aside) 수집이 예정 시각 뒤 안 올라오거나 이 길뿐인 시·군을 못 읽으면 알린다', async () => {
   const slot = (iso) => new Date(lastBrowserSlot(Date.parse(iso))).toISOString();
   assert.equal(slot('2026-11-09T00:00:00Z'), '2026-11-06T07:00:00.000Z');  // 월 09:00 KST → 금 16:00(월 09:00은 여유 45분 안) — 11-11부터 09:00·16:00

@@ -4,6 +4,7 @@ import {
 } from './common.mjs';
 import { alertHealth, taskHealth } from './alert_health.mjs';
 import { browserHealth, lastBrowserSlot } from './local_browser.mjs';
+import { runsHealth } from './gh_runs.mjs';
 
 const COVERAGE_ORDER = { none_in_index: 0, not_compared: 1, index_unavailable: 1, similar_headlines: 2 };
 const SHORT_COVERAGE = {
@@ -135,10 +136,18 @@ export async function health(ctx) {
   // 기자 전용 연결에서만(11-17 기자 결정 '추천대로'): 기자 컴퓨터 수집과 단독 알림 예약 실행 — 공개 health.json에는 없는 상태다.
   // 11-17 예약 확인이 이 도구만 보고 '기자 컴퓨터 수집' 시각을 못 찾았다. 읽기 실패는 줄을 숨기지 않고 미확인으로 적는다.
   if (ctx.private) {
-    const [bh, ah, th] = await Promise.all([
+    const [bh, ah, th, gh] = await Promise.all([
       browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`),
       alertHealth(ctx).catch((e) => `단독 후보 즉시 알림: 기록 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`),
-      taskHealth(ctx).catch((e) => [`오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`])]);
+      taskHealth(ctx).catch((e) => [`오후 체크 예약 작업: 저장본 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`]),
+      runsHealth(ctx).catch((e) => [`GitHub 실행 상태: 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`])]);
+    // 11-24: Auto Desk가 04:50부터 19회 연속 실패하는 동안 이 도구는 '문제 0곳'이었다(결과 파일 나이 기준 30시간 안).
+    // radar_today 맨 위의 GitHub 연속 실패 줄을 여기에도 싣고, 첫 줄 문제 수에 따로 센다.
+    const streaks = gh.filter((x) => /^⚠ (GitHub 실행 \d|배포 뒤)/.test(x)).length
+      + gh.reduce((n, x) => n + Number((x.match(/^⚠ GitHub 실행 연속 실패 (\d+)개 더/) ?? [0, 0])[1]), 0);
+    const unknown = gh.some((x) => !x.startsWith('⚠'));
+    if (gh.length) out[0] += ` · [기자 전용] GitHub 연속 실패 ${streaks}개${unknown ? '(실행 상태 미확인)' : ''}`;
+    for (const x of gh) out.push(`[기자 전용] ${x.startsWith('⚠') ? x : `⚠ ${x}`}`);
     const slot = lastBrowserSlot(ctx.now.getTime());
     out.push(`[기자 전용] ${bh ? `⚠ ${bh}` : `· 기자 컴퓨터 수집: 가장 최근 예정 수집${slot != null ? `(${kstStamp(new Date(slot)).slice(5, 16)})` : ''} 올라옴`}`);
     if (ah) out.push(`[기자 전용] ⚠ ${ah}`);
