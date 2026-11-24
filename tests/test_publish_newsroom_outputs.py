@@ -461,6 +461,20 @@ class PublisherIntegration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invalid_generated_output: data.json"):
             selected(self.root,"news")
 
+    def test_year_press_index_gets_archive_allowance_only(self):
+        # 11-24 운영 색인은 12MiB(12,582,912)를 넘어 Auto Desk 발행이 연속 실패했다.
+        name="digests/press_coverage_index_latest.json"
+        self.assertGreater(output_size_limit(name),12*1024*1024)
+        self.assertLessEqual(output_size_limit(name),32*1024*1024)
+        for other in OUTPUTS["news"]:
+            if other not in ("archive.json",name):
+                self.assertEqual(output_size_limit(other),12*1024*1024,other)
+        index=json.loads((self.root/name).read_text(encoding="utf-8"))
+        index["warning"]="x"*(12*1024*1024)  # 실제 색인처럼 유효한 구조로 12MiB를 넘김
+        (self.root/name).write_text(json.dumps(index,ensure_ascii=False),encoding="utf-8")
+        self.assertGreater((self.root/name).stat().st_size,12*1024*1024)
+        self.assertIn(name,selected(self.root,"news"))
+
     def test_reporting_queue_is_single_owner_and_never_publishes_scoops(self):
         self.assertEqual(OUTPUTS["queue"],
                          ("digests/reporting_evidence_queue_latest.json",))

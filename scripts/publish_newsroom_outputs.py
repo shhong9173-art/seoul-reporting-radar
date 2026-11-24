@@ -58,11 +58,15 @@ OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 # Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
 # cap blocked already-validated news from publication. Give ONLY the long-lived
 # 90-day news archive a bounded 32MiB allowance, never all output files.
+# 11-24: 1년 보존 기보도 색인(press_coverage_index, 10-18 시작)이 하루 약 0.3MB씩 커져
+# 11-23 19:36 UTC 커밋 12,582,478바이트 다음 실행부터 12MiB를 넘었고, Auto Desk 발행이
+# 04:50 KST부터 연속 실패했다. 이 색인에도 같은 32MiB 상한을 준다(약 두 달 여유 — 그 전에 분할 필요).
 DEFAULT_MAX_BYTES = 12 * 1024 * 1024
 ARCHIVE_MAX_BYTES = 32 * 1024 * 1024
+LARGE_OUTPUTS = frozenset({"archive.json", "digests/press_coverage_index_latest.json"})
 
 def output_size_limit(name: str) -> int:
-    return ARCHIVE_MAX_BYTES if name == "archive.json" else DEFAULT_MAX_BYTES
+    return ARCHIVE_MAX_BYTES if name in LARGE_OUTPUTS else DEFAULT_MAX_BYTES
 
 
 def run(cwd: Path, *args: str, check: bool = True):
