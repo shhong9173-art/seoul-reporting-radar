@@ -612,6 +612,18 @@ class CoverageIndex:
 
 
 # -------------------------------------------------------------------- views
+def load_press_history(root: Path):
+    """1년 기보도 색인 전체(11-24부터 latest + 달 파일). 달 파일이 어긋나면 None — 색인 없음(0건 아님)과 같게."""
+    try:
+        from scripts.press_coverage_index import load_full_index
+    except ModuleNotFoundError:
+        from press_coverage_index import load_full_index
+    try:
+        return load_full_index(root / "digests/press_coverage_index_latest.json")
+    except (OSError, ValueError):
+        return None
+
+
 def build_clues(root: Path, now: datetime, previous=None, horizon_days=45):
     rows, sources = [], []
     for rel, adapter in ADAPTERS:
@@ -623,7 +635,7 @@ def build_clues(root: Path, now: datetime, previous=None, horizon_days=45):
     rows = merge_clues(rows)
     cutoff = (now - timedelta(days=horizon_days)).strftime("%Y-%m-%d")
     rows = [r for r in rows if not r["published"] or r["published"] >= cutoff]
-    index = CoverageIndex(load(root / "digests/press_coverage_index_latest.json"),
+    index = CoverageIndex(load_press_history(root),
                           load(root / "digests/historical_exclusive_press_index_latest.json"))
     seen_before = {}
     for old in (previous or {}).get("items", []) or []:
@@ -963,7 +975,8 @@ def publish_size_rows(root: Path):
     except ModuleNotFoundError:
         from publish_newsroom_outputs import OUTPUTS, output_size_limit
     rows = []
-    for mode, names in OUTPUTS.items():
+    shards = sorted(str(x.relative_to(root)) for x in (root / "digests/press_coverage_index").glob("*.json"))
+    for mode, names in [*OUTPUTS.items(), ("news", shards)]:
         for rel in names:
             path = root / rel
             if not path.is_file():

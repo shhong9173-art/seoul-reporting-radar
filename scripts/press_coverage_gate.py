@@ -10,11 +10,17 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+try:
+    from scripts.press_coverage_index import MAX_ENTRIES, expand_index
+except ModuleNotFoundError:
+    from press_coverage_index import MAX_ENTRIES, expand_index
+
 STATUS="observed_domestic_press_index_not_complete_coverage"
 KST=timezone(timedelta(hours=9))
 
 
 def load_index(path):
+    """1년 색인 전체(latest + 11-24부터 달 파일). 달 파일이 하나라도 어긋나면 색인 없음으로(0건 아님)."""
     try:
         obj=json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
@@ -22,11 +28,14 @@ def load_index(path):
     if (not isinstance(obj,dict) or obj.get("status")!=STATUS
         or not isinstance(obj.get("items"),list)
         or obj.get("itemCount")!=len(obj["items"])
-        or len(obj["items"])>100_000):
+        or len(obj["items"])>MAX_ENTRIES):
         return {"status":"missing_or_invalid_index","items":[]}
     if obj.get("seedOnly") is True:
         return {"status":"initial_baseline_without_articles","items":[]}
-    return obj
+    try:
+        return expand_index(obj,Path(path).parent)
+    except ValueError:
+        return {"status":"missing_or_invalid_index","items":[]}
 
 
 def _date(value):
@@ -56,7 +65,7 @@ def prior_coverage_candidates(event,index,*,event_match_score,companies=None,
                 "matches":[],"fulltextReviewed":False,
                 "notReportedProved":False,"sourceAt":None}
     rows=index.get("items")
-    if (not isinstance(rows,list) or len(rows)>100_000
+    if (not isinstance(rows,list) or len(rows)>MAX_ENTRIES
         or index.get("itemCount")!=len(rows)):
         return {"status":"index_unavailable_not_no_news",
                 "matches":[],"fulltextReviewed":False,

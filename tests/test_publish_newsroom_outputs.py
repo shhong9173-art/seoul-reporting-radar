@@ -221,6 +221,30 @@ class PublisherIntegration(unittest.TestCase):
                          ["dartOfficialSourceAt"],beat)
         self.assertEqual(json.loads(self.remote_file("data.json"))[0]["title"],"fresh news 0")
 
+    def test_news_publishes_press_index_month_files_named_by_latest(self):
+        # 11-24 월별 분할: latest의 coldShards가 가리키는 달 파일만 함께 발행하고, sha256이 어긋나면 멈춘다
+        from datetime import datetime,timedelta,timezone
+        from scripts.press_coverage_index import merge_index,write_split_index
+        kst=timezone(timedelta(hours=9)); dec=datetime(2026,12,2,9,0,tzinfo=kst)
+        write_news(self.root,"fresh")
+        rows=[{"title":"10월 "+str(i),"published":"2026-10-2%dT09:00:00+09:00"%i,"sourceName":"경제신문",
+               "url":"https://example.com/10/%d"%i,"companies":["현대차"]} for i in range(3)]
+        rows.append({"title":"12월","published":"2026-12-01T09:00:00+09:00","sourceName":"경제신문",
+                     "url":"https://example.com/12","companies":["현대차"]})
+        full=merge_index(None,rows,now=dec)
+        full["generatedAt"]="2026-10-18T10:00:00+09:00"     # 역추적 결과(pressIndexGeneratedAt)와 같은 시각
+        write_split_index(self.root/"digests/press_coverage_index_latest.json",full,dec)
+        shard="digests/press_coverage_index/2026-10.json"
+        self.assertIn(shard,selected(self.root,"news"))
+        self.assertEqual(publish(self.root,"news",retry_sleep=lambda s:None),"published")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file(shard))["itemCount"],3)
+        self.assertEqual(json.loads(self.remote_file("digests/press_coverage_index_latest.json"))["totalItemCount"],4)
+        path=self.root/shard
+        path.write_text(path.read_text(encoding="utf-8").replace("10월 0","바뀜"),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"invalid_press_index_month_shards: press_index_shard_hash_mismatch"):
+            selected(self.root,"news")
+
     def test_news_never_overwrites_scoop_and_leaves_dirty_collector_untouched(self):
         # Independent scoop writer gets a newer result just before newsroom publish.
         write_scoop(self.peer,"other independent scoop")
