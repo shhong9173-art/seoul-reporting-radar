@@ -1,6 +1,6 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-24T07:41:07+09:00",
+ "generatedAt": "2026-11-24T15:24:01+09:00",
  "windowStart": "2026-10-25",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
@@ -395,8 +395,8 @@
    "company": "HD현대일렉트릭",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 36,
-   "rowsInWindow": 2
+   "rowsReturned": 39,
+   "rowsInWindow": 5
   },
   {
    "company": "HD현대일렉트릭",
@@ -726,8 +726,26 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 26,
+ "count": 29,
  "items": [
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-11-24",
+   "receiptNo": "20261124000242",
+   "reporter": "김영기",
+   "role": "등기임원 대표이사",
+   "shares": 300.0,
+   "sharesChange": 300.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [
+    "[최고경영진]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261124000242"
+  },
   {
    "company": "넥센타이어",
    "team": "자동차",
@@ -929,6 +947,38 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102000111"
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-11-24",
+   "receiptNo": "20261124000101",
+   "reporter": "이재웅",
+   "role": "비등기임원 상무",
+   "shares": 130.0,
+   "sharesChange": 130.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261124000101"
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-11-24",
+   "receiptNo": "20261124000102",
+   "reporter": "김관중",
+   "role": "비등기임원 전무",
+   "shares": 130.0,
+   "sharesChange": 130.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261124000102"
   },
   {
    "company": "금호석유화학",
