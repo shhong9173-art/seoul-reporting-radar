@@ -64,9 +64,32 @@ OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 DEFAULT_MAX_BYTES = 12 * 1024 * 1024
 ARCHIVE_MAX_BYTES = 32 * 1024 * 1024
 LARGE_OUTPUTS = frozenset({"archive.json", "digests/press_coverage_index_latest.json"})
+# 11-24 월별 분할: 지난 달 기보도 색인 파일(달마다 약 10MB)도 같은 32MiB.
+PRESS_SHARD_PREFIX = "digests/press_coverage_index/"
 
 def output_size_limit(name: str) -> int:
-    return ARCHIVE_MAX_BYTES if name in LARGE_OUTPUTS else DEFAULT_MAX_BYTES
+    if name in LARGE_OUTPUTS or name.startswith(PRESS_SHARD_PREFIX):
+        return ARCHIVE_MAX_BYTES
+    return DEFAULT_MAX_BYTES
+
+
+def press_shard_outputs(root: Path, history):
+    """latest 색인의 coldShards 목록이 가리키는 달 파일(저장소 기준 이름). sha256·건수가 어긋나면 ValueError."""
+    try:
+        from scripts.press_coverage_index import expand_index, shard_names
+    except ModuleNotFoundError:
+        from press_coverage_index import expand_index, shard_names
+    try:
+        expand_index(history, root / "digests")
+    except ValueError as exc:
+        raise ValueError("invalid_press_index_month_shards: " + str(exc)) from None
+    names = ["digests/" + x for x in shard_names(history)]
+    for name in names:
+        path = root / name
+        if (not path.is_file() or path.is_symlink()
+                or path.stat().st_size > output_size_limit(name)):
+            raise ValueError("invalid_generated_output: " + name)
+    return names
 
 
 def run(cwd: Path, *args: str, check: bool = True):
@@ -335,6 +358,7 @@ def selected(root: Path, mode: str):
                    or x.get("publicTraceClass") not in ("Y","P","N","U")
                    for x in trace.get("items",[]))):
             raise ValueError("unverified_reverse_trace_claim_in_news_publish")
+        files.extend(press_shard_outputs(root, history))
     if mode == "scoop":
         for name in ("pre_scoop.json", "scoop.json", "dart_numeric.json"):
             obj = json.loads((root / name).read_text(encoding="utf-8"))

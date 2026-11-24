@@ -109,7 +109,13 @@ jobs:
           assert not index['proofOfNoPriorCoverage']
           assert index['itemCount']==len(index['items'])
           assert all(not x['fulltextReviewed'] for x in index['items'])
-          print('History index includes',index['itemCount'],'domestic observed headlines; no unreported claims')
+          # 11-24 월별 분할: latest(이번 달·지난달) + coldShards 달 파일 — 목록·sha256·건수가 맞아야 한다
+          from scripts.press_coverage_index import load_full_index
+          full=load_full_index(p)
+          assert full['itemCount']==index.get('totalItemCount',index['itemCount'])
+          assert all(not x['fulltextReviewed'] for x in full['items'])
+          print('History index includes',full['itemCount'],'domestic observed headlines (latest',index['itemCount'],
+                '+ month files',len(index.get('coldShards',[])),'); no unreported claims')
           PY
       - name: Backfill historical industry [단독] headlines from rotating month×beat index queries
         env:

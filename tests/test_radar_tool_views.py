@@ -324,6 +324,27 @@ class Views(unittest.TestCase):
         self.assertTrue(row["problem"])
         self.assertNotIn("note", row)
 
+    def test_coverage_check_reads_month_files_and_refuses_a_broken_one(self):
+        # 11-24 월별 분할: 지난 달 기사도 대조에 써야 하고, 달 파일이 어긋나면 색인 없음(0건 아님)으로
+        from scripts.press_coverage_index import merge_index, write_split_index
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        dec = datetime(2026, 12, 2, 9, 0, tzinfo=KST)
+        rows = [{"title": "현대차 10월 기사", "published": "2026-10-20T09:00:00+09:00", "sourceName": "경제신문",
+                 "url": "https://example.com/a", "companies": ["현대차"]},
+                {"title": "현대차 12월 기사", "published": "2026-12-01T09:00:00+09:00", "sourceName": "경제신문",
+                 "url": "https://example.com/b", "companies": ["현대차"]}]
+        write_split_index(root / "digests/press_coverage_index_latest.json", merge_index(None, rows, now=dec), dec)
+        full = v.load_press_history(root)
+        self.assertEqual(full["itemCount"], 2)
+        self.assertEqual(v.CoverageIndex(full, None).ok, True)
+        self.assertEqual(len(v.CoverageIndex(full, None).rows), 2)
+        shard = root / "digests/press_coverage_index/2026-10.json"
+        shard.write_text(shard.read_text(encoding="utf-8").replace("10월", "9월"), encoding="utf-8")
+        self.assertIsNone(v.load_press_history(root))
+        self.assertEqual(v.CoverageIndex(None, None).check({"companies": ["현대차"], "title": "x"})["status"], "index_unavailable")
+
     def test_publish_files_near_size_limit_are_flagged(self):
         # 11-24: 1년 기보도 색인이 12MiB 발행 상한을 넘어 Auto Desk가 19회 연속 실패 — 80%부터 미리 알린다
         tmp = tempfile.TemporaryDirectory()

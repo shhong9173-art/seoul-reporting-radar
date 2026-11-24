@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 KST=timezone(timedelta(hours=9))
 STATUS="automotive_industry_exclusive_reverse_trace_unverified_candidates"
 LABELS=frozenset({"Y","P","N"})
-MAX_ARTICLES=100_000
+MAX_ARTICLES=400_000  # 11-24: 1년 기보도 색인 약 23만 건(press_coverage_index.MAX_ENTRIES와 같게)
 SCOOP_MARKER=re.compile(r"^\s*(?:\[[^\]]*단독[^\]]*\]|\([^)]*단독[^)]*\)|【[^】]*단독[^】]*】)")
 SPORTS=re.compile(r"KIA\s*타이거즈|기아\s*타이거즈|현대모비스\s*(?:피버스|농구|농구단)|프로야구|야구단|프로농구|KBL|KBO|축구단|농구단",re.I)
 INDUSTRY_COMPANIES={
@@ -499,7 +499,14 @@ def main():
     p.add_argument("--original-leads",default="data/reverse_trace_primary_original_leads.json")
     p.add_argument("--output",default="digests/reverse_trace_latest.json")
     args=p.parse_args()
-    press=json.loads(Path(args.press).read_text(encoding="utf-8"))
+    # 11-24: 1년 색인은 latest(이번 달·지난달) + 달 파일 — 달 파일이 어긋나면 여기서 멈춘다
+    try:
+        from scripts.press_coverage_index import load_full_index
+    except ModuleNotFoundError:
+        from press_coverage_index import load_full_index
+    press=load_full_index(args.press)
+    if press is None:
+        raise ValueError("press_index_missing_or_malformed")
     sheet=json.loads(Path(args.reviews).read_text(encoding="utf-8"))
     if sheet.get("status")!="reviewer_approved_reverse_trace_labels" or not isinstance(sheet.get("items"),list):
         raise ValueError("invalid_human_review_sheet")

@@ -324,8 +324,12 @@ def main():
     # Missing/failed news index NEVER becomes proof of no prior publication.
     press=None
     try:
-        index=json.loads((ROOT/"digests/press_coverage_index_latest.json")
-                         .read_text(encoding="utf-8"))
+        try:
+            from scripts.press_coverage_index import load_full_index
+        except ModuleNotFoundError:
+            from press_coverage_index import load_full_index
+        # 11-24: latest(이번 달·지난달) + 달 파일. 달 파일이 어긋나면 ValueError → 색인 없이(기보도 0건 주장 안 함)
+        index=load_full_index(ROOT/"digests/press_coverage_index_latest.json") or {}
         if (index.get("status")=="observed_domestic_press_index_not_complete_coverage"
             and isinstance(index.get("items"),list)
             and index.get("itemCount")==len(index["items"])
