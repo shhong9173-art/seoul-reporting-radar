@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-25T08:12:17+09:00",
-  "dartSourceGeneratedAt": "2026-11-25T08:12:04+09:00",
+  "generatedAt": "2026-11-25T14:27:38+09:00",
+  "dartSourceGeneratedAt": "2026-11-25T14:27:28+09:00",
   "status": "reporter_review_not_exclusive",
   "sourceItemCount": 1,
   "sourceCompanyChecks": 13,
@@ -8,7 +8,7 @@
   "reviewedEvents": 1,
   "reviewLimit": 9,
   "unreviewedDartItems": 0,
-  "mediaLookupFailedEvents": 0,
+  "mediaLookupFailedEvents": 1,
   "correctionsWithoutVerifiedOriginal": 1,
   "independentlyComparedMaterialFields": 0,
   "issuerOnlyMaterialRowsForReview": 1,
@@ -54,42 +54,23 @@
       "conflictingDocumentFields": [],
       "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
-      "pressIndexStatus": "indexed_possible_articles_require_fulltext",
-      "pressSearchCompleted": true,
+      "pressIndexStatus": "press_index_partial_failure",
+      "pressSearchCompleted": false,
       "pressSearchQueries": [
         {
           "query": "\"20261116802608\"",
-          "status": "no_index_hits",
+          "status": "lookup_error",
           "articles": [],
-          "errorType": null
+          "errorType": "HTTPError"
         },
         {
           "query": "\"두산에너빌리티\" \"공급계약\"",
-          "status": "hits",
-          "articles": [
-            {
-              "title": "두산에너빌, 日 미쓰비시와 가스터빈 공급 계약…8400억 베트남 오몬3 사업 '탄력' - 더구루",
-              "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE90TUt1ZTFkbzN3ajBhcWJZV1pqTlNqaDQ0VjRPR2ljb21NSGZKd0NIVF9FT19CM0gxV1dPZGMxQXBxS2UxVXpjRnNya254NTc4UFhEeTVlOHVrMHA2NkVQYkNfcw?oc=5",
-              "publishedAt": "2026-11-20T16:00:52+09:00",
-              "indexResultNotVerifiedSameEvent": true
-            },
-            {
-              "title": "일론 머스크의 AI 사업부터 국제비즈니스대상 금상까지…우리가 몰랐던 김포의 기술력 : 네이버 블로그 - Naver Blog",
-              "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxNbmZSZDFCelRBcXA0Sk0zNzF5MFV1akxkWUx0SEhQWDJQMjduYThLeFVLNFNaeFNwUi1mQms5M253RGpET0I5QlN1V3U0MU9fdTlEX2oxeFpHZ2tOUXZBMUxQVHc0TVZvOERfdmd3a1FCcTFsNGlpdWpPMklCZ0hIdzNrbDJLRVVNTTdDVzlBd2NCZw?oc=5",
-              "publishedAt": "2026-11-25T06:19:46+09:00",
-              "indexResultNotVerifiedSameEvent": true
-            },
-            {
-              "title": "체코 원전 '팀코리아' 결속 재확인…시공계약 결렬 후 사업 정상화 다짐 - 인사이트N파워",
-              "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE5RSlFCOC1GbHVfTHRwQzFSTV8xR3JKWEQ3M08wV3JsdVhKVk9SVUg0c1pYZ0F3dzBGRmUzei1OZlVSY21rWHlzMENnb3JZSnVVZUxuY0FJNjI0T280TXJSOXdWWW9iUQ?oc=5",
-              "publishedAt": "2026-11-23T10:56:46+09:00",
-              "indexResultNotVerifiedSameEvent": true
-            }
-          ],
-          "errorType": null
+          "status": "lookup_error",
+          "articles": [],
+          "errorType": "HTTPError"
         }
       ],
-      "indexedArticleCount": 3,
+      "indexedArticleCount": 0,
       "possiblePreOrSameFilingDayIndexedCount": 0,
       "exactReceiptNumberIndexLead": false,
       "priorCoverageOfSameContractVerified": false,
