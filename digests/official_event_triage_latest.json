@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-25T14:05:14+09:00",
+  "generatedAt": "2026-11-25T17:44:04+09:00",
   "status": "official_date_triage",
   "windowStart": "2026-11-23",
   "windowEnd": "2026-11-25",
@@ -8,8 +8,8 @@
     {
       "name": "recent_contracts",
       "status": "checked_source",
-      "sourceAt": "2026-11-25T08:12:04+09:00",
-      "sourceAgeHours": 5.9,
+      "sourceAt": "2026-11-25T14:27:28+09:00",
+      "sourceAgeHours": 3.3,
       "records": 1,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -18,8 +18,8 @@
     {
       "name": "overseas_official",
       "status": "checked_source",
-      "sourceAt": "2026-11-25T08:12:04+09:00",
-      "sourceAgeHours": 5.9,
+      "sourceAt": "2026-11-25T14:26:57+09:00",
+      "sourceAgeHours": 3.3,
       "records": 7,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -28,8 +28,8 @@
     {
       "name": "investigation_hunt",
       "status": "checked_source",
-      "sourceAt": "2026-11-24T16:08:48+09:00",
-      "sourceAgeHours": 21.9,
+      "sourceAt": "2026-11-25T14:43:57+09:00",
+      "sourceAgeHours": 3.0,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-11-25T03:50:21+09:00",
-      "sourceAgeHours": 10.2,
+      "sourceAt": "2026-11-25T17:31:28+09:00",
+      "sourceAgeHours": 0.2,
       "records": 42,
       "checkedQueries": null,
       "failedQueries": null,
@@ -49,7 +49,7 @@
       "name": "nhtsa_official",
       "status": "partial_collection",
       "sourceAt": "2026-11-25T05:39:41.756408+09:00",
-      "sourceAgeHours": 8.4,
+      "sourceAgeHours": 12.1,
       "records": 81,
       "checkedQueries": 7,
       "failedQueries": 1,
@@ -58,8 +58,8 @@
     {
       "name": "dart_beat_monitor",
       "status": "partial_issuer_coverage",
-      "sourceAt": "2026-11-25T14:04:36+09:00",
-      "records": 122,
+      "sourceAt": "2026-11-25T17:43:25+09:00",
+      "records": 124,
       "scopeCompanies": 54,
       "checkedCompanies": 51,
       "unresolvedCompanies": 3,
@@ -72,7 +72,7 @@
     "dart_beat_monitor"
   ],
   "sourceCompletenessVerified": false,
-  "freshOfficialReviewCount": 4,
+  "freshOfficialReviewCount": 6,
   "backgroundReferenceCount": 184,
   "excluded": {
     "correction_without_original": 1,
@@ -353,9 +353,67 @@
     "DART_FILING:20261120800332": "2026-11-20",
     "DART_FILING:20261123000308": "2026-11-23",
     "DART_FILING:20261123000211": "2026-11-23",
-    "DART_FILING:20261124000487": "2026-11-24"
+    "DART_FILING:20261124000487": "2026-11-24",
+    "DART_FILING:20261125800544": "2026-11-25",
+    "DART_FILING:20261125000599": "2026-11-25"
   },
   "freshOfficialReview": [
+    {
+      "id": "DART_FILING:20261125800544",
+      "source": "DART_FILING",
+      "officialDate": "2026-11-25",
+      "company": "LG화학",
+      "headline": "LG화학 · 정기·주요공시 · [기재정정]타법인주식및출자증권처분결정",
+      "officialFact": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261125800544",
+      "officialReceiptNo": "20261125800544",
+      "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
+      "classification": "public_official_document_not_a_scoop",
+      "evidenceClass": "beat_wide_official_receipt",
+      "originalEvidenceStage": "official_receipt_only_original_not_checked",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
+      "originalDocumentFieldsVerified": false,
+      "companyImpactVerified": false,
+      "contractTermsVerified": false,
+      "priorMediaCoverageVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "freshArticleConfirmed": false,
+      "correction": false,
+      "firstObservedAt": "2026-11-25",
+      "firstObservedThisRun": true,
+      "publicDocumentAgeDays": 0,
+      "officialDateInRecentWindow": true,
+      "editorialBucket": "recent_official_filing_review"
+    },
+    {
+      "id": "DART_FILING:20261125000599",
+      "source": "DART_FILING",
+      "officialDate": "2026-11-25",
+      "company": "SK이노베이션",
+      "headline": "SK이노베이션 · 정기·주요공시 · [기재정정]주요사항보고서(회사합병결정)",
+      "officialFact": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261125000599",
+      "officialReceiptNo": "20261125000599",
+      "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
+      "classification": "public_official_document_not_a_scoop",
+      "evidenceClass": "beat_wide_official_receipt",
+      "originalEvidenceStage": "official_receipt_only_original_not_checked",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
+      "originalDocumentFieldsVerified": false,
+      "companyImpactVerified": false,
+      "contractTermsVerified": false,
+      "priorMediaCoverageVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "freshArticleConfirmed": false,
+      "correction": false,
+      "firstObservedAt": "2026-11-25",
+      "firstObservedThisRun": true,
+      "publicDocumentAgeDays": 0,
+      "officialDateInRecentWindow": true,
+      "editorialBucket": "recent_official_filing_review"
+    },
     {
       "id": "DART_FILING:20261124000487",
       "source": "DART_FILING",
@@ -369,7 +427,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -406,7 +464,7 @@
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T08:12:04+09:00"
+      "sourceSnapshotAt": "2026-11-25T14:26:57+09:00"
     },
     {
       "id": "DART_FILING:20261123000308",
@@ -421,7 +479,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -449,7 +507,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_receipt_only_original_not_checked",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -479,7 +537,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_valueup_text_only_attachment_unverified",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": false,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -507,7 +565,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_table_filing_fields_checked",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": true,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -535,7 +593,7 @@
       "classification": "public_official_document_not_a_scoop",
       "evidenceClass": "beat_wide_official_receipt",
       "originalEvidenceStage": "official_table_filing_fields_checked",
-      "sourceSnapshotAt": "2026-11-25T14:04:36+09:00",
+      "sourceSnapshotAt": "2026-11-25T17:43:25+09:00",
       "originalDocumentFieldsVerified": true,
       "companyImpactVerified": false,
       "contractTermsVerified": false,
@@ -572,7 +630,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:전력/청주",
@@ -596,7 +654,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:전력/베트남",
@@ -620,7 +678,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:전력/무석",
@@ -644,7 +702,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:장항/부산/STS관",
@@ -668,7 +726,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:자동화/천안",
@@ -692,7 +750,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS",
@@ -716,7 +774,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001529:완 성 차/인도공장",
@@ -740,7 +798,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001529:완 성 차/멕시코공장",
@@ -764,7 +822,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:하 역/서비스",
@@ -788,7 +846,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:운 송/서비스",
@@ -812,7 +870,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:용 역/서비스",
@@ -836,7 +894,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:부산물",
@@ -860,7 +918,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:제 품",
@@ -884,7 +942,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:전기전자 부문/변압기 外",
@@ -908,7 +966,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:황산",
@@ -932,7 +990,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:은",
@@ -956,7 +1014,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:동",
@@ -980,7 +1038,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:금",
@@ -1004,7 +1062,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000957:해외판매",
@@ -1028,7 +1086,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:인도/제품, 상품, 기타매출",
@@ -1052,7 +1110,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     },
     {
       "id": "DART_METRIC:20261116000213:기타/제품, 상품, 기타매출",
@@ -1076,14 +1134,14 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-25T03:50:21+09:00"
+      "sourceSnapshotAt": "2026-11-25T17:31:28+09:00"
     }
   ],
   "truncatedBackgroundReference": 159,
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공개 원문 확인 후 기보도·해당 회사 실제 영향·직접 답변 검증 필요. 단독 미확정. 지난 데이터 수집시각은 공시/고시 발생일과 다름; 원천 미수집/부분수집을 0건으로 해석하지 말 것.",
-  "beatWideDartAdded": 116,
+  "beatWideDartAdded": 118,
   "beatMergeAlreadyApplied": true,
   "beatAttachedReceiptIds": [
     "DART_FILING:20261027800037",
@@ -1201,9 +1259,11 @@
     "DART_FILING:20261120800332",
     "DART_FILING:20261123000211",
     "DART_FILING:20261123000308",
-    "DART_FILING:20261124000487"
+    "DART_FILING:20261124000487",
+    "DART_FILING:20261125000599",
+    "DART_FILING:20261125800544"
   ],
   "beatWideDartExcluded": 6,
-  "beatWideDartSourceAt": "2026-11-25T14:04:36+09:00",
-  "baseTriageGeneratedAt": "2026-11-25T14:05:14+09:00"
+  "beatWideDartSourceAt": "2026-11-25T17:43:25+09:00",
+  "baseTriageGeneratedAt": "2026-11-25T17:44:04+09:00"
 }
