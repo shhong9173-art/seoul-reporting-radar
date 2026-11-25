@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-25T17:44:00+09:00",
+  "generatedAt": "2026-11-25T18:45:09+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-25T14:05:14+09:00",
-      "rows": 4,
+      "generatedAt": "2026-11-25T18:18:07+09:00",
+      "rows": 6,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 4,
+    "new_official_receipt_review": 6,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 42,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-23",
     "through": "2026-11-25"
   },
-  "checkedOfficialRecentCandidates": 4,
+  "checkedOfficialRecentCandidates": 6,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 4,
+  "todayOnlyCount": 6,
   "historicalResearchCount": 46,
   "unlinkedHistoryTextMatchCount": 0,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 50,
+  "totalRows": 52,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -88,6 +88,54 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261125000599",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "SK이노베이션",
+      "title": "SK이노베이션 · 정기·주요공시 · [기재정정]주요사항보고서(회사합병결정)",
+      "officialDocumentDate": "2026-11-25",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261125000599"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261125800544",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LG화학",
+      "title": "LG화학 · 정기·주요공시 · [기재정정]타법인주식및출자증권처분결정",
+      "officialDocumentDate": "2026-11-25",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261125800544"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
     {
       "id": "new_official_receipt_review:DART:20261124000487",
       "tier": "new_official_receipt_review",
