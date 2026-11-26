@@ -1,8 +1,12 @@
 {
-  "generatedAt": "2026-11-26T08:13:18+09:00",
-  "sourceGeneratedAt": "2026-11-26T08:13:09+09:00",
+  "generatedAt": "2026-11-27T08:12:52+09:00",
+  "sourceGeneratedAt": "2026-11-27T08:12:39+09:00",
   "status": "checked",
   "checks": [
+    {
+      "sourceId": "2026-24140",
+      "status": "body_checked"
+    },
     {
       "sourceId": "2026-23942",
       "status": "body_checked"
@@ -29,6 +33,35 @@
     }
   ],
   "items": [
+    {
+      "sourceId": "2026-24140",
+      "published": "2026-11-27",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/27/2026-24140/federal-motor-vehicle-safety-standards-automatic-emergency-braking-systems-for-light-vehicles",
+      "bodyUrl": "https://www.federalregister.gov/documents/full_text/html/2026/11/27/2026-24140.html",
+      "title": "Federal Motor Vehicle Safety Standards: Automatic Emergency Braking Systems for Light Vehicles",
+      "status": "body_checked",
+      "bodySha256": "43996b67e4015de9b8ae5f39cfd10df81fdf6f129695cf392b2faf4e0cc305fa",
+      "companiesMentioned": [
+        "현대자동차"
+      ],
+      "evidence": [
+        {
+          "companies": [
+            "현대자동차"
+          ],
+          "text": "29. In the comments to the NPRM, Hyundai Motor Company (NHTSA-2023-0021-0791) and Honda (NHTSA-2023-0021-0484) both expressed concerns that performance requirements could lead to adverse consequences, such as false positive brake applications, which may increase consumer dissatisfaction with AEB technology. Similarly, in their responses to both the NPRM and the final rule (NHTSA-2023-0021-0844 and NHTSA-2023-0021-1071, respectively), the Alliance",
+          "truncated": true
+        }
+      ],
+      "evidenceBlocksTotal": 1,
+      "bodyCompanyMentionVerified": true,
+      "sameEventPressCoverage": "not_checked",
+      "priorCoverageReview": null,
+      "confirmedScoop": false,
+      "companyImpactVerified": false,
+      "publicFactQuestion": "이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?",
+      "warning": "본문 기업명과 짧은 문맥만 확인. 세율·계약·효력·국내 영향·미보도는 별도 검증"
+    },
     {
       "sourceId": "2026-23942",
       "published": "2026-11-24",
@@ -302,8 +335,8 @@
   "unpublishedDocumentCount": 0,
   "failedDocuments": 0,
   "unqueriedDocuments": 0,
-  "verifiedDocumentCount": 6,
-  "companyMentionDocumentCount": 5,
+  "verifiedDocumentCount": 7,
+  "companyMentionDocumentCount": 6,
   "confirmedScoops": 0,
   "warning": "검색 목록 안의 제한된 문서 본문 대조. 원천 오류·미조회는 0건이 아니며 수집일은 발표일이 아님"
 }
