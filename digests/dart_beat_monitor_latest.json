@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T13:29:56+09:00",
+  "generatedAt": "2026-11-26T17:47:04+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20261028",
   "windowEnd": "20261126",
@@ -8,9 +8,9 @@
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 120,
+  "relevantFilings": 121,
   "detailBound": 12,
-  "detailsAttempted": 0,
+  "detailsAttempted": 1,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
   "businessCessationDocumentAttempts": 0,
@@ -22,11 +22,11 @@
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 2,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 1,
   "detailNotAttemptedThisRun": 0,
   "unsupportedOriginalDetailTypes": 103,
   "uninspectedListedDetails": 103,
-  "uninspectedRelevantDetails": 0,
+  "uninspectedRelevantDetails": 1,
   "firstRunBaseline": false,
   "sourceChecks": [
     {
@@ -49,7 +49,7 @@
       "company": "현대모비스",
       "beat": "자동차·부품·타이어",
       "status": "checked",
-      "officialRows": 15,
+      "officialRows": 18,
       "relevantRows": 4,
       "pagesRead": 1
     },
@@ -230,7 +230,7 @@
       "company": "동국제강",
       "beat": "철강",
       "status": "checked",
-      "officialRows": 2,
+      "officialRows": 3,
       "relevantRows": 2,
       "pagesRead": 1
     },
@@ -238,7 +238,7 @@
       "company": "동국씨엠",
       "beat": "철강",
       "status": "checked",
-      "officialRows": 3,
+      "officialRows": 4,
       "relevantRows": 2,
       "pagesRead": 1
     },
@@ -286,7 +286,7 @@
       "company": "엘에스일렉트릭",
       "beat": "전력기기·전선",
       "status": "checked",
-      "officialRows": 6,
+      "officialRows": 7,
       "relevantRows": 1,
       "pagesRead": 1
     },
@@ -374,7 +374,7 @@
       "company": "GS",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 12,
+      "officialRows": 13,
       "relevantRows": 2,
       "pagesRead": 1
     },
@@ -454,12 +454,51 @@
       "company": "태광산업",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 4,
-      "relevantRows": 1,
+      "officialRows": 6,
+      "relevantRows": 2,
       "pagesRead": 1
     }
   ],
   "records": [
+    {
+      "company": "태광산업",
+      "beat": "에너지·화학",
+      "corpCode": "00153393",
+      "receiptNo": "20261126800663",
+      "published": "20261126",
+      "report": "[기재정정]신규시설투자등(자율공시)              ",
+      "category": "신규시설투자",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261126800663",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "not_examined",
+        "changes": [],
+        "independentOriginalDocumentCompared": false
+      },
+      "unverifiedSameDateCandidates": [],
+      "evidenceStatus": "원문·공시 목록 조회 실패: ValueError",
+      "sourceError": true,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-26T17:47:04+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
     {
       "company": "LG화학",
       "beat": "에너지·화학",
@@ -3921,7 +3960,8 @@
     "20261123000211": "2026-11-23T17:42:43+09:00",
     "20261124000487": "2026-11-24T17:43:14+09:00",
     "20261125800544": "2026-11-25T17:43:25+09:00",
-    "20261125000599": "2026-11-25T17:43:25+09:00"
+    "20261125000599": "2026-11-25T17:43:25+09:00",
+    "20261126800663": "2026-11-26T17:47:04+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
