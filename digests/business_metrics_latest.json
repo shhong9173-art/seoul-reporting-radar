@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-19T12:56:01+09:00",
-  "sourceGeneratedAt": "2026-11-19T12:56:01+09:00",
+  "generatedAt": "2026-11-26T13:23:00+09:00",
+  "sourceGeneratedAt": "2026-11-26T13:23:00+09:00",
   "source": "DART 사업보고서 두 해 원문과 다음 해 보고서 전기 이월값 대조",
   "sourceScope": "직접 출입처 완성차·부품·타이어·철강·비철·전력기기·에너지 21개사 · II. 사업의 내용",
   "status": "validated_filing_values_not_exclusives",
-  "findingCount": 21,
+  "findingCount": 22,
   "findings": [
     {
       "company": "HD현대일렉트릭",
@@ -732,6 +732,52 @@
           "10,001,420",
           "9,134,980",
           "8,721,308"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "포스코",
+      "topic": "productionCapacity",
+      "unit": "톤",
+      "scope": "생산능력:생산능력",
+      "rowIdentity": [
+        "철강부원료",
+        "탈산제",
+        "알루미늄공장"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "39058",
+      "to": "41005",
+      "change": "1947",
+      "changePercent": 4.984894259818731,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250313001116",
+        "20260312001382"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250313001116",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001382"
+      ],
+      "sourceRows": [
+        [
+          "철강부원료",
+          "탈산제",
+          "알루미늄공장",
+          "39,058",
+          "39,294",
+          "39,058"
+        ],
+        [
+          "철강부원료",
+          "탈산제",
+          "알루미늄공장",
+          "41,005",
+          "39,058",
+          "39,294"
         ]
       ],
       "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
