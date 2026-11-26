@@ -1,17 +1,54 @@
 {
-  "generatedAt": "2026-11-26T12:46:02.165350+09:00",
+  "generatedAt": "2026-11-26T21:54:30.212489+09:00",
   "source": "NHTSA ODI full post-2010 recall archive",
   "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip",
   "archiveLatestReceived": "2026-11-20",
   "lookbackDays": 45,
-  "recentSourceRowsExamined": 2407,
-  "beatRows": 33,
-  "campaignCount": 3,
+  "recentSourceRowsExamined": 2416,
+  "beatRows": 35,
+  "campaignCount": 4,
   "status": "official_us_recalls_to_review",
   "domesticSourceStatus": "not_connected",
   "firstSeenWarning": "Initial run is a baseline, not newly published scoops",
   "confirmedScoops": 0,
   "leads": [
+    {
+      "id": "26V766000",
+      "officialDate": "20261119",
+      "makes": [
+        "GENESIS"
+      ],
+      "models": [
+        {
+          "model": "GV80",
+          "year": "2026"
+        }
+      ],
+      "modelCount": 1,
+      "component": "SUSPENSION:FRONT:CONTROL ARM:UPPER BALL JOINT",
+      "defect": "Hyundai Motor America (Genesis) is recalling certain 2026 Genesis GV80 vehicles. Due to a manufacturing error, the front-left upper control arm ball joint may detach from the steering knuckle, which can result in a loss of vehicle control.",
+      "consequence": "A loss of vehicle control increases the risk of a crash.",
+      "remedy": "Dealers will inspect, tighten, and replace the control arm hardware and perform a vehicle alignment, as necessary, free of charge.  Owner notification letters are expected to be mailed January 18, 2027. Genesis owners may contact Genesis customer service at 844-340-9741. Genesis' number for this recall is 036G. Vehicle Identification Numbers (VINs) involved in this recall became searchable on NHTSA.gov beginning November 24, 2026.",
+      "flags": [],
+      "priorityScore": 40,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V766000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V766000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    },
     {
       "id": "26V728000",
       "officialDate": "20261102",
