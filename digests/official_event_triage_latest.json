@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-11-26T17:58:12+09:00",
+  "generatedAt": "2026-11-27T04:36:43+09:00",
   "status": "official_date_triage",
-  "windowStart": "2026-11-24",
-  "windowEnd": "2026-11-26",
+  "windowStart": "2026-11-25",
+  "windowEnd": "2026-11-27",
   "firstRunBaseline": false,
   "feedHealth": [
     {
       "name": "recent_contracts",
       "status": "checked_source",
       "sourceAt": "2026-11-26T08:12:42+09:00",
-      "sourceAgeHours": 9.8,
+      "sourceAgeHours": 20.4,
       "records": 1,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -19,7 +19,7 @@
       "name": "overseas_official",
       "status": "checked_source",
       "sourceAt": "2026-11-26T08:13:09+09:00",
-      "sourceAgeHours": 9.8,
+      "sourceAgeHours": 20.4,
       "records": 7,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -29,7 +29,7 @@
       "name": "investigation_hunt",
       "status": "checked_source",
       "sourceAt": "2026-11-26T14:31:20+09:00",
-      "sourceAgeHours": 3.4,
+      "sourceAgeHours": 14.1,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-11-26T17:15:37+09:00",
-      "sourceAgeHours": 0.7,
+      "sourceAt": "2026-11-27T02:42:14+09:00",
+      "sourceAgeHours": 1.9,
       "records": 42,
       "checkedQueries": null,
       "failedQueries": null,
@@ -48,7 +48,7 @@
     {
       "name": "nhtsa_official",
       "status": "partial_collection",
-      "sourceAt": "2026-11-26T17:58:12.127864+09:00",
+      "sourceAt": "2026-11-27T04:36:43.633814+09:00",
       "sourceAgeHours": 0.0,
       "records": 82,
       "checkedQueries": 7,
@@ -72,8 +72,8 @@
     "dart_beat_monitor"
   ],
   "sourceCompletenessVerified": false,
-  "freshOfficialReviewCount": 3,
-  "backgroundReferenceCount": 184,
+  "freshOfficialReviewCount": 2,
+  "backgroundReferenceCount": 185,
   "excluded": {
     "correction_without_original": 1,
     "unverified_foreign_search_hit": 4,
@@ -382,7 +382,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-25",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 1,
+      "publicDocumentAgeDays": 2,
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review"
     },
@@ -410,10 +410,12 @@
       "correction": false,
       "firstObservedAt": "2026-11-25",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 1,
+      "publicDocumentAgeDays": 2,
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review"
-    },
+    }
+  ],
+  "backgroundReference": [
     {
       "id": "DART_FILING:20261124000487",
       "source": "DART_FILING",
@@ -438,12 +440,10 @@
       "correction": false,
       "firstObservedAt": "2026-11-24",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 2,
-      "officialDateInRecentWindow": true,
-      "editorialBucket": "recent_official_filing_review"
-    }
-  ],
-  "backgroundReference": [
+      "publicDocumentAgeDays": 3,
+      "officialDateInRecentWindow": false,
+      "editorialBucket": "published_background"
+    },
     {
       "id": "FOREIGN_NOTICE:US Federal Register:2026-23802",
       "source": "FOREIGN_NOTICE",
@@ -462,7 +462,7 @@
       "evidenceClass": "named_company_in_official_notice",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
@@ -492,7 +492,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -520,7 +520,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 3,
+      "publicDocumentAgeDays": 4,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -548,7 +548,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-20",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 6,
+      "publicDocumentAgeDays": 7,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -576,7 +576,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-19",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 7,
+      "publicDocumentAgeDays": 8,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -604,7 +604,7 @@
       "correction": false,
       "firstObservedAt": "2026-11-19",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 7,
+      "publicDocumentAgeDays": 8,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background"
     },
@@ -626,11 +626,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:전력/베트남",
@@ -650,11 +650,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:전력/무석",
@@ -674,11 +674,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:장항/부산/STS관",
@@ -698,11 +698,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:자동화/천안",
@@ -722,11 +722,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116002011:부산/초고압변압기, 배전변압기, HVDC Valve, FACTS",
@@ -746,11 +746,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001529:완 성 차/인도공장",
@@ -770,11 +770,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001529:완 성 차/멕시코공장",
@@ -794,11 +794,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:하 역/서비스",
@@ -818,11 +818,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:운 송/서비스",
@@ -842,11 +842,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:용 역/서비스",
@@ -866,11 +866,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001188:부산물",
@@ -890,11 +890,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:제 품",
@@ -914,11 +914,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116001028:전기전자 부문/변압기 外",
@@ -938,11 +938,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-17",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:황산",
@@ -962,11 +962,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:은",
@@ -986,11 +986,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:동",
@@ -1010,11 +1010,11 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     },
     {
       "id": "DART_METRIC:20261116000994:금",
@@ -1034,38 +1034,14 @@
       "evidenceClass": "historical_official_numeric_comparison",
       "firstObservedAt": "2026-11-23",
       "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
+      "publicDocumentAgeDays": 11,
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
-    },
-    {
-      "id": "DART_METRIC:20261116000957:해외판매",
-      "source": "DART_METRIC",
-      "officialDate": "2026-11-16",
-      "headline": "SK이노베이션 · 해외판매 (SK온)",
-      "company": "SK이노베이션",
-      "officialFact": "동일 회계기간·단위 DART 기재 수치 5643930 → 5090699 (백만원), 실제 제품 출하량·사업 확정 아님",
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261116000957",
-      "verification": "공시의 기간·단위·모수와 기보도 대조(생산·출하량은 공표 수치만 확인)",
-      "classification": "public_official_document_not_a_scoop",
-      "companyImpactVerified": false,
-      "contractTermsVerified": false,
-      "priorMediaCoverageVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "evidenceClass": "historical_official_numeric_comparison",
-      "firstObservedAt": "2026-11-17",
-      "firstObservedThisRun": false,
-      "publicDocumentAgeDays": 10,
-      "officialDateInRecentWindow": false,
-      "editorialBucket": "published_background",
-      "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-26T17:15:37+09:00"
+      "sourceSnapshotAt": "2026-11-27T02:42:14+09:00"
     }
   ],
-  "truncatedBackgroundReference": 159,
+  "truncatedBackgroundReference": 160,
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공개 원문 확인 후 기보도·해당 회사 실제 영향·직접 답변 검증 필요. 단독 미확정. 지난 데이터 수집시각은 공시/고시 발생일과 다름; 원천 미수집/부분수집을 0건으로 해석하지 말 것.",
@@ -1190,5 +1166,5 @@
   ],
   "beatWideDartExcluded": 6,
   "beatWideDartSourceAt": "2026-11-26T17:47:04+09:00",
-  "baseTriageGeneratedAt": "2026-11-26T17:58:12+09:00"
+  "baseTriageGeneratedAt": "2026-11-27T04:36:43+09:00"
 }
