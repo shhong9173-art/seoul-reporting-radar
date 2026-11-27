@@ -25,6 +25,13 @@ export function groupBillEvents(doc, { since = '', all = false } = {}) {
   return [...groups.values()].map((g) => ({ ...g, names: [...g.names] }));
 }
 
+// 행정 명칭·체제 정비만 하는 법안(11-27 B: 「전남광주통합특별시 설치에 따른 지방행정체제 개편 반영을 위한 원자력안전위원회 소관
+// 2개 법률의 일부개정에 관한 법률안」 — 법 이름 바꾸기). 내용 개정이 아니라 참고(C). 보도 대조도 긴 정식 이름으로만 찾아 쓸모가 없었다.
+const ADMIN_CLEANUP = /소관\s*\d+개\s*법률의\s*일부개정|지방행정체제\s*개편\s*반영|(?:특별시|특별자치도|특별자치시|광역시)\s*설치에\s*따른|명칭\s*변경(?:에\s*따른|을\s*반영)|용어\s*정비를\s*위한/;
+export function adminCleanupBill(g) {
+  return [g?.law, ...(g?.names ?? [])].some((x) => ADMIN_CLEANUP.test(String(x ?? '')));
+}
+
 export function billLine(g) {
   const who = g.leads.length ? ` — ${g.leads.slice(0, 4).join('·')}${g.leads.length > 4 ? ` 외 ${g.leads.length - 4}` : ''} 대표발의` : '';
   if (g.kind === '발의') return `법안 발의: ${g.names[0] ?? g.law}${g.count > 1 ? ` 등 ${g.count}건` : ''}${who}`;
@@ -49,7 +56,8 @@ export async function assemblyBills(ctx, args) {
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   if (!doc.baselineSince) out.push('\n아직 기준선 없음 — 첫 성공 실행 뒤부터 새 발의·단계 변화를 센다.');
 
-  const ev = groupBillEvents(doc, { since }).filter((g) => (!coreOnly || g.core) && has(q, g.law, ...g.names, ...g.leads));
+  // 행정 명칭·체제 정비만 하는 법안(adminCleanupBill)은 출입처 직결 법 묶음에서 빼고 '관련까지 보기'에만(11-27)
+  const ev = groupBillEvents(doc, { since }).filter((g) => (!coreOnly || (g.core && !adminCleanupBill(g))) && has(q, g.law, ...g.names, ...g.leads));
   const newOnes = ev.filter((g) => g.kind === '발의').sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const moved = ev.filter((g) => g.kind !== '발의').sort((a, b) => String(b.date).localeCompare(String(a.date)));
   out.push(`\n[새 발의 · 최근 ${days}일${coreOnly ? ' · 출입처 직결 법(core)' : ''}] ${newOnes.length}묶음`);

@@ -2767,12 +2767,17 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
       b('PRC_A2', '전기사업법 일부개정법률안', '전기사업법', '2026-10-25', { core: '전력·에너지', lead: '이을동' }),
       b('PRC_S1', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', '2026-10-01',
         { core: '철강·비철', stageIndex: 2, stage: '소관위 상정', lead: '박병동' }),
-      b('PRC_K1', '산업안전보건법 일부개정법률안', '산업안전보건법', '2026-10-25')],
+      b('PRC_K1', '산업안전보건법 일부개정법률안', '산업안전보건법', '2026-10-25'),
+      // 11-27 운영: 행정 명칭·체제 정비만 하는 법안은 출입 업종 법이어도 참고(C)
+      b('PRC_N1', '전남광주통합특별시 설치에 따른 지방행정체제 개편 반영을 위한 원자력안전위원회 소관 2개 법률의 일부개정에 관한 법률안',
+        '전남광주통합특별시 설치에 따른 지방행정체제 개편 반영을 위한 원자력안전위원회 소관 2개 법률의 일부개정에 관한', '2026-10-25', { core: '전력·에너지', lead: '한준호' })],
     events: [{ id: 'bill:PRC_A1:발의', billId: 'PRC_A1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '김갑동' },
       { id: 'bill:PRC_A2:발의', billId: 'PRC_A2', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '이을동' },
       { id: 'bill:PRC_S1:소관위 상정', billId: 'PRC_S1', kind: '소관위 상정', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '철강·비철',
         law: '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', lead: '박병동', from: '소관위 회부' },
       { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' },
+      { id: 'bill:PRC_N1:발의', billId: 'PRC_N1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지',
+        law: '전남광주통합특별시 설치에 따른 지방행정체제 개편 반영을 위한 원자력안전위원회 소관 2개 법률의 일부개정에 관한', lead: '한준호' },
       // 10-31 운영: 발의 다음 날 소관위 회부가 또 B로 떴다 — 회부는 모든 법안이 거치는 절차
       { id: 'bill:PRC_A1:소관위 회부', billId: 'PRC_A1', kind: '소관위 회부', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '전력·에너지',
         law: '전기사업법', lead: '김갑동', from: '발의' }],
@@ -2783,11 +2788,15 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   assert.match(t.text, /\[단계 변화 · 최근 14일\] 2건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
   assert.doesNotMatch(t.text, /산업안전보건법 일부개정/);
   assert.match((await call('assembly_bills', { include_related: true }, opts)).text, /산업안전보건법 일부개정법률안/);
+  assert.doesNotMatch(t.text, /전남광주통합특별시/);                                    // 명칭 정비 법안은 직결 묶음에서 빠지고
+  assert.match((await call('assembly_bills', { include_related: true }, opts)).text, /전남광주통합특별시 설치에 따른/);   // 관련까지 보기에는 남는다
   const r = await call('radar_today', { include_minor: true }, opts);
   const bsec = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(bsec, /국회 법안 · 전력·에너지\n   법안 발의: 전기사업법 일부개정법률안 등 2건/);
   assert.match(bsec, /법안 소관위 상정: 철강산업/);
   assert.match(r.text.split('[C · ')[1], /법안 발의: 산업안전보건법 일부개정법률안/);
+  assert.match(r.text.split('[C · ')[1], /법안 발의: 전남광주통합특별시 설치에 따른 지방행정체제 개편 반영을 위한/);
+  assert.doesNotMatch(bsec, /전남광주통합특별시/);
   assert.match(r.text.split('[C · ')[1], /법안 소관위 회부: 전기사업법 일부개정법률안 \(직전 발의\) — 김갑동 대표발의/);
   assert.doesNotMatch(bsec, /법안 소관위 회부:/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();

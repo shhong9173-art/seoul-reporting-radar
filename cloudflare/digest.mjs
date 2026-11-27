@@ -13,7 +13,7 @@ export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
 import { MAX_TEXT, beatName, clampInt, fetchJson, safeEqual, subjectJosa, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
-import { billLine, groupBillEvents } from './assembly.mjs';
+import { adminCleanupBill, billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
 import { dgtrCaseNote, dgtrDocNote, staleNoticeLine, staleNoticeNote, attachmentOutline, buildingLine, retierPermit, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
@@ -1941,7 +1941,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!recent(g.detectedAt)) continue;
     // 소관위 회부는 발의 며칠 뒤 모든 법안이 거치는 절차라 참고(C) — 발의 줄이 이미 B로 떠 있다(10-31: 대외무역법·산업기술보호법이 발의·회부로 두 번씩 B).
     // 보도 대조는 대표발의 의원 이름이 기사에 있어야 같은 법안으로 친다(같은 주에 같은 법 개정안이 여럿 나온다).
-    const tier = g.core && g.kind !== '소관위 회부' ? 'B' : 'C';
+    const tier = g.core && g.kind !== '소관위 회부' && !adminCleanupBill(g) ? 'B' : 'C';
     push(tier, W['assembly-bills'], { kind: g.kind === '발의' ? '법안 발의' : `법안 ${g.kind}`, id: g.id, date: g.date,
       company: g.core ?? '', fact: billLine(g), url: g.urls[0], check: tier === 'B' ? billHint(g) : undefined });
   }
