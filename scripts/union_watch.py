@@ -81,6 +81,10 @@ def list_ids(page, bo):
     return out
 
 
+# 그누보드 글 보기에서 본문(bo_v_con) 뒤에 오는 것: 목록·추천 단추, 공유, 댓글, 이전·다음 글, 바닥글
+END_MARKS = ('id="bo_v_bot"', 'id="bo_v_share"', 'id="bo_v_act"', 'id="bo_vc"', 'class="bo_v_nb"', 'id="bo_v_nb"', 'id="ft"', "<footer", "게시글 보기 끝")
+
+
 def parse_post(page):
     title = re.search(r'<h2[^>]*id="bo_v_title"[^>]*>(.*?)</h2>', page, re.S)
     title = tidy(title.group(1)) if title else tidy((re.search(r"<title>(.*?)</title>", page, re.S) or [None, ""])[1]).split(" > ")[0]
@@ -91,7 +95,15 @@ def parse_post(page):
     if m:
         date = f"20{m.group(1)}-{m.group(2)}-{m.group(3)}T{m.group(4)}:{m.group(5)}:00+09:00"
     con = page.find("bo_v_con")
-    body = tidy(re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", page[con: con + 60000])) if con >= 0 else ""
+    chunk = page[con: con + 60000] if con >= 0 else ""
+    # 11-27 운영: 금속노조 지역소식 「[충남원청투본] 18호 …」(본문은 이미지, 글자는 제목 한 줄)의 앞부분이 '목록 중앙선거관리위원회 로그인
+    # 개인정보취급방침 PC버전보기 서울시 중구 정동길 5 …'(목록 단추·바닥글)까지 읽었다 — 그누보드 본문 뒤 표지(bo_v_bot·ft 등)에서 끊는다
+    ends = [i for i in (chunk.find(m) for m in END_MARKS) if i > 0]
+    if ends:
+        cut = min(ends)
+        tag = chunk.rfind("<", 0, cut)   # 표지가 든 태그('<div id="bo_v_bot"')의 시작에서
+        chunk = chunk[:tag if tag > 0 and ">" not in chunk[tag:cut] else cut]
+    body = tidy(re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", chunk)) if con >= 0 else ""
     body = re.sub(r'^bo_v_con"?[^>]*>\s*', "", body)
     return {"title": title, "date": date, "body": body}
 
