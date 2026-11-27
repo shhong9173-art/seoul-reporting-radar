@@ -62,7 +62,8 @@ def candidates(items, *, now, limit=MAX_ITEMS):
         if not who or not terms:
             continue
         rows.append({"id": str(x["id"]), "tier": x.get("tier"), "watch": x.get("watch"), "company": who, "terms": terms,
-                     "alts": {k: list(v) for k, v in (hint.get("alts") or {}).items() if k in terms},
+                     # 필수 낱말의 다른 표기도(11-27: 일본 공고 '한국' ↔ 기사 제목 '韓')
+                     "alts": {k: list(v) for k, v in (hint.get("alts") or {}).items() if k in terms or k in (hint.get("must") or [])},
                      "numbers": [], "unit": "", "period": "", "strength": 1 if x.get("tier") == "A" else 0,
                      "strict": x.get("watch") not in LOOSE_WATCHES,
                      "generic": GENERIC + [str(p) for p in hint.get("places") or [] if str(p).strip() and str(p) not in GENERIC],

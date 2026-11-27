@@ -7660,6 +7660,8 @@ test('일본 무역구제 공고(11-21): 한국산 출입 업종 가결정은 A,
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: at })).json();
   const it = items.items.find((x) => x.id === 'jptr:ka20261120');
   assert.deepEqual([it.tier, it.company, it.check.who, it.check.terms], ['A', '한국산', '비스페놀A', ['일본', '반덤핑']]);
+  // 11-27: 품목 낱말을 이름으로 함께(기사 제목은 'BPA'·'아연도금강판'으로 쓴다), 필수 낱말 '한국'은 '韓'도
+  assert.deepEqual([it.check.names, it.check.must, it.check.alts['한국']], [['비스페놀A', '비스페놀', 'BPA'], ['한국'], ['한국', '韓']]);
   assert.match((await call('radar_today', {}, opts)).text, /일본 무역구제 공고 · 한국산\n   일본 재무성 무역구제 공고\(반덤핑\(不当廉売関税\)\) — 예비 판정\(가결정\): /);
 
   const t = (await call('trade_remedies', { section: 'jp' }, opts)).text;
