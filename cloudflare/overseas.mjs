@@ -2258,6 +2258,16 @@ async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
   }
   if (base.length > rows.length) out.push(`(같은 그룹 계열사 공시 ${base.length - rows.length}건 접음 — include_mentions=true)`);
   if (!rows.length) out.push('조건에 맞는 공시 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  // 11-27: 원문 API가 여러 실행 '파일 없음'(DART 014)인 공시는 수집기가 더 부르지 않고 제목만 남긴다 — 거래상대를 못 본 공시라 미확인으로 보인다
+  const unread = (doc.unreadable ?? []).filter((u) => String(u.date ?? '') >= from && matches(q, u.filer, u.report));
+  if (unread.length) {
+    out.push(`원문을 못 읽은 공시 ${unread.length}건(DART 원문 API가 여러 실행 '파일 없음' — 거래상대를 못 봄, 미확인 · 제목만, 필요하면 원문 직접):`);
+    for (const u of unread.slice(0, 5)) {
+      const d = String(u.date ?? '');
+      out.push(`   ${u.filer} 「${u.report}」(${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}) ${u.url}`);
+    }
+    if (unread.length > 5) out.push(`   … ${unread.length - 5}건 더(company로 좁히기)`);
+  }
   out.push('   검증 상태: 상대 회사의 DART 공시(자동). 출입처 쪽 조건·시점·사유는 출입처 공시·회사 확인. 이름만 같은 다른 회사일 수 있어 원문 확인');
   return out;
 }
