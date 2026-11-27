@@ -32,6 +32,14 @@ class Sources(unittest.TestCase):
   available=h.build([],g2b=sample,g2b_status={"status":"checked"})
   self.assertEqual(available["feeds"][0]["status"],"ready")
   self.assertIn("낙찰·계약",available["leads"][0]["fact"])
+ def test_g2b_revisions_of_one_notice_are_one_lead(self):
+  # 11-27 운영: 같은 공고 차수 000·001이 radar_clues 조달 칸에 두 줄
+  n=lambda rev:{"title":"「전기차 충전인프라 해외시험인증 종합지원센터 건립(증축)공사」도급자 관급자재(PHC파일)","noticeId":"R26BK01858390","revision":rev,
+                "demandAgency":"한국산업기술시험원","sourceUrl":f"https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01858390&bidPbancOrd={rev}"}
+  sample={"generatedAt":"2026-11-27T22:00:00+09:00","notices":[n("000"),n("001"),{**n("000"),"noticeId":"R26BK01860684","title":"배수장 배전반 계측기 공사"}],
+          "checks":[{"status":"checked"},{"status":"checked"}]}
+  leads=h.build([],g2b=sample,g2b_status={"status":"checked"})["leads"]
+  self.assertEqual([(l["headline"][:12],l["url"][-3:]) for l in leads],[("「전기차 충전인프라 해","001"),("배수장 배전반 계측기 ","000")])
  def test_nhtsa_public_us_recalls_not_scoops(self):
   def fake(url):
    return {"results":[{"NHTSACampaignNumber":"26V100000"}]} if "/recalls/" in url else {"results":[{"odiNumber":"12345678"}]}

@@ -96,7 +96,8 @@ def parse_result(payload):
 # 23건 중 7건(나라장터 단서로 radar_clues 조달 칸에 올라감).
 def _term(t):
  if re.fullmatch(r"[A-Za-z]+",t):return re.compile(rf"(?<![A-Za-z]){t}(?![A-Za-z])")
- if t=="전선":return re.compile(r"(?<![경수배충])전선(?!관)")
+ # 11-27: '2026년 황전선변 소규모 산사태 복구사업'(순천 황전면 선변)의 '전선'이 전력망으로 잡혔다 — 지명 앞 글자 '황'도 막는다
+ if t=="전선":return re.compile(r"(?<![경수배충황])전선(?!관)")
  return re.compile(re.escape(t))
 TECH_RX={name:[_term(t) for t in terms] for name,terms in TECH.items()}
 def tags(title):
