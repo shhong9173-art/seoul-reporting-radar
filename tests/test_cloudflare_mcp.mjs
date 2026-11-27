@@ -3680,10 +3680,14 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
       // 11-23 운영 꼴: 'VISIBILITY/WIPER'는 앞유리·선루프·와이퍼를 한데 묶는 분류 — 신고 발췌가 앞유리 금·화면 고장
       spike('cmpl:KIA:TELLURIDE', { make: 'KIA', model: 'TELLURIDE', beat: '기아', brand: '기아', complaints: 9, parts: [{ component: 'VISIBILITY/WIPER', recent: 9, baselinePer28: 3 }],
         crash: 0, injured: 0, samples: [{ odino: '11774568', year: '2022', received: '2026-10-29', text: 'My 2022 Kia Telluride LX AWD center screen began failing intermittently' },
-          { odino: '11775050', year: '2022', received: '2026-11-02', text: 'While parked in my driveway at 0 mph, the windshield cracked near the interior rearview mirror attachment' }] })] } };
+          { odino: '11775050', year: '2022', received: '2026-11-02', text: 'While parked in my driveway at 0 mph, the windshield cracked near the interior rearview mirror attachment' }] }),
+      // 11-27 운영 꼴: 'UNKNOWN OR OTHER'만 튄 차종(발췌가 소음·앞유리·떨림으로 제각각) — 참고 C
+      spike('cmpl:KIA:SPORTAGE', { make: 'KIA', model: 'SPORTAGE', beat: '기아', brand: '기아', complaints: 8, parts: [{ component: 'UNKNOWN OR OTHER', recent: 8, baselinePer28: 3.2 }],
+        crash: 0, injured: 0, samples: [{ odino: '11774622', year: '2026', received: '2026-10-30', text: 'persistent, severe rattling noise coming from the engine bay' }] })] } };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_recalls', {}, opts);
-  assert.match(t.text, /\[소비자 결함 신고 급증 · 최근 28일\(2026-09-30~2026-10-28\), 앞 24주와 비교\] 3건/);
+  assert.match(t.text, /\[소비자 결함 신고 급증 · 최근 28일\(2026-09-30~2026-10-28\), 앞 24주와 비교\] 4건/);
+  assert.match(t.text, /\[신규\] C · 기아 SPORTAGE · 연식 [^\n]*\n   부품별: UNKNOWN OR OTHER 8건\(평소 28일 3\.2\) — '모름·기타' 칸만 튐\(서로 다른 불만이 섞이는 칸이라 참고 C\)/);
   assert.match(t.text, /\[신규\] B · 현대차 SANTA FE HYBRID · 연식 2025\(8\)·2026\(2\) · 신고 10건 · 충돌 1·부상 1/);
   assert.match(t.text, /부품별: FUEL\/PROPULSION SYSTEM 10건\(평소 28일 2\.3\), POWER TRAIN 8건\(평소 28일 2\.7\)/);
   assert.match(t.text, /신고 11774001\(2025년형, 접수 2026-10-20\): "The car lost power on the highway\."/);
@@ -3694,6 +3698,8 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
   assert.match(b, /미국 소비자 결함 신고 급증 · 현대차 SANTA FE HYBRID\(연식 2025\(8\)·2026\(2\)\) · 최근 28일\(2026-09-30~2026-10-28\) 신고 10건 · FUEL\/PROPULSION SYSTEM 10건/);
   assert.doesNotMatch(r.text.split('[A · ')[1].split('[B · ')[0], /결함 신고 급증/);
   assert.match(r.text.split('[C · ')[1], /기아 SORENTO[^\n]*같은 부품 리콜 26V700000 뒤 신고일 수 있음/);
+  assert.doesNotMatch(b, /SPORTAGE/);
+  assert.match(r.text.split('[C · ')[1], /기아 SPORTAGE[^\n]*'모름·기타' 칸만 튐/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const sf = items.items.find((x) => String(x.id).startsWith('cmpl:HYUNDAI:SANTA FE HYBRID')).check;
   // 11-23: 보도 대조 낱말은 첫 부품(FUEL/PROPULSION SYSTEM → 연료) — 차명+'리콜'로만 찾으면 같은 차종의 다른 결함 기사가 붙는다(텔루라이드 와이퍼 ↔ 엔진오일 누출 기사)

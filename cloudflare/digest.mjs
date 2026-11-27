@@ -15,7 +15,7 @@ import { peerLines } from './radar_tools.mjs';
 import { basisNote, classLabel, goodsNote, groupSameName, irNote, waitReason } from './trademarks.mjs';
 import { adminCleanupBill, billLine, groupBillEvents } from './assembly.mjs';
 import { foreignGloss } from './gloss.mjs';
-import { dgtrCaseNote, dgtrDocNote, staleNoticeLine, staleNoticeNote, attachmentOutline, buildingLine, retierPermit, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { complaintCatchallOnly, complaintTier, dgtrCaseNote, dgtrDocNote, staleNoticeLine, staleNoticeNote, attachmentOutline, buildingLine, retierPermit, factoryEventText, identityNote, itcText, mediationPast, memoGloss, dedupePermits, plantGone, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1077,9 +1077,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const parts = (x.parts ?? []).map((p) => `${p.component} ${p.recent}건(평소 28일 ${p.baselinePer28})`).join(', ');
     const harm = [x.fire && `화재 ${x.fire}`, x.crash && `충돌 ${x.crash}`, x.injured && `부상 ${x.injured}`, x.deaths && `사망 ${x.deaths}`].filter(Boolean).join('·');
     const recall = (x.sameComponentRecall ?? []).length ? ` · 같은 부품 리콜 ${x.sameComponentRecall.join(',')} 뒤 신고일 수 있음` : '';
-    push(x.tier ?? 'B', W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
-      fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
-      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], complaintWord(x.parts, x.samples) ?? '리콜'], [models[0]], models) : hint(x.brand, [complaintWord(x.parts, x.samples) ?? '리콜', '미국'])) });
+    const tierX = complaintTier(x);
+    const catchall = complaintCatchallOnly(x) && x.tier !== 'C' ? " · '모름·기타' 칸만 튐(서로 다른 불만이 섞이는 칸 — 참고)" : '';
+    push(tierX, W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
+      fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall}${catchall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
+      url: x.url, check: tierX === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], complaintWord(x.parts, x.samples) ?? '리콜'], [models[0]], models) : hint(x.brand, [complaintWord(x.parts, x.samples) ?? '리콜', '미국'])) });
   }
 
   // 미국 제조사 통신(nhtsa_tsbs.py, 캠페인 단위). 11-12 기자 결정(한 단계 내림): 동력계통 보증 연장 B(예전 A), 그 밖 보증 연장·서비스 캠페인·
