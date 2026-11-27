@@ -16,7 +16,7 @@ import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from 
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
-import { allowedUrl, dartViewerDocs, relayKey } from '../cloudflare/live_tools.mjs';
+import { allowedUrl, binaryKind, dartViewerDocs, relayKey } from '../cloudflare/live_tools.mjs';
 import { foreignGloss } from '../cloudflare/gloss.mjs';
 import { ageNote, failedCheck, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
@@ -488,6 +488,18 @@ test('source_document only opens allowlisted hosts and returns a content hash', 
   assert.doesNotMatch(ok.text, /x\(\)/);
   const hop = await call('source_document', { url: 'https://www.motie.go.kr/redirect' }, { fetch });
   assert.ok(hop.isError);
+  // 11-25: 무역위 개요 PDF는 Content-Type에 pdf가 없다 — 바이트를 글자로 풀지 않고, 검증 기록도 만들지 않는다
+  const pdf = new TextEncoder().encode('%PDF-1.4\n%\xe2\xe3\n10 0 obj << /Type /Page >> stream x\x9c endstream');
+  const ktc = 'https://www.ktc.go.kr/dltncFileDownload.do?dltnc_id=00000312&seq_no=0000';
+  const bin = fakeFetch({ [ktc]: new Response(pdf, { headers: { 'Content-Type': 'application/x-msdownload;charset=utf-8' } }),
+    'https://www.motie.go.kr/f.hwpx': new Response(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2]), { headers: {} }) });
+  const p = await call('source_document', { url: ktc }, { fetch: bin });
+  assert.ok(p.isError);
+  assert.match(p.text, /^본문이 PDF 파일\(Content-Type: application\/x-msdownload;charset=utf-8\)이라 텍스트로 읽지 못함 — 원문 미확인으로 적는다\. 무역위 회의 개요 PDF의 안건은 .*trade_remedies\(section=ktc\)/);
+  assert.doesNotMatch(p.text, /검증 기록 ID|obj/);
+  assert.match((await call('source_document', { url: 'https://www.motie.go.kr/f.hwpx' }, { fetch: bin })).text, /^본문이 ZIP\(hwpx·docx·xlsx 등\) 파일\(Content-Type: 표시 없음\)/);
+  assert.equal(binaryKind(new TextEncoder().encode('<html>%PDF 안내</html>')), null);   // '%PDF-' 머리가 아니면 글자 그대로
+  assert.equal(binaryKind(new TextEncoder().encode('  \ufeff%PDF-1.7')), 'PDF');
 });
 
 test('source_document sends the declared SEC User-Agent from the Cloudflare secret only to sec.gov', async () => {
