@@ -21,7 +21,7 @@ import { foreignGloss } from '../cloudflare/gloss.mjs';
 import { ageNote, failedCheck, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
-import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine } from '../cloudflare/overseas.mjs';
+import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine, stripLetterhead } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
 import { background, billHint, kstStamp, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, plantTown, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
@@ -4161,7 +4161,9 @@ test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B,
     published: now, url: `https://nsearchives.nseindia.com/corporate/${id.slice(4)}`, firstSeen: now, ...extra });
   const filings = [f('nse:HMILNSE_cap.pdf', 'A', 'Updates', 'Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant.',
       { excerpt: 'Talegaon plant capacity will be increased' }),
-    f('nse:HMILNSE_board.pdf', 'B', 'Outcome of Board Meeting', 'Hyundai Motor India Limited has informed the Exchange regarding Board meeting held on November 04, 2026.'),
+    f('nse:HMILNSE_board.pdf', 'B', 'Outcome of Board Meeting', 'Hyundai Motor India Limited has informed the Exchange regarding Board meeting held on November 04, 2026.',
+      // 11-27 운영 꼴: 첫머리가 회사 머리글(등록 주소·CIN·누리집)뿐 — 떼고 본문부터, 머리글뿐이면 그렇다고
+      { excerpt: 'Hyundai Motor India Ltd. Regd. Office: Plot No. H-1, SIPCOT Industrial Park, Tamil Nadu-602117, India. CIN (Corporate Identity Number): L29309TN1996PLC035377, T +91(44) 47100000 www.hyundai.com/in/en ' }),
     f('nse:HMILNSE_tr.pdf', 'C', 'Analysts/Institutional Investor Meet/Con. Call Updates', 'Hyundai Motor India Limited has informed the Exchange about Transcript', { baseline: true })];
   const ev = (x) => ({ id: x.id, tier: x.tier, kind: '인도 법인 공시', company: x.company, detectedAt: now, url: x.url, subject: x.subject,
     text: `Hyundai Motor India Limited NSE 공시 · ${x.subject} · 「${x.desc}」 · 거래소 공시 원문(PDF) 확인 — 현대차 자회사(별도 상장사)` });
@@ -4179,6 +4181,8 @@ test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B,
   const nse = await call('partner_filings', { source: 'NSE' }, opts);
   assert.match(nse.text, /\[인도 법인 공시 · 현대차 인도법인\(NSE\) · 확인 [^\]]+\] 2건 · 원천 NSE 공시 RSS ok · RSS가 덮는 시간 2026-11-03T03:30 ~ 2026-11-03T21:03/);
   assert.match(nse.text, /- \[신규\] A · [^\n]+ KST · Hyundai Motor India Limited · Updates\n   설명: 「Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant\.」\n   첨부 첫머리: 「Talegaon plant capacity will be increased」/);
+  assert.match(nse.text, /Outcome of Board Meeting\n   설명: [^\n]*\n   첨부 첫머리: 회사 머리글\(등록 주소·CIN·누리집\)뿐 — 본문은 원문 PDF/);
+  assert.equal(stripLetterhead('Hyundai Motor India Ltd. Regd. Office: Plot No. H-1, India. CIN L29309TN1996PLC035377 www.hyundai.com/in/en Sub: price increase'), 'Sub: price increase');
   assert.match(nse.text, /C 1건 숨김 — include_routine=true/);
   assert.doesNotMatch(nse.text, /Transcript/);
   assert.match((await call('partner_filings', { source: 'NSE', include_routine: true }, opts)).text, /\[기준선\] C · [^\n]+ · Analysts\/Institutional Investor Meet/);

@@ -79,11 +79,20 @@ def tier_of(x):
     return "B"
 
 
+# 공시 PDF 첫머리의 회사 머리글(등록 주소·CIN·전화·누리집) — 11-27 운영: 「Hyundai Motor India Ltd. Regd. Office: Plot No. H-1, SIPCOT …
+# CIN … www.hyundai.com/in/en」이 첫머리 400자를 다 채워 본문(가격 인상 안내)이 안 보였다. 머리글 뒤부터 적는다.
+LETTERHEAD = re.compile(r"^.{0,120}?\b(?:Regd\.?|Registered)\s*Office\s*:.{0,600}?\bwww\.[A-Za-z0-9.-]+(?:/[\w./-]*)?\s*", re.S | re.I)
+
+
+def strip_letterhead(text):
+    return LETTERHEAD.sub("", text, count=1).strip()
+
+
 def pdf_head(content, n=600):
     from pypdf import PdfReader
     pages = PdfReader(io.BytesIO(content)).pages
     text = " ".join((pages[i].extract_text() or "") for i in range(min(2, len(pages))))
-    return re.sub(r"\s+", " ", text).strip()[:n]
+    return strip_letterhead(re.sub(r"\s+", " ", text).strip())[:n]
 
 
 IST = dt.timezone(dt.timedelta(hours=5, minutes=30))

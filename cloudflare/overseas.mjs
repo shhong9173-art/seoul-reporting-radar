@@ -272,8 +272,10 @@ export function indiaSection(doc, q = '', onlyNew = false, limit = 20, routine =
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${String(x.published ?? '').slice(0, 16).replace('T', ' ')} KST · ${x.issuer} · ${x.subject || '종류 미기재'}`);
     if (x.desc) out.push(`   설명: 「${String(x.desc).slice(0, 240)}」`);
-    if (x.excerpt) out.push(`   첨부 첫머리: 「${String(x.excerpt).slice(0, 400)}」`);
-    else if (x.excerptError) out.push(`   첨부: ${x.excerptError}`);
+    if (x.excerpt) {
+      const body = stripLetterhead(x.excerpt);
+      out.push(body ? `   첨부 첫머리: 「${body.slice(0, 400)}」` : '   첨부 첫머리: 회사 머리글(등록 주소·CIN·누리집)뿐 — 본문은 원문 PDF');
+    } else if (x.excerptError) out.push(`   첨부: ${x.excerptError}`);
     out.push(`   원문: ${x.url}`);
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
@@ -1353,6 +1355,10 @@ export function dgtrDocNote(c, all = false) {
   }
   return out.length ? `DGTR 문서: ${out.join(' · ')}` : '';
 }
+
+// 인도 공시 PDF 첫머리의 회사 머리글(등록 주소·CIN·전화·누리집)은 떼고 본문부터(11-27: 가격 인상 안내 첫머리 400자가 머리글뿐) — india_filings_watch.LETTERHEAD와 같은 규칙
+const LETTERHEAD = /^[\s\S]{0,120}?\b(?:Regd\.?|Registered)\s*Office\s*:[\s\S]{0,600}?\bwww\.[A-Za-z0-9.-]+(?:\/[\w./-]*)?\s*/i;
+export const stripLetterhead = (t) => String(t ?? '').replace(LETTERHEAD, '').trim();
 
 // 일본 공고 본문 출입처: 부과 대상에서 뺀 생산자('(注2)LG CHEM, LTD.により生産されたものを除く', 11-27 BPA 확정)는 '본문에 출입처'와 나눠 적는다
 function jpNamed(det) {
