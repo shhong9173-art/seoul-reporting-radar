@@ -131,7 +131,7 @@ const ALT = {
   한국: ['한국', '韓'],
   소송: ['소송', '제소', '판결', '항소', '불복'], 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 항소: ['항소', '불복', '소송', '항소법원'],
   특허: ['특허', '특허심판원', 'PTAB', '무효'], 판결: ['판결', '패소', '승소', '기각', '판정', '결정'], 상계관세: ['상계관세', '보조금'],
-  반덤핑: ['반덤핑', '덤핑'], ITC: ['ITC', '무역위원회'], 특허침해: ['특허', '침해', '337조', '수입 금지', '제소'],
+  반덤핑: ['반덤핑', '덤핑'], ITC: ['ITC', '무역위원회'], 유지: ['유지', '연장', '계속 부과'], 철폐: ['철폐', '종료', '폐지'], 특허침해: ['특허', '침해', '337조', '수입 금지', '제소'],
   공장: ['공장', '사업장', '생산기지'], 폐쇄: ['폐쇄', '매각', '철수', '가동 중단', '문 닫', '공장 이전', '생산 중단'],
   신설: ['신설', '준공', '가동', '건설', '착공', '신축', '증설', '새 공장'], 인력: ['인력', '인원', '직원', '고용', '근로자', '임직원'],
   감축: ['감축', '감소', '구조조정', '희망퇴직', '감원', '줄여', '줄었'], 증원: ['증원', '늘려', '늘었', '확대', '증가'],
@@ -511,6 +511,12 @@ export const plantTown = (text) => PLANT_TOWNS.find((w) => new RegExp(`(?<![가-
 // 공장등록 목록에서 빠짐은 폐쇄만이 아니다(폐업·이전·이름 변경 — 물적분할·합작사 이관도) — 사업 재편 낱말도 같은 사건 낱말로 본다.
 // 낱말이 넓어지는 만큼 기사에 공장 지명(대산·창원 등)이 있어야 같은 사업장으로 친다
 const FACTORY_GONE_WORDS = [...ALT.폐쇄, '분할', '합병', '합작', '양도', '이관', '통합', '떼어'];
+function itcHint(who, title, itc) {
+  const word = itc.korea === '부정' ? (itc.phase === '일몰 재심' ? '철폐' : '종결') : itc.phase === '일몰 재심' ? '유지' : '판정';
+  if (who) return hint(who, ['ITC', word]);
+  const pk = productKo(title);
+  return pk ? hint(pk.ko, ['ITC', word], [], ['한국'], [...new Set([pk.ko, ...(pk.words ?? [])])]) : undefined;
+}
 function factoryHint(company, kind, text) {
   const city = plantTown(text) ?? cityOf(text);
   if (/빠짐/.test(kind)) {
@@ -970,7 +976,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       const tierI = itc.korea === '부정' || (itc.korea === '긍정' && itc.phase === '최종') ? 'A' : 'B';
       push(tierI, W['trade-remedy'], { kind: '미국 ITC 피해 판정', ruling: true, id: x.id, date: x.date, company: who.join('·') || '한국산',
         fact: `미국 ITC${aheadOf(x)} ${itc.phase} 판정: ${x.title} — ${itcText(itc)}${who.length && !linked.length ? ` · 같은 품목 상무부 고시의 출입처: ${who.join('·')}` : ''} · 원문 "${String(itc.quote ?? '').slice(0, 200)}"`,
-        url: x.url, check: hint(who[0], ['ITC', itc.korea === '부정' ? (itc.phase === '일몰 재심' ? '철폐' : '종결') : itc.phase === '일몰 재심' ? '유지' : '판정']) });
+        // 11-27: 출입처 이름이 없는 판정(「Welded Line Pipe From South Korea and Turkey; Determinations」 일몰 재심 유지)은 '검색 낱말을 정할 수 없어'
+        // 자동 대조를 안 했다 — 품목 한국어 이름(강관)을 주어로, 기사 제목의 '한국'(韓)을 필수로 찾는다(일본·태국 무역구제 공고와 같은 꼴)
+        url: x.url, check: itcHint(who[0], x.title, itc) });
       continue;
     }
     const names = (x.named ?? []).map((n) => n.company);
