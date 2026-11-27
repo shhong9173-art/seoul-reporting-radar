@@ -40,6 +40,10 @@ DOC_BUDGET = 80        # 한 실행에 여는 원문 수
 PAUSE = 0.6
 KEEP_DAYS = 120
 SEEN_DAYS = 7
+# 11-27 운영: 후보 24건 중 16건이 실행마다 'DART 014 파일 없음' — 원문 API가 내주지 않는 공시는 다시 불러도 같다.
+# 같은 접수번호가 NO_DOC_TRIES번(다른 실행) 파일 없음이면 더 부르지 않고, 제목·링크를 '원문을 못 읽은 공시'로 남긴다(거래상대 판정 못 함 — 미확인)
+NO_DOC_TRIES = 3
+UNREADABLE_DAYS = 14
 HEAD = 4000            # 서식 본문(앞부분)
 BIG_CONTRACT = 50_000_000_000
 
@@ -257,23 +261,39 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
     seen = {k: v for k, v in (prev.get("seen") or {}).items() if str(v) >= seen_from}
     known = {x["id"]: x for x in prev.get("items") or [] if isinstance(x, dict) and x.get("id")}
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
+    fails = {k: v for k, v in (prev.get("docFails") or {}).items() if isinstance(v, dict) and str(v.get("date") or "") >= seen_from}
+    unread_from = (now - dt.timedelta(days=UNREADABLE_DAYS)).strftime("%Y%m%d")
+    unreadable = [u for u in prev.get("unreadable") or [] if isinstance(u, dict) and str(u.get("date") or "") >= unread_from]
     first = not prev.get("baselineAt")
     rows, errors = list_filings(get, sleep, key, now)
     cand = [x for x in rows if KIND.search(x.get("report_nm") or "") and not SKIP_KIND.search(x.get("report_nm") or "")
             and not beats_in(x.get("corp_name") or "") and x.get("rcept_no") not in seen]
     cand.sort(key=lambda x: (0 if DEAL.search(x["report_nm"]) else 1, x["rcept_no"]), reverse=False)
-    opened, doc_errors, pending = 0, 0, max(0, len(cand) - DOC_BUDGET)
+    opened, doc_errors, pending, gave_up = 0, 0, max(0, len(cand) - DOC_BUDGET), 0
     reasons = {}
     for x in cand[:DOC_BUDGET]:
         sleep(PAUSE)
         opened += 1
+        rc = x["rcept_no"]
         try:
-            docs = documents(get, key, x["rcept_no"])
+            docs = documents(get, key, rc)
         except Exception as e:  # noqa: BLE001
-            doc_errors += 1
             why = getattr(e, "reason", None) or type(e).__name__
+            f = fails.get(rc) or {}
+            n = (f.get("n") or 0) + 1 if str(why).startswith("DART 014") else 0
+            if n >= NO_DOC_TRIES:
+                gave_up += 1
+                seen[rc] = x.get("rcept_dt") or now.strftime("%Y%m%d")
+                fails.pop(rc, None)
+                unreadable.append({"rceptNo": rc, "filer": x.get("corp_name"), "report": re.sub(r"\s+", " ", x.get("report_nm") or "").strip(),
+                                   "date": x.get("rcept_dt"), "reason": why, "tries": n, "at": stamp,
+                                   "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}"})
+                continue
+            doc_errors += 1
             reasons[why] = reasons.get(why, 0) + 1
+            fails[rc] = {"n": n, "date": x.get("rcept_dt") or now.strftime("%Y%m%d"), "reason": why}
             continue   # 다음 실행에 다시(본 것으로 치지 않음)
+        fails.pop(rc, None)
         seen[x["rcept_no"]] = x.get("rcept_dt") or now.strftime("%Y%m%d")
         res = judge(x, docs)
         if not res:
@@ -307,15 +327,20 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
                         **({"note": f"새로 열어 볼 후보 공시 없음(공시검색 {len(rows)}건 중 거래·계약 종류의 새 공시 0건)"} if not cand and not errors else {}),
                         **({"error": f"원문 읽기 실패 {doc_errors}건("
                                      + " · ".join(f"{k} {n}" for k, n in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:4]) + ")"} if doc_errors else {}),
-                        **({"pending": pending} if pending else {})}],
+                        **({"pending": pending} if pending else {}),
+                        **({"unreadable": gave_up, "note": f"원문 API가 {NO_DOC_TRIES}번(다른 실행) '파일 없음'인 공시 {gave_up}건은 더 부르지 않음 — 제목만 남김(거래상대 판정 못 함, 미확인)"}
+                           if gave_up else {})}],
             "counts": {"listed": len(rows), "candidates": len(cand), "opened": opened, "matched": sum(1 for x in known.values() if x["firstSeen"] == stamp)},
             "seen": seen,
+            "docFails": fails,
+            "unreadable": sorted(unreadable, key=lambda u: (str(u.get("date") or ""), str(u.get("rceptNo") or "")), reverse=True)[:60],
             "items": sorted((x for x in known.values() if str(x.get("firstSeen")) >= keep), key=lambda x: str(x.get("date")), reverse=True)[:300],
             "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
             "rules": ["출입처가 아닌 회사의 공시(양수·양도·취득·처분·합병·분할·영업·공급계약·생산중단)에 출입처가 거래상대·계약상대로 적힌 것. 출입처 자신의 공시는 출입처 공시 감시 몫이라 뺀다.",
                       "자산·영업·지분 거래 상대와 공급계약 해지는 A, 공급계약은 500억원 이상 A·그 밖 B, 생산중단·투자판단 공시에 이름이 나온 것 B, 같은 그룹 계열사 공시는 참고(C).",
                       "상대 회사 공시는 그 회사의 발표다. 출입처 쪽 조건(매각 가격·시점·사유)은 출입처 공시·회사 확인 전 미확인. 이름만 겹친 다른 회사일 수 있어 원문 확인.",
-                      "첫 실행은 기준선. 원문 읽기 실패·한 실행 상한(60건)을 넘은 공시는 다음 실행에 다시 본다(미확인)."]}
+                      "첫 실행은 기준선. 원문 읽기 실패·한 실행 상한(60건)을 넘은 공시는 다음 실행에 다시 본다(미확인).",
+                      f"원문 API가 {NO_DOC_TRIES}번(다른 실행) '파일 없음'(DART 014)인 공시는 더 부르지 않고 제목·링크만 남긴다 — 거래상대를 못 본 공시(미확인)."]}
 
 
 def main():

@@ -160,7 +160,7 @@ class Run(unittest.TestCase):
     def test_document_failure_reasons_are_counted(self):
         # 11-27 운영: 후보 29건 중 23건 '원문 읽기 실패' — 응답 코드를 건수로 적는다(키·본문은 안 적음)
         rows = ROWS[:5]
-        answers = {"20261029000111": R(content=b'{"status":"014","message":"\ud30c\uc77c\uc774 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4."}'),
+        answers = {"20261029000111": R(content=rb'{"status":"014","message":"\ud30c\uc77c\uc774 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4."}'),
                    "20261027900001": R(content="<result><status>014</status><message>파일이 존재하지 않습니다.</message></result>".encode()),
                    "20261027900002": R(content=b"", status=503),
                    "20261027900003": R(content="<result><status>020</status></result>".encode())}
@@ -175,6 +175,39 @@ class Run(unittest.TestCase):
         self.assertEqual(w.doc_error_reason(200, b"<html>oops</html>"), "ZIP 아닌 응답")
         self.assertEqual(w.doc_error_reason(200, b""), "빈 응답")
         self.assertEqual(w.doc_error_reason(200, b'{"status":"999"}'), "DART 999")
+
+    def test_documents_the_api_never_serves_stop_after_tries_and_are_kept_as_titles(self):
+        # 11-27 운영: 후보 24건 중 16건이 실행마다 'DART 014 파일 없음' — 같은 접수번호를 계속 다시 불렀다
+        rows = ROWS[:3]
+        no_doc = R(content="<result><status>014</status><message>파일이 존재하지 않습니다.</message></result>".encode())
+        flaky = {"n": 0}
+        def get(url, params=None, headers=None, timeout=None):
+            if url == w.LIST_API:
+                return R({"status": "000", "total_page": 1, "list": rows} if params["pblntf_ty"] == "I" else {"status": "013"})
+            rc = params["rcept_no"]
+            if rc == "20261029000111":
+                return no_doc
+            if rc == "20261027900001":
+                flaky["n"] += 1
+                return R(content=b"", status=503) if flaky["n"] <= 3 else R(content=z(DOCS[rc]))
+            return R(content=z(DOCS[rc]))
+        doc = None
+        for i in range(w.NO_DOC_TRIES):
+            doc = w.run(NOW + dt.timedelta(hours=3 * i), doc, key="k", get=get, sleep=lambda s: None)
+            if i < w.NO_DOC_TRIES - 1:
+                self.assertEqual((doc["docFails"]["20261029000111"]["n"], doc["checks"][1]["status"]), (i + 1, "partial"))
+                self.assertNotIn("20261029000111", doc["seen"])
+        self.assertIn("20261029000111", doc["seen"])          # 세 번째 '파일 없음'에서 그만 부른다
+        self.assertNotIn("20261029000111", doc["docFails"])
+        self.assertEqual([(u["rceptNo"], u["filer"], u["reason"], u["tries"]) for u in doc["unreadable"]], [("20261029000111", "에스트래픽", "DART 014 파일 없음", 3)])
+        self.assertEqual(doc["checks"][1]["unreadable"], 1)
+        self.assertIn("더 부르지 않음", doc["checks"][1]["note"])
+        # 다른 실패(HTTP 503)는 횟수에 안 들고 계속 다시 본다 — 세 번째 실행까지 실패, 네 번째에 읽힘
+        self.assertNotIn("20261027900001", doc["seen"])
+        doc = w.run(NOW + dt.timedelta(hours=12), doc, key="k", get=get, sleep=lambda s: None)
+        self.assertIn("20261027900001", doc["seen"])
+        self.assertEqual((doc["docFails"], doc["checks"][1]["status"]), ({}, "ok"))
+        self.assertEqual(len(doc["unreadable"]), 1)                # 남긴 제목은 보관 기간 동안 그대로
 
 
 if __name__ == "__main__":
