@@ -67,6 +67,17 @@ class Parse(unittest.TestCase):
         self.assertEqual(w.tier_of(w.items_of(rss(HMIL_CAPEX))[0]), "A")
 
 
+class Letterhead(unittest.TestCase):
+    def test_company_letterhead_is_skipped(self):
+        # 11-27 운영: 첨부 첫머리 400자가 등록 주소·CIN·전화·누리집뿐이었다(가격 인상 안내)
+        head = ("Hyundai Motor India Ltd. Regd. Office: Plot No. H-1, SIPCOT Industrial Park, Irrungattukottai, Sriperumbudur Taluk, Kancheepuram District, "
+                "Tamil Nadu-602117, India. CIN (Corporate Identity Number): L29309TN1996PLC035377, T +91(44) 47100000 Corporate Office: Plot No. C11& C11A, "
+                "City Centre, Urban Estate Gurgaon II, Sector 29 Gurugram, Haryana – 122001, India T+91(124) 6962000 www.hyundai.com/in/en ")
+        self.assertEqual(w.strip_letterhead(head + "Sub: Advance intimation regarding price increase of vehicles w.e.f. December 01, 2026."),
+                         "Sub: Advance intimation regarding price increase of vehicles w.e.f. December 01, 2026.")
+        self.assertEqual(w.strip_letterhead("Talegaon plant capacity will be increased"), "Talegaon plant capacity will be increased")   # 머리글 없으면 그대로
+
+
 class Run(unittest.TestCase):
     def setUp(self):
         self.orig = w.pdf_head
