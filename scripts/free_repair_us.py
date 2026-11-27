@@ -26,6 +26,7 @@ GAP = 1.0            # 조회 사이 간격(초)
 TRIES = 3            # 실패한 공지는 이 횟수까지 다음 실행이 다시
 MAX_MODELS, MAX_YEARS, MAX_MATCHES = 2, 3, 3
 LEAD_DAYS = 60       # 미국 리콜이 국내 공지보다 이만큼 앞서면 A(kr_free_repair.classify)
+PARTS_VERSION = 2     # 부품 낱말 판: 바뀌면 낱말 없음으로 맞춰 보지 않은(parts 빈) 공지 중 새 판에서 낱말이 잡히는 것만 다시 본다(2: 11-27 주행·주차 보조·스프링)
 MODEL_VERSION = 2    # 차종 목록 판: 바뀌면 '조회 안 함'(no-model)으로 적은 공지를 다시 본다(2: 11-22 혼다·한국GM·폭스바겐·아우디)
 
 # (국내 차명 규칙, 미국 제조사, 미국 차명, 하이브리드 차명, 전기차 차명). 국내 전용 차종(그랜저·캐스퍼·스타리아·레이·모닝·K8·K9·타스만 등)은 없다.
@@ -115,6 +116,10 @@ PARTS = [
     ("12V 배터리", r"12\s*V(?![0-9])|12\s*볼트|보조\s*배터리", r"12\s*-?\s*V(?:OLT)?\b", True),
     ("스마트키", r"스마트\s*키|UWB|\bFOB\b", r"SMART KEY|KEY FOB|\bFOB\b|\bUWB\b|ULTRA\s*-?\s*WIDE", True),
     ("연료 누유", r"연료\s*누|누유", r"FUEL LEAK", True),
+    # 11-27: GV60 '운전자 주행 보조 제어기'·'운전자 주차 보조 제어기'(4891·4890), 니로 '리어 스프링'(4894)이 부품 낱말 없음으로 대조를 건너뛰었다
+    ("주행 보조", r"주행\s*보조|운전자\s*보조|(?<![A-Z])ADAS(?![A-Z])|스마트\s*크루즈|차로\s*유지", r"DRIVER\s*-?\s*ASSIST|\bADAS\b|FORWARD COLLISION|LANE KEEP|LANE DEPARTURE|SMART CRUISE|ADAPTIVE CRUISE|HIGHWAY DRIVING", True),
+    ("주차 보조", r"주차\s*보조|주차\s*거리|초음파\s*센서", r"PARK(?:ING)?\s*(?:ASSIST|AID|DISTANCE)|PARKING SENSOR|ULTRASONIC", True),
+    ("스프링", r"(?:리어|프런트|프론트|코일|현가)\s*스프링", r"SUSPENSION\S*?SPRING|COIL SPRINGS?|(?:REAR|FRONT)\s*(?:COIL\s*)?SPRINGS?", True),
     ("시트", r"시트(?!\s*벨트)", r"\bSEATS?\b(?!\s*BELT)", False),
     ("도어", r"도어", r"\bDOORS?\b", False),
 ]
@@ -243,7 +248,9 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
             us.pop("tries", None)
     todo = [x for x in items if x.get("company") and x.get("detail") == "ok"
             and (not x.get("us") or (x["us"].get("status") == "failed" and (x["us"].get("tries") or 0) < TRIES)
-                 or (x["us"].get("status") == "no-model" and x["us"].get("v") != MODEL_VERSION))]
+                 or (x["us"].get("status") == "no-model" and x["us"].get("v") != MODEL_VERSION)
+                 or (x["us"].get("status") in ("ok", "partial") and x["us"].get("parts") == []
+                     and x["us"].get("pv") != PARTS_VERSION and domestic_parts(x)))]
     todo.sort(key=lambda x: (x.get("date") or "", int(x.get("no") or 0)), reverse=True)
     calls = checked = linked = failed = waiting = 0
     for x in todo:
@@ -275,7 +282,7 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
         status = "failed" if len(errors) == len(pairs) else "partial" if errors else "ok"
         prev_tries = (x.get("us") or {}).get("tries") or 0
         x["us"] = {"at": stamp, "status": status, "make": make, "models": names, "years": years,
-                   "parts": [label for label, _, _ in parts], "campaigns": len({r.get("NHTSACampaignNumber") for r in rows if r.get("NHTSACampaignNumber")}),
+                   "parts": [label for label, _, _ in parts], "pv": PARTS_VERSION, "campaigns": len({r.get("NHTSACampaignNumber") for r in rows if r.get("NHTSACampaignNumber")}),
                    "matches": match_rows(rows, parts, x.get("date")) if parts else [],
                    **({"unknown": unknown} if unknown else {}),
                    **({"error": "; ".join(errors)[:160], "tries": prev_tries + 1} if errors else {})}
@@ -324,7 +331,8 @@ def link_tsbs(items, tsbs):
 
 
 # 넓은 부품 낱말: 같은 차종의 다른 결함 리콜에도 흔히 나온다(제동 계통·배선·변속기·조향) — 화면엔 보이되 이 낱말만 맞은 대조로는 A로 올리지 않는다
-BROAD = {"브레이크", "와이어링", "변속기", "조향"}
+# 11-27 '주행 보조'도 넓다(전방 충돌·차로 유지·적응형 크루즈를 한데 묶은 낱말)
+BROAD = {"브레이크", "와이어링", "변속기", "조향", "주행 보조"}
 
 
 def lead_note(item):

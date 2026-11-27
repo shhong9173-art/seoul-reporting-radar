@@ -139,6 +139,48 @@ class Link(unittest.TestCase):
         self.assertEqual(f.classify({**y, "company": "현대차"})[0], "B")   # 실패는 등급에 안 씀
 
 
+class NewPartWords(unittest.TestCase):
+    """11-27: GV60 '운전자 주행·주차 보조 제어기'(4891·4890)·니로 '리어 스프링'(4894)이 부품 낱말 없음으로 대조를 건너뛰었다."""
+    ASSIST = item("4891", "[제네시스] GV60 - 운전자 주행 보조 제어기 관련 무상수리", "GV60 (JW PE)", "2025-02-20 ~ 2026-04-03",
+                  "운전자 주행 보조 제어기 소프트웨어 오류로 간헐적 원격 시동 시 경고등 점등 가능성이 확인됨에 따른 무상수리", date="2026-11-25")
+    PARK = item("4890", "[제네시스] GV60 - 운전자 주차 보조 제어기 관련 무상수리", "GV60 (JW PE)", "2025-02-20 ~ 2026-02-26",
+                "운전자 주차 보조 제어기 소프트웨어 오류로 인해 간헐적 주차거리 경고 시스템 점검문구 출력 가능성이 확인됨에 따른 무상수리", date="2026-11-25")
+    SPRING = item("4894", "[기아] 니로 - 리어 스프링 관련 무상수리", "니로 (SG2 PE)", "2026-01-16 ~ 2026-07-06",
+                  "리어 스프링 형상 불량으로 인해 주행 중 요철 통과 시 차량 뒤쪽 하부 간헐적 이음 발생 가능성이 확인됨에 따른 무상수리", date="2026-11-26", company="기아")
+
+    def test_new_part_words_and_us_side(self):
+        self.assertEqual([p[0] for p in u.domestic_parts(self.ASSIST)], ["주행 보조"])
+        self.assertEqual([p[0] for p in u.domestic_parts(self.PARK)], ["주차 보조"])
+        self.assertEqual([p[0] for p in u.domestic_parts(self.SPRING)], ["스프링"])
+        self.assertEqual([p[0] for p in u.domestic_parts(item("1", "[현대] 아반떼 - ADAS제어기 관련 무상수리", "아반떼", "", "x"))], ["주행 보조"])
+        self.assertEqual(u.domestic_parts(item("2", "[현대] 아반떼 - 보조 배터리 관련 무상수리", "아반떼", "", "주행 중 경고등"))[0][0], "12V 배터리")   # '주행 … 보조'가 떨어져 있으면 아님
+        fca = {**ROW, "NHTSACampaignNumber": "25V500000", "Component": "FORWARD COLLISION AVOIDANCE:AUTOMATIC EMERGENCY BRAKING", "Summary": "The forward collision-avoidance assist may activate unexpectedly."}
+        park = {**ROW, "NHTSACampaignNumber": "25V600000", "Component": "ELECTRICAL SYSTEM", "Summary": "The Parking Distance Warning system may fail to warn."}
+        brake = {**ROW, "NHTSACampaignNumber": "25V700000", "Component": "PARKING BRAKE", "Summary": "The parking brake may not hold."}
+        spring = {**ROW, "NHTSACampaignNumber": "25V800000", "Component": "SUSPENSION:REAR:SPRINGS", "Summary": "The rear coil spring may fracture."}
+        belt = {**ROW, "NHTSACampaignNumber": "25V810000", "Component": "SEAT BELTS", "Summary": "The retractor spring may break."}
+        self.assertEqual([m["campaign"] for m in u.match_rows([fca, park, brake], u.domestic_parts(self.ASSIST))], ["25V500000"])
+        self.assertEqual([m["campaign"] for m in u.match_rows([fca, park, brake], u.domestic_parts(self.PARK))], ["25V600000"])   # 주차 브레이크는 아님
+        self.assertEqual([m["campaign"] for m in u.match_rows([spring, belt], u.domestic_parts(self.SPRING))], ["25V800000"])     # 안전벨트 되감기 스프링은 아님
+        # '주행 보조'만 맞은 대조는 넓다 — 화면엔 보이되 A로 올리지 않는다
+        x = {**self.ASSIST, "units": 425, "us": {"matches": [{"campaign": "25V500000", "leadDays": 200, "parts": ["주행 보조"]}]}}
+        self.assertEqual(f.classify(x)[0], "B")
+        x["us"]["matches"][0]["parts"] = ["주차 보조"]
+        self.assertEqual(f.classify(x)[0], "A")
+
+    def test_notices_skipped_for_no_part_word_are_linked_again_once(self):
+        old = {"at": "2026-11-25T16:30:00+09:00", "status": "ok", "make": "GENESIS", "models": ["GV60"], "years": [2025, 2026, 2027], "parts": [], "campaigns": 5, "matches": []}
+        a = {**self.PARK, "us": dict(old)}
+        still = {**item("4880", "[제네시스] GV60 - 소프트웨어 관련 무상수리", "GV60 (JW PE)", "2025-02-20 ~ 2026-02-26", "경고 문구 출력"), "us": dict(old)}
+        park = {**ROW, "NHTSACampaignNumber": "25V600000", "ReportReceivedDate": "01/03/2026", "Component": "ELECTRICAL SYSTEM", "Summary": "The Parking Distance Warning may fail."}
+        api = Api({"model=GV60": [park]})
+        check = u.link([a, still], api, NOW, sleep=lambda s: None)
+        self.assertEqual((check["calls"], check["checked"], check["linked"]), (3, 1, 1))     # 새 판에서도 낱말이 없는 공지는 다시 안 본다
+        self.assertEqual((a["us"]["parts"], a["us"]["pv"], [m["campaign"] for m in a["us"]["matches"]]), (["주차 보조"], u.PARTS_VERSION, ["25V600000"]))
+        self.assertEqual(still["us"], old)
+        self.assertEqual(u.link([a, still], api, NOW, sleep=lambda s: None)["calls"], 0)     # 한 번만
+
+
 class UnknownYear(unittest.TestCase):
     def test_http_400_is_an_unknown_model_year_not_a_failure(self):
         # 11-22 첫 운영: SANTA FE·SANTA FE HYBRID·SONATA 2027년형이 HTTP 400 — 아직 NHTSA에 없는 연식
