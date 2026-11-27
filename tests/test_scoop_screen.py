@@ -231,6 +231,9 @@ class Selection(unittest.TestCase):
 
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])
+        # 11-27: '[첨부추가]' 공시 꼬리표·'실제 … 내용은' 안내 낱말로 찾지 않는다(예전 질의 '한화솔루션 첨부추가')
+        t = s.terms_from("한화솔루션, [첨부추가]주요사항보고서(회사합병결정)…실제 사업재편 내용은", "한화솔루션")
+        self.assertEqual((t, s.news_terms(t)[0][0]), (["회사합병", "사업재편"], "합병"))
 
 
 def channels(naver_items=(), bing_items=(), google_status="ok", naver_status="ok"):
