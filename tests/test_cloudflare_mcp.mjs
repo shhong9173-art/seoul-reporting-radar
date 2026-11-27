@@ -4835,7 +4835,8 @@ test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱�
     counts: { listed: 812, candidates: 41, opened: 41, matched: 2 }, seen: {}, items,
     // 11-27: 원문 API가 여러 실행 '파일 없음'인 공시는 수집기가 제목만 남긴다
     unreadable: [{ rceptNo: '20261026900999', filer: '어떤부품', report: '단일판매ㆍ공급계약체결', date: '20261026', reason: 'DART 014 파일 없음', tries: 3,
-      url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026900999' }],
+      url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026900999' },
+    { rceptNo: '20261026900998', date: '20261026', reason: 'DART 014 파일 없음', tries: 1, left: true, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026900998' }],
     events: [{ id: items[0].id, tier: 'A', kind: '타사 공시 · 자산·영업·지분 거래 상대', company: 'LG화학', filer: '국도화학', report: items[0].report, detectedAt: now, url: items[0].url,
       text: '국도화학 공시 「영업양수결정(종속회사의주요경영사항)」(20261026) — LG화학이(가) 자산·영업·지분 거래 상대 · 금액 78,437,000,000원(약 784억원) · 원문 「1. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 상대 회사 공시(출입처 공시 아님)' }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/dart-counterparty', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
@@ -4849,7 +4850,8 @@ test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱�
   assert.match(k.text, /원천: OpenDART 공시검색\(시장 전체 B·I\) ok\(812\) · 공시 원문 ok\(41\) · 이번 실행 목록 812 · 종류로 거른 후보 41 · 원문 41/);
   assert.match(k.text, /- \[신규\] A · 2026-10-26 · 국도화학 「영업양수결정\(종속회사의주요경영사항\)」 → LG화학 · 자산·영업·지분 거래 상대\n   원문 발췌: 「1\. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 금액 78,437,000,000원\(약 784억원\)\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026800562/);
   assert.match(k.text, /같은 그룹 계열사 공시 1건 접음 — include_mentions=true/);
-  assert.match(k.text, /원문을 못 읽은 공시 1건\(DART 원문 API가 여러 실행 '파일 없음' — 거래상대를 못 봄, 미확인 · 제목만, 필요하면 원문 직접\):\n   어떤부품 「단일판매ㆍ공급계약체결」\(2026-10-26\) https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026900999/);
+  assert.match(k.text, /   회사 이름 미기록 「제목 미기록」\(2026-10-26 · 창에서 빠질 때까지 파일 없음\) https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026900998/);
+  assert.match(k.text, /원문을 못 읽은 공시 2건\(DART 원문 API가 여러 실행 '파일 없음' — 거래상대를 못 봄, 미확인 · 제목만, 필요하면 원문 직접\):\n   어떤부품 「단일판매ㆍ공급계약체결」\(2026-10-26\) https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026900999/);
   assert.doesNotMatch((await call('kr_signals', { section: 'counterparty', company: 'LG화학' }, opts)).text, /원문을 못 읽은 공시/);   // 회사로 좁히면 그 회사 제목만
   assert.match((await call('kr_signals', { section: 'counterparty', include_mentions: true }, opts)).text, /현대글로비스 「단일판매ㆍ공급계약체결」 → 현대차 · 공급계약 상대 · 같은 그룹 계열사 공시/);
 });
