@@ -216,6 +216,22 @@ class Selection(unittest.TestCase):
         self.assertIsNone(s.contract_place({"filing": {"type": "공급계약", "facts": [["판매ㆍ공급지역", "대한민국"]]}}))
         self.assertEqual(s.contract_place({"filing": {"type": "공급계약", "facts": [["판매ㆍ공급지역", "미국 등"]]}}), "미국")
 
+    def test_contract_amount_change_is_searched_by_the_contract_item(self):
+        # 11-27 운영: OCI홀딩스·OCI 계약금액 변경(전자급 과산화수소 공급 4902억→6181억)을 'OCI홀딩스 계약금액'으로만 찾았다
+        body = ("- 계약금액 변경 1) 판매ㆍ공급계약 구분: 전자급 과산화수소 공급 2) 계약금액: 618,153,402,866원 -'20년 9월 24일 최초계약금액 : "
+                "490,206백만원 -'26년 10월 31일 기준 공급금액 : 323,324백만원 (최초 계약금액 대비 이행률 : 66%) 3)")
+        row = {"id": "clue:oci", "company": "OCI홀딩스", "bodyTitle": True, "terms": [], "alts": {}, "title": "OCI홀딩스, 투자판단관련주요경영사항(자회사의 주요경영사항)",
+               "filing": {"type": "공정공시", "facts": [["제목", "단일판매·공급계약 계약금액 변경"], ["주요내용", body]]}}
+        kept, count = s.apply_body_titles([row])
+        self.assertEqual(count["read"], 1)
+        self.assertEqual(kept[0]["terms"][:2], ["과산화수소", "전자급"])
+        self.assertEqual(s.queries(kept[0])[0], "OCI홀딩스 과산화수소")
+        art = {"title": "OCI, 삼성전자 과산화수소 공급계약 6181억으로 늘려", "text": "", "url": "k", "date": "2026-11-25"}
+        self.assertEqual(s.judge({**kept[0], "company": "OCI"}, channels([art]), now=dt.datetime(2026, 11, 27, 15, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 계약금액 변경이 아닌 제목은 그대로
+        other = {**row, "filing": {"type": "공정공시", "facts": [["제목", "신규 시설투자"], ["주요내용", body]]}}
+        self.assertNotIn("과산화수소", s.apply_body_titles([other])[0][0]["terms"])
+
     def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
         rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
         prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
