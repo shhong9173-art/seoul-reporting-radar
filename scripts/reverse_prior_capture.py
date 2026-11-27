@@ -44,7 +44,7 @@ LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 �
          "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록",
          "jp-trade-remedy": "일본 무역구제 공고", "eu-trade-defence": "EU 관보 무역구제", "uk-trade-notices": "영국 무역구제 고시",
          "th-trade-remedy": "태국 무역구제 공고", "ieps-permits": "통합환경허가 공개", "kr-report-notes": "정기보고서 숨은 대목", "assembly-minutes": "국회 회의록",
-         "governance": "지분·자사주 변동", "ktc": "국내 무역위원회"}
+         "governance": "지분·자사주 변동", "ktc": "국내 무역위원회", "us-tsbs": "미국 제조사 통신", "kr-free-repair": "국내 무상점검·수리"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"한국타이어앤테크놀로지": "한국타이어", "S-Oil": "S-OIL", "현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
@@ -73,6 +73,9 @@ CONCEPTS = [
     ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|"
      r"(?<!light-)(?<!light )(?<!heavy-)(?<!heavy )(?<!medium-)(?<!medium )\bdut(?:y|ies)\b(?!-free)|tariff|subsid(?!iar)|관세|덤핑|쿼터|\bquotas?\b"),
     ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
+    # 11-27: 무상수리·보증 기사 ↔ 국내 무상점검·수리 공지·미국 제조사 통신(서비스 캠페인·보증 연장·수리 지침). '지급보증'·'채무보증'은 아니다
+    ("무상수리·보증", r"무상\s*(?:수리|교환|점검)|보증\s*(?:연장|기간|프로그램)|워런티",
+     r"무상\s*(?:수리|점검)|warranty|service campaign|product improvement|보증\s*(?:연장|프로그램)|제조사 통신|\bTSB\b"),
     ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
     # 11-27: 「온라인 힘 주는 현대차, 英 아마존서 자동차 판매」의 '온라인'이 '라인'으로 공장·생산이 됐다 — 온라인·오프라인·파이프라인·
@@ -125,7 +128,9 @@ SPECIFICS = [("강관", r"강관", r"\bpipe|tube|tubular"), ("후판", r"후판"
              ("비스페놀A", r"BPA|비스페놀", r"\bBPA\b|비스페놀|bisphenol"),
              # 11-11 기자 기사 대조: 「금호석유화학, 특수가스 자회사 흡수합병 마무리」(11-11)가 전날 DART '합병등종료보고서(합병)' 단서와
              # '합병' 개념 하나만 겹쳐 '같은 회사 항목만'이었다. 합병을 끝냈다는 기사 ↔ 합병 종료 보고서는 같은 사건.
-             ("합병 종료", r"합병.{0,12}(?:마무리|완료|종료|마쳐|마친|매듭)", r"합병등\s*종료\s*보고서|합병\s*종료")]
+             ("합병 종료", r"합병.{0,12}(?:마무리|완료|종료|마쳐|마친|매듭)", r"합병등\s*종료\s*보고서|합병\s*종료"),
+             # 11-27: 「[단독] 제네시스, 엔진오일 6회 무상교환이라더니…」 ↔ 미국 제조사 통신 26-EM-019G 'higher-than-expected engine oil consumption'
+             ("엔진오일", r"엔진\s*오일|오일\s*소모", r"engine oil|oil consumption|엔진\s*오일")]
 SPECIFIC_RX = [(name, re.compile(ko), re.compile(en, re.I)) for name, ko, en in SPECIFICS]
 # 회사 이름 속 품목 낱말은 사건 낱말이 아니다(11-09: 기사 'LS전선'의 전선 ↔ 항목 'LS Cable & System'의 cable로 '먼저'가 됨).
 # 기사 쪽은 그 기사의 회사 이름을 지운 제목, 항목 쪽은 아래 영문 회사 이름을 지운 글로 품목을 맞춘다.
@@ -156,7 +161,7 @@ PLACE_WORDS = set(KR_PLACES) | {name for name, _ in US_PLACES}   # 지명만 겹
 #  ② 「[단독] 포스코, 카자흐서 2500만달러 중재판정 집행 항소 기각」 ↔ 'POSCO v. United States opinion'(미국 국제무역법원) — 다른 나라·중재 사건 ↔ 미국 관세 소송 판결
 # 제목이 해외 공장·법인 기사면 국내 장소 원천(공장등록·건축허가·굴뚝·지자체·국민연금·지방의회)과 잇지 않는다.
 # 판결끼리 연결은 제목이 중재 사건이면 항목에도 중재가, 제목에 미국 밖 나라가 있으면(미국 없이) 미국 법원 항목이 아니어야 센다.
-DOMESTIC_SOURCES = {"kr-building", "kr-stacks", "kr-local", "kr-workforce", "kr-official", "council-minutes"}
+DOMESTIC_SOURCES = {"kr-building", "kr-stacks", "kr-local", "kr-workforce", "kr-official", "council-minutes", "kr-free-repair"}
 FOREIGN = r"(?:中|중국|美|미국|日|일본|印|인도(?!네)|베트남|인니|인도네시아|카자흐\w*|러시아|브라질|멕시코|캐나다|호주|유럽|EU|英|영국|독일|폴란드|헝가리|체코|슬로바키아|튀르키예|터키|사우디|UAE|태국|말레이시아|필리핀|인도|북미|남미|중남미)"
 FOREIGN_SITE = re.compile(FOREIGN + r"\s*(?:현지\s*)?(?:공장|법인|사업장|생산\s*기지|라인)|(?:현지|해외)\s*(?:공장|법인|생산)")
 NON_US_COUNTRY = re.compile(r"中|중국|日|일본|印|인도(?!네)|베트남|인니|인도네시아|카자흐|러시아|브라질|멕시코|캐나다|호주|유럽|EU|英|영국|독일|폴란드|튀르키예|터키|사우디|UAE|태국|말레이시아")
@@ -353,6 +358,27 @@ def _recalls(d, add):
                 f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
 
 
+def _tsbs(d, add):
+    """미국 제조사 통신(us-recalls 저장소 tsbs.items — 서비스 캠페인·보증 연장·서비스 공지). 11-27: 「[단독] 제네시스, 엔진오일 6회 무상교환이라더니…」가
+    11-20 B 통신 26-EM-019G(엔진오일 소모)를 못 봤다 — 역추적 기억에 통신이 없었다. 참고(C)는 뺀다(회생·파산과 같다)."""
+    for x in (d.get("tsbs") or {}).get("items") or []:
+        if not isinstance(x, dict) or x.get("tier") == "C":
+            continue
+        models = " ".join(str(m.get("model") or "") for m in x.get("models") or [] if isinstance(m, dict))
+        add(mem("us-tsbs", x.get("id"), list(x.get("companies") or []) + list(x.get("brands") or []),
+                f"제조사 통신 TSB {x.get('kindName') or ''} {models} {' '.join(x.get('components') or [])} {x.get('summary') or ''}",
+                x.get("firstSeen") or x.get("added"), x.get("url")))
+
+
+def _free_repair(d, add):
+    """국내 무상점검·수리 공지(kr-fuel 저장소 freeRepair.items, 자동차리콜센터 게시판) — 출입처 브랜드 A·B만."""
+    for x in (d.get("freeRepair") or {}).get("items") or []:
+        if not isinstance(x, dict) or not x.get("company") or x.get("tier") == "C":
+            continue
+        add(mem("kr-free-repair", x.get("id"), [x.get("company")], f"국내 무상수리 무상점검 공지 {x.get('title') or ''} {x.get('model') or ''} {x.get('reason') or ''}",
+                x.get("firstSeen") or x.get("date"), x.get("url")))
+
+
 def _epa(d, add):
     for v in d.get("vehicles") or []:
         add(mem("us-epa", v.get("id"), [v.get("company")], f"EPA 연비 인증 {v.get('kind')} {v.get('year')} {v.get('make')} {v.get('model')} {v.get('baseModel') or ''}"
@@ -487,7 +513,8 @@ def _clues(d, add):
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("trade-remedy", _ktc), ("kr-official", _official), ("kr-official", _eia),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
-            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
+            ("us-recalls", _recalls), ("us-recalls", _tsbs), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("kr-fuel", _free_repair),
+            ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
             ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues),
             ("governance", _governance), *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes", *NEW_FEEDS)]]
