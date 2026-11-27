@@ -18,13 +18,13 @@ import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl, dartViewerDocs, relayKey } from '../cloudflare/live_tools.mjs';
 import { foreignGloss } from '../cloudflare/gloss.mjs';
-import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
+import { ageNote, failedCheck, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
+import { background, billHint, kstStamp, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -5915,6 +5915,38 @@ test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급�
   // 11-23 문구: 언제부터·어느 쪽이 최근인지 적는다
   assert.match(hq, /^- 지자체 고시·공고: 새 글 0건이 이어지는 곳 1곳\(울주군: 기간 안 새 글 0건이 두 번 이상 연달아, \d\d-\d\d \d\d:\d\d 실행에서 처음 표시 — 0건 전 실행\(최근부터\) 5·5·6·7건, 목록 자체는 812건 응답\) — 한산한 기간이거나 공고 위치가 바뀌었을 수 있음 — 해당 부분 0건은 미확인$/m);
   assert.doesNotMatch(hq, /형식 변경 의심/);
+});
+
+test('연속 실패(11-27 한전 전자입찰 나흘째): 원천마다 몇 번째·언제부터를 쌓고, 3번 넘으면 수집 상태 줄에 붙여 앞에 둔다', async () => {
+  const run = (prev, checks, at) => returnedWatch(prev, { checks }, at);
+  const K = '한전 전자입찰';
+  let rw = null;
+  for (const at of ['2026-11-28T06:20:00Z', '2026-11-28T17:00:00Z', '2026-11-28T23:30:00Z']) rw = run(rw, [{ source: K, status: 'failed', error: 'ConnectTimeout' }, { source: '공정위 의결서', status: 'ok', returned: 4 }], at);
+  assert.deepEqual(rw.fail, { [K]: { since: '2026-11-28T06:20:00Z', n: 3 } });   // generatedAt 없는 문서는 저장 시각
+  assert.deepEqual(run(rw, [{ source: K, status: 'failed', restDay: true }], '2026-11-29T06:20:00Z').fail, rw.fail);   // 쉬는 날은 그대로
+  assert.equal(run(rw, [{ source: K, status: 'ok', returned: 700 }], '2026-11-29T06:20:00Z').fail, undefined);          // 정상이면 지움
+  assert.equal(run(rw, [{ source: '공정위 의결서', status: 'ok', returned: 4 }], '2026-11-29T06:20:00Z').fail, undefined); // 이번 checks에 없으면 지움
+  assert.equal(run(null, [{ source: 'x', status: 'partial', pending: 3 }], '2026-11-29T06:20:00Z'), null);                // 읽기 한도 대기는 실패 아님
+  assert.equal(failedCheck({ status: 'partial', error: 'HTTP 502' }), true);
+  // 저장 → radar_today: 3번째부터 'n회 연속 실패, 언제부터'를 붙이고 오래 실패한 원천을 앞에
+  const opts = PRIVATE();
+  const post = (at, checks) => worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'kr_signals/v1', generatedAt: at, status: 'partial', checks, decisions: [], events: [], prices: [] }) }), opts.env, {});
+  const both = [{ source: '시·도 보도자료', status: 'failed', error: 'x' }, { source: K, status: 'failed', error: 'ConnectTimeout' }];
+  assert.equal((await post('2026-11-28T15:20:00+09:00', [{ source: K, status: 'failed', error: 'ConnectTimeout' }])).status, 200);
+  await post('2026-11-29T08:30:00+09:00', [{ source: K, status: 'failed', error: 'ConnectTimeout' }]);
+  await post('2026-11-29T15:20:00+09:00', both);
+  const h = (await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-29T07:00:00Z') })).text;
+  assert.match(h, /^- 공정위·한전·원자재: 일부 실패 2건\(한전 전자입찰 — 3회 연속 실패, 11-28 15:20부터, 시·도 보도자료\)/m);
+  // 기록을 시작한 첫 실행 무렵부터 실패 중이면 그보다 앞일 수 있다고 적는다
+  const opts2 = PRIVATE();
+  const post2 = (at) => worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'kr_signals/v1', generatedAt: at, status: 'partial', checks: [{ source: K, status: 'failed', error: 'ConnectTimeout' }], decisions: [], events: [], prices: [] }) }), opts2.env, {});
+  for (const at of ['2026-11-27T20:20:00+09:00', '2026-11-28T08:30:00+09:00', '2026-11-28T15:20:00+09:00']) await post2(at);
+  const first = await worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts2.env, {});
+  assert.equal(lastReturnedWatch(await first.text()).fail[K].since, '2026-11-27T11:20:00.000Z');   // 그 실행의 생성 시각
+  const h2 = (await call('radar_today', { hours: 24 }, { ...opts2, now: new Date('2026-11-28T07:00:00Z') })).text;
+  assert.match(h2, /한전 전자입찰 — 3회 연속 실패, 11-27 20:20\(기록 시작\) 전부터/);
 });
 
 test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {

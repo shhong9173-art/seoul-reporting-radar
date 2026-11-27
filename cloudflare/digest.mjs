@@ -1,7 +1,7 @@
 // radar_today: one private digest over the eleven private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
-import { readFeed, weekdayHours } from './screen.mjs';
+import { FAIL_TRACK_START, readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { EXCLUDING, alertBeforeArticle, entryLabel, loadLedger, matchHandled } from './handled.mjs';
 import { dispatchHealth } from './dispatch.mjs';
@@ -2061,7 +2061,16 @@ function health(ctx, docs) {
     if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(rawH)}시간 전 결과`);
     // 11-21: 노동위 첫 화면만 실패하고 달력(기자 컴퓨터 수집) 회의는 읽은 곳은 그렇게 적는다 — 빠진 건 달력 수집 뒤 새로 잡힌 회의뿐
     // 11-23: 주 1회 감시 중 평일에 실패분만 다시 묻는 곳(상표·건축허가)은 그렇게 적는다 — '상표 포스코홀딩스 일부 실패'가 한 주 내내 미확인인지 안 보였다
-    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => `${c.source ?? c.company ?? c.target}${c.calendarOnly ? '(첫 화면만 실패 — 달력 회의는 읽음)' : ''}`).join(', ')})${w.retry ? ` — ${w.retry}` : ''}`);
+    // 11-27: 연달아 3번 넘게 실패한 원천은 몇 번째·언제부터인지 붙이고 앞에 둔다(한전 전자입찰 11-23부터 — 한 번 실패와 구분)
+    const streak = (c) => d._returnedWatch?.fail?.[String(c.source ?? c.company ?? c.target ?? '').slice(0, 80)];
+    const streakNote = (c) => {
+      const f = streak(c);
+      if (!f || !(f.n >= 3) || !Number.isFinite(Date.parse(f.since))) return '';
+      const at = kstStamp(f.since);
+      return ` — ${f.n}회 연속 실패, ${Date.parse(f.since) < Date.parse(FAIL_TRACK_START) + 6 * 3600000 ? `${at}(기록 시작) 전부터` : `${at}부터`}`;
+    };
+    const shown = [...failed].sort((a, b) => (streak(b)?.n ?? 0) - (streak(a)?.n ?? 0));
+    if (failed.length) issues.push(`일부 실패 ${failed.length}건(${shown.slice(0, 3).map((c) => `${c.source ?? c.company ?? c.target}${c.calendarOnly ? '(첫 화면만 실패 — 달력 회의는 읽음)' : ''}${streakNote(c)}`).join(', ')})${w.retry ? ` — ${w.retry}` : ''}`);
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
