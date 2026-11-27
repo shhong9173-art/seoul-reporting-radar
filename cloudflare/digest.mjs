@@ -504,9 +504,19 @@ const cityOf = (text) => {
   if (/전남광주통합특별시\s+(?:동구|서구|남구|북구|광산구)/.test(t)) return '광주';
   return (METRO.exec(t) ?? [])[1];
 };
+// 공장 주소의 읍 이름이 기사에서 공장 이름으로 쓰이는 곳 — 시·군 대신 그 이름으로 찾는다(11-27 운영: 롯데케미칼 '서산시 대산읍 독곶1로 82'
+// 목록에서 빠짐을 '롯데케미칼 서산'으로 찾아 미보도 후보였다 — 기사는 「대산 떼어내도 적자」·「대산 합작사에 2.3조 자금보충」처럼 '대산')
+const PLANT_TOWNS = ['대산', '온산', '오창'];
+export const plantTown = (text) => PLANT_TOWNS.find((w) => new RegExp(`(?<![가-힣])${w}읍`).test(String(text ?? '')));
+// 공장등록 목록에서 빠짐은 폐쇄만이 아니다(폐업·이전·이름 변경 — 물적분할·합작사 이관도) — 사업 재편 낱말도 같은 사건 낱말로 본다.
+// 낱말이 넓어지는 만큼 기사에 공장 지명(대산·창원 등)이 있어야 같은 사업장으로 친다
+const FACTORY_GONE_WORDS = [...ALT.폐쇄, '분할', '합병', '합작', '양도', '이관', '통합', '떼어'];
 function factoryHint(company, kind, text) {
-  const city = cityOf(text);
-  if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
+  const city = plantTown(text) ?? cityOf(text);
+  if (/빠짐/.test(kind)) {
+    const h = hint(company, [city, '공장', '폐쇄'], [city], [city]);
+    return h && { ...h, alts: { ...h.alts, 폐쇄: FACTORY_GONE_WORDS } };
+  }
   if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설'], [city]);
   const m = /고용 (\d+)→(\d+)/.exec(String(text ?? ''));
   if (m) return hint(company, [city, Number(m[2]) < Number(m[1]) ? '감원' : '채용'], [city], [city]);  // 사업장 지명 없는 기사는 다른 사업장일 수 있다
