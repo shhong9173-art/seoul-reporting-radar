@@ -3152,6 +3152,20 @@ function crc32(buf) {
   return ~c >>> 0;
 }
 
+test('공장등록 주소 빈 칸이 채워지기만 한 줄(11-27 현대차 HMG Energy Park Anseong)은 C, 다른 변경이 함께면 그대로', async () => {
+  const opts = PRIVATE();
+  const ev = (id, text) => ({ id, kind: '등록 내용 변경', company: '현대차', factoryId: id, name: '현대자동차(주)HMG Energy Park Anseong', tier: 'B', text, detectedAt: '2026-11-27T08:10:00+09:00' });
+  const doc = { schema: 'kr_official/v1', generatedAt: '2026-11-27T08:10:00+09:00', checks: [], gazette: [], factories: [],
+    events: [ev('fac:a', "주소 '-'→'경기도 안성시 서운면 서운로 488, 안성 제5일반산업단지 산업시설용지2'"), ev('fac:b', "주소 '-'→'경기도 안성시 1' · 고용 100→300명")] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+  const t = (await call('radar_today', { hours: 24, include_minor: true, limit: 30 }, { ...opts, now: new Date('2026-11-27T10:00:00Z') })).text;
+  const b = t.split('[B · ')[1].split('[C · ')[0];
+  const c = t.split('[C · ')[1];
+  assert.doesNotMatch(b, /id fac:a\b/);
+  assert.match(c, /fac:a/);
+  assert.match(b, /id fac:b\b/);
+});
+
 test('radar-items hands hinted A/B items to the press checker; radar_today shows verdicts, unreported first', async () => {
   const opts = PRIVATE();
   const env = opts.env;

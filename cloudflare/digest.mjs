@@ -635,7 +635,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   for (const e of kr?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const text = factoryEventText(kr, e);
-    push(e.tier ?? (e.kind === '목록에서 빠짐' ? 'B' : 'A'), W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
+    // 11-27 운영: 현대자동차(주)HMG Energy Park Anseong 주소 '-'→'경기도 안성시 서운면 서운로 488, …'이 '등록 내용 변경' B —
+    // 빈 칸이 채워진 것은 이전·변경이 아니라 등록 정보가 보태진 것(참고 C). 다른 변경이 함께 적힌 줄은 그대로
+    const filledOnly = e.kind === '등록 내용 변경' && /^주소 '-'→'[^']+'$/.test(String(e.text ?? ''));
+    push(filledOnly ? 'C' : e.tier ?? (e.kind === '목록에서 빠짐' ? 'B' : 'A'), W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
       check: factoryHint(e.company, e.kind, text) });
   }
   const evFactories = all ? new Set() : new Set((kr?.events ?? []).filter((e) => Date.parse(e.detectedAt) >= cut).map((e) => e.factoryId));
