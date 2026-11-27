@@ -72,6 +72,20 @@ class Parse(unittest.TestCase):
         q = w.parse_post(POSTS[("bodo", "469")])
         self.assertEqual((q["title"], q["date"]), ("LG화학지회, 성과급 기준 공개 요구", "2026-11-03T21:34:00+09:00"))
 
+    def test_body_stops_before_list_button_and_footer(self):
+        # 11-27 운영(kmwu.kr ce_B13 217660 실제 모양): 이미지 소식지 글의 앞부분이 목록 단추·바닥글(중앙선거관리위원회·로그인·주소)까지 읽혔다
+        page = ('<html><head><title>[충남원청투본] 18호 &lt;현대제철 원청교섭 개시, 본격적 투쟁은 지금부터&gt; &gt; 지역소식 | 전국금속노동조합</title></head><body>'
+                '<section id="bo_v_info"> 작성일 26-11-27 18:31 </section><section id="bo_v_atc"><div id="bo_v_img"><a class="view_image"><img src="x.jpg" alt=""></a></div> '
+                '<div id="bo_v_con"><p>[충남원청투본] 18호 &lt;현대제철 원청교섭 개시, 본격적 투쟁은 지금부터&gt;&nbsp;</p></div> </section> '
+                '<div id="bo_v_bot"> <ul class="bo_v_com"> <li><a href="./board.php?bo_table=ce_B13&amp;page=" class="btn_b01">목록</a></li> </ul> </div> </article> '
+                '<script> function board_move(href) {} </script> <div id="ft"> <div class="ft_link"><a href="http://vote.kmwu.kr/">중앙선거관리위원회</a></div> '
+                '<ul><li><a href="/bbs/login.php">로그인</a></li></ul> 서울시 중구 정동길 5(정동 22-2) 경향신문사 별관 6층 TEL. 02-2670-9555</div></body></html>')
+        p = w.parse_post(page)
+        self.assertEqual(p["body"], "[충남원청투본] 18호 <현대제철 원청교섭 개시, 본격적 투쟁은 지금부터>")
+        self.assertEqual(p["date"], "2026-11-27T18:31:00+09:00")
+        # 표지가 없는 글(화섬식품노조 모양)은 그대로
+        self.assertTrue(w.parse_post(POSTS[("bodo", "469")])["body"])
+
     def test_names_and_tiers(self):
         self.assertEqual(w.beats_in("포스코퓨처엠 지회"), [])
         self.assertEqual(w.beats_in("포스코 노사, 임단협 본교섭 재개"), ["포스코"])
