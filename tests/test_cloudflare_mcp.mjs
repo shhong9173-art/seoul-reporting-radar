@@ -24,7 +24,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
-import { background, billHint, kstStamp, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
+import { background, billHint, kstStamp, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, plantTown, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -3195,6 +3195,24 @@ test('공장등록 주소 빈 칸이 채워지기만 한 줄(11-27 현대차 HMG
   assert.doesNotMatch(b, /id fac:a\b/);
   assert.match(c, /fac:a/);
   assert.match(b, /id fac:b\b/);
+});
+
+test('공장 목록에서 빠짐 보도 대조: 읍 이름이 공장 이름인 곳(대산·온산·오창)은 그 이름으로, 사업 재편 낱말도 같은 사건(11-27 롯데케미칼 대산)', async () => {
+  const opts = PRIVATE();
+  const ev = (id, company, text, kind = '목록에서 빠짐') => ({ id, kind, company, factoryId: id, text, detectedAt: '2026-11-27T08:10:00+09:00' });
+  const doc = { schema: 'kr_official/v1', generatedAt: '2026-11-27T08:10:00+09:00', checks: [], gazette: [], factories: [],
+    events: [ev('fac:lc', '롯데케미칼', '롯데케미칼(주) · 충청남도 서산시 대산읍 독곶1로 82 — 11-26부터 두 번 연속 조회 목록에 없음'),
+      ev('fac:wia', '현대위아', '현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154 — 이번 조회 목록에 없음'),
+      ev('fac:ko', '고려아연', '고려아연(주) · 울산광역시 울주군 온산읍 이진로 139 — 고용 1500→1400명', '등록 내용 변경')] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+  const res = await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=24', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, { now: new Date('2026-11-27T10:00:00Z') });
+  const by = Object.fromEntries((await res.json()).items.map((x) => [x.id, x]));
+  assert.deepEqual([by['fac:lc'].check.terms, by['fac:lc'].check.places, by['fac:lc'].check.must], [['대산', '공장', '폐쇄'], ['대산'], ['대산']]);
+  assert.ok(by['fac:lc'].check.alts.폐쇄.includes('합작') && by['fac:lc'].check.alts.폐쇄.includes('분할') && by['fac:lc'].check.alts.폐쇄.includes('매각'));
+  assert.deepEqual([by['fac:wia'].check.terms, by['fac:wia'].check.must], [['창원', '공장', '폐쇄'], ['창원']]);   // 읍이 아닌 곳은 시·군 그대로
+  assert.deepEqual([by['fac:ko'].check.terms, by['fac:ko'].check.must], [['온산', '감원'], ['온산']]);
+  assert.equal(plantTown('경기도 안성시 서운면 서운로 488'), undefined);
+  assert.equal(plantTown('충청북도 청주시 흥덕구 오창읍 과학산업2로'), '오창');
 });
 
 test('radar-items hands hinted A/B items to the press checker; radar_today shows verdicts, unreported first', async () => {
