@@ -351,6 +351,35 @@ class Capture(unittest.TestCase):
         self.assertEqual(r.doc_key("https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular"), "fr:2026-22630")
         self.assertEqual(r.doc_key("https://www.federalregister.gov/d/2026-22630"), "fr:2026-22630")
 
+class GenericOverlaps(unittest.TestCase):
+    """11-27 radar_today 역추적 '먼저 잡은 후보' 5건 중 2건이 엉뚱한 연결(실제 제목·항목 글)."""
+    FAC = r.mem("kr-official", "fac:415502024161684:new", ["현대차"],
+                "공장 목록에 다시 나옴 현대자동차(주) · · 주생산품 자동차용 배터리셀, 고성능 배터리 개발, 디지털 검증체계 적용 · 등록 미기재",
+                "2026-11-24T08:10:00+09:00")
+    COURT = r.mem("clues", "bfdd2260359dc920", ["현대차"], "현대차 아산공장 기름유출 사고…대법, 회사·직원 벌금형 확정 - 대한민국 법원",
+                  "2026-11-06T18:06:00+09:00")
+
+    def test_online_sales_article_is_not_a_factory_item(self):
+        v, _, n = r.match({"title": "[단독]온라인 힘 주는 현대차, 英 아마존서 자동차 판매", "companies": ["현대차"],
+                           "published": "2026-11-26T06:23:00+09:00"}, [self.FAC])
+        self.assertEqual((v, n), ("같은 회사 항목만", 1))
+        self.assertEqual(r.kind_of("온라인 힘 주는 현대차, 英 아마존서 자동차 판매"), "통계·시장")
+        # 생산 라인은 그대로 공장·생산
+        self.assertEqual(r.kind_of("현대차, 울산 전기차 라인 증설"), "투자·공장")
+        v, best, _ = r.match({"title": "현대차, 배터리셀 생산라인 갖춘다", "companies": ["현대차"],
+                              "published": "2026-11-26T06:23:00+09:00"}, [self.FAC])
+        self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "fac:415502024161684:new"))   # '배터리셀' 낱말이 그대로 겹침
+
+    def test_new_lawsuit_article_is_not_an_old_criminal_ruling(self):
+        v, _, _ = r.match({"title": "[단독] '현대차 투자' 美 배터리사, 포스코와 손잡은 韓 배터리사에 특허 소송",
+                           "companies": ["현대차", "포스코"], "published": "2026-11-25T16:27:00+09:00"}, [self.COURT])
+        self.assertEqual(v, "같은 회사 항목만")
+        # 판결·항소 기사는 판결 항목과 잇는다
+        v, best, _ = r.match({"title": "현대차, 아산공장 기름유출 사고 벌금형 확정 판결에 재심 청구", "companies": ["현대차"],
+                              "published": "2026-11-25T16:27:00+09:00"}, [self.COURT])
+        self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "bfdd2260359dc920"))
+
+
 class Places(unittest.TestCase):
     """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""
     ITEMS = [r.mem("kr-building", "bld:947602", ["LS전선"], "공장 건축허가 경상북도 구미시 진평동 643번지 증설 신축 plant factory", "2026-10-29T16:21:00+09:00"),
