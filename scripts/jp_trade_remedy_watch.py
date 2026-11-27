@@ -44,6 +44,9 @@ PDF_BUDGET = 3
 PDF_MAX = 6_000_000
 KEEP_MEETINGS = 20
 DETAIL_BUDGET = 4
+# 상세 쪽 읽기 판: 바뀌면 이미 읽은 공고도 (새 공고·안 읽은 공고 다음으로) 한 번 다시 읽는다
+# (2: 11-27 BPA 확정 '2.4％～8.7％'를 '2.4%'로만 읽었고 '(注2)LG CHEM, LTD.により生産されたものを除く'를 '본문에 출입처 LG화학'으로만 적었다)
+DETAIL_VERSION = 2
 PAUSE = 2.0
 EVENT_DAYS = 90
 KEEP_ENTRIES = 80
@@ -220,7 +223,7 @@ def parse_detail(raw, published):
         if len(facts) >= 5:
             break
     rates = None
-    r = re.search(r"(\d+(?:\.\d+)?)\s*[～〜~\-－]\s*(\d+(?:\.\d+)?)\s*[%％]", text)
+    r = re.search(r"(\d+(?:\.\d+)?)\s*[%％]?\s*[～〜~\-－]\s*(\d+(?:\.\d+)?)\s*[%％]", text)   # '29.2～55.3％'·'2.4％～8.7％'(11-27 BPA)
     if r:
         rates = f"{r.group(1)}~{r.group(2)}%"
     else:
@@ -251,8 +254,14 @@ def parse_detail(raw, published):
         spaced = latin_spaced(text)
         names += [ko for ko, rx in BEAT_NAMES if ko not in names and re.search(rx, spaced, re.I)]
     except Exception:  # noqa: BLE001
-        pass
-    return {"facts": facts, "rates": rates, "until": until, "dutyTo": duty_to, "applicants": applicants, "companies": names, "pdfs": pdfs}
+        BEAT_NAMES = []
+    # 부과 대상에서 뺀 생산자: '(注2)LG CHEM, LTD.により生産されたものを除く。'(11-27 BPA 확정) — 출입처 이름이 든 '…を除く' 대목만
+    excluded = []
+    for x in re.findall(r"([^。()（）]{2,80}?)(?:により生産された(?:もの|貨物))?を除く", text)[:6]:
+        excluded += [ko for ko, rx in JP_NAMES if ko not in excluded and re.search(rx, x)]
+        excluded += [ko for ko, rx in BEAT_NAMES if ko not in excluded and re.search(rx, latin_spaced(x), re.I)]
+    return {"facts": facts, "rates": rates, "until": until, "dutyTo": duty_to, "applicants": applicants, "companies": names,
+            "excluded": excluded, "pdfs": pdfs, "v": DETAIL_VERSION}
 
 
 COUNCIL_A = re.compile(r"""(?is)<a[^>]+href=["']([^"']*kanb\d{8}\.html?)["'][^>]*>(.*?)</a>""")
@@ -474,8 +483,11 @@ def event_text(e):
         bits.append(f"관세 부과 {det['dutyTo']}까지")
     if det.get("applicants"):
         bits.append(f"신청 {det['applicants']}")
-    if det.get("companies"):
-        bits.append(f"본문에 출입처 {'·'.join(det['companies'])}")
+    named = [n for n in det.get("companies") or [] if n not in (det.get("excluded") or [])]
+    if named:
+        bits.append(f"본문에 출입처 {'·'.join(named)}")
+    if det.get("excluded"):
+        bits.append(f"부과 대상에서 제외 {'·'.join(det['excluded'])}(보도자료 '…を除く')")
     if not det.get("read"):
         bits.append(f"상세 쪽 못 읽음({det.get('error') or '다음 실행에 읽음'})")
     return " · ".join(bits) + " (일본 재무성·경제산업성 공표 — 세율·대상 업체는 원문 확인)"
@@ -541,8 +553,9 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
         entries[x["url"]] = rec
         seen.add(x["url"])
     # 상세 쪽: 새 공고(이벤트 대기) 먼저, 그다음 아직 안 읽은 한국 공고(최신순) — 기준선 공고도 조사 기간·관세 끝 날짜를 일정에 쓰려고 읽는다
-    todo = sorted((e for e in entries.values() if not (e.get("detail") or {}).get("read")),
-                  key=lambda e: (0 if e.get("eventPending") else 1, -int((e.get("date") or "0000-00-00").replace("-", ""))))
+    todo = sorted((e for e in entries.values() if not (e.get("detail") or {}).get("read") or (e.get("detail") or {}).get("v") != DETAIL_VERSION),
+                  key=lambda e: (0 if e.get("eventPending") else 1 if not (e.get("detail") or {}).get("read") else 2,
+                                 -int((e.get("date") or "0000-00-00").replace("-", ""))))
     budget, errors = DETAIL_BUDGET, []
     for e in todo:
         if budget <= 0:
@@ -557,6 +570,9 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             e["detail"] = {**parse_detail(r.text, e["date"]), "read": True, "readAt": stamp}
         except Exception as ex:  # noqa: BLE001
             err = str(ex)[:40] or type(ex).__name__
+            if (e.get("detail") or {}).get("read"):   # 다시 읽기 실패: 앞서 읽은 것을 그대로 둔다(다음 실행에 다시)
+                errors.append(f"{e['url'].rsplit('/', 1)[-1]} 다시 읽기 {err}")
+                continue
             e["detail"] = {**(e.get("detail") or {}), "read": False, "error": err}
             errors.append(f"{e['url'].rsplit('/', 1)[-1]} {err}")
     council, ccheck, cerrors = council_run(prev.get("council"), now, get, sleep, stamp)

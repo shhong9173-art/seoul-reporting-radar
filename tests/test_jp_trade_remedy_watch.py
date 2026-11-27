@@ -149,6 +149,22 @@ class Parse(unittest.TestCase):
         self.assertEqual(e["until"], "2026-12-12")
         self.assertEqual(e["dutyTo"], "")
 
+    def test_rate_range_with_percent_on_both_ends_and_excluded_producer(self):
+        # 11-27 운영: BPA 확정 보도자료 '（不当廉売関税率は2.4％～8.7％）'를 '세율 2.4%'로, '（注２）ＬＧ ＣＨＥＭ, ＬＴＤ.により生産されたものを除く。'를
+        # '본문에 출입처 LG화학'으로만 적었다(실제는 부과 대상에서 제외 — 11-21 [단독] 「LG화학, 日 BPA 반덤핑관세 대상 제외」)
+        d = w.parse_detail("<main><p>本日、大韓民国（以下「韓国」という。）並びに台湾を原産地とするビスフェノールＡ（注１）に対して不当廉売関税を課する政令が閣議決定されました"
+                           "（不当廉売関税率は2.4％～8.7％）。</p><p>韓国産（注２）及び台湾産ビスフェノールＡに対して、不当廉売関税が課されることとなります。</p>"
+                           "<p>（注２）ＬＧ ＣＨＥＭ, ＬＴＤ.により生産されたものを除く。</p></main>", "2026-11-27")
+        self.assertEqual((d["rates"], d["excluded"], d["v"]), ("2.4~8.7%", ["LG화학"], w.DETAIL_VERSION))
+        e = {"indexLabel": "반덤핑(不当廉売関税)", "kind": "확정 관세 결정", "title": "x", "productKo": "비스페놀A", "date": "2026-11-27", "index": "AD", "korea": True,
+             "detail": {**d, "read": True}}
+        text = w.event_text(e)
+        self.assertIn("세율 2.4~8.7%", text)
+        self.assertIn("부과 대상에서 제외 LG화학(보도자료 '…を除く')", text)
+        self.assertNotIn("본문에 출입처 LG화학", text)
+        # 다른 '…を除く'(출입처 이름 없음)는 제외 업체로 안 친다
+        self.assertEqual(w.parse_detail("<main><p>ただし、土曜日及び日曜日を除く。ＰＯＳＣＯの個別税率は29.2％とする。</p></main>", "2026-11-27")["excluded"], [])
+
     def test_company_names_in_body(self):
         d = w.parse_detail("<main><p>輸出者ＰＯＳＣＯ及びポスコ、現代製鉄株式会社の個別税率は次のとおり。</p></main>", "2026-12-04")
         self.assertIn("포스코", d["companies"])
@@ -191,6 +207,28 @@ class Run(unittest.TestCase):
         self.assertEqual(len(doc3["events"]), 1)
         self.assertNotIn("상세 쪽 못 읽음", doc3["events"][0]["text"])
         self.assertIn("updatedAt", doc3["events"][0])
+
+    def test_details_read_with_an_old_parser_are_read_again_once(self):
+        doc, _ = run(page(L_PROV, L_EXT), {"ka20260804": D_PROV, "ka20260724-2": D_EXT})
+        doc2, _ = run(page(L_FINAL, L_PROV, L_EXT), {"ka20261204": D_PROV}, prev=doc, now=NOW + dt.timedelta(days=13))
+        for e in doc2["entries"]:                      # 옛 판(판 표시 없음)으로 읽은 저장분
+            e["detail"].pop("v", None)
+        ev = next(x for x in doc2["events"] if x["id"] == "jptr:ka20261204")
+        ev["text"] = ev["text"].replace("세율 29.2~55.3%", "세율 29.2%")
+        doc3, get = run(page(L_FINAL, L_PROV, L_EXT), {"ka20261204": D_PROV, "ka20260804": D_PROV, "ka20260724-2": D_EXT}, prev=doc2, now=NOW + dt.timedelta(days=13, hours=3))
+        self.assertEqual(len([u for u in get.calls if not u.endswith("index.html") and "/futou/" in u]), 3)
+        self.assertTrue(all(e["detail"]["v"] == w.DETAIL_VERSION for e in doc3["entries"]))
+        ev3 = next(x for x in doc3["events"] if x["id"] == "jptr:ka20261204")
+        self.assertIn("세율 29.2~55.3%", ev3["text"])                       # 이벤트 글이 새 판으로 고쳐지고
+        self.assertEqual((ev3["detectedAt"], doc3["fresh"]), (ev["detectedAt"], 0))   # 감지 시각은 그대로, 새 이벤트 아님
+        doc4, get4 = run(page(L_FINAL, L_PROV, L_EXT), {}, prev=doc3, now=NOW + dt.timedelta(days=13, hours=6))
+        self.assertEqual([u for u in get4.calls if not u.endswith("index.html") and "/futou/" in u], [])   # 한 번만
+        # 다시 읽기가 실패하면 앞서 읽은 것을 그대로 둔다
+        for e in doc3["entries"]:
+            e["detail"].pop("v", None)
+        doc5, _ = run(page(L_FINAL, L_PROV, L_EXT), {}, prev=doc3, fail=(F + "ka20261204.html", F + "ka20260804.html", F + "ka20260724-2.html"))
+        self.assertTrue(all(e["detail"]["read"] for e in doc5["entries"]))
+        self.assertEqual(doc5["detailPending"], 0)
 
     def test_list_failure_keeps_previous(self):
         doc, _ = run(page(L_PROV), {"ka20260804": D_PROV})
