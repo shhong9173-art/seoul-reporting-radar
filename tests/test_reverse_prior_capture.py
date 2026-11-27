@@ -405,6 +405,16 @@ class ServiceBulletinsAndFreeRepair(unittest.TestCase):
         self.assertEqual((v, best["id"], r.label_of(best)), ("먼저 잡은 후보", "HMA:doc:26-EM-019G", "미국 제조사 통신"))
         v, best, _ = r.match({"title": "[단독] 현대차 그랜저 2만대 무상수리…ECU 촉매 경고등", "companies": ["현대차"], "published": "2026-11-27T09:00:00+09:00"}, items)
         self.assertEqual((v, best["id"], r.label_of(best)), ("먼저 잡은 후보", "grts:4893", "국내 무상점검·수리"))
+        # #1188 첫 실행: G80 보증 연장 통신 요약의 'model year'가 신차·인증 개념이 돼 신차 기사 3건과 이어졌다
+        z06 = r.memory({"us-recalls": {"tsbs": {"items": [{"id": "HMA:Z06G", "tier": "B", "companies": ["현대차"], "brands": ["제네시스"], "kindName": "보증 연장",
+              "models": [{"model": "G80 ELECTRIFIED"}, {"model": "GV60"}], "components": ["FUEL/PROPULSION SYSTEM"],
+              "summary": "Certain 2023 – 2025 model year Genesis GV60, 2023 – 2025 model year G80 Electrified vehicles: warranty extension for the ICCU.",
+              "firstSeen": "2026-11-01T03:36:00+09:00"}]}}}, {})
+        for title in ("[단독] 제네시스 G80 하이브리드 연내 나온다...노사 맨아워 합의로 시험차 투입", "[단독]현대차 울산공장 파업…G80 하이브리드 투입 마찰에 라인 멈춰"):
+            v, _, _ = r.match({"title": title, "companies": ["제네시스"], "published": "2026-11-11T06:12:00+09:00"}, z06)
+            self.assertEqual(v, "같은 회사 항목만", title)
+        v, best, _ = r.match({"title": "[단독] 제네시스 G80 전기차 ICCU 보증 연장…국내는 빠져", "companies": ["제네시스"], "published": "2026-11-11T06:12:00+09:00"}, z06)
+        self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "HMA:Z06G"))
         # '지급보증'·'채무보증'은 무상수리·보증 개념이 아니다
         self.assertNotIn("무상수리·보증", {n for n, ko, _ in r.CONCEPTS if __import__("re").search(ko, "현대차, 미국 법인 차입 지급보증 1조")})
         # 엔진오일 낱말 없는 같은 회사 기사는 그대로
