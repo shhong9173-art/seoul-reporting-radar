@@ -377,7 +377,25 @@ export function localWord(title) {
   if (/산업단지/.test(t)) return '산업단지';
   if (/매립/.test(t)) return '매립';
   if (/이전/.test(t)) return '이전';
-  return '신설';
+  // 11-27: 「안전점검 수행기관 지정 공고[온산 고려아연(Ga 회수설비 De-As공정 Thickener Area 토건공사]」를 '고려아연 울주 신설'로만 찾아
+  // 미보도 후보였다 — 기사는 '고려아연 갈륨'으로 난다. 공고 제목의 광물·소재 낱말(원소 기호 포함)을 쓴다.
+  return localMaterial(t) ?? '신설';
+}
+// 원소 기호는 앞뒤에 다른 영문자가 없을 때만(Ga'·Ga 회수 O, Gas·Galaxy X). In·Co는 영어 낱말(In-line·Co.,Ltd)과 겹쳐 한글 이름만
+const LOCAL_MATERIALS = [[/(?<![A-Za-z])Ga(?![A-Za-z])|갈륨/, '갈륨'], [/(?<![A-Za-z])Ge(?![A-Za-z])|게르마늄/, '게르마늄'],
+  [/인듐/, '인듐'], [/(?<![A-Za-z])Sb(?![A-Za-z])|안티모니|안티몬/, '안티모니'], [/(?<![A-Za-z])Bi(?![A-Za-z])|비스무트/, '비스무트'],
+  [/(?<![A-Za-z])Li(?![A-Za-z])|리튬/, '리튬'], [/(?<![A-Za-z])Ni(?![A-Za-z])|니켈/, '니켈'], [/코발트/, '코발트'], [/전구체/, '전구체'],
+  [/동박/, '동박'], [/수소/, '수소']];
+export function localMaterial(title) {
+  const t = String(title ?? '');
+  return (LOCAL_MATERIALS.find(([rx]) => rx.test(t)) ?? [])[1];
+}
+// 지자체 공고 보도 대조 낱말: 시·군 + 사업 낱말 + 공장. 광물·소재 낱말이면 맨 앞에 둔다 — 질의가 '고려아연 갈륨'이 되게
+// (시·군을 앞에 두면 '고려아연 울주'·'고려아연 울주 갈륨'으로만 찾는다). 시·군은 그대로 검색을 좁히는 지명.
+export function localHint(company, city, title) {
+  const place = String(city ?? '').replace(/(시|군|구)$/, '');
+  const word = localWord(title);
+  return hint(company, localMaterial(title) === word ? [word, place, '공장'] : [place, word, '공장'], [place]);
 }
 // 한전 입찰: 기사는 '한전, 765kV 변압기 발주'처럼 한전과 품목으로 난다. 예전엔 발주처 이름(한국전력공사)을 회사로, '한전'을 낱말로 넣어
 // "한국전력공사 한전"으로 찾았다(10-31 운영: 765kV 전력용변압기 신안성S/S 입찰).
@@ -1412,7 +1430,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
       fact: `${x.city} ${x.no ?? ''} 「${title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'}${body} — ${scope}`,
       url: x.url, check: x.tier === 'C' || !x.company ? undefined
-        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
+        : localHint(x.company, x.city, title) });
   }
 
   // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.

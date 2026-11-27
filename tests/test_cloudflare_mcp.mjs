@@ -24,7 +24,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint, dgtrCaseNote, dgtrDocNote, focusCut, staleNoticeLine } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL, prescaleMoney } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, docAlert, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, queryFact, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop, mergeListingLines } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -5814,8 +5814,14 @@ test('bill hints: formal law names are searched by the short name headlines use'
 });
 
 test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {
-  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), Ga' 2차 ..."), '공장'], ['울주']);
+  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), 영업 2차 ..."), '공장'], ['울주']);
   assert.deepEqual([h.terms, h.places, Object.keys(h.alts)], [['울주', '신설', '공장'], ['울주'], ['신설', '공장']]);
+  // 11-27: 광물·소재 낱말(원소 기호 포함)은 맨 앞 — 질의 '고려아연 갈륨'(실제 공고 제목)
+  const ga = localHint('고려아연', '울주군', '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(Ga 회수설비 De-As공정 Thickener Area 토건공사]');
+  assert.deepEqual([ga.who, ga.terms, ga.places], ['고려아연', ['갈륨', '울주', '공장'], ['울주']]);
+  assert.deepEqual(["…[온산 고려아연(주), Ga' 2차 ...]", 'Gas 배관 공사', 'Ge 회수 공정', '황산니켈 공장', 'In-line 검사동', 'Co.,Ltd 사무동', '수소 충전소'].map(localWord),
+    ['갈륨', '신설', '게르마늄', '니켈', '신설', '신설', '수소']);
+  assert.deepEqual(localHint('고려아연', '울주군', '#2ASU O2 COMPRESSOR ROOM 토건공사').terms, ['울주', '산소공장', '공장']);   // 산소공장은 그대로
   // 산소공장(ASU): 기사는 '산소공장 증설'(10-20 전자신문) — '#2ASU'처럼 숫자가 붙어도, 'CASUAL' 같은 낱말 속은 아님
   assert.deepEqual(["…[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]", '산소플랜트 증설', 'CASUAL 공장'].map(localWord), ['산소공장', '산소공장', '신설']);
   assert.equal(hint('LS전선', ['입찰'], ['바레인']).places, undefined);  // a place not among the terms is dropped
