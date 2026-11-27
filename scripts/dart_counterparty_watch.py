@@ -291,7 +291,8 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
                 continue
             doc_errors += 1
             reasons[why] = reasons.get(why, 0) + 1
-            fails[rc] = {"n": n, "date": x.get("rcept_dt") or now.strftime("%Y%m%d"), "reason": why}
+            fails[rc] = {"n": n, "date": x.get("rcept_dt") or now.strftime("%Y%m%d"), "reason": why,
+                         "filer": x.get("corp_name"), "report": re.sub(r"\s+", " ", x.get("report_nm") or "").strip()}
             continue   # 다음 실행에 다시(본 것으로 치지 않음)
         fails.pop(rc, None)
         seen[x["rcept_no"]] = x.get("rcept_dt") or now.strftime("%Y%m%d")
@@ -314,6 +315,16 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
                            "text": (f"{x['corp_name']} 공시 「{rec['report']}」({x.get('rcept_dt')}) — {subject_josa(beat)} {role}"
                                     + (f" · 금액 {amount:,}원({eok(amount)})" if amount else "") + f" · 원문 「{rec['context'][:200]}」"
                                     + " · 상대 회사 공시(출입처 공시 아님) — 거래 조건·시점은 원문과 출입처 확인")})
+    # 공시검색 창(어제·오늘)에서 빠질 때까지 '파일 없음'이던 공시도 제목만 남긴다 — 금요일 오후 공시는 월요일 창에 없어 세 번을 못 채운다.
+    # 목록을 온전히 읽은 실행에서만(목록 실패로 안 보인 공시를 빠졌다고 치지 않는다)
+    if not errors:
+        listed = {x.get("rcept_no") for x in rows}
+        for rc, f in list(fails.items()):
+            if rc not in listed and str(f.get("reason") or "").startswith("DART 014") and (f.get("n") or 0) >= 1:
+                fails.pop(rc)
+                gave_up += 1
+                unreadable.append({"rceptNo": rc, "filer": f.get("filer"), "report": f.get("report"), "date": f.get("date"), "reason": f.get("reason"),
+                                   "tries": f.get("n"), "at": stamp, "left": True, "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}"})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     failed_list = bool(errors) and not rows
     rest = {"restDay": True} if rest_window(now, holidays) else {}
@@ -328,7 +339,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
                         **({"error": f"원문 읽기 실패 {doc_errors}건("
                                      + " · ".join(f"{k} {n}" for k, n in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:4]) + ")"} if doc_errors else {}),
                         **({"pending": pending} if pending else {}),
-                        **({"unreadable": gave_up, "note": f"원문 API가 {NO_DOC_TRIES}번(다른 실행) '파일 없음'인 공시 {gave_up}건은 더 부르지 않음 — 제목만 남김(거래상대 판정 못 함, 미확인)"}
+                        **({"unreadable": gave_up, "note": f"원문 API가 {NO_DOC_TRIES}번(다른 실행) '파일 없음'이거나 그대로 공시검색 창에서 빠진 공시 {gave_up}건은 더 부르지 않음 — 제목만 남김(거래상대 판정 못 함, 미확인)"}
                            if gave_up else {})}],
             "counts": {"listed": len(rows), "candidates": len(cand), "opened": opened, "matched": sum(1 for x in known.values() if x["firstSeen"] == stamp)},
             "seen": seen,

@@ -209,6 +209,26 @@ class Run(unittest.TestCase):
         self.assertEqual((doc["docFails"], doc["checks"][1]["status"]), ({}, "ok"))
         self.assertEqual(len(doc["unreadable"]), 1)                # 남긴 제목은 보관 기간 동안 그대로
 
+    def test_no_doc_filings_that_leave_the_list_window_are_kept_as_titles(self):
+        # 금요일 오후 공시: 두 번 '파일 없음' 뒤 월요일 공시검색 창(어제·오늘)에 없어 세 번을 못 채운다
+        no_doc = R(content="<result><status>014</status></result>".encode())
+        def mk(rows, fail_list=False):
+            def get(url, params=None, headers=None, timeout=None):
+                if url == w.LIST_API:
+                    if fail_list:
+                        raise type("ConnectTimeout", (Exception,), {})("x")
+                    return R({"status": "000", "total_page": 1, "list": rows} if params["pblntf_ty"] == "I" else {"status": "013"})
+                return no_doc if params["rcept_no"] == "20261029000111" else R(content=z(DOCS[params["rcept_no"]]))
+            return get
+        doc = w.run(NOW, None, key="k", get=mk(ROWS[:2]), sleep=lambda s: None)
+        doc = w.run(NOW + dt.timedelta(hours=3), doc, key="k", get=mk(ROWS[:2]), sleep=lambda s: None)
+        self.assertEqual(doc["docFails"]["20261029000111"]["n"], 2)
+        later = w.run(NOW + dt.timedelta(days=3), doc, key="k", get=mk(ROWS[:2], fail_list=True), sleep=lambda s: None)
+        self.assertIn("20261029000111", later["docFails"])           # 목록 실패로 안 보인 것은 빠졌다고 치지 않는다
+        doc = w.run(NOW + dt.timedelta(days=3), doc, key="k", get=mk(ROWS[:1]), sleep=lambda s: None)
+        self.assertEqual([(u["rceptNo"], u["filer"], u["tries"], u["left"]) for u in doc["unreadable"]], [("20261029000111", "에스트래픽", 2, True)])
+        self.assertEqual((doc["docFails"], doc["checks"][1]["unreadable"]), ({}, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

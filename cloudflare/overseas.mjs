@@ -2264,7 +2264,8 @@ async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
     out.push(`원문을 못 읽은 공시 ${unread.length}건(DART 원문 API가 여러 실행 '파일 없음' — 거래상대를 못 봄, 미확인 · 제목만, 필요하면 원문 직접):`);
     for (const u of unread.slice(0, 5)) {
       const d = String(u.date ?? '');
-      out.push(`   ${u.filer} 「${u.report}」(${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}) ${u.url}`);
+      // 수집기가 이름을 적기 전(11-27 첫 실행) 기록은 이름이 없다 — 접수번호 링크만
+      out.push(`   ${u.filer ?? '회사 이름 미기록'} 「${u.report ?? '제목 미기록'}」(${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}${u.left ? ' · 창에서 빠질 때까지 파일 없음' : ''}) ${u.url}`);
     }
     if (unread.length > 5) out.push(`   … ${unread.length - 5}건 더(company로 좁히기)`);
   }
