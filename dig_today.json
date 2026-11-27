@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-27T06:35:46.772332+00:00",
+  "generatedAt": "2026-11-27T06:52:14.276439+00:00",
   "items": [
     {
       "kind": "전략 변화",
@@ -8,8 +8,8 @@
       "why": "한 회사에서 서로 다른 사업 신호가 동시에 움직여 단일 뉴스보다 전략 변화로 볼 근거가 있는 후보.",
       "lines": [
         "최근 30일 사업재편, 생산, 투자 신호가 동시에 확인됨",
-        "데이터투자: NICE신용평가, LG화학 신용등급 'AA'로 하향…순차입금 26조 돌파 - 데이터투자",
         "뉴스저널리즘: LG화학, 석화 설비투자 25% 줄였다…대량생산 대신 '다품종 소량생산' - 뉴스저널리즘",
+        "뉴스토마토: [IB토마토](크레딧시그널)LG화학, 투자 줄여도 빚은 늘어…재무부담 장기화 - 뉴스토마토",
         "기존 사업계획·공시 수치와 실제 투자·생산·수주 흐름을 대조",
         "경쟁사 GS칼텍스와 투자·생산·수주 속도를 비교"
       ],
@@ -22,9 +22,9 @@
       "category": "화학·소재",
       "numbers": [],
       "sources": [
-        "데이터투자",
         "뉴스저널리즘",
-        "뉴스토마토"
+        "뉴스토마토",
+        "연합인포맥스"
       ],
       "competitors": [
         "GS칼텍스"
@@ -145,147 +145,12 @@
       ],
       "qualityGate": "pass",
       "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
-    },
-    {
-      "kind": "글로벌→국내",
-      "score": 92,
-      "headline": "글로벌 자동차 통상 변수 확대…BYD, 현지 생산 대응은",
-      "why": "해외 산업 변화와 국내 기업의 최근 사업 움직임을 한 기사로 연결할 수 있는 후보.",
-      "lines": [
-        "해외 주요 매체 Just Auto에서 관련 변화 확인",
-        "Just Auto: GM, 이집트서 쉐보레 그루브 생산 시작",
-        "한겨레: [르포] 현대차 4대 팔릴 때 BYD 34대…무관세 호주 ‘자동차 매드맥스’ - 한겨레",
-        "마켓인: \"그만 좀 베껴\" 랜드로버 닮은 BYD車 EU 판매 금지 - 마켓인",
-        "국내 공시·수주·생산 자료와 연결해 실제 영향 확인"
-      ],
-      "questions": [
-        "해외 변화가 국내 기업의 수주·가격·생산에 실제 영향을 주는가?",
-        "국내 경쟁사도 같은 대응을 하는가?",
-        "국내 공시에서 숫자로 확인되는 변화가 있는가?"
-      ],
-      "company": "BYD",
-      "category": "완성차",
-      "numbers": [],
-      "sources": [
-        "Just Auto",
-        "electrive",
-        "Automotive News",
-        "한겨레",
-        "마켓인"
-      ],
-      "competitors": [
-        "현대차",
-        "기아"
-      ],
-      "global": [
-        {
-          "title": "GM starts production of the Chevrolet Groove in Egypt",
-          "url": "https://www.just-auto.com/news/gm-starts-production-of-the-chevrolet-groove-in-egypt/",
-          "published": "2026-11-27T01:58:54+09:00",
-          "sourceName": "Just Auto",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "Just Auto",
-          "summary": "",
-          "globalScore": 61,
-          "koTitle": "GM, 이집트서 쉐보레 그루브 생산 시작",
-          "koSummary": "제너럴모터스(GM)가 이집트에서 쉐보레 Groove의 생산을 시작했다. 이 모델은 이미 중동 여러 시장에서 판매 중인 소형 크로스오버 차량으로, 현지에서 조립 생산된다. Groove의 생산은 2000만달러의 투자가 이뤄졌으며, 현지 부품 비율은 45%에 달한다.",
-          "translationStatus": "translated_ai",
-          "summarySource": "Just Auto RSS",
-          "globalWhy": "한국 자동차·부품·배터리·전력·에너지 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalBeat": false,
-          "globalPitch": false,
-          "beatCompanies": [],
-          "summaryTranslationStatus": "summarized_ai",
-          "translationVersion": 4,
-          "translationCacheUsed": true,
-          "summaryVersion": 2,
-          "numbersNotInSource": [],
-          "firstSeen": "2026-11-27T02:11:33+09:00",
-          "checkTerms": [],
-          "affiliateLead": [],
-          "titleCompanies": [],
-          "krw": [
-            {
-              "amount": "2000만달러",
-              "cur": "달러",
-              "krw": "약 269억원"
-            }
-          ]
-        },
-        {
-          "title": "UK energy price cap increase could add up to £9 to EV charging costs",
-          "url": "https://www.electrive.com/2026/11/26/uk-energy-price-cap-increase-could-add-up-to-9-to-ev-charging-costs/",
-          "published": "2026-11-26T23:30:00+09:00",
-          "sourceName": "electrive",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "electrive",
-          "summary": "",
-          "globalScore": 69,
-          "koTitle": "영국 에너지 가격 상한 인상, 전기차 충전 비용 9파운드 추가 인상 가능성 있어",
-          "koSummary": "영국 에너지 가격 상한제가 인상되면 전기차 충전 비용이 최대 9파운드 증가할 수 있다. 내년 1월부터 가정에서 전기차 충전이 눈에 띄게 더 비싸질 수 있다. 에너지 가격 인상 충격은 운전자가 가입한 에너지 공급사와 관세에 따라 크게 좌우된다.",
-          "translationStatus": "translated_ai",
-          "summarySource": "electrive RSS",
-          "globalWhy": "한국 자동차·부품·배터리·전력·에너지 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalBeat": false,
-          "globalPitch": false,
-          "beatCompanies": [],
-          "summaryTranslationStatus": "summarized_ai",
-          "translationVersion": 4,
-          "translationCacheUsed": true,
-          "summaryVersion": 2,
-          "numbersNotInSource": [],
-          "firstSeen": "2026-11-26T23:51:47+09:00",
-          "checkTerms": [],
-          "affiliateLead": [],
-          "titleCompanies": [],
-          "krw": [
-            {
-              "amount": "9파운드",
-              "cur": "파운드",
-              "krw": "약 2만원"
-            }
-          ]
-        },
-        {
-          "title": "Xpeng says its humanoid robot will cost the same as an EV",
-          "url": "https://www.autonews.com/technology/ane-xpeng-humanoid-robots-cost-ev-equivalent-1126/",
-          "published": "2026-11-26T19:52:59+09:00",
-          "sourceName": "Automotive News",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "Automotive News",
-          "summary": "",
-          "globalScore": 73,
-          "koTitle": "중국 전기차 업체 샤오펑은 자사의 휴머노이드 로봇 가격이 전기차와 비슷할 것이라고 말했다.",
-          "koSummary": "중국 전기차 업체 샤오펑은 2027년 2분기 일반 대중에게 판매 예정인 휴머노이드 로봇 가격이 전기차와 비슷할 것이라고 밝혔다. 샤오펑의 브라이언 구 부회장은 26일 블룸버그 TV 인터뷰에서 \"아이언 로봇(Iron robot)을 2027년 1분기 소매 보조원으로 훈련시킨 후 판매할 계획\"이라고 말했다. 구 부회장은 \"아이언 로봇의 가격을 더 자세한 내용을 공개하진 못했다\"며 \"전기차 중간 판매 가격을 목표로 한다\"고 덧붙였다.",
-          "translationStatus": "translated_ai",
-          "summarySource": "Automotive News RSS",
-          "globalWhy": "한국 자동차·부품·배터리·전력·에너지 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalBeat": false,
-          "globalPitch": true,
-          "beatCompanies": [],
-          "summaryTranslationStatus": "summarized_ai",
-          "translationVersion": 4,
-          "translationCacheUsed": true,
-          "summaryVersion": 2,
-          "numbersNotInSource": [],
-          "firstSeen": "2026-11-26T20:11:44+09:00",
-          "checkTerms": [],
-          "affiliateLead": [],
-          "titleCompanies": [],
-          "krw": []
-        }
-      ],
-      "qualityGate": "pass",
-      "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
     }
   ],
   "note": "오늘 파볼 것: 공시 미보도 숫자·전략 변화·글로벌→국내 연결을 우선 선별. 기사화 전 원문 확인 필요.",
   "qualityGate": {
     "input": 5,
-    "output": 2,
+    "output": 1,
     "rule": "구체적 숫자+복수 근거+사업 변화+제목 주장과 근거의 일치성+인과관계 검증"
   }
 }
