@@ -117,7 +117,8 @@ PARTS = [
     ("스마트키", r"스마트\s*키|UWB|\bFOB\b", r"SMART KEY|KEY FOB|\bFOB\b|\bUWB\b|ULTRA\s*-?\s*WIDE", True),
     ("연료 누유", r"연료\s*누|누유", r"FUEL LEAK", True),
     # 11-27: GV60 '운전자 주행 보조 제어기'·'운전자 주차 보조 제어기'(4891·4890), 니로 '리어 스프링'(4894)이 부품 낱말 없음으로 대조를 건너뛰었다
-    ("주행 보조", r"주행\s*보조|운전자\s*보조|(?<![A-Z])ADAS(?![A-Z])|스마트\s*크루즈|차로\s*유지", r"DRIVER\s*-?\s*ASSIST|\bADAS\b|FORWARD COLLISION|LANE KEEP|LANE DEPARTURE|SMART CRUISE|ADAPTIVE CRUISE|HIGHWAY DRIVING", True),
+    # 주행 보조의 미국 낱말은 뒤 30자 안에 PARK·PRK가 오면 아님 — 'Advanced Driver Assistance System Parking (ADAS PRK)'는 주차 보조(11-27 GV60 통신 L10G)
+    ("주행 보조", r"주행\s*보조|운전자\s*보조|(?<![A-Z])ADAS(?![A-Z])|스마트\s*크루즈|차로\s*유지", r"(?:DRIVER\s*-?\s*ASSIST|(?<![A-Z])ADAS(?![A-Z]))(?![^.]{0,30}(?:PARK|PRK))|FORWARD COLLISION|LANE KEEP|LANE DEPARTURE|SMART CRUISE|ADAPTIVE CRUISE|HIGHWAY DRIVING", True),
     ("주차 보조", r"주차\s*보조|주차\s*거리|초음파\s*센서", r"PARK(?:ING)?\s*(?:ASSIST|AID|DISTANCE)|PARKING SENSOR|ULTRASONIC", True),
     ("스프링", r"(?:리어|프런트|프론트|코일|현가)\s*스프링", r"SUSPENSION\S*?SPRING|COIL SPRINGS?|(?:REAR|FRONT)\s*(?:COIL\s*)?SPRINGS?", True),
     ("시트", r"시트(?!\s*벨트)", r"\bSEATS?\b(?!\s*BELT)", False),
@@ -294,7 +295,8 @@ def link(items, get, now, *, sleep=time.sleep, budget=BUDGET):
 
 def link_tsbs(items, tsbs):
     """미국 제조사 통신(us-recalls 저장소의 tsbs.items — 서비스 캠페인·보증 연장·서비스 공지, 최근 120일)과 같은 차종·연식·부품 낱말.
-    조회 없이 저장소끼리 맞춘다. 실행마다 다시 보고, 한 번 맞은 통신은 보관 기간이 지나도 남긴다. 돌려줌: 맞은 공지 수."""
+    조회 없이 저장소끼리 맞춘다. 실행마다 다시 보고, 한 번 맞은 통신은 보관 기간이 지나도 남긴다.
+    11-27: 아직 창(이번 tsbs)에 있는 통신은 지금 규칙으로 다시 맞춰 — 낱말을 고쳐 안 맞게 된 것은 뺀다(창에서 빠진 통신은 그대로). 돌려줌: 맞은 공지 수."""
     hit = 0
     for x in items:
         if not (x.get("company") and x.get("detail") == "ok"):
@@ -307,6 +309,7 @@ def link_tsbs(items, tsbs):
         years = {str(y) for y in model_years(x.get("produced"))}
         keep = {m["key"]: m for m in x.get("usTsb") or [] if isinstance(m, dict) and m.get("key")}
         for t in tsbs or []:
+            keep.pop(t.get("campaign") or t.get("doc") or t.get("id"), None)    # 창에 있는 통신은 아래에서 다시 맞춘다
             rows = [m for m in t.get("models") or [] if str(m.get("model") or "").upper() in names and (not years or years & {str(y) for y in m.get("years") or []})]
             if not rows:
                 continue
@@ -327,6 +330,8 @@ def link_tsbs(items, tsbs):
         if keep:
             x["usTsb"] = sorted(keep.values(), key=lambda m: (m.get("date") or "9999", m["key"]))[:MAX_MATCHES]
             hit += 1
+        else:
+            x.pop("usTsb", None)
     return hit
 
 
