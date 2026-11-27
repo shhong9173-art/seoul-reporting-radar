@@ -84,8 +84,15 @@ def tier_of(x):
 LETTERHEAD = re.compile(r"^.{0,120}?\b(?:Regd\.?|Registered)\s*Office\s*:.{0,600}?\bwww\.[A-Za-z0-9.-]+(?:/[\w./-]*)?\s*", re.S | re.I)
 
 
+# 머리글 다음의 받는 곳(「Date: … To, National Stock Exchange of India Limited … BSE Limited … Dalal Street, Mumbai」)도 떼고 제목(Sub:)부터 —
+# 600자 안에 'Sub:'·'Subject:'·'Dear Sir'가 있을 때만(#1190 첫 실행: 머리글을 떼자 받는 곳 주소가 첫머리를 채웠다)
+SUBJECT_START = re.compile(r"\b(?:Sub(?:ject)?\s*[:.\-–]|Dear\s+Sir)", re.I)
+
+
 def strip_letterhead(text):
-    return LETTERHEAD.sub("", text, count=1).strip()
+    t = LETTERHEAD.sub("", text, count=1).strip()
+    m = SUBJECT_START.search(t[:600])
+    return t[m.start():] if m and re.search(r"Stock Exchange|BSE Limited|Dalal Street", t[:m.start()], re.I) else t
 
 
 def pdf_head(content, n=600):

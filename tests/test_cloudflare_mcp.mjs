@@ -4183,6 +4183,7 @@ test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B,
   assert.match(nse.text, /- \[신규\] A · [^\n]+ KST · Hyundai Motor India Limited · Updates\n   설명: 「Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant\.」\n   첨부 첫머리: 「Talegaon plant capacity will be increased」/);
   assert.match(nse.text, /Outcome of Board Meeting\n   설명: [^\n]*\n   첨부 첫머리: 회사 머리글\(등록 주소·CIN·누리집\)뿐 — 본문은 원문 PDF/);
   assert.equal(stripLetterhead('Hyundai Motor India Ltd. Regd. Office: Plot No. H-1, India. CIN L29309TN1996PLC035377 www.hyundai.com/in/en Sub: price increase'), 'Sub: price increase');
+  assert.equal(stripLetterhead('Regd. Office: x www.hyundai.com/in/en Date: Nov 24 To, National Stock Exchange of India Limited … BSE Limited Dalal Street, Mumbai Sub: price increase'), 'Sub: price increase');
   assert.match(nse.text, /C 1건 숨김 — include_routine=true/);
   assert.doesNotMatch(nse.text, /Transcript/);
   assert.match((await call('partner_filings', { source: 'NSE', include_routine: true }, opts)).text, /\[기준선\] C · [^\n]+ · Analysts\/Institutional Investor Meet/);
