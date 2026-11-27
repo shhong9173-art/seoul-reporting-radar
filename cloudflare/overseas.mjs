@@ -1099,8 +1099,9 @@ export async function usRecalls(ctx, args) {
   for (const r of cm?.rules ?? []) out.push(`규칙: ${r}`);
   for (const x of spikes.slice(0, limit)) {
     const harm = [x.fire && `화재 ${x.fire}`, x.crash && `충돌 ${x.crash}`, x.injured && `부상 ${x.injured}`, x.deaths && `사망 ${x.deaths}`].filter(Boolean).join('·');
-    out.push(`${x.isNew ? '[신규] ' : ''}${x.tier} · ${x.brand} ${x.model} · 연식 ${x.years} · 신고 ${x.complaints}건${harm ? ` · ${harm}` : ''} · 처음 본 날 ${String(x.firstSeen).slice(0, 10)}`);
-    out.push(`   부품별: ${(x.parts ?? []).map((p) => `${p.component} ${p.recent}건(평소 28일 ${p.baselinePer28})`).join(', ')}`);
+    out.push(`${x.isNew ? '[신규] ' : ''}${complaintTier(x)} · ${x.brand} ${x.model} · 연식 ${x.years} · 신고 ${x.complaints}건${harm ? ` · ${harm}` : ''} · 처음 본 날 ${String(x.firstSeen).slice(0, 10)}`);
+    out.push(`   부품별: ${(x.parts ?? []).map((p) => `${p.component} ${p.recent}건(평소 28일 ${p.baselinePer28})`).join(', ')}`
+      + (complaintCatchallOnly(x) && x.tier !== 'C' ? " — '모름·기타' 칸만 튐(서로 다른 불만이 섞이는 칸이라 참고 C)" : ''));
     if ((x.recentRecalls ?? []).length) {
       out.push(`   최근 60일 같은 차종 리콜: ${x.recentRecalls.map((r) => `${r.campaign}(${r.received}, ${r.component})`).join(' · ')}${(x.sameComponentRecall ?? []).length ? ' — 같은 부품이라 리콜 공지 뒤 신고일 수 있음' : ''}`);
     }
@@ -1112,6 +1113,12 @@ export async function usRecalls(ctx, args) {
   out.push('\n다음: NHTSA 리콜 페이지(source_document)로 대상 차대·부품 확인 — 원보고서(Part 573)·제조사 통신 PDF는 source_document가 못 읽어 링크를 직접 연다 → 국내 판매 여부·자동차리콜센터 → news_check.');
   return textResult(out.join('\n'));
 }
+
+// 소비자 결함 신고 급증의 등급: 부품 칸 'UNKNOWN OR OTHER'(모름·기타)만 튄 차종은 참고(C) — 서로 다른 불만이 한 칸에 섞인다
+// (11-27 운영: 기아 SPORTAGE 'UNKNOWN OR OTHER 8건(평소 3.2)' B — 발췌 3건이 엔진룸 소음·앞유리 금·저속 떨림으로 제각각)
+export const CATCHALL_COMPONENT = 'UNKNOWN OR OTHER';
+export const complaintCatchallOnly = (x) => (x.parts ?? []).length > 0 && (x.parts ?? []).every((p) => p.component === CATCHALL_COMPONENT);
+export const complaintTier = (x) => (complaintCatchallOnly(x) ? 'C' : x.tier ?? 'B');
 
 // NHTSA 제조사 통신(서비스 캠페인·보증 프로그램·안전 관련 서비스 공지) — 수집기 scripts/nhtsa_tsbs.py. 참고(C)는 show_all일 때만 줄로 보인다.
 export function tsbSection(ts, check, q, limit, onlyNew, showAll) {
