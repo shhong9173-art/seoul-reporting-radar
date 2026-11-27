@@ -221,6 +221,27 @@ class Tsbs(unittest.TestCase):
         self.assertNotIn("usTsb", k8)
         self.assertEqual(f.classify({**x, "units": 886})[0], "B")     # 제조사 통신은 등급을 올리지 않는다(11-09 기자: 美 캠페인 유형 약함)
 
+    def test_adas_parking_module_is_parking_assist_and_window_matches_are_rechecked(self):
+        # 11-27 운영: GV60 통신 L10G(ADAS PRK 소프트웨어)가 주차 보조(4890)에도, 주행 보조(4891)에도 맞았다 — 4891은 틀린 대조
+        l10g = {"id": "L10G", "campaign": "L10G", "doc": "26-01-076G DCS", "kindName": "보증 프로그램·캠페인", "mfrDate": "2026-09-25",
+                "models": [{"model": "GV60", "years": ["2026"]}], "components": ["BACK OVER PREVENTION", "ELECTRICAL SYSTEM", "WARNINGS"],
+                "summary": "Certain GV60 (JW1 EV) vehicles may display a warning message and store DTC C137496 due to an internal software logic error affecting "
+                           "the front inner left ultrasonic sensor. This condition may result in the sensor being recognized as inoperative. Technical Service "
+                           "Bulletin (TSB) 26-01-076G the procedure to update the Advanced Driver Assistance System Parking (ADAS PRK) control module software."}
+        park, assist = dict(NewPartWords.PARK), dict(NewPartWords.ASSIST)
+        assist["usTsb"] = [{"key": "L10G", "campaign": "L10G", "parts": ["주행 보조"], "date": "2026-09-25"},     # 고치기 전 규칙이 남긴 것
+                           {"key": "OLD1", "campaign": "OLD1", "parts": ["주행 보조"], "date": "2026-05-01"}]     # 창에서 빠진 통신
+        self.assertEqual(u.link_tsbs([park, assist], [l10g]), 2)
+        self.assertEqual([(m["key"], m["parts"], m["leadDays"]) for m in park["usTsb"]], [("L10G", ["주차 보조"], 61)])
+        self.assertEqual([m["key"] for m in assist["usTsb"]], ["OLD1"])          # 창에 있는 L10G는 다시 맞춰 빠지고, 창 밖 기록은 남는다
+        assist["usTsb"] = [{"key": "L10G", "parts": ["주행 보조"]}]
+        self.assertEqual(u.link_tsbs([assist], [l10g]), 0)
+        self.assertNotIn("usTsb", assist)
+        self.assertEqual(u.link_tsbs([assist], []), 0)                             # 저장소가 비면(조회 실패 등) 아무것도 빼지 않는다
+        # 주행 보조 낱말은 주차 모듈 말고는 그대로
+        hay = "update the Advanced Driver Assistance System (ADAS) control module software"
+        self.assertTrue(any(en.search(hay) for label, en, strong in u.domestic_parts(NewPartWords.ASSIST)))
+
 
 if __name__ == "__main__":
     unittest.main()
