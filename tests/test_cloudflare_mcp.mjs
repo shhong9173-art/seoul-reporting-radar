@@ -11,7 +11,7 @@ import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { LINK_LINE, RadarStore, packageLinks } from '../cloudflare/store.mjs';
 import { annotateHandled, codesOf, companiesIn, companiesInSlow, ledgerEntries, matchHandled } from '../cloudflare/handled.mjs';
 import { watchByPrefix, watchFromPackage } from '../cloudflare/review.mjs';
-import { alertAge, deskType } from '../cloudflare/desk.mjs';
+import { alertAge, deskType, sameFilingKey } from '../cloudflare/desk.mjs';
 import { browserFileUpload, browserFiles, browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
@@ -1295,6 +1295,28 @@ test('radar_today: scoop candidates count as new only when first screened inside
   assert.doesNotMatch(a, /상변태 기반 판재 냉각/);
   const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
   assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
+});
+
+test('단독 데스크: 자회사·지주가 같은 날 같은 내용으로 따로 낸 공시(11-27 OCI·OCI홀딩스 과산화수소 계약금액 변경)는 한 줄로 접는다', async () => {
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  const day = new Date(now + 9 * 3600000 - 86400000).toISOString().slice(0, 10);
+  const facts = [['제목', '단일판매·공급계약 계약금액 변경'], ['주요내용', '- 계약금액 변경 1) 판매ㆍ공급계약 구분: 전자급 과산화수소 공급 2) 계약금액: 618,153,402,800원']];
+  const cand = (id, company, title, rcp) => ({ id, kind: '단서', source: 'DART', company, title, verdict: '미보도 후보', published: day, firstSeen: iso(2),
+    url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`, filing: { facts } });
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    cand('clue:oci', 'OCI', 'OCI · 투자판단관련주요경영사항', '20261124800504'),
+    cand('clue:ocih', 'OCI홀딩스', 'OCI홀딩스, 투자판단관련주요경영사항(자회사의 주요경영사항)', '20261124800539'),
+    { ...cand('clue:other', 'OCI', 'OCI · 투자판단관련주요경영사항', '20261124800999'), filing: { facts: [['제목', '단일판매·공급계약 체결'], ['주요내용', '- 계약 상대 다른 회사 1) 판매ㆍ공급계약 구분: 반도체용 인산 공급 2) 계약금액: 1,000원']] } }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const desk = (await call('scoop_desk', {}, { path: `/mcp/${TOKEN}`, env })).text;
+  const fresh = desk.split('[1. 새 후보')[1].split('[2. ')[0];
+  assert.equal((fresh.match(/전자급 과산화수소/g) ?? []).length, 1);
+  assert.match(fresh, /\n   같은 날 같은 내용 공시 1건 더\(접음\): OCI(홀딩스)? https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=202611248005(04|39) · id clue:oci(h)?/);
+  assert.match(fresh, /반도체용 인산/);                                // 내용이 다른 공시는 그대로
+  assert.match(desk, /같은 날 같은 종류·같은 원문 1건 접음/);
+  assert.equal(sameFilingKey({ date: day, fact: '제목 X · 주요내용 짧음' }), null);
 });
 
 test('scoop candidates: business-report number clues (DART_METRIC) are leads, not the filing type on top of the desk', async () => {

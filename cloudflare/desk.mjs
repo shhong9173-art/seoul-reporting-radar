@@ -96,6 +96,12 @@ export function deskType(x) {
 
 const RANK = { strong: 0, normal: 1, weak: 2 };
 const dayOf = (x) => String(x.date ?? '').slice(0, 10);
+// 같은 공시 내용 열쇠: 같은 날 + 줄의 '주요내용' 뒤 글(띄어쓰기 빼고 30자 넘게) — 회사 이름은 넣지 않는다(자회사·지주가 같은 내용을 따로 공시)
+export function sameFilingKey(x) {
+  const m = /주요내용\s*(.+)$/.exec(String(x?.fact ?? ''));
+  const body = m ? m[1].replace(/[\s…]+/g, '').slice(0, 80) : '';
+  return body.length > 30 ? `${dayOf(x)}|${body}` : null;
+}
 
 // 출입처가 신청인인 무역위 사건 가운데 진행일정에 앞으로 21일 안 날짜가 적힌 것(예고 — 회의 안건이 올라오기 전에도 준비할 수 있게)
 // 즉시 알림을 보낸 시각(처리 장부 값 'MM-DD' 또는 'MM-DD HH:MM', KST) → 지난 시간(ms). 시각이 없으면 그날 끝(덜 지난 쪽)으로 본다
@@ -158,7 +164,13 @@ export async function scoopDesk(ctx, args) {
   const seen = new Map();
   const shown = [];
   let folded = 0;
+  // 11-27: 같은 계약 변경을 자회사(OCI)와 지주(OCI홀딩스 '자회사의 주요경영사항')가 같은 날 따로 공시해 1구역 맨 위에 두 줄로 떴다 —
+  // 같은 날 '주요내용' 글이 같은 공시는 한 줄로 접고 다른 회사 공시는 그 줄 아래에 적는다
+  const byBody = new Map();
   for (const r of main) {
+    const bk = sameFilingKey(r.x);
+    if (bk && byBody.has(bk)) { (byBody.get(bk).same ??= []).push(r); folded += 1; continue; }
+    if (bk) byBody.set(bk, r);
     // 해외 목록 줄은 같은 조사가 제목 줄·상태 줄·나라 줄로 따로 잡힌다 — 같은 원문 주소는 한 줄만
     const listRow = r.type.key === 'foreignlist' && r.x.url;
     const k = listRow ? `${r.x.kind}|${r.x.url}` : `${r.x.watch}|${r.x.company}|${r.x.kind}|${dayOf(r.x)}`;
@@ -200,6 +212,7 @@ export async function scoopDesk(ctx, args) {
     if (r.before && STAGED.has(type.key)) out.push(`   ⚠ 항목 날짜 전 기사가 있다(${r.before.date ?? '?'} 「${clipAt(r.before.title ?? '', 50)}」) — 진행 중인 무역구제·소송은 앞선 단계(신청·개시·예비·의견서) 기사일 수 있음. 이번 단계(판정·부과 결정·항소 등)가 그 기사에 이미 있는지 열어 볼 것`);
     else if (r.before) out.push('   ⚠ 항목 날짜 전 기사가 있다 — 문서가 늦게 나온 옛 사건일 수 있음(임원 명단·정기보고서류). 그 기사부터 열어 볼 것');
     out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${ledgerMark(x)}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
+    if (r.same?.length) out.push(`   같은 날 같은 내용 공시 ${r.same.length}건 더(접음): ${r.same.map((o) => `${o.x.company ?? '?'}${o.x.url ? ` ${o.x.url}` : ''} · id ${o.x.id}`).join(' / ')}`);
     return out;
   };
   // 즉시 알림 화면(alerts=true, 11-15): 예약 작업 '단독 후보 즉시 알림'이 이것만 읽는다 — 보낼 것을 코드가 고른다.
