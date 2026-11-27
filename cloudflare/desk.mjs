@@ -47,7 +47,9 @@ export const DESK_TYPES = [
   { key: 'foreignlist', strength: 'normal', label: '해외 무역구제 목록 새 줄(한국산)', why: '',
     // 11-14 확인: 인도 DGTR '페놀' 줄(11-14 01:51 감지)은 3-19에 개시한 조사였다 — 사건 페이지에 11-13 '이메일 주소 변경' 공지가 붙어 목록에 다시 떴다
     note: "목록에 줄이 새로 보였다는 것뿐 — 새 조사가 아닐 수 있다(진행 중인 조사에 절차 공지만 붙어도 목록에 다시 뜬다). 원문 사건 페이지에서 개시 고시 날짜와 가장 최근 문서부터 확인. 그다음 그 품목을 만드는 출입처(〔출입처 단서〕가 있으면 그 회사에 먼저). 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
-    test: (x) => foreignDoc(x) && ![W.uknotice, W.euoj, W.thtr, W.jptr].includes(x.watch) },   // 영국 정부 고시·EU 관보 규정은 목록 줄이 아니라 문서
+    // 영국 정부 고시·EU 관보 규정은 목록 줄이 아니라 문서. 미국 ITC 관보 판정·EDIS 문서도 문서다(11-27 운영: 「Welded Line Pipe From South Korea
+    // and Turkey; Determinations」 일몰 재심 판정이 출입처 이름이 없어 이 유형으로 와 '목록에 줄이 새로 보였다는 것뿐' 안내가 붙었다) — 그 밖으로
+    test: (x) => foreignDoc(x) && ![W.uknotice, W.euoj, W.thtr, W.jptr].includes(x.watch) && !/^미국 ITC/.test(x.kind ?? '') },
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
     // 공시(DART)에서 나온 단서만 — 조달청 입찰공고 같은 다른 공개 단서는 '그 밖'(11-15 운영: LS일렉트릭 워크스테이션 구매 입찰공고가 이 유형 맨 위에 떴다)
     // 사업보고서 수치 단서(x.metric — 정기보고서 표 숫자 비교)는 사건 공시가 아니다(11-22 SK이노 '해외판매'가 이 유형 맨 위에 6일)
