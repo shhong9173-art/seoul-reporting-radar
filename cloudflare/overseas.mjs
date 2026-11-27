@@ -641,7 +641,7 @@ export function jpSection(doc, q = '', limit = 6, ctx = null, fromIso = '') {
     const det = list.map((e) => e.detail ?? {});
     const facts = [det.find((d) => d.rates)?.rates && `세율 ${det.find((d) => d.rates).rates}(보도자료 본문)`, det.find((d) => d.dutyTo)?.dutyTo && `관세 부과 ${det.find((d) => d.dutyTo).dutyTo}까지`,
       det.find((d) => d.until)?.until && `조사 기간 ${det.find((d) => d.until).until}까지`, det.find((d) => d.applicants)?.applicants && `신청 ${det.find((d) => d.applicants).applicants}`,
-      det.find((d) => (d.companies ?? []).length) && `본문에 출입처 ${det.find((d) => (d.companies ?? []).length).companies.join('·')}`].filter(Boolean);
+      ...jpNamed(det)].filter(Boolean);
     if (facts.length) out.push(`   ${facts.join(' · ')}`);
     if (!x.detail?.read) out.push(`   상세 쪽 아직 못 읽음${x.detail?.error ? `(${x.detail.error})` : ''}`);
     out.push(`   원문: ${x.url}`);
@@ -1345,6 +1345,15 @@ export function dgtrDocNote(c, all = false) {
     out.push(`개시 고시(${i.date ?? '?'}${i.title && all ? ` 「${i.title}」` : ''}${i.ocr ? ', 글자 인식' : ''} — 스캔본이 많아 숫자·날짜는 원문 확인): ${parts.length ? parts.join(' · ') : '신청인·조사 대상 기간 줄을 못 찾음'}`);
   }
   return out.length ? `DGTR 문서: ${out.join(' · ')}` : '';
+}
+
+// 일본 공고 본문 출입처: 부과 대상에서 뺀 생산자('(注2)LG CHEM, LTD.により生産されたものを除く', 11-27 BPA 확정)는 '본문에 출입처'와 나눠 적는다
+function jpNamed(det) {
+  const d = det.find((x) => (x.companies ?? []).length || (x.excluded ?? []).length);
+  if (!d) return [];
+  const ex = d.excluded ?? [];
+  const named = (d.companies ?? []).filter((n) => !ex.includes(n));
+  return [named.length && `본문에 출입처 ${named.join('·')}`, ex.length && `부과 대상에서 제외 ${ex.join('·')}(보도자료 '…を除く')`];
 }
 
 // 자동차리콜센터 '무상점검·수리' 게시판(kr_free_repair.py, 11-14): 연비 신고와 같은 저장소(kr-fuel)의 freeRepair 구역.
