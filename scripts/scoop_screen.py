@@ -825,12 +825,14 @@ def judge(c, channels, *, now):
                 x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
                 # 필수 낱말도 그 낱말의 다른 표기로 맞춘다(정정 대조의 사업 낱말 '생산 중단' ↔ 기사 '조업정지' — 11-03 영풍 1심 승소 기사)
-                if company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2) and must \
+                # 이름이 여럿인 대상(법안 줄임말·정식 이름, 11-27 일본 품목 '용융아연도금강판'·'아연도금'·'도금강판')은 제목에 그중 하나면 된다
+                in_title = any(n in title for n in names) if names else company_in_title(c["company"], title, text)
+                if in_title and (t_hits or len(x_hits) >= 2) and must \
                         and not any(any(w in text for w in alts.get(m, [m])) for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
                     # 해외 파트너 공시: 공시 회사 이름(퍼스트솔라 등)이 없는 기사는 다른 건이다(10-31 한화솔루션 특허 기사).
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 {'·'.join(must)} 없음 — 다른 사업장·다른 건 기사일 수 있음", 0
-                elif company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2):
+                elif in_title and (t_hits or len(x_hits) >= 2):
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])}) — 동일 사건 미확정", 1
                 elif len(x_hits) >= 2:
                     why, rank = f"본문에만 회사·낱말({', '.join(x_hits[:3])}) — 제목 불일치, 같은 사건 가능성 낮음", 0

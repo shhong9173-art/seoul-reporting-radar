@@ -448,6 +448,19 @@ class HeadlineRule(unittest.TestCase):
         # 다른 법 기사(이름이 없음)는 근거가 아니다
         r = self.one(item, [art("백혜련, 국가첨단전략산업법 개정안 대표발의", "2026-10-28")])
         self.assertEqual(r["verdict"], "미보도 후보")
+    def test_jp_product_any_name_in_the_headline_11_27(self):
+        # 11-27 일본 재무성 확정 관세 「용융아연도금강판」: 기사 제목은 '아연도금강판'·'도금강판', 나라는 '韓'으로 쓴다
+        item = {"tier": "A", "watch": "일본 무역구제 공고", "id": "jptr:ka20261127-1", "date": "2026-10-27", "company": "한국산",
+                "check": {"who": "용융아연도금강판", "terms": ["일본", "반덤핑"], "alts": {"한국": ["한국", "韓"]}, "must": ["한국"],
+                          "names": ["용융아연도금강판", "도금강판", "아연도금"]}}
+        r = self.one(item, [art("日, 韓 아연도금강판에 반덤핑 관세 5년 부과 확정", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertEqual(r["queries"][:2], ["용융아연도금강판 일본", "아연도금 일본"])
+        r = self.one(item, [art("日, 中 아연도금강판에 반덤핑 관세 부과", "2026-10-28")])      # 한국 없음 — 약한 근거
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [art("日, 韓 열연강판 반덤핑 조사", "2026-10-28")])                # 품목 이름 없음
+        self.assertEqual(r["verdict"], "미보도 후보")
+
     def test_partner_filing_story_must_name_the_partner(self):
         # 10-31 운영: '한화솔루션 퍼스트솔라 특허'가 「한화솔루션, ESS·태양전지 특허 폭증」으로 '관련 보도 있음'
         item = {"tier": "B", "watch": "해외 파트너 공시", "id": "edgar:fslr", "date": "2026-10-27", "company": "한화솔루션",

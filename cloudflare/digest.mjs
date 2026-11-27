@@ -128,6 +128,7 @@ function isFresh(x, cut, cutDay, base, dateKey) {
 const ALT = {
   // 출입처 외신 사건 낱말(global_collector.py KO_EVENTS)
   원자로: ['원자로', '원전', 'SMR', '소형모듈원전', '소형원전', '원자로 용기'], 해상풍력: ['해상풍력', '풍력'], 해저케이블: ['해저케이블', '해저 케이블', 'HVDC', '케이블'], 변압기: ['변압기', '전력기기'], 모노파일: ['모노파일', '하부구조물'], 제련소: ['제련소', '제련'], 투자: ['투자', '증설', '건설'], MOU: ['MOU', '양해각서', '협약', '협력'], 입찰: ['입찰', '경쟁입찰'], 인수: ['인수', '매각', 'M&A'], 파업: ['파업', '노조', '쟁의'], 감산: ['감산', '생산 중단', '가동 중단'], ESS: ['ESS', '에너지저장'], 전고체: ['전고체', '고체 배터리', '고체배터리', '고체전지'], 태양광: ['태양광', '폴리실리콘', '모듈'], 철강: ['철강', '강판', '열연', '냉연'], 배터리: ['배터리', '이차전지'], 타이어: ['타이어'],
+  한국: ['한국', '韓'],
   소송: ['소송', '제소', '판결', '항소', '불복'], 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 항소: ['항소', '불복', '소송', '항소법원'],
   특허: ['특허', '특허심판원', 'PTAB', '무효'], 판결: ['판결', '패소', '승소', '기각', '판정', '결정'], 상계관세: ['상계관세', '보조금'],
   반덤핑: ['반덤핑', '덤핑'], ITC: ['ITC', '무역위원회'], 특허침해: ['특허', '침해', '337조', '수입 금지', '제소'],
@@ -298,7 +299,8 @@ export function hint(who, terms, places = [], must = [], names = [], either = []
   const m = [...new Set(must.filter(Boolean).map(String))];
   const n = [...new Set(names.filter(Boolean).map(String))];
   const e = [...new Set(either.filter(Boolean).map(String))];
-  return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])),
+  // 필수 낱말(must)도 다른 표기로 맞춘다(11-27: 일본 공고의 '한국' ↔ 기사 제목 '韓')
+  return { who: subject, terms: t, alts: Object.fromEntries([...new Set([...t, ...m])].filter((w) => ALT[w]).map((w) => [w, ALT[w]])),
     ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}), ...(n.length ? { names: n } : {}), ...(e.length > 1 ? { either: e } : {}) };
 }
 // 법 이름 → 기사 제목이 쓰는 줄임말. 정식 이름으로만 찾으면 '산업기술보호법 개정안' 기사를 못 찾는다(10-31 운영: '산업기술의 유출방지 및
@@ -1822,7 +1824,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['jp-trade-remedy'], { kind: e.kind ?? '일본 무역구제', id: e.id, date: e.date || e.detectedAt,
       company: e.company || (e.korea ? '한국산' : '일본'), fact: e.text, url: e.url,
       check: (e.companies ?? []).length ? hint(e.companies[0], ['일본', word], [], words, [], words)
-        : words.length ? hint(String(e.product ?? ''), ['일본', word], [], e.korea ? ['한국'] : [], [], []) : undefined });
+        // 11-27: 확정 관세 「용융아연도금강판」을 그 이름으로만 대조했다 — 기사 제목은 '아연도금강판'·'도금강판'으로 쓴다. 품목 낱말을 이름으로 함께
+        : words.length ? hint(String(e.product ?? ''), ['일본', word], [], e.korea ? ['한국'] : [], [...new Set([String(e.product ?? ''), ...words])], []) : undefined });
   }
   // EU 관보 무역구제(11-19): 등급은 수집기(출입처 이름 + 확정·잠정·개시·종료, 한국산 출입 업종 품목의 확정·잠정·개시 A). 회사 이름이 없으면 품목으로 대조
   for (const e of docs['eu-trade-defence']?.events ?? []) {
