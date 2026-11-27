@@ -7132,6 +7132,12 @@ test('캐나다 CBSA 사건 문서·시행 중 조치(11-14): 진행 중 사건�
   assert.equal(deskType({ watch: '무역구제', tier: 'A', kind: '캐나다 CBSA 사건 문서', company: 'HD현대일렉트릭', fact: '캐나다 CBSA 시행 중 조치 TR: 한국 수출자 「HD Hyundai Electric Co., Ltd.」' }).key, 'foreigndoc');
   assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: '일진전기(관련)', fact: '캐나다 CBSA 시행 중 조치 TR: 새 이름 「Iljin Electric Co., Ltd.」' }).key, 'other');   // 직접 출입처가 아니면 그 밖
   assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '캐나다 CBSA 사건 문서', company: '캐나다', fact: '캐나다 CBSA 행정재심: Carbon and alloy steel line pipe 2 — 새 문서' }).key, 'other');             // 목록 새 줄 유형으로 보내지 않는다
+  // 11-27 운영: 출입처 이름 없는 미국 ITC 일몰 재심 판정(관보 문서)이 '목록 새 줄' 유형으로 와 '목록에 줄이 새로 보였다는 것뿐' 안내가 붙었다
+  const itc = { watch: '무역구제', tier: 'B', kind: '미국 ITC 피해 판정', company: '한국산', fact: '미국 ITC 일몰 재심 판정: Welded Line Pipe From South Korea and Turkey; Determinations — 한국산 관세 유지' };
+  assert.equal(deskType(itc).key, 'other');
+  assert.equal(deskType({ ...itc, company: '세아제강' }).key, 'usfr');
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '미국 ITC 무역구제 문서', company: '한국산', fact: 'EDIS 문서' }).key, 'other');
+  assert.equal(deskType({ watch: '무역구제', tier: 'B', kind: '해외 조사 dgtr', company: '인도', fact: '인도 DGTR 반덤핑 조사: TDI from Korea RP' }).key, 'foreignlist');   // 목록 줄은 그대로
   assert.ok((await rpc('tools/list', {}, o)).body.result.tools.find((x) => x.name === 'trade_remedies').inputSchema.properties.section.enum.includes('cbsa'));
 });
 
