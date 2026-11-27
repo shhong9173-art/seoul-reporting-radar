@@ -54,7 +54,13 @@ def build(sources,g2b=None,g2b_status=None):
                "rows":len(g2b["notices"]) if ready else None,
                "generatedAt":g2b.get("generatedAt") if ready else None})
  if ready:
-  for notice in g2b["notices"][:30]:
+  # 같은 공고의 정정(차수 000·001 …)은 가장 늦은 차수 한 줄만(11-27 운영: 「전기차 충전인프라 해외시험인증 종합지원센터 건립(증축)공사」 두 줄)
+  latest={}
+  for notice in g2b["notices"]:
+   key=str(notice.get("noticeId"))
+   if key not in latest or str(notice.get("revision") or "")>str(latest[key].get("revision") or ""):
+    latest[key]=notice
+  for notice in [n for n in g2b["notices"] if latest.get(str(n.get("noticeId"))) is n][:30]:
    leads.append({"source":"나라장터 공공조달",
      "headline":str(notice.get("title")),
      "fact":"조달청 공개 입찰공고 · "+str(notice.get("demandAgency"))+

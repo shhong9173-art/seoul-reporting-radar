@@ -73,6 +73,9 @@ class Tender(unittest.TestCase):
   # 공공기관이 사는 충전 인프라·변압기 낱말이 함께 맞는 공고는 그대로
   self.assertEqual(len(q("전기버스 충전 인프라 구축 공사","부산광역시")[0]),1)
   self.assertEqual(len(q("전기차 충전소 수전설비 변압기 구매","㈜한국전력기술")[0]),1)
+  # 지명 속 '전선'(순천 황전면 선변)은 전력망이 아니다
+  self.assertEqual(p.tags("2026년 황전선변 소규모 산사태 복구사업"),[])
+  self.assertEqual(p.tags("창동신창시장 노후전선정비사업"),["grid"])
  def test_no_results_are_valid_only_with_provider_zero(self):
   rows,checked=p.query("goods","fake","202610130000","202610132359",get=lambda _:{"response":{"header":{"resultCode":"00"},"body":{"items":[],"totalCount":0}}})
   self.assertEqual(rows,[])
