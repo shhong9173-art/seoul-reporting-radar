@@ -75,7 +75,9 @@ CONCEPTS = [
     ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
     ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
-    ("공장·생산", r"공장|증설|감산|생산|가동|라인|투자", r"plant|factory|공장|고용|주생산품|production|capacity"),
+    # 11-27: 「온라인 힘 주는 현대차, 英 아마존서 자동차 판매」의 '온라인'이 '라인'으로 공장·생산이 됐다 — 온라인·오프라인·파이프라인·
+    # 가이드라인·헤드라인·데드라인의 '라인'은 생산 라인이 아니다
+    ("공장·생산", r"공장|증설|감산|생산|가동|(?<![온프드])라인|투자", r"plant|factory|공장|고용|주생산품|production|capacity"),
     ("수주·입찰", r"수주|낙찰|입찰|공급계약|계약", r"tender|award|bid|입찰|낙찰|supply agreement|contract|offtake"),
     ("건축·증설", r"증설|신설|착공|짓는다|짓기로|신축|증축|새 공장", r"건축허가|신축|증축"),
     ("회생·파산", r"회생|파산|법정관리|부도|워크아웃", r"회생|파산|포괄적 금지명령"),
@@ -101,6 +103,10 @@ CONCEPTS = [
 # (10-28: 포스코 패소 기사 = 국제무역법원 24-00006 판결(Slip Op. 26-131), 레이더가 먼저 본 것은 1:26-cv-04229 접수).
 RULING_TITLE = re.compile(r"패소|승소|판결|기각|인용|선고")
 RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판결|결정 유지|환송", re.I)
+# 11-27: 새 소송 기사(「'현대차 투자' 美 배터리사, … 韓 배터리사에 특허 소송」)가 이미 끝난 판결 항목(「현대차 아산공장 기름유출 사고…대법,
+# 회사·직원 벌금형 확정」)과 '법원' 한 낱말로 소송·판결이 됐다. 판결·항소 낱말 없는 새 소송 기사는 끝난 판결 항목과 소송·판결로 잇지 않는다.
+APPEAL_TITLE = re.compile(r"항소|상고|불복|재심|이의")
+DONE_RULING_ITEM = re.compile(RULING_ITEM.pattern + r"|벌금형|형\s*확정|판결\s*확정|선고|대법원?\s*[,·]?", re.I)
 # 출입 업종에서 너무 흔한 사건 낱말: 이것 하나만 겹치면 같은 사건 근거로 약하다(10-28 첫 실행: '배터리'·'공장'만 겹친 오탐 2건).
 # '신차·인증'도 약하다: 현대차·기아는 새 모델·연식 항목이 늘 있어서, 모델명·EPA 같은 낱말이 함께 겹쳐야 같은 사건으로 본다(10-30).
 # '특허·상표'도 약하다: 현대차·기아는 미국 'Schedule A' 상표 위조품 소송이 늘 있어, 상표 기사마다 묶였다
@@ -125,7 +131,8 @@ SPECIFIC_RX = [(name, re.compile(ko), re.compile(en, re.I)) for name, ko, en in 
 # 기사 쪽은 그 기사의 회사 이름을 지운 제목, 항목 쪽은 아래 영문 회사 이름을 지운 글로 품목을 맞춘다.
 EN_COMPANY = re.compile(r"LS\s*Cable(?:\s*&\s*System)?|Taihan\s*Cable|(?:Kumho|Hankook|Nexen)\s*Tires?", re.I)
 NOT_COMPANY = [("제네시스", re.compile(r"제네시스\s*(?:PE|프라이빗|자산운용|랩)"))]   # 사모펀드 제네시스PE는 제네시스(현대차) 아님
-GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
+# 11-27: '자동차'는 현대차·기아 항목 거의 모두에 든다('현대자동차(주)'·'자동차용') — 영국 아마존 판매 기사가 공장등록 항목과 이 낱말로 이어졌다
+GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규", "자동차"}
 # 장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 환경·OSHA)은 기사 제목에 같은 지역 이름이
 # 있어야 사건 대조에 넣는다. 11-04 기자 기사 대조: 구미 진평동 공장 건축허가가 'LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블
 # 일정 확보'와, 광양 태인동 공장 건축허가가 'OCI그룹, 반도체소재사업본부·AX조직 신설'과 '허가·건축·신설' 낱말만으로 묶였다.
@@ -172,7 +179,7 @@ KINDS = [("실적", r"영업익|영업이익|매출|순이익|순손실|실적|�
          ("논란·법적", r"불법|위반|논란|의혹|소송|손배|제소|항소|판결|승소|패소|법원|명령|검찰|과징금|제재|리콜|결함"),
          ("자본·지배구조", r"자사주|배당|지분|유상증자|주주|공개매수|인수|매각|경영권"),
          ("제품·마케팅", r"출시|할인|프로모션|신차|사전예약|시승|세일|캠페인"),
-         ("투자·공장", r"공장|투자|증설|착공|준공|라인|짓는다|부지|설비|가동"),
+         ("투자·공장", r"공장|투자|증설|착공|준공|(?<![온프드])라인|짓는다|부지|설비|가동"),
          ("수주·계약", r"수주|계약|공급|MOU|협약|제휴|합작|파트너|낙찰|맞손|협력|턴키"),
          ("통계·시장", r"수출|수입|재고|판매량|판매|점유율|생산량|가격|시황|감소|증가|최저|최고"),
          ("정책·통상", r"관세|규제|법안|보조금|정부|무역|통상|정책")]
@@ -540,6 +547,9 @@ def match(article, items):
         hit_c = sorted(name for name, _, rx in CONCEPTS if name in concepts and re.search(rx, m["text"], re.I))
         if "소송·판결" in hit_c and RULING_TITLE.search(title) and not RULING_ITEM.search(m["text"]):
             hit_c.remove("소송·판결")
+        elif ("소송·판결" in hit_c and not RULING_TITLE.search(title) and not APPEAL_TITLE.search(title)
+              and DONE_RULING_ITEM.search(m["text"])):
+            hit_c.remove("소송·판결")   # 새 소송 기사 ↔ 끝난 판결 항목(11-27)
         # 사건 낱말로 이미 센 단어·흔한 단어는 따로 세지 않는다
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
         hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(bare) and en.search(EN_COMPANY.sub(" ", m["text"])) and name not in hit_w)
