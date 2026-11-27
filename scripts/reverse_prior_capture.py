@@ -365,8 +365,11 @@ def _tsbs(d, add):
         if not isinstance(x, dict) or x.get("tier") == "C":
             continue
         models = " ".join(str(m.get("model") or "") for m in x.get("models") or [] if isinstance(m, dict))
+        # 통신 요약은 늘 '2023 – 2025 model year Genesis GV60'처럼 연식을 적는다 — 'model year'가 신차·인증 개념이 되면
+        # 「[단독] 제네시스 G80 하이브리드 연내 나온다」 같은 신차 기사가 G80 보증 연장 통신과 이어진다(#1188 첫 실행 3건). 연식 표기만 줄인다
+        summary = re.sub(r"\bmodel\s+years?\b", "MY", str(x.get("summary") or ""), flags=re.I)
         add(mem("us-tsbs", x.get("id"), list(x.get("companies") or []) + list(x.get("brands") or []),
-                f"제조사 통신 TSB {x.get('kindName') or ''} {models} {' '.join(x.get('components') or [])} {x.get('summary') or ''}",
+                f"제조사 통신 TSB {x.get('kindName') or ''} {models} {' '.join(x.get('components') or [])} {summary}",
                 x.get("firstSeen") or x.get("added"), x.get("url")))
 
 
