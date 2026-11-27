@@ -61,6 +61,18 @@ class Tender(unittest.TestCase):
   self.assertEqual(len(q("서거차도발전소 노후변압기 교체공사 관급자재 구매","전남광주통합특별시 진도군")[0]),1)
   self.assertEqual(len(q("초고압 변압기 장비 구매","한국전력","한국전력")[0]),1)
   self.assertEqual(len(q("최고 효율 변압기 및 중고 배전반 교체","한국수자원공사")[0]),1)   # 제목의 '고 '·'중고'로는 빼지 않는다
+ def test_private_charger_subsidy_notices_are_skipped(self):
+  # 11-27 운영: 수요기관이 민간 충전사업자(채비(주)·주식회사 원익피앤이)인 완속보조사업 충전시설 공사
+  def one(title,dmin,ntce="조달청"):
+   return {"response":{"header":{"resultCode":"00"},"body":{"totalCount":1,"items":[{"bidNtceNo":"R26BK01861979","bidNtceOrd":"000",
+          "bidNtceNm":title,"ntceInsttNm":ntce,"dminsttNm":dmin,"bidNtceDtlUrl":"https://www.g2b.go.kr/"}]}}}
+  q=lambda t,d,n="조달청":p.query("construction","fake","202611270000","202611272359",get=lambda _:one(t,d,n))
+  rows,check=q("26년 완속보조사업(1차)_안심3동행정복지센터 전기차충전시설 구축공사","채비(주)")
+  self.assertEqual((rows,check["skippedPrivateChargers"]),([],1))
+  self.assertEqual(q("26년 전기버스 충전 인프라 구축 공사_5차(재공고)","주식회사 원익피앤이")[0],[])
+  # 공공기관이 사는 충전 인프라·변압기 낱말이 함께 맞는 공고는 그대로
+  self.assertEqual(len(q("전기버스 충전 인프라 구축 공사","부산광역시")[0]),1)
+  self.assertEqual(len(q("전기차 충전소 수전설비 변압기 구매","㈜한국전력기술")[0]),1)
  def test_no_results_are_valid_only_with_provider_zero(self):
   rows,checked=p.query("goods","fake","202610130000","202610132359",get=lambda _:{"response":{"header":{"resultCode":"00"},"body":{"items":[],"totalCount":0}}})
   self.assertEqual(rows,[])

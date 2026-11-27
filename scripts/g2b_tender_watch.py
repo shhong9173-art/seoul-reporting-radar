@@ -109,6 +109,12 @@ SCHOOL_TITLE=re.compile(r"실습\s*장(?:치|비)|외\s*\d+\s*교\s")   # 제목
 def school_notice(title,row):
  agency=f"{row.get('dminsttNm') or ''} {row.get('ntceInsttNm') or ''}"
  return bool(SCHOOL.search(agency) or SCHOOL_TITLE.search(str(title or "")))
+# 민간 충전사업자가 보조금 사업으로 낸 충전기 설치 공사도 출입 업종 기사가 아니다(11-27 운영: radar_clues 조달 칸 11건 중 4건이
+# '26년 완속보조사업(1차)_안심3동행정복지센터 전기차충전시설 구축공사'처럼 수요기관 채비(주)·원익피앤이 같은 민간 회사). 전기차 충전 낱말만 맞고
+# 수요기관이 회사(주식회사·(주)·㈜)일 때만 — 변압기·전력망 낱말이 함께 맞거나 공공기관이 사는 충전 인프라는 그대로
+PRIVATE_DEMAND=re.compile(r"주식회사|\(주\)|㈜")
+def private_charger(sectors,row):
+ return sectors==["mobility"] and bool(PRIVATE_DEMAND.search(str(row.get("dminsttNm") or "")))
 def official_link(value):
  if not isinstance(value,str):return None
  p=urlsplit(value)
@@ -157,7 +163,7 @@ def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100,sleep=time.slee
   if len(collected)>=total:break
   if not rows:raise ValueError("Provider pagination ended prematurely")
  if len(collected)<count:raise ValueError("Official result truncated by pagination cap")
- data=[];skipped=0
+ data=[];skipped=0;private=0
  for row in collected:
   if not isinstance(row,dict):continue
   number=str(row.get("bidNtceNo") or "")
@@ -167,6 +173,8 @@ def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100,sleep=time.slee
   if not sectors:continue
   if school_notice(title,row):
    skipped+=1;continue
+  if private_charger(sectors,row):
+   private+=1;continue
   data.append({"noticeId":number,"revision":str(row.get("bidNtceOrd") or ""),
    "title":title[:230],"issueDate":str(row.get("bidNtceDt") or "")[:32],
    "issuingAgency":str(row.get("ntceInsttNm") or "")[:100],
@@ -176,7 +184,7 @@ def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100,sleep=time.slee
    "status":"public_tender_notice_not_award_or_contract",
    "namedSupplierVerified":False,"scoopConfirmed":False})
  return data,{"workType":kind,"status":"checked","total":count,
-              "pages":pages,"matched":len(data),"skippedSchools":skipped}
+              "pages":pages,"matched":len(data),"skippedSchools":skipped,"skippedPrivateChargers":private}
 
 # Fixed messages raised by this module (no key, no URL): safe to keep in the public status file.
 SAFE_MESSAGES={"Official response truncated","Missing provider body","Unexpected provider items structure",
