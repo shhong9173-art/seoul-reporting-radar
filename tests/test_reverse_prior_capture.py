@@ -380,6 +380,38 @@ class GenericOverlaps(unittest.TestCase):
         self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "bfdd2260359dc920"))
 
 
+class ServiceBulletinsAndFreeRepair(unittest.TestCase):
+    """11-27: 「[단독] 제네시스, 엔진오일 6회 무상교환이라더니…」가 11-20 B 미국 제조사 통신(엔진오일 소모)을 못 보고 GV80 볼조인트 리콜과
+    '같은 회사 항목만'이었다 — 역추적 기억에 제조사 통신·국내 무상수리 공지가 없었다."""
+    DOCS = {"us-recalls": {
+        "recalls": [{"id": "nhtsa:26V766000", "why": [{"name": "제네시스", "beat": "현대차"}], "models": "GV80 2026", "component": "SUSPENSION:FRONT:CONTROL ARM:UPPER BALL JOINT",
+                     "defect": "the front-left upper control arm ball joint may detach", "firstSeen": "2026-11-26T17:10:00+09:00", "url": "https://www.nhtsa.gov/recalls?nhtsaId=26V766"}],
+        "tsbs": {"items": [
+            {"id": "HMA:doc:26-EM-019G", "tier": "B", "companies": ["현대차"], "brands": ["제네시스"], "kindName": "서비스 공지(수리 지침)",
+             "models": [{"model": "GV80", "years": ["2021"]}, {"model": "G80", "years": ["2019"]}], "components": ["ENGINE"],
+             "summary": "Certain vehicles equipped with internal combustion engines may exhibit higher-than-expected engine oil consumption.",
+             "firstSeen": "2026-11-20T17:10:00+09:00", "added": "2026-11-20", "url": "https://static.nhtsa.gov/odi/tsbs/2026/MC-11040031-0001.pdf"},
+            {"id": "HMA:doc:C", "tier": "C", "companies": ["현대차"], "brands": ["현대차"], "summary": "engine oil level sensor", "firstSeen": "2026-11-20T17:10:00+09:00"}]}},
+        "kr-fuel": {"vehicles": [], "freeRepair": {"items": [
+            {"id": "grts:4893", "no": "4893", "tier": "A", "company": "현대차", "title": "[현대] 그랜저 - 엔진제어장치(ECU) 관련 무상수리", "model": "그랜저 (GN7)",
+             "reason": "엔진제어장치(ECU) 촉매 고장진단 기준설정 문제", "firstSeen": "2026-11-26T15:30:00+09:00", "url": "https://www.car.go.kr/ri/grts/list.do#4893"},
+            {"id": "grts:4800", "tier": "C", "company": None, "title": "[포르쉐] 카이엔 - 무상수리", "firstSeen": "2026-11-26T15:30:00+09:00"}]}}}
+
+    def test_engine_oil_article_finds_the_bulletin_and_free_repair_notices_are_remembered(self):
+        items = r.memory(self.DOCS, {})
+        self.assertEqual(sorted(m["id"] for m in items if m["source"] in ("us-tsbs", "kr-free-repair")), ["HMA:doc:26-EM-019G", "grts:4893"])   # 참고(C)·브랜드 없는 글은 뺀다
+        v, best, _ = r.match({"title": "[단독] 제네시스, 엔진오일 6회 무상교환이라더니…'알림 떠야 교체'로 슬그머니 '꼼수' 변경", "companies": ["제네시스"],
+                              "published": "2026-11-27T06:17:00+09:00"}, items)
+        self.assertEqual((v, best["id"], r.label_of(best)), ("먼저 잡은 후보", "HMA:doc:26-EM-019G", "미국 제조사 통신"))
+        v, best, _ = r.match({"title": "[단독] 현대차 그랜저 2만대 무상수리…ECU 촉매 경고등", "companies": ["현대차"], "published": "2026-11-27T09:00:00+09:00"}, items)
+        self.assertEqual((v, best["id"], r.label_of(best)), ("먼저 잡은 후보", "grts:4893", "국내 무상점검·수리"))
+        # '지급보증'·'채무보증'은 무상수리·보증 개념이 아니다
+        self.assertNotIn("무상수리·보증", {n for n, ko, _ in r.CONCEPTS if __import__("re").search(ko, "현대차, 미국 법인 차입 지급보증 1조")})
+        # 엔진오일 낱말 없는 같은 회사 기사는 그대로
+        v, _, _ = r.match({"title": "[단독] 현대차, 英 아마존서 자동차 판매", "companies": ["현대차"], "published": "2026-11-27T09:00:00+09:00"}, items)
+        self.assertEqual(v, "같은 회사 항목만")
+
+
 class Places(unittest.TestCase):
     """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""
     ITEMS = [r.mem("kr-building", "bld:947602", ["LS전선"], "공장 건축허가 경상북도 구미시 진평동 643번지 증설 신축 plant factory", "2026-10-29T16:21:00+09:00"),
