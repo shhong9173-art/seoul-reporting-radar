@@ -3562,6 +3562,9 @@ test('trade remedies: ITC votes on Korean beat products show the outcome; revoca
   assert.match(b, /무역구제 · 세아제강·현대제철\n   미국 ITC 일몰 재심 판정: Oil Country Tubular Goods[^\n]* — 한국산 관세 유지\(철폐하면 피해 재발 — 5년 더\) · 같은 품목 상무부 고시의 출입처: 세아제강·현대제철 · 원문 "determines that revocation/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'fr:itc1').check.terms, ['ITC', '유지']);
+  // 11-27: 출입처 이름이 없는 판정도 품목 한국어 이름으로 대조한다(예전엔 '검색 낱말을 정할 수 없어' 대조 안 함)
+  const tr = items.items.find((x) => x.id === 'fr:itc2').check;
+  assert.deepEqual([tr.who, tr.terms, tr.must, tr.names, tr.alts['철폐'], tr.alts['한국']], ['변압기', ['ITC', '철폐'], ['한국'], ['변압기'], ['철폐', '종료', '폐지'], ['한국', '韓']]);
   const t = await call('trade_remedies', { section: 'us' }, opts);
   assert.match(t.text, /ITC 일몰 재심 판정: 한국산 관세 철폐\(피해 재발 가능성 없음\) — 원문 "determines that revocation/);
 });
