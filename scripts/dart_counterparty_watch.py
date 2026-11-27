@@ -107,11 +107,38 @@ def decode(b):
     return b.decode("utf-8", "replace")
 
 
+# OpenDART 오류 코드(공개 개발 안내) — 원문 읽기 실패 사유를 건수와 함께 적는다
+DART_STATUS = {"013": "조회 자료 없음", "014": "파일 없음", "020": "요청 제한 초과", "100": "요청 값 오류", "101": "부적절한 접근", "800": "시스템 점검", "900": "정의 안 된 오류"}
+
+
+class DocError(RuntimeError):
+    """원문 ZIP이 아닌 응답 — reason은 'DART 014 파일 없음'·'HTTP 503'처럼 공개 응답 코드만(키·본문 없음)."""
+    def __init__(self, reason):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def doc_error_reason(status_code, data):
+    """원문 API가 ZIP 대신 돌려준 응답 → 사유 낱말. 11-27 운영: 후보 29건 중 23건이 '원문 ZIP 아님'으로만 적혀 원인을 알 수 없었다."""
+    if status_code and status_code != 200:
+        return f"HTTP {status_code}"
+    head = bytes(data or b"")[:2000].decode("utf-8", "replace")
+    code = None
+    try:
+        code = str((json.loads(head) or {}).get("status") or "") or None
+    except (ValueError, AttributeError):
+        m = re.search(r"<status>\s*(\d{3})\s*</status>", head)
+        code = m.group(1) if m else None
+    if code:
+        return f"DART {code} {DART_STATUS.get(code, '')}".strip()
+    return "ZIP 아닌 응답" if head.strip() else "빈 응답"
+
+
 def documents(get, key, rcept):
     r = get(DOC_API, params={"crtfc_key": key, "rcept_no": rcept}, headers=UA, timeout=40)
     data = r.content
     if not zipfile.is_zipfile(io.BytesIO(data)):
-        raise RuntimeError("원문 ZIP 아님")
+        raise DocError(doc_error_reason(getattr(r, "status_code", 200), data))
     out = []
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         for info in z.infolist()[:40]:
@@ -236,13 +263,16 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
             and not beats_in(x.get("corp_name") or "") and x.get("rcept_no") not in seen]
     cand.sort(key=lambda x: (0 if DEAL.search(x["report_nm"]) else 1, x["rcept_no"]), reverse=False)
     opened, doc_errors, pending = 0, 0, max(0, len(cand) - DOC_BUDGET)
+    reasons = {}
     for x in cand[:DOC_BUDGET]:
         sleep(PAUSE)
         opened += 1
         try:
             docs = documents(get, key, x["rcept_no"])
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             doc_errors += 1
+            why = getattr(e, "reason", None) or type(e).__name__
+            reasons[why] = reasons.get(why, 0) + 1
             continue   # 다음 실행에 다시(본 것으로 치지 않음)
         seen[x["rcept_no"]] = x.get("rcept_dt") or now.strftime("%Y%m%d")
         res = judge(x, docs)
@@ -275,7 +305,8 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, holidays=No
                        # (11-23 radar_today: '공시 원문: 정상 응답인데 0줄, 이전 19·9·20·3줄' — 공시검색 목록은 정상이고 새 후보만 없던 실행)
                        {"source": "공시 원문", "status": "partial" if (doc_errors or pending) else "ok", "returned": opened, **rest,
                         **({"note": f"새로 열어 볼 후보 공시 없음(공시검색 {len(rows)}건 중 거래·계약 종류의 새 공시 0건)"} if not cand and not errors else {}),
-                        **({"error": f"원문 읽기 실패 {doc_errors}건"} if doc_errors else {}),
+                        **({"error": f"원문 읽기 실패 {doc_errors}건("
+                                     + " · ".join(f"{k} {n}" for k, n in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:4]) + ")"} if doc_errors else {}),
                         **({"pending": pending} if pending else {})}],
             "counts": {"listed": len(rows), "candidates": len(cand), "opened": opened, "matched": sum(1 for x in known.values() if x["firstSeen"] == stamp)},
             "seen": seen,

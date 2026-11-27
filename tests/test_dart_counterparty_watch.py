@@ -157,6 +157,25 @@ class Run(unittest.TestCase):
         self.assertEqual(w.run(NOW, doc, key="k", get=get3, sleep=lambda s: None)["status"], "failed")
         self.assertEqual(w.run(NOW, None, key="", get=get3, sleep=lambda s: None)["checks"][0]["status"], "not_configured")
 
+    def test_document_failure_reasons_are_counted(self):
+        # 11-27 운영: 후보 29건 중 23건 '원문 읽기 실패' — 응답 코드를 건수로 적는다(키·본문은 안 적음)
+        rows = ROWS[:5]
+        answers = {"20261029000111": R(content=b'{"status":"014","message":"\ud30c\uc77c\uc774 \uc874\uc7ac\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4."}'),
+                   "20261027900001": R(content="<result><status>014</status><message>파일이 존재하지 않습니다.</message></result>".encode()),
+                   "20261027900002": R(content=b"", status=503),
+                   "20261027900003": R(content="<result><status>020</status></result>".encode())}
+        def get(url, params=None, headers=None, timeout=None):
+            if url == w.LIST_API:
+                return R({"status": "000", "total_page": 1, "list": rows} if params["pblntf_ty"] == "I" else {"status": "013"})
+            return answers.get(params["rcept_no"]) or R(content=z(DOCS[params["rcept_no"]]))
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)
+        check = doc["checks"][1]
+        self.assertEqual((check["status"], check["error"]), ("partial", "원문 읽기 실패 4건(DART 014 파일 없음 2 · DART 020 요청 제한 초과 1 · HTTP 503 1)"))
+        self.assertEqual(sorted(doc["seen"]), ["20261026800562"])       # 실패한 공시는 다음 실행에 다시
+        self.assertEqual(w.doc_error_reason(200, b"<html>oops</html>"), "ZIP 아닌 응답")
+        self.assertEqual(w.doc_error_reason(200, b""), "빈 응답")
+        self.assertEqual(w.doc_error_reason(200, b'{"status":"999"}'), "DART 999")
+
 
 if __name__ == "__main__":
     unittest.main()
