@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-26T17:13:36+09:00",
+  "generatedAt": "2026-11-27T17:24:14+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-11-26T12:46:02.165350+09:00",
-    "dartDividend": "2026-11-26T12:46:04.605603+09:00",
-    "slovakGovernmentRegistry": "2026-11-26T17:13:10+09:00",
-    "czechAresRegistry": "2026-11-26T17:13:35+09:00"
+    "nhtsa": "2026-11-27T12:47:28.744645+09:00",
+    "dartDividend": "2026-11-27T12:47:31.079786+09:00",
+    "slovakGovernmentRegistry": "2026-11-27T17:23:31+09:00",
+    "czechAresRegistry": "2026-11-27T17:24:13+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -17,7 +17,7 @@
     "sameAngleNewsFulltext": "not_verified"
   },
   "sourceStale48h": false,
-  "slovakPdfOriginalEvidenceGeneratedAt": "2026-11-26T17:13:23+09:00",
+  "slovakPdfOriginalEvidenceGeneratedAt": "2026-11-27T17:23:51+09:00",
   "foreignLegalEntityLinks": {
     "kiaSlovakia": {
       "company": "Kia Slovakia s. r. o.",
@@ -37,8 +37,8 @@
       "dividendsPaidVerified": false
     }
   },
-  "dossierCount": 3,
-  "usSafetyDossiers": 3,
+  "dossierCount": 4,
+  "usSafetyDossiers": 4,
   "issuerExactDividendDossiers": 0,
   "domesticRecallAbsenceVerified": false,
   "foreignParentCashTransferVerified": false,
@@ -52,7 +52,7 @@
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-10-20",
-      "publicationAgeDays": 37,
+      "publicationAgeDays": 38,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
@@ -145,7 +145,7 @@
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V693000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-10-20",
-      "publicationAgeDays": 37,
+      "publicationAgeDays": 38,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
@@ -246,7 +246,7 @@
       "companyGroup": "현대차·기아·제네시스",
       "headline": "미국 리콜 26V728000 · 국내 동일 부품/시정조치 대조 필요",
       "officialPublicationDate": "2026-11-02",
-      "publicationAgeDays": 24,
+      "publicationAgeDays": 25,
       "reportingWindowStatus": "older_public_record_background_only",
       "reporterPriority": "background_followup",
       "sourceEvidence": [
@@ -318,6 +318,95 @@
       },
       "officialComparisonLinks": [
         "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V728000",
+        "https://www.car.go.kr/ri/stat/list.do"
+      ],
+      "koreanModelSearchLinks": [],
+      "domesticRecallSearchPageIsNotEvidenceOfNoRecall": true,
+      "pitchGate": {
+        "primaryUSRecord": true,
+        "domesticOfficialChecked": false,
+        "exactComponentMatch": false,
+        "domesticIncidentVerified": false,
+        "sameAnglePriorPressChecked": false,
+        "companyImpactVerified": false,
+        "approvedForPitch": false,
+        "exclusiveConfirmed": false
+      },
+      "questionsForPublicSources": [
+        "자동차리콜센터에서 해당 차종·연식과 실제 부품의 국내 리콜·무상수리 기록 확인",
+        "NHTSA 제조사 Part 573 보고서에서 해당 부품·제작기간과 위험 설명 확인",
+        "현대차·기아 홍보팀에 국내 판매 사양의 동일 부품 적용 여부 및 공개된 시정조치만 질의",
+        "국내외 기보도 기사 전문에서 동일한 국내 적용 쟁점이 보도됐는지 확인"
+      ],
+      "publicationAloneIsNotScoop": true,
+      "nhtsaPart573Original": {
+        "status": "official_us_original_pdf_unavailable",
+        "originalReportsRead": 0,
+        "passages": [],
+        "koreanMarketSourceClaims": [],
+        "koreanMarketIncidentIndependentlyVerified": false,
+        "usManufacturerReportedAffectedCount": null,
+        "usVehicleCountScope": "official_us_market_not_korean_sales",
+        "differentPdfVersionsAffectedCountConflict": false,
+        "koreanSameComponentVerified": false,
+        "koreanRecallAbsenceVerified": false,
+        "priorSameAngleNewsChecked": false
+      },
+      "domesticPublicScreen": {
+        "status": "not_connected_or_snapshot_mismatch",
+        "officialQueries": [],
+        "press": null,
+        "domesticRecallAbsenceVerified": false,
+        "domesticIdenticalPartVerified": false,
+        "sameAnglePressFulltextVerified": false
+      }
+    },
+    {
+      "id": "usrecall:26V766000",
+      "type": "overseas_safety_domestic_comparison",
+      "companyGroup": "현대차·기아·제네시스",
+      "headline": "미국 리콜 26V766000 · 국내 동일 부품/시정조치 대조 필요",
+      "officialPublicationDate": "2026-11-19",
+      "publicationAgeDays": 8,
+      "reportingWindowStatus": "recent_official_record_needs_domestic_checks",
+      "reporterPriority": "background_followup",
+      "sourceEvidence": [
+        {
+          "system": "NHTSA",
+          "scope": "US vehicle recall campaign",
+          "identifier": "26V766000",
+          "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V766000",
+          "verifiedFact": "U.S. campaign officially published",
+          "originalDocumentRead": "archive_flat_record_only_not_Part573_chronology"
+        }
+      ],
+      "officialFact": {
+        "usCampaign": "26V766000",
+        "usModelYears": [
+          {
+            "model": "GV80",
+            "year": "2026"
+          }
+        ],
+        "usDefectSummary": "Hyundai Motor America (Genesis) is recalling certain 2026 Genesis GV80 vehicles. Due to a manufacturing error, the front-left upper control arm ball joint may detach from the steering knuckle, which can result in a loss of vehicle control.",
+        "riskWordingFlagged": false
+      },
+      "criticalEvidenceNotYetVerified": [
+        "NHTSA Part 573 chronology, exact component and U.S. affected part/specification",
+        "Korea-sold variant actual part number/production range; cannot infer it from U.S. model name",
+        "Korean MOLIT/KATRI official recall and free-repair records for those exact parts",
+        "Domestic incident report or absence of recall NOT established",
+        "Previous publication of this precise Korea-US discrepancy by Korean/overseas press"
+      ],
+      "sourceAvailability": {
+        "nhtsaArchive": "available",
+        "part573Attachments": "not_collected",
+        "koreanOfficialRecall": "api_not_connected_requires_authorization",
+        "pressFulltext": "not_collected",
+        "domesticIdenticalPart": "not_verified"
+      },
+      "officialComparisonLinks": [
+        "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V766000",
         "https://www.car.go.kr/ri/stat/list.do"
       ],
       "koreanModelSearchLinks": [],
