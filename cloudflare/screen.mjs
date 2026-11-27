@@ -152,8 +152,32 @@ export function lastReturnedWatch(body) {
   try { return JSON.parse(body.slice(i + tag.length, body.replace(/\s+$/, '').length - 1)); } catch { return null; }
 }
 const median = (xs) => { const v = [...xs].sort((a, b) => a - b); return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2; };
+// 연속 실패(11-27): 한전 전자입찰이 11-23 15:20부터 나흘 넘게(실행 12번) 실패했는데 화면엔 날마다 '일부 실패 1건(한전 전자입찰)'만 —
+// 한 번 실패인지 며칠째인지 안 보였다. 원천마다 연달아 실패한 횟수와 처음 실패한 시각을 이 이력에 같이 둔다. 정상이 되면(또는 그 원천이
+// 이번 실행 checks에 없으면) 지운다. 쉬는 날 실행은 세지 않고 그대로 둔다.
+export const FAIL_TRACK_START = '2026-11-27T11:00:00Z';
+const FAIL_KEEP = 60;
+const NOT_FAILED = ['ok', 'unset', 'waiting', 'checked', 'no_data'];
+export function failedCheck(c) {
+  return Boolean(c?.status) && !NOT_FAILED.includes(c.status) && !(c.status === 'partial' && !c.error && c.pending);
+}
+function failStreaks(prev, checks, nowIso) {
+  const out = {};
+  for (const c of checks) {
+    const source = String(c?.source ?? c?.company ?? c?.target ?? '').slice(0, 80);
+    if (!source || Object.hasOwn(out, source)) continue;
+    const old = prev && typeof prev === 'object' && prev[source] && typeof prev[source] === 'object' ? prev[source] : null;
+    if (c.restDay) { if (old) out[source] = old; continue; }
+    if (failedCheck(c)) out[source] = { since: typeof old?.since === 'string' ? old.since : nowIso, n: (Number.isFinite(old?.n) ? old.n : 0) + 1 };
+  }
+  const rows = Object.entries(out).sort((a, b) => b[1].n - a[1].n).slice(0, FAIL_KEEP);
+  return rows.length ? Object.fromEntries(rows) : null;
+}
 export function returnedWatch(prev, doc, nowIso) {
   const checks = Array.isArray(doc?.checks) ? doc.checks : [];
+  // 실패 시각은 그 실행의 생성 시각(generatedAt)으로 — 저장 시각보다 '언제 실행에서'가 맞다
+  const ranAt = Date.parse(doc?.generatedAt);
+  const fail = failStreaks(prev?.fail, checks, Number.isFinite(ranAt) ? new Date(ranAt).toISOString() : nowIso);
   const hist0 = prev && typeof prev.hist === 'object' ? prev.hist : {};
   const was = new Map((Array.isArray(prev?.silent) ? prev.silent : []).map((x) => [x.source, x]));
   const hist = {};
@@ -196,7 +220,8 @@ export function returnedWatch(prev, doc, nowIso) {
     const limit = n === 0 && before[0] === 0 ? 0 : med >= 20 ? Math.floor(med / 10) : -1;
     if (limit >= 0 && n <= limit && before[0] <= limit) silent.push({ source, kind: n === 0 ? 'zero' : 'drop', now: n, before: ref, limit, since: nowIso });
   }
-  return Object.keys(hist).length || silent.length ? { hist, ...(silent.length ? { silent: silent.slice(0, 20) } : {}) } : null;
+  return Object.keys(hist).length || silent.length || fail
+    ? { hist, ...(silent.length ? { silent: silent.slice(0, 20) } : {}), ...(fail ? { fail } : {}) } : null;
 }
 
 export async function readFeed(ctx, name) {
