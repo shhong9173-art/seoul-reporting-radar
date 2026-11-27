@@ -76,6 +76,12 @@ class Letterhead(unittest.TestCase):
         self.assertEqual(w.strip_letterhead(head + "Sub: Advance intimation regarding price increase of vehicles w.e.f. December 01, 2026."),
                          "Sub: Advance intimation regarding price increase of vehicles w.e.f. December 01, 2026.")
         self.assertEqual(w.strip_letterhead("Talegaon plant capacity will be increased"), "Talegaon plant capacity will be increased")   # 머리글 없으면 그대로
+        # 받는 곳(거래소 주소)도 떼고 제목부터
+        to = ("Date: November 24, 2026 To, National Stock Exchange of India Limited Exchange Plaza, C-1, Block G Bandra Kurla Complex Bandra (E), Mumbai – 400 051 "
+              "BSE Limited Phiroze Jeejeebhoy Towers Dalal Street, Mumbai – 400 001 Scrip Code: 544274 Symbol: HYUNDAI ")
+        self.assertEqual(w.strip_letterhead(head + to + "Sub: Advance intimation regarding price increase. Dear Sir/Madam, …"),
+                         "Sub: Advance intimation regarding price increase. Dear Sir/Madam, …")
+        self.assertEqual(w.strip_letterhead("Dear Sir, the board approved"), "Dear Sir, the board approved")
 
 
 class Run(unittest.TestCase):

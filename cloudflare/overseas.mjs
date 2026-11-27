@@ -1358,7 +1358,13 @@ export function dgtrDocNote(c, all = false) {
 
 // 인도 공시 PDF 첫머리의 회사 머리글(등록 주소·CIN·전화·누리집)은 떼고 본문부터(11-27: 가격 인상 안내 첫머리 400자가 머리글뿐) — india_filings_watch.LETTERHEAD와 같은 규칙
 const LETTERHEAD = /^[\s\S]{0,120}?\b(?:Regd\.?|Registered)\s*Office\s*:[\s\S]{0,600}?\bwww\.[A-Za-z0-9.-]+(?:\/[\w./-]*)?\s*/i;
-export const stripLetterhead = (t) => String(t ?? '').replace(LETTERHEAD, '').trim();
+// 머리글 다음의 받는 곳(거래소 주소)도 떼고 제목(Sub:)부터 — 600자 안에 제목이 있을 때만
+const SUBJECT_START = /\b(?:Sub(?:ject)?\s*[:.\-–]|Dear\s+Sir)/i;
+export const stripLetterhead = (t) => {
+  const s = String(t ?? '').replace(LETTERHEAD, '').trim();
+  const m = SUBJECT_START.exec(s.slice(0, 600));
+  return m && /Stock Exchange|BSE Limited|Dalal Street/i.test(s.slice(0, m.index)) ? s.slice(m.index) : s;
+};
 
 // 일본 공고 본문 출입처: 부과 대상에서 뺀 생산자('(注2)LG CHEM, LTD.により生産されたものを除く', 11-27 BPA 확정)는 '본문에 출입처'와 나눠 적는다
 function jpNamed(det) {
