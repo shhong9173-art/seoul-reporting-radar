@@ -400,6 +400,19 @@ export function sourceAgent(ctx, url) {
   return isSec(url) && secAgent(ctx) ? secAgent(ctx) : 'Mozilla/5.0 seoul-reporting-radar (reporter research)';
 }
 
+// 파일 앞 바이트로 본 형식(글자가 아닌 파일이면 이름, 아니면 null)
+export function binaryKind(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes ?? []);
+  const at = (sig, from = 0) => sig.every((x, i) => b[from + i] === x);
+  // PDF 머리(%PDF-)는 앞 1KB 안 어디든(앞에 공백·BOM이 붙는 서버가 있다)
+  const head = Array.from(b.subarray(0, 1024), (x) => String.fromCharCode(x)).join('');
+  if (head.includes('%PDF-')) return 'PDF';
+  if (at([0x50, 0x4b, 0x03, 0x04])) return 'ZIP(hwpx·docx·xlsx 등)';
+  if (at([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) return '한글(hwp)·옛 오피스';
+  if (at([0x89, 0x50, 0x4e, 0x47]) || at([0xff, 0xd8, 0xff]) || at([0x47, 0x49, 0x46, 0x38])) return '이미지';
+  return null;
+}
+
 export async function sourceDocument(ctx, args) {
   let url = allowedUrl(args.url);
   if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·해외 무역구제 기관(인도·캐나다·영국·인도네시아·베트남 정부)·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
@@ -432,6 +445,14 @@ export async function sourceDocument(ctx, args) {
   }
   let bytes;
   try { bytes = await readCapped(response, 4_000_000); } catch (e) { return textResult(String(e.message), true); }
+  // 11-25: 무역위 회의 개요 PDF(/dltncFileDownload.do)는 Content-Type에 pdf가 없어 PDF 바이트를 글자로 풀어 9만 자를 돌려주고
+  // 그 깨진 글자로 검증 기록까지 만들었다. 앞 바이트(%PDF·ZIP(hwpx·docx)·한글 hwp·이미지)로 한 번 더 본다.
+  const kind = binaryKind(bytes);
+  if (kind) {
+    const hint = url.hostname.endsWith('ktc.go.kr')
+      ? ' 무역위 회의 개요 PDF의 안건은 수집기가 뽑아 둔 줄을 trade_remedies(section=ktc)의 회의 줄에서 보고, 보도자료 첨부 신청인도 같은 구역에 있다.' : '';
+    return textResult(`본문이 ${kind} 파일(Content-Type: ${type || '표시 없음'})이라 텍스트로 읽지 못함 — 원문 미확인으로 적는다.${hint} 원문 링크: ${url.href}`, true);
+  }
   let { text: raw, charset } = decodeBytes(bytes, type);
   let sections = [];
   let frameOnly = false;
