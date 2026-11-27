@@ -449,6 +449,22 @@ def contract_place(c):
     return None
 
 
+# 계약금액 변경 공정공시(투자판단관련주요경영사항): 제목 칸이 '단일판매·공급계약 계약금액 변경'뿐이라 낱말이 '계약금액' 하나다
+# (11-27 운영: OCI홀딩스·OCI 20261124800539 「전자급 과산화수소 공급」 6181억 증액을 'OCI홀딩스 계약금액'으로만 찾아 미보도 후보).
+# 주요내용의 '판매ㆍ공급계약 구분: …' 품목 낱말을 앞에 둔다
+CONTRACT_ITEM = re.compile(r"(?:판매\s*[ㆍ·]?\s*공급\s*계약|공급\s*계약|계약)\s*구분\s*[:：]\s*([^\d:：)]{2,40}?)\s*(?:\d\)|$)")
+
+
+def contract_item_terms(c):
+    f = c.get("filing") or {}
+    got = {k: str(v or "") for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    m = CONTRACT_ITEM.search(got.get("주요내용", ""))
+    if not m:
+        return []
+    words = [w for w in terms_from(re.sub(r"\s*(?:공급|판매)$", "", m.group(1).strip()), c.get("company") or "") if w not in ("공급", "판매")]
+    return sorted(words, key=lambda w: -len(w))[:2]
+
+
 def apply_body_titles(cands):
     """형식 공시명만 있는 후보에 원문 제목 낱말을 넣는다. 원문을 못 읽었거나 낱말이 없으면 심사에서 뺀다(형식명 질의의 0건은
     미보도 증거가 아니다). 원문 제목이 형식 공시(자기주식·배당 등)면 다른 형식 공시처럼 뺀다. (남길 후보, 집계)"""
@@ -465,6 +481,9 @@ def apply_body_titles(cands):
             count["procedural"] += 1
             continue
         terms, alts = news_terms(terms_from(subject, c["company"]))
+        item = contract_item_terms(c) if re.search(r"계약\s*금액\s*변경", subject) else []
+        if item:
+            terms = item + [t for t in terms if t not in item]
         # 영어 계약명이라 한글 낱말이 없으면 원문 판매ㆍ공급지역(나라·도시)과 '수주'로 — 기사 제목은 「대한전선, 싱가포르 2717억 수주」
         place = contract_place(c) if not any(re.search(r"[가-힣]", t) for t in terms) else None
         if place:
